@@ -49,5 +49,11 @@ See `docs/FOUNDING.md` for the plan and current status.
 ## Status
 
 Scaffold. The discovery tree is being migrated; nothing here is
-authoritative yet. License: not yet chosen — **do not redistribute
-until a LICENSE file lands.**
+authoritative yet.
+
+## License
+
+Apache-2.0, except `silicon/` which is CERN-OHL-S-2.0 — see
+`LICENSING.md` for the split and why, and `TRADEMARKS.md` for what the
+name Zeta requires. The short version for game developers: **a cart
+you write with this SDK is yours, outright.**
