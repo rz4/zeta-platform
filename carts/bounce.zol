@@ -1,0 +1,166 @@
+; bounce.zol -- the SDK's hello-world cart: a square that bounces off the
+; walls, nudgeable with the pad. Exercises state across frames, signed
+; compares, pad input, and the display list -- the whole frame contract.
+;
+; DMEM: cell 0 = frame counter, cell 1 = pad (cabinet writes both);
+; game state from 16; display list at 12288 (count, then 7 words/triangle).
+
+.const PAD 1
+.const X 16
+.const Y 17
+.const VX 18
+.const VY 19
+.const SIZE 40
+.const XMAX 280            ; W - SIZE
+.const YMAX 248            ; H - SIZE
+.const COLOR 0x33AAFF
+
+.data 16 60 60 3 2         ; x y vx vy at boot
+
+; ---- integrate: x += vx, y += vy ----------------------------------------
+load X
+load VX
+add
+store X
+load Y
+load VY
+add
+store Y
+
+; ---- walls: reflect and clamp -------------------------------------------
+load X                     ; x < 0 ?
+push 0
+lt
+jz xlo_ok
+push 0
+load VX
+sub                        ; vx = -vx
+store VX
+push 0
+store X
+xlo_ok:
+
+push XMAX                  ; XMAX < x ?
+load X
+lt
+jz xhi_ok
+push 0
+load VX
+sub
+store VX
+push XMAX
+store X
+xhi_ok:
+
+load Y                     ; y < 0 ?
+push 0
+lt
+jz ylo_ok
+push 0
+load VY
+sub
+store VY
+push 0
+store Y
+ylo_ok:
+
+push YMAX                  ; YMAX < y ?
+load Y
+lt
+jz yhi_ok
+push 0
+load VY
+sub
+store VY
+push YMAX
+store Y
+yhi_ok:
+
+; ---- pad: nudge 2 px per held direction ----------------------------------
+load PAD
+push 8                     ; PAD_RIGHT
+and
+jz no_right
+load X
+push 2
+add
+store X
+no_right:
+
+load PAD
+push 4                     ; PAD_LEFT
+and
+jz no_left
+load X
+push 2
+sub
+store X
+no_left:
+
+load PAD
+push 2                     ; PAD_DOWN
+and
+jz no_down
+load Y
+push 2
+add
+store Y
+no_down:
+
+load PAD
+push 1                     ; PAD_UP
+and
+jz no_up
+load Y
+push 2
+sub
+store Y
+no_up:
+
+; ---- display list: the square as two triangles ---------------------------
+push 2
+store 12288                 ; n_tris
+
+load X                     ; tri 0: (x,y) (x+S,y) (x,y+S)
+store 12289
+load Y
+store 12290
+load X
+push SIZE
+add
+store 12291
+load Y
+store 12292
+load X
+store 12293
+load Y
+push SIZE
+add
+store 12294
+push COLOR
+store 12295
+
+load X                     ; tri 1: (x+S,y) (x+S,y+S) (x,y+S)
+push SIZE
+add
+store 12296
+load Y
+store 12297
+load X
+push SIZE
+add
+store 12298
+load Y
+push SIZE
+add
+store 12299
+load X
+store 12300
+load Y
+push SIZE
+add
+store 12301
+push COLOR
+store 12302
+
+halt

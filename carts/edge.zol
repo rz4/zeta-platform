@@ -1,0 +1,310 @@
+; edge.zol -- right-edge bleed instrument (see gen_edge.py)
+; GENERATED -- edit gen_edge.py, not this.
+.const PAD 1
+.const X 16
+.data 16 319
+
+; pick the column with the pad
+load PAD
+push 16
+and
+jz n_a
+push 318
+store X
+n_a:
+load PAD
+push 32
+and
+jz n_b
+push 319
+store X
+n_b:
+load PAD
+push 1
+and
+jz n_u
+push 316
+store X
+n_u:
+load PAD
+push 2
+and
+jz n_d
+push 0
+store X
+n_d:
+load X
+store 12289
+push 0
+store 12290
+load X
+push 1
+add
+store 12291
+push 0
+store 12292
+load X
+store 12293
+push 36
+store 12294
+push 14688288
+store 12295
+load X
+push 1
+add
+store 12296
+push 0
+store 12297
+load X
+push 1
+add
+store 12298
+push 36
+store 12299
+load X
+store 12300
+push 36
+store 12301
+push 14688288
+store 12302
+load X
+store 12303
+push 36
+store 12304
+load X
+push 1
+add
+store 12305
+push 36
+store 12306
+load X
+store 12307
+push 72
+store 12308
+push 14712864
+store 12309
+load X
+push 1
+add
+store 12310
+push 36
+store 12311
+load X
+push 1
+add
+store 12312
+push 72
+store 12313
+load X
+store 12314
+push 72
+store 12315
+push 14712864
+store 12316
+load X
+store 12317
+push 72
+store 12318
+load X
+push 1
+add
+store 12319
+push 72
+store 12320
+load X
+store 12321
+push 108
+store 12322
+push 14737440
+store 12323
+load X
+push 1
+add
+store 12324
+push 72
+store 12325
+load X
+push 1
+add
+store 12326
+push 108
+store 12327
+load X
+store 12328
+push 108
+store 12329
+push 14737440
+store 12330
+load X
+store 12331
+push 108
+store 12332
+load X
+push 1
+add
+store 12333
+push 108
+store 12334
+load X
+store 12335
+push 144
+store 12336
+push 2146336
+store 12337
+load X
+push 1
+add
+store 12338
+push 108
+store 12339
+load X
+push 1
+add
+store 12340
+push 144
+store 12341
+load X
+store 12342
+push 144
+store 12343
+push 2146336
+store 12344
+load X
+store 12345
+push 144
+store 12346
+load X
+push 1
+add
+store 12347
+push 144
+store 12348
+load X
+store 12349
+push 180
+store 12350
+push 2146496
+store 12351
+load X
+push 1
+add
+store 12352
+push 144
+store 12353
+load X
+push 1
+add
+store 12354
+push 180
+store 12355
+load X
+store 12356
+push 180
+store 12357
+push 2146496
+store 12358
+load X
+store 12359
+push 180
+store 12360
+load X
+push 1
+add
+store 12361
+push 180
+store 12362
+load X
+store 12363
+push 216
+store 12364
+push 2113760
+store 12365
+load X
+push 1
+add
+store 12366
+push 180
+store 12367
+load X
+push 1
+add
+store 12368
+push 216
+store 12369
+load X
+store 12370
+push 216
+store 12371
+push 2113760
+store 12372
+load X
+store 12373
+push 216
+store 12374
+load X
+push 1
+add
+store 12375
+push 216
+store 12376
+load X
+store 12377
+push 252
+store 12378
+push 12591296
+store 12379
+load X
+push 1
+add
+store 12380
+push 216
+store 12381
+load X
+push 1
+add
+store 12382
+push 252
+store 12383
+load X
+store 12384
+push 252
+store 12385
+push 12591296
+store 12386
+load X
+store 12387
+push 252
+store 12388
+load X
+push 1
+add
+store 12389
+push 252
+store 12390
+load X
+store 12391
+push 288
+store 12392
+push 14737632
+store 12393
+load X
+push 1
+add
+store 12394
+push 252
+store 12395
+load X
+push 1
+add
+store 12396
+push 288
+store 12397
+load X
+store 12398
+push 288
+store 12399
+push 14737632
+store 12400
+push 16
+store 12288
+halt

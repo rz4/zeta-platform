@@ -1,0 +1,117 @@
+; cardmin.zol -- the smallest possible question about the card.
+;
+; Three black screens told us nothing because each one changed two things
+; at once. This changes one: the console draws a full-screen quad EVERY
+; frame and never waits for anything, so the screen can only be black if
+; the MACHINE died -- not if the card did.
+;
+; It stays white for one second, so you can see the console is alive
+; before anything is asked of the card. Then, on frame 60 exactly, it
+; issues a single request for four words and reports what came back:
+;
+;   WHITE     the first second: alive, nothing asked yet
+;   YELLOW    the request is in flight (SD_GO still set)
+;   GREEN     the four words arrived and the first is 64, as the law says
+;   RED       the request completed but delivered zeros
+;   GREY      data arrived, but not the data on the card
+;   BLACK     issuing the command killed the machine
+;
+; That last line is the reading three demos could not give us.
+
+.sd 2 0 64 124 178 218
+
+.const GO    12284
+.const SLOTC 12280
+.const OFFC  12281
+.const DSTC  12282
+.const LENC  12283
+.const FRAME 0
+.const V     600
+.const C     16
+
+  load FRAME                 ; the first second: prove we are alive
+  push 60
+  lt
+  jz after
+  push 0xEEEEEE
+  store C
+  jmp draw
+
+after:
+  load FRAME                 ; ask again every 128 frames. zcard does not
+  push 127                   ; clear staging between requests, so if the
+  and                        ; card is merely LATE, a later copy picks up
+  push 60                    ; an earlier request's words and this goes
+  eq                         ; green -- which separates "too slow" from
+  jz check                   ; "never arrives at all".
+  push 2
+  store SLOTC
+  push 0
+  store OFFC
+  push V
+  store DSTC
+  push 4
+  store LENC
+  push 1
+  store GO
+
+check:
+  load GO                    ; still set? the request is in flight
+  jz landed
+  push 0xE6C010
+  store C
+  jmp draw
+
+landed:
+  load V
+  jz nodata
+  load V
+  push 64
+  eq
+  jz wrong
+  push 0x20B040              ; the green lion: the card spoke
+  store C
+  jmp draw
+
+wrong:
+  push 0x808080              ; data, but not the card's data
+  store C
+  jmp draw
+
+nodata:
+  push 0xC42020              ; completed, and delivered nothing
+
+  store C
+
+draw:
+  push 2
+  store 12288
+  push 0
+  store 12289
+  push 0
+  store 12290
+  push 320
+  store 12291
+  push 0
+  store 12292
+  push 0
+  store 12293
+  push 288
+  store 12294
+  load C
+  store 12295
+  push 320
+  store 12296
+  push 0
+  store 12297
+  push 320
+  store 12298
+  push 288
+  store 12299
+  push 0
+  store 12300
+  push 288
+  store 12301
+  load C
+  store 12302
+  halt

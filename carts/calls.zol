@@ -1,0 +1,108 @@
+; calls.zol -- the call/ret exercise cart: a fan of DL triangles drawn
+; through a two-level subroutine chain (main -> tri -> color), the thing
+; the ISA could not express before the return stack. Each triangle's
+; geometry wobbles with the frame counter so the cross sees call/ret
+; steering real pixels for 60 distinct frames.
+
+.const FRAME 0
+.const N 24                ; triangles per frame
+.const I 16                ; loop counter
+.const ADDR 17             ; current DL slot
+.const X0 18
+.const Y0 19
+.const RGB 21
+
+; ---- main ----------------------------------------------------------------
+push 0
+store I
+loop:
+load I                     ; ADDR = 12289 + i*7
+push 7
+mul
+push 12289
+add
+store ADDR
+call tri
+load I                     ; i += 1
+push 1
+add
+store I
+load I                     ; while i < N
+push N
+lt
+jz done
+jmp loop
+done:
+push N                     ; publish the list
+store 12288
+halt
+
+; ---- tri: emit one triangle at ADDR from I and FRAME ---------------------
+tri:
+load I                     ; X0 = 8 + i*12
+push 12
+mul
+push 8
+add
+store X0
+load FRAME                 ; Y0 = 40 + ((frame + i*4) & 63)
+load I
+push 4
+mul
+add
+push 63
+and
+push 40
+add
+store Y0
+load X0                    ; x0
+load ADDR
+storei
+load Y0                    ; y0
+load ADDR
+push 1
+add
+storei
+load X0                    ; x1 = x0 + 10
+push 10
+add
+load ADDR
+push 2
+add
+storei
+load Y0                    ; y1 = y0
+load ADDR
+push 3
+add
+storei
+load X0                    ; x2 = x0
+load ADDR
+push 4
+add
+storei
+load Y0                    ; y2 = y0 + 14
+push 14
+add
+load ADDR
+push 5
+add
+storei
+call color                 ; nested call: RGB from I and FRAME
+load RGB
+load ADDR
+push 6
+add
+storei
+ret
+
+; ---- color: RGB = f(I, FRAME) --------------------------------------------
+color:
+load I
+push 1381383               ; walks the palette per triangle
+mul
+load FRAME
+push 8
+mul
+add
+store RGB
+ret

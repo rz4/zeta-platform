@@ -3,3 +3,22 @@ __pycache__/
 build/
 *.ppm
 .pytest_cache/
+.venv/
+__pycache__/
+silicon/gen/
+pocket/gen/
+pocket/template/db/
+pocket/template/incremental_db/
+pocket/template/output_files/
+pocket/template/compile.log
+build/
+carts/*.zc
+*.ppm
+pocket/template/quartus_*.log
+pocket/template/output_files/
+pocket/template/db/
+pocket/template/incremental_db/
+
+# forge INPUTS: third-party source media, not this repo's to carry.
+# What the machine plays is the baked cart, which IS committed.
+assets/

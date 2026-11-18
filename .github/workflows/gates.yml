@@ -11,22 +11,17 @@ on:
 
 jobs:
   law:
-    name: law (pytest)
+    name: law (the full suite, in the gates image)
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/rz4/zeta-gates:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.14"
       - name: run the law's tests
-        run: |
-          if [ -d spec ] && ls spec/tests/test_*.py >/dev/null 2>&1; then
-            pip install pytest numpy pygame
-            pytest spec/tests -q
-          else
-            echo "::warning::law not migrated yet (FOUNDING step 3) — nothing to gate"
-            exit 1
-          fi
+        run: python -m pytest tests -q
 
   cross:
     name: cross (Verilator, bit-equal)

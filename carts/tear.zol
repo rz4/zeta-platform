@@ -1,0 +1,611 @@
+; tear.zol -- TEAR, the fight, in pure ZOL. You (blue) vs the machine (red).
+;
+;   move: .oeu or arrows      punch: n (the A button; 14-frame swing,
+;                                       lands on its 5th frame)
+;
+; A punch that connects takes 12 of 96 health and knocks the loser back.
+; Empty a health bar and the round freezes on the winner's color, then
+; resets. The machine walks in and swings every 32 frames -- crowd it,
+; punch faster, and step out of its cadence.
+;
+; Everything below is the whole engine: game state in cells 16..30,
+; a fixed 20-triangle display list at 12288 whose static words are .data
+; and whose moving words are rewritten each frame. Hidden shapes are
+; parked at x=-100 where the GPU's clipped bounding box skips them.
+
+.const PAD 1
+.const PX 16               ; player left edge
+.const EX 17               ; enemy left edge
+.const PH 18               ; player health 0..96
+.const EH 19               ; enemy health
+.const PP 20               ; player punch timer, 14 -> 0, hits at 10
+.const EP 21               ; enemy punch timer
+.const PFL 22              ; player hit-flash frames
+.const EFL 23              ; enemy hit-flash frames
+.const KO 24               ; round-freeze countdown, 0 = fighting
+.const WIN 25              ; 1 = player, 2 = enemy
+.const FACE 26             ; 1 = player is left of enemy
+.const DX 27               ; ex - px, signed
+.const ADX 28              ; |dx|
+.const T0 29               ; scratch
+.const T1 30               ; scratch
+
+.data 16 60 236 96 96 0 0 0 0 0 0 1 0 0
+
+; ---- the fixed display list: 20 triangles, static words baked ------------
+.data 12288 20
+.data 12289 0 240 320 240 0 288 0x232B3A       ; floor
+.data 12296 320 240 320 288 0 288 0x232B3A
+.data 12303 0 176 0 176 0 240 0x3399FF         ; player body (x words live)
+.data 12310 0 176 0 240 0 240 0x3399FF
+.data 12317 0 176 0 176 0 240 0xEE4444         ; enemy body
+.data 12324 0 176 0 240 0 240 0xEE4444
+.data 12331 -100 196 -76 196 -100 208 0xFFD080 ; player fist (parked)
+.data 12338 -76 196 -76 208 -100 208 0xFFD080
+.data 12345 -100 196 -76 196 -100 208 0xFFB060 ; enemy fist (parked)
+.data 12352 -76 196 -76 208 -100 208 0xFFB060
+.data 12359 8 8 0 8 8 18 0x33FF88              ; player health bar
+.data 12366 0 8 0 18 8 18 0x33FF88
+.data 12373 0 8 312 8 0 18 0xFF6666            ; enemy health bar
+.data 12380 312 8 312 18 0 18 0xFF6666
+.data 12387 -100 168 -76 168 -100 248 0xFFFFFF ; player hit flash (parked)
+.data 12394 -76 168 -76 248 -100 248 0xFFFFFF
+.data 12401 -100 168 -76 168 -100 248 0xFFFFFF ; enemy hit flash (parked)
+.data 12408 -76 168 -76 248 -100 248 0xFFFFFF
+.data 12415 0 100 0 100 0 140 0                ; KO banner (winner's color)
+.data 12422 0 100 0 140 0 140 0
+
+; ==== round freeze =========================================================
+load KO
+jz play
+load KO
+push 1
+sub
+store KO
+load KO
+jz do_reset
+jmp aftermath
+do_reset:
+push 60
+store PX
+push 236
+store EX
+push 96
+store PH
+push 96
+store EH
+push 0
+store PP
+push 0
+store EP
+push 0
+store PFL
+push 0
+store EFL
+push 0
+store WIN
+jmp aftermath
+
+; ==== the fight ============================================================
+play:
+load EX                    ; dx = ex - px, adx = |dx|, face = px < ex
+load PX
+sub
+store DX
+load DX
+push 0
+lt
+jz dx_pos
+push 0
+load DX
+sub
+store ADX
+push 0
+store FACE
+jmp dx_done
+dx_pos:
+load DX
+store ADX
+push 1
+store FACE
+dx_done:
+
+; ---- player: swing ticks down, else move and maybe swing ------------------
+load PP
+jz p_free
+load PP
+push 1
+sub
+store PP
+jmp p_done
+p_free:
+load PAD
+push 8                     ; RIGHT
+and
+jz p_no_r
+load PX
+push 2
+add
+store PX
+p_no_r:
+load PAD
+push 4                     ; LEFT
+and
+jz p_no_l
+load PX
+push 2
+sub
+store PX
+p_no_l:
+load PAD
+push 16                    ; A: punch
+and
+jz p_done
+push 14
+store PP
+p_done:
+
+; ---- enemy: same body, cheaper soul ---------------------------------------
+load EP
+jz e_free
+load EP
+push 1
+sub
+store EP
+jmp e_done
+e_free:
+push 48                    ; far? walk in
+load ADX
+lt
+jz e_close
+load FACE
+jz e_walk_r
+load EX
+push 2
+sub
+store EX
+jmp e_done
+e_walk_r:
+load EX
+push 2
+add
+store EX
+jmp e_done
+e_close:
+load 0                     ; swing every 32 frames
+push 31
+and
+jz e_swing
+jmp e_done
+e_swing:
+push 14
+store EP
+e_done:
+
+; ---- fists land on their 5th frame (timer == 10) ---------------------------
+load PP
+push 10
+eq
+jz p_no_hit
+load ADX
+push 52
+lt
+jz p_no_hit
+load EH
+push 12
+sub
+store EH
+push 8
+store EFL
+load FACE
+jz p_kb_l
+load EX
+push 18
+add
+store EX
+jmp p_no_hit
+p_kb_l:
+load EX
+push 18
+sub
+store EX
+p_no_hit:
+
+load EP
+push 10
+eq
+jz e_no_hit
+load ADX
+push 52
+lt
+jz e_no_hit
+load PH
+push 12
+sub
+store PH
+push 8
+store PFL
+load FACE
+jz e_kb_r
+load PX
+push 18
+sub
+store PX
+jmp e_no_hit
+e_kb_r:
+load PX
+push 18
+add
+store PX
+e_no_hit:
+
+; ---- KO? -------------------------------------------------------------------
+load EH
+push 1
+lt
+jz eh_ok
+push 120
+store KO
+push 1
+store WIN
+eh_ok:
+load PH
+push 1
+lt
+jz ph_ok
+push 120
+store KO
+push 2
+store WIN
+ph_ok:
+
+; ==== every frame: decay, clamp, draw =======================================
+aftermath:
+load PFL
+jz pfl_z
+load PFL
+push 1
+sub
+store PFL
+pfl_z:
+load EFL
+jz efl_z
+load EFL
+push 1
+sub
+store EFL
+efl_z:
+
+load PX                    ; keep both bodies on stage
+push 8
+lt
+jz p_cl1
+push 8
+store PX
+p_cl1:
+push 288
+load PX
+lt
+jz p_cl2
+push 288
+store PX
+p_cl2:
+load EX
+push 8
+lt
+jz e_cl1
+push 8
+store EX
+e_cl1:
+push 288
+load EX
+lt
+jz e_cl2
+push 288
+store EX
+e_cl2:
+
+; ---- bodies ----------------------------------------------------------------
+load PX
+store 12303
+load PX
+store 12307
+load PX
+store 12314
+load PX
+push 24
+add
+store T0
+load T0
+store 12305
+load T0
+store 12310
+load T0
+store 12312
+load EX
+store 12317
+load EX
+store 12321
+load EX
+store 12328
+load EX
+push 24
+add
+store T0
+load T0
+store 12319
+load T0
+store 12324
+load T0
+store 12326
+
+; ---- player fist: in front of the facing side, or parked --------------------
+load PP
+jz pf_park
+load FACE
+jz pf_left
+load PX
+push 24
+add
+store T0
+load PX
+push 48
+add
+store T1
+jmp pf_write
+pf_left:
+load PX
+push 24
+sub
+store T0
+load PX
+store T1
+jmp pf_write
+pf_park:
+push -100
+store T0
+push -76
+store T1
+pf_write:
+load T0
+store 12331
+load T0
+store 12335
+load T0
+store 12342
+load T1
+store 12333
+load T1
+store 12338
+load T1
+store 12340
+
+; ---- enemy fist -------------------------------------------------------------
+load EP
+jz ef_park
+load FACE
+jz ef_right
+load EX
+push 24
+sub
+store T0
+load EX
+store T1
+jmp ef_write
+ef_right:
+load EX
+push 24
+add
+store T0
+load EX
+push 48
+add
+store T1
+jmp ef_write
+ef_park:
+push -100
+store T0
+push -76
+store T1
+ef_write:
+load T0
+store 12345
+load T0
+store 12349
+load T0
+store 12356
+load T1
+store 12347
+load T1
+store 12352
+load T1
+store 12354
+
+; ---- health bars: width IS health -------------------------------------------
+load PH
+push 8
+add
+store T0
+load T0
+store 12361
+load T0
+store 12366
+load T0
+store 12368
+push 312
+load EH
+sub
+store T0
+load T0
+store 12373
+load T0
+store 12377
+load T0
+store 12384
+
+; ---- hit flashes over whoever got tagged ------------------------------------
+load PFL
+jz pfla_park
+load PX
+push 4
+sub
+store T0
+load PX
+push 28
+add
+store T1
+jmp pfla_write
+pfla_park:
+push -100
+store T0
+push -76
+store T1
+pfla_write:
+load T0
+store 12387
+load T0
+store 12391
+load T0
+store 12398
+load T1
+store 12389
+load T1
+store 12394
+load T1
+store 12396
+
+load EFL
+jz efla_park
+load EX
+push 4
+sub
+store T0
+load EX
+push 28
+add
+store T1
+jmp efla_write
+efla_park:
+push -100
+store T0
+push -76
+store T1
+efla_write:
+load T0
+store 12401
+load T0
+store 12405
+load T0
+store 12412
+load T1
+store 12403
+load T1
+store 12408
+load T1
+store 12410
+
+; ---- KO banner in the winner's color ----------------------------------------
+load KO
+jz b_park
+push 100
+store T0
+push 220
+store T1
+load WIN
+push 1
+eq
+jz b_red
+push 0x3399FF
+store 12421
+push 0x3399FF
+store 12428
+jmp b_write
+b_red:
+push 0xEE4444
+store 12421
+push 0xEE4444
+store 12428
+jmp b_write
+b_park:
+push -100
+store T0
+push -76
+store T1
+b_write:
+load T0
+store 12415
+load T0
+store 12419
+load T0
+store 12426
+load T1
+store 12417
+load T1
+store 12422
+load T1
+store 12424
+
+; ---- sound: whoosh on our swing, thud+noise on any hit, KO siren ----------
+load PP                    ; ch0 pulse rises 300->950 Hz over the swing
+jz snd_swing_off
+push 14
+load PP
+sub
+shl 14
+push 105000
+add
+store 14480
+push 42                    ; vol 10, duty 50%
+store 14481
+jmp snd_swing_done
+snd_swing_off:
+push 0
+store 14481
+snd_swing_done:
+
+load EFL                   ; hit: triangle thud + noise crack, loud while
+load PFL                   ; the flash lasts, fading with it
+or
+jz snd_hit_off
+push 20971                 ; ~60 Hz thud
+store 14484
+load EFL
+load PFL
+or
+push 6
+add
+store 14485
+push 6291456               ; noise stepped ~18 kHz
+store 14486
+load EFL
+load PFL
+or
+push 7
+add
+store 14487
+jmp snd_hit_done
+snd_hit_off:
+push 0
+store 14485
+push 0
+store 14487
+snd_hit_done:
+
+load KO                    ; KO: a siren that wobbles down the countdown
+jz snd_ko_off
+load KO
+push 15
+and
+shl 14
+push 175000
+add
+store 14482
+push 24                    ; vol 8, duty 25%
+store 14483
+jmp snd_ko_done
+snd_ko_off:
+push 0
+store 14483
+snd_ko_done:
+
+halt

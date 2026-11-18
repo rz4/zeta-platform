@@ -1,0 +1,411 @@
+; monitor.zol -- the memory monitor (see gen_monitor.py)
+; GENERATED -- edit gen_monitor.py, not this.
+.data 14084 0
+.data 11797 -1
+.data 11798 -64
+.data 11820 0
+.data 11821 0
+.data 11822 1
+.data 11823 0
+.data 11824 1
+.data 11825 1
+.data 11826 1
+.data 11827 62
+.data 11828 1
+.data 11829 63
+.data 11830 1
+.data 11831 64
+.data 11832 1
+.data 11833 126
+.data 11834 1
+.data 11835 127
+.cram 0 5898240 5898241 5898242 5898243 5898244 5898245 5898246 5898247 5898248 5898249 5898250 5898251 5898252 5898253 5898254 5898255
+.cram 16 5898256 5898257 5898258 5898259 5898260 5898261 5898262 5898263 5898264 5898265 5898266 5898267 5898268 5898269 5898270 5898271
+.cram 32 5898272 5898273 5898274 5898275 5898276 5898277 5898278 5898279 5898280 5898281 5898282 5898283 5898284 5898285 5898286 5898287
+.cram 48 5898288 5898289 5898290 5898291 5898292 5898293 5898294 5898295 5898296 5898297 5898298 5898299 5898300 5898301 5898302 5898303
+.cram 64 5898304 5898305 5898306 5898307 5898308 5898309 5898310 5898311 5898312 5898313 5898314 5898315 5898316 5898317 5898318 5898319
+.cram 80 5898320 5898321 5898322 5898323 5898324 5898325 5898326 5898327 5898328 5898329 5898330 5898331 5898332 5898333 5898334 5898335
+.cram 96 5898336 5898337 5898338 5898339 5898340 5898341 5898342 5898343 5898344 5898345 5898346 5898347 5898348 5898349 5898350 5898351
+.cram 112 5898352 5898353 5898354 5898355 5898356 5898357 5898358 5898359 5898360 5898361 5898362 5898363 5898364 5898365 5898366 5898367
+.cram 128 5898368 5898369 5898370 5898371 5898372 5898373 5898374 5898375 5898376 5898377 5898378 5898379 5898380 5898381 5898382 5898383
+.cram 144 5898384 5898385 5898386 5898387 5898388 5898389 5898390 5898391 5898392 5898393 5898394 5898395 5898396 5898397 5898398 5898399
+.cram 160 5898400 5898401 5898402 5898403 5898404 5898405 5898406 5898407 5898408 5898409 5898410 5898411 5898412 5898413 5898414 5898415
+.cram 176 5898416 5898417 5898418 5898419 5898420 5898421 5898422 5898423 5898424 5898425 5898426 5898427 5898428 5898429 5898430 5898431
+.cram 192 5898432 5898433 5898434 5898435 5898436 5898437 5898438 5898439 5898440 5898441 5898442 5898443 5898444 5898445 5898446 5898447
+.cram 208 5898448 5898449 5898450 5898451 5898452 5898453 5898454 5898455 5898456 5898457 5898458 5898459 5898460 5898461 5898462 5898463
+.cram 224 5898464 5898465 5898466 5898467 5898468 5898469 5898470 5898471 5898472 5898473 5898474 5898475 5898476 5898477 5898478 5898479
+.cram 240 5898480 5898481 5898482 5898483 5898484 5898485 5898486 5898487 5898488 5898489 5898490 5898491 5898492 5898493 5898494 5898495
+load 0
+jz init
+jmp main
+init:
+push 11800
+store 11810
+push 11801
+store 11811
+push 11802
+store 11812
+push 11803
+store 11813
+push 11804
+store 11814
+push 11805
+store 11815
+push 0
+store 11794
+bgr:
+push 0
+store 11795
+bgi:
+load 11794
+push 16
+mul
+load 11795
+add
+push 0
+add
+push 7
+mul
+push 12289
+add
+store 11793
+load 11795
+push 15
+mul
+push 6
+add
+store 11796
+load 11795
+shr 2
+push 6
+mul
+load 11796
+add
+store 11796
+load 11796
+load 11793
+push 0
+add
+storei
+load 11794
+push 24
+mul
+push 140
+add
+load 11793
+push 1
+add
+storei
+load 11796
+push 12
+add
+load 11793
+push 2
+add
+storei
+load 11794
+push 24
+mul
+push 140
+add
+load 11793
+push 3
+add
+storei
+load 11796
+load 11793
+push 4
+add
+storei
+load 11794
+push 24
+mul
+push 154
+add
+load 11793
+push 5
+add
+storei
+load 11795
+push 1
+add
+store 11795
+load 11795
+push 16
+lt
+jz bgi_end
+jmp bgi
+bgi_end:
+load 11794
+push 1
+add
+store 11794
+load 11794
+push 6
+lt
+jz bgr_end
+jmp bgr
+bgr_end:
+push 96
+store 12288
+push 0
+store 11790
+push 0
+store 11791
+push 0
+store 11792
+push 0
+store 11799
+main:
+push 0
+store 11796
+load 1
+push 8
+and
+jz n_r
+load 11792
+push 8
+and
+jz e_r
+jmp n_r
+e_r:
+push 1
+store 11796
+n_r:
+load 1
+push 4
+and
+jz n_l
+load 11792
+push 4
+and
+jz e_l
+jmp n_l
+e_l:
+load 11797
+store 11796
+n_l:
+load 1
+push 1
+and
+jz n_u
+load 11792
+push 1
+and
+jz e_u
+jmp n_u
+e_u:
+push 64
+store 11796
+n_u:
+load 1
+push 2
+and
+jz n_d
+load 11792
+push 2
+and
+jz e_d
+jmp n_d
+e_d:
+load 11798
+store 11796
+n_d:
+load 1
+push 16
+and
+jz n_a
+load 11796
+push 16
+mul
+store 11796
+n_a:
+load 11790
+load 11796
+add
+store 11790
+load 1
+push 32
+and
+jz b_done
+load 11792
+push 32
+and
+jz b_edge
+jmp b_done
+b_edge:
+load 11799
+push 1
+add
+push 7
+and
+store 11799
+load 11799
+push 2
+mul
+push 11820
+add
+loadi
+store 11791
+load 11799
+push 2
+mul
+push 11821
+add
+loadi
+store 11790
+b_done:
+load 1
+store 11792
+load 11791
+jz clamp_d
+load 11790
+push 0x1FFFFF
+and
+store 11790
+jmp clamp_done
+clamp_d:
+load 11790
+push 16383
+and
+store 11790
+clamp_done:
+load 11791
+jz no_page
+load 11790
+push 0x1FFFC0
+and
+store 12
+push 15616
+store 13
+push 64
+store 14
+push 1
+store 15
+no_page:
+load 11791
+jz fetch_d
+load 11790
+push 63
+and
+push 15616
+add
+loadi
+store 11793
+load 11790
+push 1
+add
+push 63
+and
+push 15616
+add
+loadi
+store 11796
+jmp fetch_done
+fetch_d:
+load 11790
+loadi
+store 11793
+load 11790
+push 1
+add
+push 16383
+and
+loadi
+store 11796
+fetch_done:
+load 11790
+push 0xFFFF
+and
+store 11800
+load 11793
+push 0xFFFF
+and
+store 11801
+load 11793
+shr 16
+store 11802
+load 11796
+push 0xFFFF
+and
+store 11803
+load 11796
+shr 16
+store 11804
+load 11791
+shl 15
+store 11805
+load 11790
+shr 16
+push 0x1F
+and
+shl 8
+load 11805
+or
+store 11805
+push 16383
+loadi
+push 0xFF
+and
+load 11805
+or
+store 11805
+call bitsc
+halt
+bitsc:
+push 0
+store 11794
+bcr:
+push 11810
+load 11794
+add
+loadi
+loadi
+shl 16
+store 11793
+push 0
+store 11795
+bci:
+load 11793
+push 0
+lt
+jz bc_zero
+push 15658734
+jmp bc_put
+bc_zero:
+push 2763315
+bc_put:
+load 11794
+push 16
+mul
+load 11795
+add
+push 7
+mul
+push 12295
+add
+storei
+load 11793
+shl 1
+store 11793
+load 11795
+push 1
+add
+store 11795
+load 11795
+push 16
+lt
+jz bc_iend
+jmp bci
+bc_iend:
+load 11794
+push 1
+add
+store 11794
+load 11794
+push 6
+lt
+jz bc_rend
+jmp bcr
+bc_rend:
+ret
