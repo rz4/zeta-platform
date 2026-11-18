@@ -24,34 +24,38 @@ jobs:
         run: python -m pytest tests -q
 
   cross:
-    name: cross (Verilator, bit-equal)
+    name: cross (the standing suite — every claim, both machines)
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/rz4/zeta-gates:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
-      - name: cross every cart
-        run: |
-          if [ -d silicon ]; then
-            echo "TODO(FOUNDING step 2/4): toolchain image + zeta cross matrix"
-            exit 1
-          else
-            echo "::warning::silicon not migrated yet (FOUNDING step 4)"
-            exit 1
-          fi
+      - name: zeta suite — cross and glass gates, every claim witnessed
+        run: python -m zeta.cli suite --gate both -j 4
 
   lint-ratchet:
     name: lint ratchet (count both ways)
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/rz4/zeta-gates:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
-      - run: |
-          echo "TODO(FOUNDING step 4): verilator lint count, ratcheted, verified in both directions"
-          exit 1
+      - run: python -m pytest tests/test_lint.py -q
 
   regen:
     name: regen (item 25 — generators reproduce their carts)
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/rz4/zeta-gates:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
-      - run: |
-          echo "TODO(FOUNDING step 5): regenerate every cart from its gen_*.py and compare"
-          exit 1
+      - run: python -m pytest tests/test_regen.py -q
