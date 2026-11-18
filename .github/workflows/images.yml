@@ -1,0 +1,35 @@
+name: images
+
+# Builds and publishes the gates toolchain image when infra/ changes.
+# The quartus image (~15 GB) is built locally and pushed by hand --
+# see infra/README.md.
+
+on:
+  push:
+    branches: [main]
+    paths: ["infra/**", ".github/workflows/images.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  gates-image:
+    name: build + push zeta-gates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/gates.Dockerfile
+          push: true
+          tags: |
+            ghcr.io/rz4/zeta-gates:latest
+            ghcr.io/rz4/zeta-gates:py3.14-verilator5.052
