@@ -1,0 +1,62 @@
+name: gates
+
+# The gate ladder, from the discovery tree. Stages that need the
+# toolchain image are stubbed until FOUNDING step 2 lands; each stub
+# fails loudly rather than passing vacuously — a gate that cannot
+# fail is not a gate.
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  law:
+    name: law (pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - name: run the law's tests
+        run: |
+          if [ -d spec ] && ls spec/tests/test_*.py >/dev/null 2>&1; then
+            pip install pytest numpy pygame
+            pytest spec/tests -q
+          else
+            echo "::warning::law not migrated yet (FOUNDING step 3) — nothing to gate"
+            exit 1
+          fi
+
+  cross:
+    name: cross (Verilator, bit-equal)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: cross every cart
+        run: |
+          if [ -d silicon ]; then
+            echo "TODO(FOUNDING step 2/4): toolchain image + zeta cross matrix"
+            exit 1
+          else
+            echo "::warning::silicon not migrated yet (FOUNDING step 4)"
+            exit 1
+          fi
+
+  lint-ratchet:
+    name: lint ratchet (count both ways)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          echo "TODO(FOUNDING step 4): verilator lint count, ratcheted, verified in both directions"
+          exit 1
+
+  regen:
+    name: regen (item 25 — generators reproduce their carts)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          echo "TODO(FOUNDING step 5): regenerate every cart from its gen_*.py and compare"
+          exit 1
