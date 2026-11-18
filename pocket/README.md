@@ -28,12 +28,13 @@ with its core section replaced by 60 lines that instantiate `zeta_glass`:
 
 ## Cart loading: no Quartus per game
 
-`cart_loader.v` streams the data slot's `cart.zbin` (4096 IMEM + 4096
-DMEM words, little-endian, 32 KB — written by `zeta deploy`) from the
+`cart_loader.v` streams the data slot's `cart.zbin` (4096 IMEM + 16384
+DMEM words then the CRAM segment, little-endian, 80 KB + segment —
+written by `zeta deploy`) from the
 APF bridge into the console's boot port through a toggle-handshake clock
 crossing, holding the console in reset until `dataslot_allcomplete`. The
 bitstream still bakes the deploy-time cart as a fallback for a missing
-file. Swapping games is copying one 32 KB file onto the SD card.
+file. Swapping games is copying one .zbin file onto the SD card.
 
 ## The flow
 
