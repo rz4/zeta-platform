@@ -67,22 +67,33 @@ Glass is the one serial resource. Three moves:
 
 ## Sequence
 
-    0. fire escape        private mirror of zeta-sdk on GitHub (rz4),
-                          build-101 committed as UNGATED      <- in progress
-    1. this scaffold      README, FOUNDING, CI skeletons      <- this commit
-    2. toolchain image    container: Python 3.14 + Verilator +
-                          Quartus Prime Lite; the fit runs in CI
-    3. migrate the law    spec/ + sdk/ from zeta-sdk, tests green in CI
-    4. migrate silicon/   cross green in CI; gate build 101
-    5. methods/ v1        claims schema, mutation enforcement, regen
-                          gate, estimate ledger
+    0. fire escape        DONE 2026-11-18. zeta-sdk private on GitHub,
+                          build-101 committed as UNGATED.
+    1. this scaffold      DONE 2026-11-18.
+    2. toolchain image    gates image DONE (ghcr.io/rz4/zeta-gates,
+                          pinned, validated); the quartus image build
+                          remains (one-time, ~15 GB, see infra/).
+    3. migrate the law    DONE 2026-11-18, flat layout (the
+    4. migrate silicon/   four-boundary refactor is future work).
+                          233 tests green in CI; `zeta suite --gate
+                          both` green in CI -- every claim, both
+                          machines, witnessed, on every push.
+    5. methods/ v1        regen gate DONE (and it caught gen_shade and
+                          gen_bootprobe drifting on its first run,
+                          beyond the known gen_room). Claims schema,
+                          mutation enforcement, estimate ledger remain.
     6. the glass queue    screenshot gate + requires-glass tagging
-    7. LICENSE + docs     settle licensing BEFORE any third-party
-                          contact; rewrite SDK docs for someone who
-                          did not live through discovery
-    8. the flagship       resurrect TEAR (archive/TND) or build the
-                          arena -- the first cart with a goal, a fail
-                          state and a player loop
+    7. LICENSE            DONE 2026-11-18: Apache-2.0 + CERN-OHL-S
+                          split, TRADEMARKS.md, DCO. SDK docs rewrite
+                          for outsiders remains.
+    8. the flagship       resurrect TEAR (carts/tear.zol survived into
+                          the tree) or build the arena -- the first
+                          cart with a goal, a fail state and a player
+                          loop
+    9. gate build 101     the fit stage's first real job, once the
+                          quartus image exists: cross (green already),
+                          fit at 43.2 and DIV=6, all four corners,
+                          meter the one-clock-per-face cost
 
 ## What this repo is not
 
