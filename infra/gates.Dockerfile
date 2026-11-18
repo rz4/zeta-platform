@@ -22,11 +22,14 @@ RUN git clone --depth 1 --branch ${VERILATOR_VERSION} \
 FROM python:3.14-slim-trixie
 
 # g++/make: the cross compiles the Verilated model and the frame server.
-# SDL libs: the cabinet (pygame) runs headless under SDL_VIDEODRIVER=dummy.
+# SDL -dev headers: pygame 2.6.1 has no cp314 wheel and builds from
+# source, exactly as the discovery desktop's did. The cabinet runs
+# headless under SDL_VIDEODRIVER=dummy.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        make g++ perl ccache \
-        libsdl2-2.0-0 libsdl2-image-2.0-0 libsdl2-mixer-2.0-0 \
-        libsdl2-ttf-2.0-0 libfl2 zlib1g git ca-certificates \
+        make g++ perl ccache pkg-config \
+        libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev \
+        libfreetype6-dev libportmidi-dev libjpeg62-turbo-dev \
+        libfl2 zlib1g git ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=verilator-build /opt/verilator /opt/verilator
@@ -34,6 +37,9 @@ ENV PATH=/opt/verilator/bin:$PATH \
     SDL_VIDEODRIVER=dummy \
     SDL_AUDIODRIVER=dummy
 
-RUN pip install --no-cache-dir pytest numpy pygame pillow
+# Pinned to the discovery desktop (2026-11 survey): the law ran on these.
+RUN pip install --no-cache-dir "setuptools<81" \
+    && pip install --no-cache-dir \
+        pytest==9.1.1 pytest-cov==7.1.0 numpy==2.5.3 pygame==2.6.1 pillow
 
 RUN verilator --version && python --version
