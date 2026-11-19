@@ -54,6 +54,8 @@ EXPECTED_DRIFT = {
 # not regenerated through gen_shelf AND gen_face ships a stale column.
 NEEDS_ASSET = {
     "face": CARTS.parent / "assets" / "ps1low-poly-grey-alien.zip",
+    # TND's boxer, frozen from the archive by tools/tnd_extract.py
+    "tnd": CARTS.parent / "assets" / "tnd" / "boxer.npz",
 }
 
 
