@@ -416,6 +416,15 @@ class Claim(NamedTuple):
     frames: int = 8
     pad: int = 0
     start: int = 0                 # frame number to begin at
+    # THE GLASS STATUS (SLICE stage 2). The cross and glass gates above
+    # prove the two SIMULATED machines; this field records whether the
+    # claim has been seen on the REAL panel, and by what. "" means never
+    # witnessed on the Pocket, or witnessed before build 94 when nobody
+    # wrote down which claim a boot covered -- either way it belongs in
+    # the queue. The honest entries come from the docs' own words
+    # ("WITNESSED ON THE POCKET", with a build number); a Menu+Start
+    # capture through `zeta sd witness` is how an entry is earned now.
+    glass: str = ""
 
 
 # ---------------------------------------------------------------------------
@@ -447,7 +456,7 @@ CLAIMS: list[Claim] = [
           "fewer than every slot is being sampled, so the pages nobody "
           "reaches are the pages nobody tests -- which is how a "
           "four-bit wire hid eight of them",
-          frames=30),
+          frames=30, glass="build 97, ALIEN.md 106"),
     Claim("lodspan", "OBJ_LODSPAN and OBJ_TINT -- the mip and the light",
           lambda o: o.any_flag(spec.OBJ_LODSPAN) and o.any_flag(spec.OBJ_TINT),
           "the span-mip or the tint is not actually switched on"),
@@ -503,7 +512,7 @@ CLAIMS: list[Claim] = [
           "subject, or some object claimed more of the panel than the "
           "panel has, or the marker never moved -- a number the cart "
           "never spends is a number nothing can check",
-          frames=40),
+          frames=40, glass="builds 94-95, ALIEN.md 105a"),
     # ...AND WHAT IT IS FOR. Five figures in a ring, each advancing on
     # any frame the panel showed fewer than 20 pixels of it. The era
     # faked this rule with a cone test against the camera plus hand-
@@ -550,7 +559,7 @@ CLAIMS: list[Claim] = [
           "shades to be carrying light at all, or the picture only "
           "changed because something MOVED -- a cart recolouring its "
           "own vertices would look identical and prove nothing",
-          frames=30),
+          frames=30, glass="build 98, ALIEN.md 107"),
     Claim("heard", "spec.AUD_BASE: what each voice was heard to do",
           lambda o: o.aud_live >= 3 and o.aud_span > 5.0
                     and len(o.aud_where) > 20,
@@ -783,4 +792,24 @@ def run(gates=("glass", "cross"), frames: int = 120, jobs: int = 8) -> int:
         return 1
     print(f"\nSUITE PASS: {len(CLAIMS)} subsystems, {len(work)} gate runs, "
           f"every cart witnessed against its own claim")
+    return 0
+
+
+def glass_queue() -> int:
+    """The claims that have never been seen on the REAL panel. The cross
+    and glass gates prove the two simulated machines; this is the queue
+    of what still rests on them alone. Burn it down with `zeta sd push`,
+    Menu+Start on the Pocket, `zeta sd witness CART` -- and record the
+    witnessing by filling the claim's `glass` field."""
+    seen = [(c.cart, c.glass) for c in CLAIMS if c.glass]
+    queue = [(c.cart, c.proves) for c in CLAIMS if not c.glass]
+    print(f"witnessed on glass ({len(seen)}):")
+    for cart, how in seen:
+        print(f"  {cart:<10} {how}")
+    print(f"\nthe queue ({len(queue)}) -- proven in simulation only:")
+    for cart, proves in queue:
+        print(f"  {cart:<10} {proves[:62]}")
+    print("\n(a pre-build-94 boot may well have shown some of these; a "
+          "witnessing nobody wrote down is a witnessing the queue does "
+          "not count)")
     return 0

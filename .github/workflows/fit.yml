@@ -1,0 +1,59 @@
+name: fit
+
+# The silicon fit on CI (SLICE stage 1): compile the Pocket bitstream
+# in the pinned Quartus image and hold it to all four timing corners.
+# Runs when the silicon, the template, or the law moves, or by hand.
+# Until ghcr.io/rz4/zeta-quartus:25.1std exists (a human must download
+# Intel's installers into infra/quartus-dist/ and build it -- see
+# infra/README.md), this job fails loudly at the pull step. A gate
+# that cannot fail is not a gate.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "silicon/**"
+      - "pocket/**"
+      - "zeta/spec.py"
+      - "infra/fit_ci.py"
+      - ".github/workflows/fit.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  fit:
+    name: fit (Quartus 25.1std, four corners)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: make room for the image
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/hostedtoolcache/CodeQL
+      - name: pull the quartus image
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker pull ghcr.io/rz4/zeta-quartus:25.1std || {
+            echo "::error::ghcr.io/rz4/zeta-quartus:25.1std does not exist yet -- build and push it per infra/README.md"; exit 1; }
+      - name: the fit, four corners quoted
+        run: |
+          docker run --rm -v "$PWD":/work -w /work \
+            ghcr.io/rz4/zeta-quartus:25.1std \
+            python3 infra/fit_ci.py carts/tear.zol
+      - name: stage the SD layout
+        if: success()
+        run: |
+          docker run --rm -v "$PWD":/work -w /work \
+            ghcr.io/rz4/zeta-quartus:25.1std \
+            python3 -c "import sys; sys.path.insert(0, '.'); from zeta import cabinet, deploy; deploy.run(cabinet.load_cart('carts/tear.zol'), 'tear')"
+      - name: upload the card
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pocket-sd
+          path: |
+            build/pocket/
+            pocket/template/output_files/ap_core.fit.summary
+            pocket/template/output_files/ap_core.sta.rpt
+          retention-days: 30

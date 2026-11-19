@@ -76,6 +76,10 @@ def main(argv=None) -> int:
     p.add_argument("-j", "--jobs", type=int, default=8)
     p.add_argument("--witness-only", action="store_true",
                    help="machine 1 only: does each cart exercise its claim?")
+    p.add_argument("--glass-queue", action="store_true",
+                   help="which claims have never been seen on the real "
+                        "panel (burn down with: sd push, Menu+Start, "
+                        "sd witness)")
 
     p = sub.add_parser("deploy", help="package an openFPGA core for the Pocket")
     p.add_argument("cart")
@@ -101,6 +105,8 @@ def main(argv=None) -> int:
 
     if args.cmd == "suite":
         from . import suite
+        if args.glass_queue:
+            return suite.glass_queue()
         if args.witness_only:
             bad = suite.check_witnesses()
             for b in bad:

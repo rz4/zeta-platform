@@ -15,9 +15,11 @@ FROM ubuntu:24.04
 ARG QSETUP=QuartusLiteSetup-25.1std.0.1129-linux.run
 ARG QDEV=cyclonev-25.1std.0.1129.qdz
 
+# python3-numpy/-pygame: the fit driver (infra/fit_ci.py) assembles the
+# cart and regenerates silicon/gen from spec.py before Quartus runs.
 RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates libglib2.0-0 locales \
-        make g++ python3 \
+        make g++ python3 python3-numpy python3-pygame \
     && rm -rf /var/lib/apt/lists/* \
     && locale-gen en_US.UTF-8
 ENV LANG=en_US.UTF-8
