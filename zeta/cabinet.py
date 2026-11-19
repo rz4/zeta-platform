@@ -65,9 +65,11 @@ class VirtualMachine:
         for c in range(spec.AU_CHANNELS):     # two frames old: see above
             self.vm.dmem[spec.AUD_BASE + c] = self._heard[0][c]
         self.vm.frame(pad, pad2)
+        self.vm.latch_requests()       # every request, as the program left
         self.vm.dma()                  # after the program, before the paint
         self.vm.overlay()              # ...code, at the same instant
         self.vm.card()                 # ...and the card, at the same instant
+        self.vm.release_requests()
         self.vm.card_diag()            # the counters the silicon keeps
         # the texture page: a bounded window, reloaded when the cart asks
         src = self.vm.dmem[spec.TEX_SRC]

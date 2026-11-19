@@ -54,19 +54,47 @@ class VM:
         self.frame_no = 0
         self.trapped = False
 
+    # ---- THE MOVERS' INSTANT reads every request as the PROGRAM left it --
+    # Latched together before any mover runs, exactly as the silicon's
+    # parameter sweep always has. Requests are READ from the latch; status
+    # writes (each GO clearing) still land in DMEM after the movers, as
+    # the silicon's I_DCLR/I_OCLR/I_CGO states do. A DMA that writes
+    # another mover's request cells therefore changes DMEM for the next
+    # frame but not the request being served this one. The law said the
+    # opposite until a probe cart (tests/test_movers.py) DMA'd a new
+    # OVL_SRC beside an overlay request and the two machines loaded
+    # different programs: the law, the DMA's; the silicon, the cart's.
+    # The silicon's reading is the one legislated -- a mover acts on what
+    # was ASKED -- and it costs no logic.
+    REQUEST_CELLS = (spec.DMA_SRC, spec.DMA_DST, spec.DMA_LEN, spec.DMA_GO,
+                     spec.OVL_SRC, spec.OVL_DST, spec.OVL_LEN, spec.OVL_GO,
+                     spec.SD_SLOT, spec.SD_OFF, spec.SD_DST, spec.SD_LEN,
+                     spec.SD_GO, spec.SEG_BASE)
+
+    def latch_requests(self) -> None:
+        self._req = {a: self.dmem[a] for a in self.REQUEST_CELLS}
+
+    def release_requests(self) -> None:
+        self._req = None
+
+    def _r(self):
+        """Where requests are read: the latch inside the instant, DMEM
+        for a caller that drives one mover by hand."""
+        return getattr(self, "_req", None) or self.dmem
+
     def dma(self) -> None:
         """One legislated move, after the VM halts and before the GPU
         reads DMEM. A request that does not fit moves nothing -- and
         still clears DMA_GO, so a bad pointer cannot wedge the frame."""
-        d = self.dmem
-        if not d[spec.DMA_GO]:
+        d, r = self.dmem, self._r()
+        if not r[spec.DMA_GO]:
             return
-        src, dst = s32(d[spec.DMA_SRC]), s32(d[spec.DMA_DST])
-        n = s32(d[spec.DMA_LEN])
+        src, dst = s32(r[spec.DMA_SRC]), s32(r[spec.DMA_DST])
+        n = s32(r[spec.DMA_LEN])
         d[spec.DMA_GO] = 0
         if not 0 < n <= spec.DMA_MAX:
             return
-        eff = src + s32(d[spec.SEG_BASE])   # the segment window (SEG_BASE)
+        eff = src + s32(r[spec.SEG_BASE])   # the segment window (SEG_BASE)
         if src < 0 or eff < 0 or eff + n > spec.CRAM_WORDS:
             return
         if dst < 0 or dst + n > spec.DMEM_WORDS:
@@ -105,15 +133,15 @@ class VM:
         """One legislated code move, at the mover's instant. The VM has
         halted and the next frame starts at PC 0, so a cart can page in
         the program it is about to become without standing on it."""
-        d = self.dmem
-        if not d[spec.OVL_GO]:
+        d, r = self.dmem, self._r()
+        if not r[spec.OVL_GO]:
             return
-        src, dst = s32(d[spec.OVL_SRC]), s32(d[spec.OVL_DST])
-        n = s32(d[spec.OVL_LEN])
+        src, dst = s32(r[spec.OVL_SRC]), s32(r[spec.OVL_DST])
+        n = s32(r[spec.OVL_LEN])
         d[spec.OVL_GO] = 0
         if not 0 < n <= spec.OVL_MAX:
             return
-        eff = src + s32(d[spec.SEG_BASE])   # the segment window (SEG_BASE)
+        eff = src + s32(r[spec.SEG_BASE])   # the segment window (SEG_BASE)
         if src < 0 or eff < 0 or eff + n > spec.CRAM_WORDS:
             return
         if dst < 0 or dst + n > spec.IMEM_WORDS:
@@ -125,7 +153,7 @@ class VM:
         """The legislated card step, at the mover's own instant. A request
         latched at the end of frame N lands at the end of frame
         N + SD_LATENCY -- always, whatever the card actually did."""
-        d = self.dmem
+        d, r = self.dmem, self._r()
         if self.sd_req is not None:      # something already in flight:
             self.sd_wait -= 1            # land it when its time comes
             if self.sd_wait <= 0:
@@ -146,16 +174,16 @@ class VM:
                     self.sd_copied = (self.sd_copied + n) & 0xFF
                 self.sd_req = None
                 d[spec.SD_GO] = 0        # the cart's whole protocol: poll
-            elif d[spec.SD_GO] == 0:     # a cart that cleared GO itself
+            elif r[spec.SD_GO] == 0:     # a cart that cleared GO itself
                 d[spec.SD_GO] = (spec.SD_SAVE if self.sd_req[4]
                                  else spec.SD_READ)   # cannot cancel
             return
-        if not d[spec.SD_GO]:
+        if not r[spec.SD_GO]:
             return
-        go = s32(d[spec.SD_GO])
-        slot = s32(d[spec.SD_SLOT])
-        off, dst = s32(d[spec.SD_OFF]), s32(d[spec.SD_DST])
-        n = s32(d[spec.SD_LEN])
+        go = s32(r[spec.SD_GO])
+        slot = s32(r[spec.SD_SLOT])
+        off, dst = s32(r[spec.SD_OFF]), s32(r[spec.SD_DST])
+        n = s32(r[spec.SD_LEN])
         if go not in (spec.SD_READ, spec.SD_SAVE) or \
            not 0 < n <= spec.SD_MAX or slot < 0 or off < 0 or \
            dst < 0 or dst + n > spec.DMEM_WORDS:

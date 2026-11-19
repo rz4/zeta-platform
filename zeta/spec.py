@@ -324,6 +324,16 @@ CAM_ROLL = 12287                # camera BANK, 0..1023, applied last --
 # frame, and the ordering is unambiguous for the cross. A request whose
 # source or destination falls outside its memory moves nothing and still
 # clears DMA_GO: a cart cannot wedge the machine with a bad pointer.
+#
+# THE MOVERS' INSTANT -- DMA, then OVL, then the card -- READS EVERY
+# REQUEST AS THE PROGRAM LEFT IT: all their cells, and SEG_BASE, latched
+# together before any mover runs (vm.REQUEST_CELLS). A DMA that writes
+# another mover's request cells lands in DMEM for later frames but does
+# not change the request being served now. Each GO's clearing still
+# lands after. The PAINT is the other way round: it reads DMEM after
+# the movers, so a DMA'd BG_SRC is drawn the same frame. Both readings
+# are the silicon's, legislated after probes found the law disagreeing
+# with it on each (tests/test_movers.py, tests/test_shelf.py).
 DMA_SRC, DMA_DST, DMA_LEN, DMA_GO = 12, 13, 14, 15
 
 # ---- OVERLAYS: the cart stops being 4,096 instructions -------------------
