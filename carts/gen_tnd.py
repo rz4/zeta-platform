@@ -676,7 +676,7 @@ DMN = ("cross", "lead_hook")
 # a move row: startup, end of active, total, damage, head damage (x1.35),
 # reach^2, hitstop, knock, lunge, its first pose in the bank, its fists
 MROW = ("start", "endact", "total", "dmg", "dmgh", "reach2", "stop",
-        "knock", "lunge", "pose", "lift", "air", "fist")
+        "knock", "lunge", "pose", "lift", "air", "cancels", "fist")
 GRAV = 0.014                    # tear.py: the aerial system's own gravity
 GRAVQ = int(round(GRAV * ONE))
 AIR_FLOAT = int(round(0.12 * ONE))   # tear.py AIR_HIT_FLOAT
@@ -684,7 +684,7 @@ AIR_HANG = 26                        # tear.py AIR_HIT_HANG
 MR = {k: i for i, k in enumerate(MROW)}
 
 
-def move_rows(rows, fists, pose_of=None):
+def move_rows(rows, fists, pose_of=None, cancels=None):
     out, fist_words, at = [], [], []
     for k, r in enumerate(rows):
         su, ac, rc, dmg, reach, stop, knock, lunge, lift = r
@@ -696,12 +696,27 @@ def move_rows(rows, fists, pose_of=None):
         out.append([int(su), int(su + ac), int(su + ac + rc), int(dmg),
                     int(dmg * 1.35), int(round(reach ** 2 * ONE)), int(stop),
                     int(round(knock * ONE)), int(round(lunge * ONE)),
-                    pose_of(k) if pose_of else 0, int(round(lift * ONE)), air, 0])
+                    pose_of(k) if pose_of else 0, int(round(lift * ONE)), air,
+                    cancels[k] if cancels else 0, 0])
     return out, fist_words, at
 
 
+# THE CANCEL LATTICE (combat.py): in its RECOVERY, a move may be cut by a
+# buffered move it lists -- a light punch by anything, a hook only by the
+# launchers and the special, a launcher only by the special, the special
+# by nothing. A bit per move id.
+def _bits(*names):
+    return sum(1 << PMN.index(n) for n in names)
+
+
+_LIGHT = _bits(*PMN)                    # (the gun and jump join it later)
+_HOOK = _bits("lead_uppercut", "rear_uppercut", "special")
+CANCELS = {"jab": _LIGHT, "cross": _LIGHT, "lead_hook": _HOOK, "rear_hook": _HOOK,
+           "special": 0, "lead_uppercut": _bits("special"),
+           "rear_uppercut": _bits("special")}
 _pm, _pf, _pat = move_rows(DEM["p_moves"], [DEM["p_fist_" + n] for n in PMN],
-                           lambda k: base[PMN[k]])
+                           lambda k: base[PMN[k]], [CANCELS[n] for n in PMN])
+BIT = cart.data(Table([1 << i for i in range(len(PMN))]), "bits")
 PFIST = cart.data(Table(_pf), "p_fists")
 for k, row in enumerate(_pm):
     row[MR["fist"]] = int(PFIST) + _pat[k]
@@ -1025,7 +1040,15 @@ p.addi(AF, 1)
 p.load(AF)
 row(PMT, F["mv"], "total")
 p.emit("lt", f"jz {L['free']}_end")
-p.emit(f"jmp {L['motion']}")
+# in its recovery, a buffered move this one lists cuts it short
+p.load(F["buf"]).emit(f"jz {L['motion']}")
+p.load(AF)
+row(PMT, F["mv"], "endact")
+p.emit("lt", f"jz {L['free']}_cx", f"jmp {L['motion']}")
+p.mark(f"{L['free']}_cx")
+row(PMT, F["mv"], "cancels")
+p.push(int(BIT)).load(F["bmv"]).emit("add", "loadi", "and", f"jz {L['motion']}")
+p.emit(f"jmp {L['free']}")                      # cancel: launch it now
 p.mark(f"{L['free']}_end")
 p.set(ANIM, 0)
 p.mark(L["free"])

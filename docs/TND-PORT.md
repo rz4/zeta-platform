@@ -178,8 +178,14 @@ crossing; when he falls, the frame darkens and A is a new run.
                  offers the 536 words above the loader's mirror that the
                  law never legislated.
 
-Still to come in P4: the cancel lattice (which moves may cut which
-recovery), and the demons reading head versus gut. Then P5 and P6.
+    cancels      combat.py's lattice: in its recovery a move is cut short
+                 by a buffered move it lists -- a light punch by anything,
+                 a hook by the launchers and the special, a launcher by the
+                 special, the special by nothing.
+
+P4 is the archive's grounded fight, complete: what remains of its combat
+is the air layer (the jump, the gun, juggles, the spike), deliberately
+after the game ships. Next: P5 (style and sound) and P6 (the shell).
 
 ## The frame, measured (2026-11-19)
 

@@ -346,3 +346,19 @@ def test_the_uppercut_launches():
             break
     assert peak > 6.5, f"the brute rose only {peak:.2f}"
     assert landed, "the brute never came down"
+
+
+def test_the_cancel_lattice():
+    """In its recovery a move is cut short by a buffered move it lists
+    (combat.py): a jab cuts the cross's recovery the frame the tap lands;
+    the special cuts a hook's; nothing cuts the special -- a tap in its
+    recovery simply expires in the buffer."""
+    A, B = spec.PAD_A, spec.PAD_B
+    cut = _launches(lambda f: A if f in (10, 24) else 0, 80)[1]
+    assert cut == [1, 0]
+    m, _ = _launches(lambda f: A if f in (10, 24) else 0, 26)
+    assert _cell(m, "anim") == 2 and _cell(m, "f_mv") == 0 and _cell(m, "af") == 0, \
+        "the jab waited for the cross to end: no cancel"
+    hook = _launches(lambda f: A if f in (10, 30, 50) else (B if f == 72 else 0), 140)[1]
+    assert hook == [1, 0, 2, 4], hook
+    assert _launches(lambda f: B if f == 10 else (A if f == 50 else 0), 120)[1] == [4]
