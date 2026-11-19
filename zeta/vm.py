@@ -66,12 +66,13 @@ class VM:
         d[spec.DMA_GO] = 0
         if not 0 < n <= spec.DMA_MAX:
             return
-        if src < 0 or src + n > spec.CRAM_WORDS:
+        eff = src + s32(d[spec.SEG_BASE])   # the segment window (SEG_BASE)
+        if src < 0 or eff < 0 or eff + n > spec.CRAM_WORDS:
             return
         if dst < 0 or dst + n > spec.DMEM_WORDS:
             return
         for i in range(n):
-            d[dst + i] = self.cram.get(src + i, 0)
+            d[dst + i] = self.cram.get(eff + i, 0)
 
     def card_diag(self) -> None:
         """The counters. Words 0..2 count APF traffic, which machine 1 has
@@ -112,12 +113,13 @@ class VM:
         d[spec.OVL_GO] = 0
         if not 0 < n <= spec.OVL_MAX:
             return
-        if src < 0 or src + n > spec.CRAM_WORDS:
+        eff = src + s32(d[spec.SEG_BASE])   # the segment window (SEG_BASE)
+        if src < 0 or eff < 0 or eff + n > spec.CRAM_WORDS:
             return
         if dst < 0 or dst + n > spec.IMEM_WORDS:
             return
         for i in range(n):
-            self.imem[dst + i] = self.cram.get(src + i, 0)
+            self.imem[dst + i] = self.cram.get(eff + i, 0)
 
     def card(self) -> None:
         """The legislated card step, at the mover's own instant. A request

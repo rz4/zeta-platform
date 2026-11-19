@@ -188,9 +188,24 @@ module zeta_top (
   reg         gpu_flushed;           // this band's colour has gone out
   // ---- the mover (spec.DMA_*): CRAM segment -> DMEM, once a frame -----
   reg [5:0]  dsel;                   // which request cell we are reading
+  reg        swept2;                 // the sweep runs TWICE a frame: once
+                                     // before the movers (their params),
+                                     // once after (what the paint sees).
+                                     // The law's paint reads DMEM after
+                                     // the movers' instant, so a launch
+                                     // that DMAs into register cells --
+                                     // BG_SRC in a shelved game's image
+                                     // -- must reach the pump THIS frame.
+                                     // One sweep read stale registers for
+                                     // 101 builds and nothing could tell,
+                                     // because nothing had ever moved a
+                                     // register cell with the mover.
                                      // (6 bits since the compositor:
                                      //  21..33 latch its block)
   reg [31:0] d_src, d_dst, d_len, d_go, d_bg;
+  reg [31:0] d_seg;              // SEG_BASE: the segment window, added to
+                                 // every presented CRAM offset (DMA, OVL,
+                                 // the pump). Fetched with the params.
   // ---- the write-window probe (an instrument, not law): a cart that
   // writes 0x5EEB to the high half of DMEM[11789] arms a mask-lift
   // KNOB swept by the frame counter (K = frame[9:6], ~1 s per step,
@@ -341,9 +356,15 @@ module zeta_top (
   always @(posedge clk)
     sk_q <= skid[blit_take ? sk_r[6:0] + 7'd1 : sk_r[6:0]];
   wire [15:0] dma_data;
+  // THE SEGMENT WINDOW (SEG_BASE): every presented CRAM offset is read
+  // as offset + d_seg. The presented value keeps its old refusals (a
+  // negative source, BG_SRC == 0); the BOUNDS move to the effective.
+  wire [31:0] eff_dma = d_src + d_seg;
+  wire [31:0] eff_ovl = o_src + d_seg;
+  wire [31:0] eff_bg  = d_bg  + d_seg;
   wire       req_ok = (d_len != 0) && (d_len <= DMA_MAX) &&
-                      !d_src[31] && !d_dst[31] &&
-                      (d_src + d_len <= CRAM_WORDS) &&
+                      !d_src[31] && !d_dst[31] && !eff_dma[31] &&
+                      (eff_dma + d_len <= CRAM_WORDS) &&
                       (d_dst + d_len <= DMEM_WORDS);
   wire        gfb_we;
   wire [16:0] gfb_a;
@@ -414,7 +435,8 @@ module zeta_top (
                            st == I_EVW || st == I_EVC) ? au_addr : seq_addr;
   // 21.. walks the compositor block straight through, one cell a state,
   // instead of thirteen more lines of mux: the block is contiguous by law
-  wire [13:0] dreq_addr = (dsel == 6'd37) ? LIGHT_DIF[13:0] :
+  wire [13:0] dreq_addr = (dsel == 6'd38) ? SEG_BASE[13:0] :
+                          (dsel == 6'd37) ? LIGHT_DIF[13:0] :
                           (dsel == 6'd36) ? LIGHT_AMB[13:0] :
                           (dsel == 6'd35) ? LIGHT_DIR[13:0] :
                           (dsel == 6'd34) ? EDGE_RGB[13:0] :
@@ -704,7 +726,8 @@ module zeta_top (
       I_WP: begin frame_no <= frame_no + 1'b1; st <= I_VK; end  // dmem[REG_PAD]
       I_VK: st <= I_VW;                   // vm start pulse
       I_VW: if (!vm_running) begin        // halt, fuel out, or trap:
-        dsel <= 3'd0; st <= I_DRD;        // first the mover, then render
+        dsel <= 3'd0; swept2 <= 1'b0;     // first the mover, then render
+        st <= I_DRD;
       end
       I_DRD: st <= I_DCK;                 // request cell dsel presented
       I_DCK: begin                        // ...and readable this cycle
@@ -734,16 +757,17 @@ module zeta_top (
           6'd35: l_dir <= dl_data[23:0];   // ...and the light's three
           6'd36: l_amb <= (dl_data[31:0] > 32) ? 6'd32 : dl_data[5:0];
           6'd37: l_dif <= (dl_data[31:0] > 32) ? 6'd32 : dl_data[5:0];
+          6'd38: d_seg <= dl_data;         // ...and the segment window
           default: co_reg[dsel - 6'd21] <= dl_data;
         endcase
-        if (dsel == 6'd37) st <= I_DCLR;
+        if (dsel == 6'd38) st <= swept2 ? I_TXP : I_DCLR;
         else begin dsel <= dsel + 1'b1; st <= I_DRD; end
       end
       I_DCLR:                             // GO clears whether or not the
         if (d_go == 0) st <= I_OVL;       // request was usable (spec)
         else if (!req_ok) st <= I_OVL;
         else begin
-          dma_addr <= CRAM_CART_BASE[21:0] + {d_src[20:0], 1'b0};
+          dma_addr <= CRAM_CART_BASE[21:0] + {eff_dma[20:0], 1'b0};
           dma_dst  <= d_dst[13:0];
           dma_left <= d_len;
           dma_hi   <= 1'b0;
@@ -771,10 +795,11 @@ module zeta_top (
       I_OVL:
         if (o_go == 32'd0) st <= I_CARD;
         else if (o_len == 32'd0 || o_len > OVL_MAX[31:0] || o_src[31] ||
-                 o_dst[31] || o_src + o_len > CRAM_WORDS[31:0] ||
+                 o_dst[31] || eff_ovl[31] ||
+                 eff_ovl + o_len > CRAM_WORDS[31:0] ||
                  o_dst + o_len > IMEM_WORDS[31:0]) st <= I_OCLR;
         else begin
-          dma_addr <= CRAM_CART_BASE[21:0] + {o_src[20:0], 1'b0};
+          dma_addr <= CRAM_CART_BASE[21:0] + {eff_ovl[20:0], 1'b0};
           dma_dst  <= o_dst[13:0];
           dma_left <= o_len;
           dma_hi   <= 1'b0;
@@ -844,7 +869,11 @@ module zeta_top (
       I_CDG: st <= I_CDG2;
       I_CDG2: st <= I_CDG3;
       I_CDG3: st <= I_CDG4;
-      I_CDG4: st <= I_TXP;
+      I_CDG4: begin                       // the movers are done: sweep
+        swept2 <= 1'b1;                   // again so the paint sees what
+        dsel <= 6'd0;                     // they left, not what they found
+        st <= I_DRD;
+      end
       // The legislated frame has come, so the data lands -- ready or not.
       //
       // This state used to wait on card_ready, on the reasoning that a
@@ -920,8 +949,8 @@ module zeta_top (
         // the backdrop: valid source arms the pump for this frame's clear
         blit_on <= 1'b0;
         b_run   <= 1'b0;
-        if (!d_bg[31] && d_bg != 32'd0 &&
-            d_bg + BG_WORDS <= CRAM_WORDS) begin
+        if (!d_bg[31] && d_bg != 32'd0 && !eff_bg[31] &&
+            eff_bg + BG_WORDS <= CRAM_WORDS) begin
           blit_on  <= 1'b1;
           b_run    <= 1'b1;
           b_infl   <= 1'b0;
@@ -931,7 +960,7 @@ module zeta_top (
           // one band's slice of the backdrop, at its own offset: the
           // pump streams row-major, so band p starts p*BAND_WORDS in
           b_left   <= BAND_WORDS[17:0];
-          dma_addr <= CRAM_CART_BASE[21:0] + {d_bg[20:0], 1'b0} + band_half;
+          dma_addr <= CRAM_CART_BASE[21:0] + {eff_bg[20:0], 1'b0} + band_half;
         end
         st <= I_GW;
       end

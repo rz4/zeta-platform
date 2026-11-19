@@ -48,7 +48,10 @@ SIL = ROOT / "silicon"
 # The lighting block itself adds none. Counting by FILE AND CLASS is
 # what makes that checkable -- a line diff is useless here, because
 # inserting lines moves every warning after it.
-BASELINE = 110
+# 111 at build 102 (SEG_BASE): one more arm on the dreq_addr mux, which
+# warns once per line like its twenty siblings (15 bits assigned to 14,
+# long predating this). The window adders and the double sweep add none.
+BASELINE = 111
 
 
 @pytest.mark.skipif(shutil.which("verilator") is None,

@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
-# the `zeta` command -- runs the SDK inside its own .venv from anywhere
+# the `zeta` command -- runs the SDK from anywhere; prefers the repo's
+# own .venv when one exists, falls back to the system python
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 export PYTHONPATH="$ROOT${PYTHONPATH:+:$PYTHONPATH}"
-exec "$ROOT/.venv/bin/python" -m zeta.cli "$@"
+PY="$ROOT/.venv/bin/python"
+[ -x "$PY" ] || PY="$(command -v python3)"
+exec "$PY" -m zeta.cli "$@"

@@ -549,11 +549,13 @@ def seed(dmem, cram=None):
     fb = np.empty((spec.H, spec.W, 3), np.uint8)
     zbuf = np.full((spec.H, spec.W), spec.ZFAR, np.int64)
     bg = s32(dmem[spec.BG_SRC])
-    if bg > 0 and cram is not None and bg + spec.BG_WORDS <= spec.CRAM_WORDS:
+    ebg = bg + s32(dmem[spec.SEG_BASE])     # the segment window (SEG_BASE):
+    if bg > 0 and cram is not None \
+            and 0 <= ebg and ebg + spec.BG_WORDS <= spec.CRAM_WORDS:
         words = np.zeros(spec.BG_WORDS, np.int64)
-        avail = max(0, min(spec.BG_WORDS, len(cram) - bg))
+        avail = max(0, min(spec.BG_WORDS, len(cram) - ebg))
         if avail:
-            words[:avail] = cram[bg:bg + avail]
+            words[:avail] = cram[ebg:ebg + avail]
         words = words.reshape(spec.H, spec.W)
         shade = (words & spec.BG_SHADOW) != 0
         zbuf[:, :] = (words >> 16) & 0xFFFF

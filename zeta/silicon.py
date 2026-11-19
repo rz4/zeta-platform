@@ -53,6 +53,7 @@ def gen_params() -> str:
         f"localparam AU_EV_CH_SHIFT = {spec.AU_EV_CH_SHIFT}, AU_EV_CTRL_BIT = {spec.AU_EV_CTRL_BIT};",
         f"localparam DMA_SRC = {spec.DMA_SRC}, DMA_GO = {spec.DMA_GO}, "
         f"DMA_MAX = {spec.DMA_MAX};",
+        f"localparam SEG_BASE = {spec.SEG_BASE};",
         f"localparam TEX_SRC = {spec.TEX_SRC}, TEX_W = {spec.TEX_W};",
         f"localparam TEX_PAGE = {spec.TEX_PAGE}, TEX_PAGES = {spec.TEX_PAGES};",
         f"localparam WAV_SRC = {spec.WAV_SRC}, WAV_W = {spec.WAV_W}, "

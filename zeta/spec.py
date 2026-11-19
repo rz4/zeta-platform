@@ -61,6 +61,21 @@ REG_PAD = 1                     # in:  pad word     (cabinet writes)
 # build; until then the cell reads 0 on silicon, which is the honest
 # value for hardware that has no second port yet.
 REG_PAD2 = 12263                # in:  pad 2 word   (cabinet writes)
+# THE SEGMENT WINDOW (SEAMS 2, the shelf). Every CRAM offset a cart
+# presents -- DMA_SRC, OVL_SRC, BG_SRC -- is read as offset + SEG_BASE,
+# at the instant the mover latches it. Boot value 0: every cart written
+# before this amendment is untouched to the bit. A shelf launching a
+# game whose resources assume "my segment starts at 0" BAKES the game's
+# true base into the DMEM image it ships (this cell is part of that
+# image), so the game needs no code and no knowledge: "the cart's
+# segment" becomes "the window's base". Presented-value rules keep
+# their old meanings (BG_SRC == 0 is still "no backdrop", a negative
+# presented offset is still refused); the BOUNDS move to the effective
+# offset, which must land inside CRAM or the move is the usual no-op.
+# A shelved cart must not write this cell; a standalone cart that does
+# is relocating against its own segment, which is legal and odd.
+SEG_BASE = 12262                # segment window base, added to every
+                                # presented CRAM offset
 # ---- the pick register: the GPU as a spatial query engine ----------------
 # The cart writes a pixel (PICK_X, PICK_Y); after the frame paints, the
 # machine answers with the triangle that visibly owns it: PICK_ID = the
@@ -1120,9 +1135,11 @@ LOADER_SIG2 = 11700             # a MIRROR of the signature, written into
                                 # delivers intact -- so the loader's
                                 # testimony survives even if the top of
                                 # memory does not
-LOADER_BUILD = 100              # bumped per bitstream: word +7 of the
+LOADER_BUILD = 102              # bumped per bitstream: word +7 of the
                                 # signature, so a cart can say WHICH core
                                 # it is running on.
+                                # (101 = vertex C registered in zseq;
+                                #  102 = SEG_BASE, the segment window)
                                 #   AND IT HAPPENED AGAIN: 93 shipped on
                                 # FIVE bitstreams -- the texture stride,
                                 # the grade table, the outline, radix-4,
