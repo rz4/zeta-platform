@@ -61,10 +61,22 @@ from a game you would name.
 
 ## b. What the July TND version had, and lost
 
-`archive/TND/` is the pre-SDK TEAR: `src/zeta/virtual/tear.py` alone
-is 5,461 lines, plus `combat.py`, `riglab.py`, a GOZL rules variant,
-and `docs/TEAR.md` — a finished design document. Different machine,
-different toolchain: none of it ports as code. As design, it held:
+`archive/TND/` is the pre-SDK TEAR — **TEAR NOT DEMON**, as its own
+start menu spells it. Captured from the archive, running headless
+today (`docs/images/gen_shots_tnd.py`, scripted keys, the game's own
+renderer):
+
+| ![the start menu](images/tnd-menu.png) | ![the street](images/tnd-street.png) | ![the fight](images/tnd-fight.png) |
+|---|---|---|
+| The gothic start menu — START/LOAD/OPTIONS/QUIT, the fighter sprinting the crosswalk behind it. | Bancroft and Shattuck: the rigged boxer mid-stride, an enemy's angular mass in the foreground, segmented health, the RANK meter, TANK mode. | The aftermath — a downed enemy at the kerb, the style trail still hanging off the swing. |
+
+This is the gap between the two TEARs made visible: the ZOL kernel in
+section (a) is rectangles with correct rules; this had a *body*, a
+street, and a mood — on the weaker machine. `src/zeta/virtual/tear.py`
+alone is 5,461 lines, plus `combat.py`, `riglab.py`, a GOZL rules
+variant, and `docs/TEAR.md` — a finished design document. Different
+machine, different toolchain: none of it ports as code. As design, it
+held:
 
 - **An input grammar**: tap (≤9f) / hold (10f) / chord (two buttons in
   3f) / tap strings (22f window), with a 10-frame input buffer. Four
