@@ -353,7 +353,14 @@ class SiliconMachine:
         self._fb = np.zeros((spec.H, spec.W, 3), np.uint8)
         self._audio = np.zeros(spec.SAMPLES_PER_FRAME, np.int16)
 
-    def frame(self, pad: int) -> None:
+    def frame(self, pad: int, pad2: int = 0) -> None:
+        if pad2:
+            # REG_PAD2 is law-first (spec.py): the silicon latch does not
+            # exist yet, so a driven pad 2 here would silently diverge
+            # from machine 1. Loud beats wrong.
+            raise NotImplementedError(
+                "pad2 reached SiliconMachine before the silicon latch "
+                "build -- see spec.REG_PAD2")
         self.proc.stdin.write(struct.pack("<I", pad & 0xFFFF))
         self.proc.stdin.flush()
         n = spec.W * spec.H * 3

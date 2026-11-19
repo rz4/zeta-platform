@@ -52,6 +52,15 @@ WORD_MASK = 0xFFFFFFFF          # all arithmetic is 32-bit two's complement
 # ---- DMEM map ------------------------------------------------------------
 REG_FRAME = 0                   # in:  frame counter (cabinet writes)
 REG_PAD = 1                     # in:  pad word     (cabinet writes)
+# REG_PAD2 lives at 12263 rather than beside REG_PAD for PICK_SH's
+# reason: cells 0..15 are full and USER_BASE is hardcoded in every cart.
+# The SECOND pad -- a docked controller, or the far end of the link. The
+# cabinet latches it exactly as REG_PAD; 0 means no one is there, which
+# is also what an undocked pad must read, so a cart needs no other
+# presence test. LAW-FIRST: the silicon latch lands with the next RTL
+# build; until then the cell reads 0 on silicon, which is the honest
+# value for hardware that has no second port yet.
+REG_PAD2 = 12263                # in:  pad 2 word   (cabinet writes)
 # ---- the pick register: the GPU as a spatial query engine ----------------
 # The cart writes a pixel (PICK_X, PICK_Y); after the frame paints, the
 # machine answers with the triangle that visibly owns it: PICK_ID = the

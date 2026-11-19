@@ -49,6 +49,15 @@
 .const PBUF 33             ; buffered move, fires when the hands free
 .const BTIM 34             ; the buffer's 10-frame life
 .const HST 35              ; hitstop: both fighters frozen while > 0
+.const PAD2 12263          ; spec.REG_PAD2: the second pad (stage 2).
+.const P2ON 36             ; a human has the red fighter. Latched by any
+                           ; press on pad 2 and NEVER cleared: the
+                           ; machine does not take the controller back.
+.const EBUF 37             ; the red fighter's buffer, human mode only
+.const EBTIM 38
+.const PPV 39              ; last frame's pad words: a buffer accepts a
+.const P2PV 40             ; FRESH press only -- a held button whiffing
+                           ; forever at range was the bug this closes
 
 .data 16 60 236 96 96 0 0 0 0 0 0 1 0 0
 
@@ -114,10 +123,19 @@ push 0
 store BTIM
 push 0
 store HST
+push 0
+store EBUF
+push 0
+store EBTIM
 jmp aftermath
 
 ; ==== the fight ============================================================
 play:
+load PAD2                  ; anyone on the second pad? (before the
+jz p2_seen                 ; hitstop gate, so a press is never lost)
+push 1
+store P2ON
+p2_seen:
 load EX                    ; dx = ex - px, adx = |dx|, face = px < ex
 load PX
 sub
@@ -153,10 +171,16 @@ hst_z:
 ; ---- player: mid-move ticks down (presses buffer), else act -----------------
 load PP
 jz p_free
-load PAD                   ; a press made mid-move is held ten frames
-push 16                    ; and fires the instant the hands are free
+load PAD                   ; a FRESH press made mid-move is held ten
+push 16                    ; frames and fires the instant the hands free
 and
 jz p_bufa_no
+load PPV
+push 16
+and
+jz p_bufa_set
+jmp p_bufa_no
+p_bufa_set:
 push 1
 store PBUF
 push 10
@@ -166,6 +190,12 @@ load PAD
 push 32
 and
 jz p_bufb_no
+load PPV
+push 32
+and
+jz p_bufb_set
+jmp p_bufb_no
+p_bufb_set:
 push 2
 store PBUF
 push 10
@@ -246,9 +276,39 @@ push 26
 store PP
 p_done:
 
-; ---- enemy: same body, cheaper soul ---------------------------------------
+; ---- enemy: the same body; the soul is the AI's until a human takes it ------
 load EP
 jz e_free
+load PAD2                  ; a human's FRESH press made mid-move
+push 16                    ; buffers, as the blue side's does
+and
+jz e_bufa_no
+load P2PV
+push 16
+and
+jz e_bufa_set
+jmp e_bufa_no
+e_bufa_set:
+push 1
+store EBUF
+push 10
+store EBTIM
+e_bufa_no:
+load PAD2
+push 32
+and
+jz e_bufb_no
+load P2PV
+push 32
+and
+jz e_bufb_set
+jmp e_bufb_no
+e_bufb_set:
+push 2
+store EBUF
+push 10
+store EBTIM
+e_bufb_no:
 load EP
 push 1
 sub
@@ -261,6 +321,63 @@ push 0
 store EMV
 jmp e_done
 e_free:
+load P2ON
+jz e_ai
+; ---- the second human -------------------------------------------------------
+load EBTIM
+jz e_buf_dead
+load EBTIM
+push 1
+sub
+store EBTIM
+load EBUF
+jz e_input
+load EBUF
+push 2
+eq
+jz e_buf_jab
+push 0
+store EBUF
+jmp e_heavy
+e_buf_jab:
+push 0
+store EBUF
+jmp e_jab
+e_buf_dead:
+push 0
+store EBUF
+e_input:
+load PAD2
+push 8                     ; RIGHT
+and
+jz e2_no_r
+load EX
+push 2
+add
+store EX
+e2_no_r:
+load PAD2
+push 4                     ; LEFT
+and
+jz e2_no_l
+load EX
+push 2
+sub
+store EX
+e2_no_l:
+load PAD2
+push 16                    ; A: the jab
+and
+jz e2_try_b
+jmp e_jab
+e2_try_b:
+load PAD2
+push 32                    ; B: the heavy
+and
+jz e_done
+jmp e_heavy
+; ---- the AI -----------------------------------------------------------------
+e_ai:
 push 48                    ; far? walk in
 load ADX
 lt
@@ -292,6 +409,7 @@ and
 push 3
 eq
 jz e_jab
+e_heavy:
 push 2
 store EMV
 push 26
@@ -332,6 +450,45 @@ load ADX
 load T1
 lt
 jz p_no_hit
+load PMV                   ; a human on pad 2 can BLOCK the jab --
+push 2                     ; the heavy does not ask
+eq
+jz p_eblk_chk
+jmp p_clean
+p_eblk_chk:
+load P2ON
+jz p_clean
+load EP                    ; mid-move hands cannot block
+jz p_eblk_free
+jmp p_clean
+p_eblk_free:
+load FACE                  ; away = RIGHT when the enemy is on the right
+jz p_eback_l
+push 8
+store T0
+jmp p_eback_t
+p_eback_l:
+push 4
+store T0
+p_eback_t:
+load PAD2
+load T0
+and
+jz p_clean
+load EH                    ; BLOCKED: chip, the swing spent, the ground
+push 2                     ; held
+sub
+store EH
+load PP
+push 1
+sub
+store PP
+push 3
+store EFL
+push 3
+store HST
+jmp p_no_hit
+p_clean:
 load EMV                   ; a hit during a WIND-UP cancels the move --
 jz p_int_done              ; this is how the jab beats the heavy
 load EMV
@@ -544,6 +701,10 @@ ph_ok:
 
 ; ==== every frame: decay, clamp, draw =======================================
 aftermath:
+load PAD                   ; remember the pads: next frame's "fresh
+store PPV                  ; press" is measured against these
+load PAD2
+store P2PV
 load PFL
 jz pfl_z
 load PFL

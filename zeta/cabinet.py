@@ -61,10 +61,10 @@ class VirtualMachine:
             for a, v in self.vm.cram.items():
                 self._cram[a] = v
 
-    def frame(self, pad: int) -> None:
+    def frame(self, pad: int, pad2: int = 0) -> None:
         for c in range(spec.AU_CHANNELS):     # two frames old: see above
             self.vm.dmem[spec.AUD_BASE + c] = self._heard[0][c]
-        self.vm.frame(pad)
+        self.vm.frame(pad, pad2)
         self.vm.dma()                  # after the program, before the paint
         self.vm.overlay()              # ...code, at the same instant
         self.vm.card()                 # ...and the card, at the same instant

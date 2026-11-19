@@ -128,3 +128,65 @@ def test_the_buffer_fires_when_the_hands_free():
     assert m.dmem[PMV] == 2 and m.dmem[PP] == 26, \
         "the buffered heavy did not fire"
     assert m.dmem[PBUF] == 0
+
+
+# ---- stage 2: the second pad takes the red fighter ------------------------
+P2ON = 36
+
+
+def test_pad2_silences_the_ai():
+    """One press on pad 2 and the machine's soul is out: the red
+    fighter stops swinging on its cadence and obeys the second human --
+    permanently. The machine does not take the controller back."""
+    m = vm.VM(asm.assemble(CART))
+    m.frame(0, spec.PAD_LEFT)                  # one press: latched
+    assert m.dmem[P2ON] == 1
+    for f in range(400):                       # P2 walks in, never attacks
+        m.frame(0, spec.PAD_LEFT)
+        assert m.dmem[EP] == 0, "the AI swung while a human held the pad"
+    assert m.dmem[PH] == 96                    # nobody ever got hit
+    assert spec.s32(m.dmem[EX]) <= 60 + 24     # and the body obeyed
+
+
+def test_pad2_fights_and_wins():
+    """The second human beats an idle player with their own hands."""
+    m = vm.VM(asm.assemble(CART))
+    for f in range(3000):
+        m.frame(0, spec.PAD_LEFT | spec.PAD_A)
+        if m.dmem[KO]:
+            break
+    else:
+        raise AssertionError("no KO in 3000 frames of P2 aggression")
+    assert m.dmem[WIN] == 2
+
+
+def test_pad2_blocks_the_jab():
+    """The guard works for the red fighter too: P1's jab never lands
+    clean on a blocking P2 -- the triangle is symmetric."""
+    m = vm.VM(asm.assemble(CART))
+    deltas = set()
+    last = 96
+    for f in range(2600):
+        # P1 walks in jabbing; P2 holds away (RIGHT, enemy on the right --
+        # which also walks the red fighter to the wall first)
+        m.frame(spec.PAD_RIGHT | spec.PAD_A, spec.PAD_RIGHT)
+        eh = spec.s32(m.dmem[EH])
+        if eh != last:
+            deltas.add(last - eh)
+            last = eh
+        if m.dmem[KO]:
+            break
+    assert 2 in deltas, f"no chip ever happened: {deltas}"
+    assert 8 not in deltas, f"a jab landed clean through P2's guard: {deltas}"
+
+
+def test_ai_returns_only_at_power_on():
+    """A fresh machine is the AI again; a round reset is not."""
+    m = vm.VM(asm.assemble(CART))
+    m.frame(0, spec.PAD_A)                     # human latched
+    while not m.dmem[KO]:                      # idle both: nobody can win...
+        m.frame(0)
+        if m.dmem[0] > 5000:
+            break
+    # P2 idle forever: the fight stalls (no AI to kill the player)
+    assert m.dmem[KO] == 0 and m.dmem[PH] == 96

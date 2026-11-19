@@ -168,12 +168,13 @@ class VM:
         self.sd_counted = False
         self.sd_wait = spec.SD_LATENCY
 
-    def frame(self, pad: int) -> None:
+    def frame(self, pad: int, pad2: int = 0) -> None:
         if self.trapped:
             return
         d = self.dmem
         d[spec.REG_FRAME] = self.frame_no & spec.WORD_MASK
         d[spec.REG_PAD] = pad & 0xFFFF
+        d[spec.REG_PAD2] = pad2 & 0xFFFF
         self.frame_no += 1
         pc, fuel, st, rs = 0, spec.FUEL, [], []
         push, pop = st.append, st.pop
