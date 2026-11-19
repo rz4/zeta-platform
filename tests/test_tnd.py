@@ -329,13 +329,16 @@ def test_a_blow_is_heard():
 
 
 def test_the_grammar_taps_on_release_and_reads_chords():
-    """combat.Grammar: a TAP is a release within 9 frames (a long hold is
-    not one); B taps the special; two buttons down within 3 frames are a
+    """combat.Grammar, for thumbs: a tap fires on release or at its fourth
+    frame held (a long press is one blow, not none); B is the special; two buttons down within 3 frames are a
     CHORD, read once, and neither of them taps -- carve+jump is the rear
     uppercut and NOT a jab, shoot+special the lead uppercut."""
     A, B, X, Y = spec.PAD_A, spec.PAD_B, spec.PAD_X, spec.PAD_Y
     assert _launches(lambda f: A if 10 <= f < 13 else 0, 60)[1] == [1]
-    assert _launches(lambda f: A if 10 <= f < 26 else 0, 60)[1] == []
+    # a thumb's press -- held well past 9 frames -- is still ONE blow,
+    # thrown at its fourth frame (the press that did nothing on glass)
+    m, held = _launches(lambda f: A if 10 <= f < 40 else 0, 60)
+    assert held == [1], held
     assert _launches(lambda f: B if 10 <= f < 12 else 0, 60)[1] == [4]
     assert _launches(lambda f: (A if 10 <= f < 14 else 0)
                      | (X if 11 <= f < 14 else 0), 60)[1] == [6]

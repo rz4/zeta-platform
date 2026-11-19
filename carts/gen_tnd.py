@@ -1097,7 +1097,7 @@ p.emit("load 1").push(spec.PAD_START | spec.PAD_A).emit("and").push(0).emit("eq"
 p.load(PV).push(spec.PAD_START | spec.PAD_A).emit("and", "or").push(0).emit("eq")
 p.emit(f"jz {L_MUSIC}")
 p.set(int(MODE), 1).set(spec.BG_SRC, 0).set(spec.CO_BASE, 0)
-p.set(GT["carve"], 100)                 # a held A is not the first jab
+p.set(GT["carve"], 100).set(GC["carve"], 1)   # the A that left the title is spent
 p.emit(f"jmp {L_MUSIC}")
 p.mark(f"{tl}_fight")
 p.load(PX).store(AR["ox"]).load(PZ).store(AR["oz"])     # where he stood
@@ -1113,9 +1113,14 @@ p.mark(f"{L['frozen']}_no")
 
 # ---- THE GRAMMAR (combat.Grammar, combat.resolve) ----------------------------
 # Four actions on the face buttons: A carve (the string), B special, X jump,
-# Y shoot. A TAP is a release within 9 frames; a CHORD is two buttons down
-# within 3 frames of each other, read once, and neither then taps -- which
-# is why the tap waits for the release: carve+jump must not also jab.
+# Y shoot. A CHORD is two buttons down within 3 frames of each other, read
+# once, and neither then taps. A TAP of carve or special fires on release
+# or at the fourth frame held, whichever comes first, if no chord took it.
+# (The archive reads a tap as a release within 9 frames -- a keyboard's
+# tap. On the Pocket a thumb holds a button longer than that, and every
+# press read as a HOLD, which carve and special have no use for: on glass
+# the string and the haymaker did nothing at all. Waiting out the chord
+# window is all a tap needs to wait for.)
 #   carve tap      the string (every tap swaps hands; the third a hook)
 #   special tap    the haymaker
 #   carve+jump     the rear uppercut, a launcher
@@ -1146,14 +1151,20 @@ for b, bit in BTN:
     if b in GTAP:
         p.set(GTAP[b], 0)
     p.emit("load 1").push(bit).emit("and", f"jz {up}")
-    p.addi(GT[b], 1).emit(f"jmp {done}")
+    p.addi(GT[b], 1)
+    if b in GTAP:          # held past the chord window, unchorded: it fires
+        hd = p.label("g_hd")
+        p.load(GC[b]).emit(f"jz {hd}_c", f"jmp {done}")
+        p.mark(f"{hd}_c")
+        p.load(GT[b]).push(CHORD_SLOP + 1).emit("eq", f"jz {done}")
+        p.set(GTAP[b], 1).set(GC[b], 1)                    # (spent)
+    p.emit(f"jmp {done}")
     p.mark(up)
     p.load(GT[b]).emit(f"jz {done}")                       # was it down?
-    if b in GTAP:                                           # released: a tap?
+    if b in GTAP:                     # released before that, unchorded: it fires
         nt = p.label("g_nt")
         p.load(GC[b]).emit(f"jz {nt}_c", f"jmp {nt}")
         p.mark(f"{nt}_c")
-        p.push(TAP_MAX + 1).load(GT[b]).emit("swap", "lt", f"jz {nt}")
         p.set(GTAP[b], 1)
         p.mark(nt)
     p.set(GT[b], 0).set(GC[b], 0)
