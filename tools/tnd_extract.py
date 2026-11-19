@@ -52,7 +52,8 @@ seqs["idle"] = [frozen(bm.idle_mesh(f / 60.0)) for f in range(120)]
 seqs["walk"] = [frozen(bm.walk_mesh(f / 32.0, "fwd")) for f in range(32)]
 # the swings, at the game's own timing: the clip stretched over the move's
 # startup + active + recovery, as tear.py draws it (t = frame / (total-1))
-for mv in ("jab", "cross", "lead_hook", "rear_hook"):
+for mv in ("jab", "cross", "lead_hook", "rear_hook", "special",
+           "lead_uppercut", "rear_uppercut"):
     n = TOTAL[mv]
     seqs[mv] = [frozen(bm.move_mesh(mv, f / (n - 1))) for f in range(n)]
 out = {"F": F, "C": C}
@@ -193,13 +194,14 @@ out["moves"] = np.array([[combat.CROSS.startup, combat.CROSS.active, combat.CROS
 # at GUARD (a reach of 1.4-1.55 dwarfs how far they move).
 def move_row(m):
     return [m.startup, m.active, m.recovery, m.damage, m.reach, m.hitstop,
-            m.knock, m.lunge]
+            m.knock, m.lunge, m.lift]
 def fists(sk, m):
     return np.array([sk.point(m.limb, m.pose_at(f))
                      for f in range(m.startup, m.startup + m.active)])
 player = rig.fighter(rig.Build(body=(38, 52, 96), trim=(255, 214, 92),
                                skin=(226, 178, 140)))   # tear.py's player
-PM = (combat.JAB, combat.CROSS, combat.LEAD_HOOK, combat.REAR_HOOK)
+PM = (combat.JAB, combat.CROSS, combat.LEAD_HOOK, combat.REAR_HOOK,
+      combat.SPECIAL, combat.LEAD_UPPERCUT, combat.REAR_UPPERCUT)
 out["p_moves"] = np.array([move_row(m) for m in PM], float)
 for m in PM:
     out["p_fist_" + m.name] = fists(player, m)

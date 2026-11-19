@@ -50,7 +50,8 @@ FLIP = True                     # winding, after the left-handed mirror
 
 d = np.load(BAKE)
 F, C = d["F"], d["C"]
-SEQS = ("idle", "walk", "jab", "cross", "lead_hook", "rear_hook")
+SEQS = ("idle", "walk", "jab", "cross", "lead_hook", "rear_hook", "special",
+        "lead_uppercut", "rear_uppercut")
 
 
 def to_zeta(V):
@@ -669,25 +670,33 @@ def zq(v):
     return [int(round(c * ONE)) for c in MZ @ np.asarray(v, float)]
 
 
-PMN = ("jab", "cross", "lead_hook", "rear_hook")
+PMN = ("jab", "cross", "lead_hook", "rear_hook", "special", "lead_uppercut",
+       "rear_uppercut")
 DMN = ("cross", "lead_hook")
 # a move row: startup, end of active, total, damage, head damage (x1.35),
 # reach^2, hitstop, knock, lunge, its first pose in the bank, its fists
 MROW = ("start", "endact", "total", "dmg", "dmgh", "reach2", "stop",
-        "knock", "lunge", "pose", "fist")
+        "knock", "lunge", "pose", "lift", "air", "fist")
+GRAV = 0.014                    # tear.py: the aerial system's own gravity
+GRAVQ = int(round(GRAV * ONE))
+AIR_FLOAT = int(round(0.12 * ONE))   # tear.py AIR_HIT_FLOAT
+AIR_HANG = 26                        # tear.py AIR_HIT_HANG
 MR = {k: i for i, k in enumerate(MROW)}
 
 
 def move_rows(rows, fists, pose_of=None):
     out, fist_words, at = [], [], []
     for k, r in enumerate(rows):
-        su, ac, rc, dmg, reach, stop, knock, lunge = r
+        su, ac, rc, dmg, reach, stop, knock, lunge, lift = r
         at.append(len(fist_words))
         fist_words += [w for f in fists[k] for w in zq(f)]
+        # a LAUNCHER keeps its target helpless the whole arc: up and down
+        # is 2 lift / g frames, and a beat (tear.py _resolve_hits)
+        air = int(2 * lift / GRAV) + 6 if lift else 0
         out.append([int(su), int(su + ac), int(su + ac + rc), int(dmg),
                     int(dmg * 1.35), int(round(reach ** 2 * ONE)), int(stop),
                     int(round(knock * ONE)), int(round(lunge * ONE)),
-                    pose_of(k) if pose_of else 0, 0])
+                    pose_of(k) if pose_of else 0, int(round(lift * ONE)), air, 0])
     return out, fist_words, at
 
 
@@ -715,7 +724,8 @@ NMR = len(MROW)
 #       3 falling, 4 gone
 DF = {f: k for k, f in enumerate(
     ("x", "z", "h8", "hp", "st", "mf", "mv", "ai", "wf", "mov", "alt", "cf",
-     "hs", "stop", "vx", "vz", "con", "dt", "jt", "kp", "mt", "ox", "oz"))}
+     "hs", "stop", "vx", "vz", "con", "dt", "jt", "kp", "mt", "ox", "oz",
+     "py", "vy"))}
 NF = len(DF)
 DMASS = [0.85 + 0.55 * b for b in (1.40, 0.85, 1.40)]   # tear.py: e.mass
 DHP = 70
@@ -765,7 +775,7 @@ L_VIS = p.label("vis")
 L_ARENA = p.label("arena")
 L_COPY, L_WPT, L_D2, L_DMIND = (p.label(k) for k in ("copy", "wpt", "d2", "dmind"))
 CP = {k: cart.var("cp_" + k) for k in ("src", "dst", "n")}
-W = {k: cart.var("w_" + k) for k in ("k", "bx", "bz", "c", "s", "x", "y", "z",
+W = {k: cart.var("w_" + k) for k in ("k", "bx", "bz", "c", "s", "x", "y", "z", "oy",
                                      "qx", "qy", "qz", "dc", "dg", "d2", "head",
                                      "dmg", "stop")}
 # THE STREET IS THE ARENA (tear.py _in_arena, the movement clamp): the
@@ -866,10 +876,8 @@ def sound_blow(head_cell):
 # THE STRING (combat.resolve): every tap of A alternates the hands -- jab,
 # cross, jab -- and every third tap of a string (taps within 22 frames)
 # cashes out as a hook off the next hand. A tap during a swing is BUFFERED
-# for 10 frames and thrown the moment the swing ends. (The archive reads a
-# tap on release, to tell it from a hold; nothing on A is a hold yet, so
-# this reads the press -- a frame of latency the archive paid and this
-# does not.)
+# for 10 frames and thrown the moment the swing ends. A tap is read on
+# RELEASE, as the archive reads it -- see THE GRAMMAR below.
 F = {k: cart.var("f_" + k) for k in
      ("hs", "stop", "vx", "vz", "con", "ltap", "c3", "alt", "buf", "bmv",
       "mv", "dead", "shake", "act", "fx", "fy", "fz", "pc", "ps", "fight",
@@ -908,13 +916,81 @@ p.load(F["stop"]).emit(f"jz {L['frozen']}_no")
 p.addi(F["stop"], -1).emit(f"jmp {L['frozen']}")
 p.mark(f"{L['frozen']}_no")
 
-# ---- a tap: the string decides the move, the buffer holds it -----------------
+# ---- THE GRAMMAR (combat.Grammar, combat.resolve) ----------------------------
+# Four actions on the face buttons: A carve (the string), B special, X jump,
+# Y shoot. A TAP is a release within 9 frames; a CHORD is two buttons down
+# within 3 frames of each other, read once, and neither then taps -- which
+# is why the tap waits for the release: carve+jump must not also jab.
+#   carve tap      the string (every tap swaps hands; the third a hook)
+#   special tap    the haymaker
+#   carve+jump     the rear uppercut, a launcher
+#   shoot+special  the lead uppercut, a launcher
+# (jump and shoot alone -- the jump and the gun -- come after the game
+# ships, with the air layer; their buttons already chord.)
+BTN = (("carve", spec.PAD_A), ("special", spec.PAD_B),
+       ("jump", spec.PAD_X), ("shoot", spec.PAD_Y))
+GT = {b: cart.var("g_t_" + b) for b, _ in BTN}       # frames held, 0 = up
+GC = {b: cart.var("g_c_" + b) for b, _ in BTN}       # read as a chord
+GTAP = {b: cart.var("g_tap_" + b) for b in ("carve", "special")}
+TAP_MAX, CHORD_SLOP = 9, 3
+MOVE = {n: i for i, n in enumerate(PMN)}
+
+
+def choose(mv_const=None, mv_cell_ops=None):
+    """the move is decided at the input and BUFFERED (tear.py f.press)"""
+    if mv_const is not None:
+        p.push(mv_const)
+    else:
+        p.emit(*mv_cell_ops)
+    p.store(F["bmv"])
+    p.set(F["buf"], BUFFER)
+
+
 p.addi(F["ltap"], 1)
 p.load(F["buf"]).emit(f"jz {L['nobuf']}")
 p.addi(F["buf"], -1)
 p.mark(L["nobuf"])
-fresh(spec.PAD_A)
-p.emit(f"jz {L['notap']}")
+for b, bit in BTN:
+    up, done = p.label("g_up"), p.label("g_d")
+    if b in GTAP:
+        p.set(GTAP[b], 0)
+    p.emit("load 1").push(bit).emit("and", f"jz {up}")
+    p.addi(GT[b], 1).emit(f"jmp {done}")
+    p.mark(up)
+    p.load(GT[b]).emit(f"jz {done}")                       # was it down?
+    if b in GTAP:                                           # released: a tap?
+        nt = p.label("g_nt")
+        p.load(GC[b]).emit(f"jz {nt}_c", f"jmp {nt}")
+        p.mark(f"{nt}_c")
+        p.push(TAP_MAX + 1).load(GT[b]).emit("swap", "lt", f"jz {nt}")
+        p.set(GTAP[b], 1)
+        p.mark(nt)
+    p.set(GT[b], 0).set(GC[b], 0)
+    p.mark(done)
+
+
+def chord(a, b, move):
+    """both fresh (down 1..3 frames), neither yet read as a chord"""
+    no = p.label("g_ch")
+    for x in (a, b):
+        p.load(GC[x]).emit(f"jz {no}_{x}", f"jmp {no}")
+        p.mark(f"{no}_{x}")
+        p.load(GT[x]).emit(f"jz {no}")
+        p.push(CHORD_SLOP + 1).load(GT[x]).emit("swap", "lt", f"jz {no}")
+    p.set(GC[a], 1).set(GC[b], 1)
+    choose(MOVE[move])
+    p.mark(no)
+
+
+chord("carve", "jump", "rear_uppercut")
+chord("shoot", "special", "lead_uppercut")
+# the special: its own tap
+sp = p.label("g_sp")
+p.load(GTAP["special"]).emit(f"jz {sp}")
+choose(MOVE["special"])
+p.mark(sp)
+# the carve string
+p.load(GTAP["carve"]).emit(f"jz {L['notap']}")
 p.load(F["ltap"]).push(STRING).emit("lt", f"jz {L['brk']}")
 p.addi(F["c3"], 1)
 p.emit(f"jmp {L['brk']}_d")
@@ -924,13 +1000,12 @@ p.mark(f"{L['brk']}_d")
 p.set(F["ltap"], 0)
 p.load(F["c3"]).push(3).emit("eq", f"jz {L['hook']}")
 p.set(F["c3"], 0)                                 # third tap: the hook
-p.load(F["alt"]).push(2).emit("add").store(F["bmv"])   # 2 lead, 3 rear
+choose(mv_cell_ops=(f"load {int(F['alt'])}", "push 2", "add"))   # 2 lead, 3 rear
 p.emit(f"jmp {L['tapd']}")
 p.mark(L["hook"])
 p.load(F["alt"]).push(1).emit("xor").store(F["alt"])
-p.load(F["alt"]).store(F["bmv"])                  # 0 jab, 1 cross
+choose(mv_cell_ops=(f"load {int(F['alt'])}",))    # 0 jab, 1 cross
 p.mark(L["tapd"])
-p.set(F["buf"], BUFFER)
 p.mark(L["notap"])
 
 # ---- stunned: no will of his own, only the blow's momentum ------------------
@@ -1061,6 +1136,7 @@ row(PMT, F["mv"], "start")
 p.emit("sub").push(3).emit("mul", "add").store(W["k"])
 for a, b in (("bx", PX), ("bz", PZ), ("c", F["pc"]), ("s", F["ps"])):
     p.load(b).store(W[a])
+p.set(W["oy"], 0)
 p.emit(f"call {L_WPT}")
 for a, b in (("x", "fx"), ("y", "fy"), ("z", "fz")):
     p.load(W[a]).store(F[b])
@@ -1185,7 +1261,7 @@ keep_in_arena(PX, PZ, AR["ox"], AR["oz"])          # a shove cannot either
 
 FK = {k: cart.var("fk_" + k) for k in
       ("x", "z", "yaw", "jt", "cf", "j", "rp", "pp", "a", "ra",
-       "vx", "vy", "vz", "q", "t", "s", "c", "flags")}
+       "vx", "vy", "vz", "q", "t", "s", "c", "flags", "y")}
 # THE FLASH (tear.py t.flash): the struck body goes blood-red for the
 # blow's first frames. OBJ_OTINT can only darken, so it is red at full and
 # green and blue cut to a third -- a cast, not a strobe.
@@ -1273,6 +1349,7 @@ for d in range(3 if "demons" not in OMIT else 0):     # the demons, last
         p.load(dslot(d, f)).store(FK[c])
     p.load(dslot(d, "h8")).emit("shr 8").store(FK["yaw"])
     p.load(dslot(d, "jt")).store(FK["jt"])
+    p.load(dslot(d, "py")).store(FK["y"])
     flash_flags(dslot(d, "hs"), FK["flags"])
     gone = p.label("gone")
     p.load(dslot(d, "st")).push(4).emit("eq", f"jz {gone}_n", f"jmp {gone}")
@@ -1403,7 +1480,7 @@ p.emit("ret")
 # own model->world turn, so a key and the drawn body agree.
 p.mark(L_WPT)
 p.load(W["k"]).emit("loadi").store(W["x"])        # lx
-p.load(W["k"]).push(1).emit("add", "loadi").store(W["y"])
+p.load(W["k"]).push(1).emit("add", "loadi").load(W["oy"]).emit("add").store(W["y"])
 p.load(W["k"]).push(2).emit("add", "loadi").store(W["z"])   # lz
 p.load(W["x"]).load(W["c"]).emit("mulq").load(W["z"]).load(W["s"]).emit("mulq", "sub")
 p.load(W["x"]).load(W["s"]).emit("mulq").load(W["z"]).load(W["c"]).emit("mulq", "add")
@@ -1482,6 +1559,7 @@ p.load(F["act"]).emit(f"jz {lab['noA']}")
 p.load(ST).push(3).emit("lt", f"jz {lab['noA']}")    # the fallen are past it
 for a, b in (("qx", "fx"), ("qy", "fy"), ("qz", "fz")):
     p.load(F[b]).store(W[a])
+p.load(cur("py")).store(W["oy"])                 # struck where it is: aloft
 nearest((f"load {cur('kp')}",), X, Z, t["c"], t["s"])
 p.load(W["d2"])
 row(PMT, F["mv"], "reach2")
@@ -1494,6 +1572,24 @@ p.load(W["stop"]).push(12).emit("add").store(cur("hs"))
 p.set(F["con"], 1).set(F["act"], 0).set(F["fight"], 1)
 sound_blow(W["head"])
 p.set(ST, 2).set(MF, 0)                         # a hit stops a swing
+# THE LAUNCHER sends it up, helpless the whole arc; any OTHER blow on a
+# body already aloft floors its rise to a nudge and refreshes its stun
+# (tear.py AIR_HIT_FLOAT / AIR_HIT_HANG) -- so a string keeps it there
+lw, la = p.label("lift"), p.label("airh")
+row(PMT, F["mv"], "lift")
+p.emit("dup", f"jz {lw}_no")
+p.store(cur("vy"))
+row(PMT, F["mv"], "air")
+p.store(cur("hs")).emit(f"jmp {lw}")
+p.mark(f"{lw}_no")
+p.emit("drop")
+p.load(cur("py")).emit(f"jz {lw}")
+p.load(cur("vy")).push(AIR_FLOAT).emit("lt", f"jz {la}")
+p.set(cur("vy"), AIR_FLOAT)
+p.mark(la)
+p.load(cur("hs")).push(AIR_HANG).emit("lt", f"jz {lw}")
+p.set(cur("hs"), AIR_HANG)
+p.mark(lw)
 for vel, trig, neg in ((cur("vx"), F["ps"], True), (cur("vz"), F["pc"], False)):
     p.load(trig)
     row(PMT, F["mv"], "knock")
@@ -1511,6 +1607,16 @@ p.mark(lab["frz"])
 for pos, vel in ((X, cur("vx")), (Z, cur("vz"))):
     p.load(pos).load(vel).emit("add").store(pos)
     p.load(vel).push(FRIC).emit("mulq").store(vel)
+# ALOFT: the arc under the aerial gravity, down to the street (tear.py
+# _enemy_vertical)
+gr = p.label("grav")
+p.load(cur("py")).load(cur("vy")).emit("or", f"jz {gr}")
+p.load(cur("vy")).push(GRAVQ).emit("sub").store(cur("vy"))
+p.load(cur("py")).load(cur("vy")).emit("add").store(cur("py"))
+p.push(0).load(cur("py")).emit("lt", f"jz {gr}_floor", f"jmp {gr}")
+p.mark(f"{gr}_floor")
+p.set(cur("py"), 0).set(cur("vy"), 0)
+p.mark(gr)
 p.load(ST).push(3).emit("eq", f"jz {lab['fall']}")
 # FALLING: the archive's collapse (HURT -> DOWN, 26 frames, baked at 30 Hz),
 # then down a beat and gone
@@ -1631,6 +1737,7 @@ row(cur("mt"), MV, "start", const_table=False)
 p.emit("sub").push(3).emit("mul", "add").store(W["k"])
 for a, b in (("bx", X), ("bz", Z), ("c", t["c"]), ("s", t["s"])):
     p.load(b).store(W[a])
+p.set(W["oy"], 0)
 p.emit(f"call {L_WPT}")
 for a, b in (("qx", "x"), ("qy", "y"), ("qz", "z")):
     p.load(W[b]).store(W[a])
@@ -1729,7 +1836,7 @@ for k, c in enumerate(("vx", "vy", "vz")):
 rot2(FK["vx"], FK["vz"], FK["yaw"])
 p.object(NOBJ, (f"load {int(FK['rp'])}", "push 5", "add", "loadi"),
          (f"load {int(FK['vx'])}", f"load {int(FK['x'])}", "add"),
-         (f"load {int(FK['vy'])}",),
+         (f"load {int(FK['vy'])}", f"load {int(FK['y'])}", "add"),
          (f"load {int(FK['vz'])}", f"load {int(FK['z'])}", "add"),
          (f"load {int(FK['a'])}", "push -1024", "and",
           f"load {int(FK['a'])}", f"load {int(FK['yaw'])}", "add",

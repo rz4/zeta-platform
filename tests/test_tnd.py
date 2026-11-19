@@ -72,7 +72,8 @@ def test_both_machines_play_the_fighter():
 # The wave's cells are read by NAME from the cart's own symbol comments
 # (the forge assigns addresses), with gen_tnd.py's field order.
 FIELDS = ("x", "z", "h8", "hp", "st", "mf", "mv", "ai", "wf", "mov", "alt", "cf",
-          "hs", "stop", "vx", "vz", "con", "dt", "jt", "kp", "mt", "ox", "oz")
+          "hs", "stop", "vx", "vz", "con", "dt", "jt", "kp", "mt", "ox", "oz",
+          "py", "vy")
 
 
 def _sym(name):
@@ -313,3 +314,35 @@ def test_a_blow_is_heard():
         m.frame(0)
     assert int(np.abs(np.asarray(m.audio(), dtype=np.int64)).max()) == 0, \
         "the blow never ended"
+
+
+def test_the_grammar_taps_on_release_and_reads_chords():
+    """combat.Grammar: a TAP is a release within 9 frames (a long hold is
+    not one); B taps the special; two buttons down within 3 frames are a
+    CHORD, read once, and neither of them taps -- carve+jump is the rear
+    uppercut and NOT a jab, shoot+special the lead uppercut."""
+    A, B, X, Y = spec.PAD_A, spec.PAD_B, spec.PAD_X, spec.PAD_Y
+    assert _launches(lambda f: A if 10 <= f < 13 else 0, 60)[1] == [1]
+    assert _launches(lambda f: A if 10 <= f < 26 else 0, 60)[1] == []
+    assert _launches(lambda f: B if 10 <= f < 12 else 0, 60)[1] == [4]
+    assert _launches(lambda f: (A if 10 <= f < 14 else 0)
+                     | (X if 11 <= f < 14 else 0), 60)[1] == [6]
+    assert _launches(lambda f: (Y if 10 <= f < 14 else 0)
+                     | (B if 12 <= f < 14 else 0), 60)[1] == [5]
+
+
+def test_the_uppercut_launches():
+    """A launcher sends its target up -- 0.45 a frame against the aerial
+    gravity of 0.014 is seven units -- helpless the whole arc, and down."""
+    m = cabinet.VirtualMachine(cabinet.load_cart(CART))
+    peak, landed = 0.0, False
+    for f in range(480):
+        m.frame((spec.PAD_RIGHT if 300 <= f < 308 else 0)
+                | ((spec.PAD_A | spec.PAD_X) if 322 <= f < 325 else 0))
+        w = _wave(m)[0]
+        peak = max(peak, w["py"] / 65536)
+        if peak > 5 and w["py"] == 0:
+            landed = True
+            break
+    assert peak > 6.5, f"the brute rose only {peak:.2f}"
+    assert landed, "the brute never came down"

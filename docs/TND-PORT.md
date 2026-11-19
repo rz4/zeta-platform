@@ -151,10 +151,35 @@ crossing; when he falls, the frame darkens and A is a new run.
                             tour 668k / 459k (6 of 900 over 90%, none
                             over 100%)
 
-Still to come in P4: the uppercuts (the two chords), the body shots, the
-special, the cancel lattice, demons' head-versus-gut reactions, and
-sound for the blows (P5's SFX, wanted sooner). IMEM is the next wall:
-3,535 of 4,096 words.
+**The rest of the archive's reachable moveset (P4b):**
+
+    grammar      combat.Grammar on four face buttons -- A carve, B special,
+                 X jump, Y shoot. A TAP is a release within 9 frames (a
+                 long hold is not one); a CHORD is two buttons down within
+                 3 frames, read once, and neither taps -- so carve+jump is
+                 the rear uppercut and never also a jab.
+    special      B: the haymaker -- 20 frames of coil, 46 damage, reach
+                 2.4, a 28-frame hitstop.
+    uppercuts    carve+jump (rear), shoot+special (lead): LAUNCHERS. The
+                 target goes up at 0.45 a frame against the aerial gravity
+                 (0.014) -- seven units -- helpless the whole arc (2 lift /
+                 g + 6 frames). A blow on a body already aloft floors its
+                 rise to 0.12 and refreshes its stun (AIR_HIT_FLOAT /
+                 AIR_HIT_HANG), so a string keeps it up. It is drawn and
+                 struck where it is: aloft.
+    unreached    the body jab and body cross are in the archive's move
+                 table but its grammar never maps them, so they stay out.
+    sound        the blow, heard: sfx.meat_impact as a slap (noise at a
+                 12 kHz step, switched at sample 192 exactly by the event
+                 list), the meat, a falling triangle thump and a pulse
+                 ring; a head shot brighter and shorter.
+    memory       IMEM 2,936 of 4,096 (the street's visibility test became
+                 one loop over a table: -889 words). DMEM: the forge now
+                 offers the 536 words above the loader's mirror that the
+                 law never legislated.
+
+Still to come in P4: the cancel lattice (which moves may cut which
+recovery), and the demons reading head versus gut. Then P5 and P6.
 
 ## The frame, measured (2026-11-19)
 
