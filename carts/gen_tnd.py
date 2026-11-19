@@ -676,7 +676,7 @@ DMN = ("cross", "lead_hook")
 # a move row: startup, end of active, total, damage, head damage (x1.35),
 # reach^2, hitstop, knock, lunge, its first pose in the bank, its fists
 MROW = ("start", "endact", "total", "dmg", "dmgh", "reach2", "stop",
-        "knock", "lunge", "pose", "lift", "air", "cancels", "fist")
+        "knock", "lunge", "pose", "lift", "air", "cancels", "style", "fist")
 GRAV = 0.014                    # tear.py: the aerial system's own gravity
 GRAVQ = int(round(GRAV * ONE))
 AIR_FLOAT = int(round(0.12 * ONE))   # tear.py AIR_HIT_FLOAT
@@ -687,7 +687,7 @@ MR = {k: i for i, k in enumerate(MROW)}
 def move_rows(rows, fists, pose_of=None, cancels=None):
     out, fist_words, at = [], [], []
     for k, r in enumerate(rows):
-        su, ac, rc, dmg, reach, stop, knock, lunge, lift = r
+        su, ac, rc, dmg, reach, stop, knock, lunge, lift, style = r
         at.append(len(fist_words))
         fist_words += [w for f in fists[k] for w in zq(f)]
         # a LAUNCHER keeps its target helpless the whole arc: up and down
@@ -697,7 +697,7 @@ def move_rows(rows, fists, pose_of=None, cancels=None):
                     int(dmg * 1.35), int(round(reach ** 2 * ONE)), int(stop),
                     int(round(knock * ONE)), int(round(lunge * ONE)),
                     pose_of(k) if pose_of else 0, int(round(lift * ONE)), air,
-                    cancels[k] if cancels else 0, 0])
+                    cancels[k] if cancels else 0, int(style), 0])
     return out, fist_words, at
 
 
@@ -877,6 +877,41 @@ def sound_blow(head_cell):
     p.load(head_cell).store(SFX_H)
 
 
+
+# ---- P5: STYLE (combat.Style) -- variety pays, repetition does not -----------
+# A landed blow pays its move's style x the VARIETY of it (1, 0.6, 0.4, 0.25
+# as it recurs in the last five) x the combo (+5% a hit, to twenty). A
+# blow taken keeps 45% and breaks the combo; standing about bleeds it.
+# Ranks D C B A S SS SSS at 0 60 150 300 520 800 1200. Points are kept
+# x16 (the archive's 0.6-a-frame bleed is 9.6 of them); no divider, so the
+# combo's /400 is a multiply by its reciprocal.
+RANKS = ("D", "C", "B", "A", "S", "SS", "SSS")
+RANK_AT = (0, 60, 150, 300, 520, 800, 1200)
+RANK_RGB = (0x96919A, 0xAA8C78, 0x8C96AA, 0x96AA82, 0xC8A05A, 0xCD6E3C, 0xB92828)
+SY = {k: cart.var("s_" + k) for k in ("pts", "combo", "idle", "rp", "rank",
+                                       "best", "cnt", "src", "dst", "dx", "n",
+                                       "g", "rgb")}
+S_REC = cart.data(Table([255] * 5), "s_recent")
+S_SHOWN = cart.data(Table([255]), "s_shown")             # 255: draw afresh
+S_AT = cart.data(Table([a * 16 for a in RANK_AT] + [1 << 30]), "s_rank_at")
+S_MULT = cart.data(Table([20, 12, 8, 5]), "s_mult")      # x/20
+BAR_W = 100
+S_FAC = cart.data(Table([int(BAR_W * ONE / ((RANK_AT[r + 1] - RANK_AT[r]) * 16))
+                         for r in range(6)] + [0]), "s_bar")
+S_RGB = cart.data(Table(list(RANK_RGB)), "s_rgb")
+# the letters, baked once at the origin; the HUD copies them into place
+# (an S three times is SSS) and paints each in its rank's colour
+GLYPH = {c: cart.data(Text(c, 0, 0, scale=3), "g_" + c) for c in "DCBAS"}
+GW = 4 * 3                                               # a 3x5 glyph + 1, x3
+_rows = []
+for r in RANKS:
+    x0 = 310 - GW * len(r)                               # right-aligned
+    row_ = [len(r)]
+    for k, c in enumerate(r):
+        row_ += [int(GLYPH[c]), x0 + k * GW]
+    _rows += row_ + [0] * (7 - len(row_))
+S_GL = cart.data(Table(_rows), "s_glyphs")
+S_Y = 10
 
 # ---- P4: THE FIGHT ----------------------------------------------------------
 # tear.py, in integers. A move LANDS when the attacker's posed fist, in its
@@ -1110,6 +1145,7 @@ p.load(F["dead"]).push(6).emit("mul").store(F["tilt"])    # to ~89 degrees
 p.mark(f"{L['dead']}_t")
 p.load(F["dead"]).push(DEATH_BEAT).emit("eq", f"jz {L['dead']}_s")
 p.set_text(TEXT_RETRY)
+p.set(int(S_SHOWN), 255)
 p.mark(f"{L['dead']}_s")
 p.push(DEATH_BEAT).load(F["dead"]).emit("lt")
 fresh(spec.PAD_A)
@@ -1118,7 +1154,9 @@ p.emit("and", f"jz {L['frozen']}")
 for c, v in ((PX, 0), (PZ, 0), (YAW, 0), (CY, 0), (ANIM, 0), (AF, 0),
              (PHP, 140), (F["dead"], 0), (F["tilt"], 0), (F["hs"], 0),
              (F["stop"], 0), (F["vx"], 0), (F["vz"], 0), (F["buf"], 0),
-             (F["c3"], 0), (F["fight"], 0), (F["wave"], 0), (SFX_T, SFX_N)):
+             (F["c3"], 0), (F["fight"], 0), (F["wave"], 0), (SFX_T, SFX_N),
+             (SY["pts"], 0), (SY["combo"], 0), (SY["idle"], 0), (int(S_SHOWN), 255),
+             *((int(S_REC) + i, 255) for i in range(5))):
     p.set(c, v)
 p.hide_text()
 p.push(int(SPAWN)).store(CP["src"]).push(int(DS)).store(CP["dst"])
@@ -1389,14 +1427,81 @@ for d in range(3 if "demons" not in OMIT else 0):     # the demons, last
     p.mark(gone)
 p.load(NOBJ).store(spec.OL_BASE)
 
+# ---- the style meter's frame: bleed, rank, best ------------------------------
+sb = p.label("sbleed")
+p.load(F["dead"]).emit(f"jz {sb}_a", f"jmp {sb}")
+p.mark(f"{sb}_a")
+p.addi(SY["idle"], 1)
+p.push(90).load(SY["idle"]).emit("lt", f"jz {sb}_45")
+p.load(SY["pts"]).push(35).emit("sub").store(SY["pts"])      # 2.2 a frame
+p.set(SY["combo"], 0).emit(f"jmp {sb}_c")
+p.mark(f"{sb}_45")
+p.push(45).load(SY["idle"]).emit("lt", f"jz {sb}")
+p.load(SY["pts"]).push(10).emit("sub").store(SY["pts"])      # 0.6 a frame
+p.mark(f"{sb}_c")
+p.load(SY["pts"]).push(0).emit("lt", f"jz {sb}")
+p.set(SY["pts"], 0)
+p.mark(sb)
+# the rank: how many thresholds past the first the points have reached
+rk = p.label("rank")
+p.set(SY["rank"], 0).push(int(S_AT) + 1).store(SY["src"])
+p.mark(rk)
+p.load(SY["src"]).emit("loadi").load(SY["pts"]).emit("swap", "lt", f"jz {rk}_e")
+p.emit(f"jmp {rk}_e2")
+p.mark(f"{rk}_e")
+p.addi(SY["rank"], 1).addi(SY["src"], 1)
+p.load(SY["rank"]).push(6).emit("lt", f"jz {rk}_e2", f"jmp {rk}")
+p.mark(f"{rk}_e2")
+
+# ---- the rank on glass: composed into the display list when it changes ------
+gl = p.label("glyphs")
+p.load(F["fight"]).emit(f"jz {gl}")
+p.push(DEATH_BEAT - 1).load(F["dead"]).emit("lt", f"jz {gl}_alive", f"jmp {gl}")
+p.mark(f"{gl}_alive")
+p.load(SY["rank"]).push(int(S_SHOWN)).emit("loadi", "eq", f"jz {gl}_draw", f"jmp {gl}")
+p.mark(f"{gl}_draw")
+p.load(SY["rank"]).push(int(S_SHOWN)).emit("storei")
+p.push(int(S_RGB)).load(SY["rank"]).emit("add", "loadi").store(SY["rgb"])
+p.push(int(S_GL)).load(SY["rank"]).push(7).emit("mul", "add").store(SY["g"])
+p.load(SY["g"]).emit("loadi").store(SY["cnt"])
+p.push(spec.DL_BASE + 1).store(SY["dst"]).set(SY["n"], 0)
+gk = p.label("gk")
+p.mark(gk)
+p.load(SY["cnt"]).emit(f"jz {gk}_e")
+p.load(SY["g"]).push(1).emit("add", "loadi").store(SY["src"])      # glyph text
+p.load(SY["g"]).push(2).emit("add", "loadi").store(SY["dx"])
+p.addi(SY["g"], 2)
+p.load(SY["src"]).emit("loadi").store(CP["n"])                    # its triangles
+p.load(SY["n"]).load(CP["n"]).emit("add").store(SY["n"])
+p.addi(SY["src"], 1)
+gt = p.label("gt")
+p.mark(gt)
+p.load(CP["n"]).emit(f"jz {gt}_e")
+for k in range(spec.DL_STRIDE):          # x0 y0 x1 y1 x2 y2 rgb
+    p.load(SY["src"]).push(k).emit("add", "loadi")
+    if k == 6:
+        p.emit("drop").load(SY["rgb"])
+    elif k % 2 == 0:
+        p.load(SY["dx"]).emit("add")
+    else:
+        p.push(S_Y).emit("add")
+    p.load(SY["dst"]).push(k).emit("add", "storei")
+p.addi(SY["src"], spec.DL_STRIDE).addi(SY["dst"], spec.DL_STRIDE).addi(CP["n"], -1)
+p.emit(f"jmp {gt}")
+p.mark(f"{gt}_e")
+p.addi(SY["cnt"], -1).emit(f"jmp {gk}")
+p.mark(f"{gk}_e")
+p.load(SY["n"]).store(spec.DL_BASE)
+p.mark(gl)
+
 # ---- THE GAUGE (P6 dresses it): his health, on the compositor's free
 # rectangles, from the first blow either way -- an untouched opening is
 # the street and nothing else. And going down, the frame darkens -- to
 # 7/16, so the prompt (in the framebuffer, under the compositor) reads.
 HB = spec.CO_BASE + 1
 hud = p.label("hud")
-p.set(spec.CO_BASE, 3)
-p.push(0).store(HB + 2).push(0).store(HB + 5).push(0).store(HB + 8)
+p.set(spec.CO_BASE, 4)
+p.push(0).store(HB + 2).push(0).store(HB + 5).push(0).store(HB + 8).push(0).store(HB + 11)
 p.load(F["fight"]).emit(f"jz {hud}")
 p.rect(0, 8, 8, 110, 14, 0x100808, 12)
 p.push(9).load(PHP).push(183).emit("mul", "shr 8").push(9).emit("add")
@@ -1405,6 +1510,20 @@ p.set(HB + 4, 9 | (13 << 10))
 p.push(0).load(PHP).emit("lt", f"jz {hud}")
 p.push(16).emit("shl 24").push32(0xB02018).emit("or").store(HB + 5)
 p.mark(hud)
+# the meter toward the next rank, in the rank's colour (bottom right)
+mh = p.label("meter")
+p.load(F["fight"]).emit(f"jz {mh}")
+p.push(BAR_W).load(SY["rank"]).push(6).emit("eq", f"jz {mh}_p", f"jmp {mh}_w")
+p.mark(f"{mh}_p")
+p.emit("drop")
+p.load(SY["pts"]).push(int(S_AT)).load(SY["rank"]).emit("add", "loadi", "sub")
+p.push(int(S_FAC)).load(SY["rank"]).emit("add", "loadi", "mulq")
+p.mark(f"{mh}_w")
+p.push(208).emit("add", "shl 10").push(208).emit("or").store(HB + 9)
+p.set(HB + 10, 272 | (276 << 10))
+p.push(14).emit("shl 24").push(int(S_RGB)).load(SY["rank"]).emit("add", "loadi", "or")
+p.store(HB + 11)
+p.mark(mh)
 dk = p.label("dark")
 p.load(F["dead"]).emit(f"jz {dk}")
 p.set(HB + 6, 0 | (319 << 10)).set(HB + 7, 0 | (287 << 10))
@@ -1594,6 +1713,30 @@ p.store(F["shake"])
 p.load(W["stop"]).push(12).emit("add").store(cur("hs"))
 p.set(F["con"], 1).set(F["act"], 0).set(F["fight"], 1)
 sound_blow(W["head"])
+# STYLE: the blow pays its move's style x its variety x the combo
+p.set(SY["cnt"], 0)
+for i in range(5):
+    p.load(int(S_REC) + i).load(F["mv"]).emit("eq").load(SY["cnt"]).emit("add").store(SY["cnt"])
+cm = p.label("cmul")
+p.load(SY["cnt"]).push(3).emit("lt", f"jz {cm}_3")
+p.push(int(S_MULT)).load(SY["cnt"]).emit("add", "loadi", f"jmp {cm}")
+p.mark(f"{cm}_3")
+p.push(int(S_MULT) + 3).emit("loadi")
+p.mark(cm)
+row(PMT, F["mv"], "style")
+p.emit("mul")
+p.load(SY["combo"]).emit("dup").push(20).emit("lt", f"jz {cm}_c20", f"jmp {cm}_c")
+p.mark(f"{cm}_c20")
+p.emit("drop").push(20)
+p.mark(f"{cm}_c")
+p.push(20).emit("add", "mul").push(int(round(ONE / 25))).emit("mulq")   # x16/400
+p.load(SY["pts"]).emit("add").store(SY["pts"])
+p.addi(SY["combo"], 1).set(SY["idle"], 0)
+p.load(F["mv"]).push(int(S_REC)).load(SY["rp"]).emit("add", "storei")
+p.addi(SY["rp"], 1)
+p.load(SY["rp"]).push(5).emit("eq", f"jz {cm}_r")
+p.set(SY["rp"], 0)
+p.mark(f"{cm}_r")
 p.set(ST, 2).set(MF, 0)                         # a hit stops a swing
 # THE LAUNCHER sends it up, helpless the whole arc; any OTHER blow on a
 # body already aloft floors its rise to a nudge and refreshes its stun
@@ -1775,6 +1918,10 @@ p.store(F["shake"])
 p.load(W["stop"]).push(12).emit("add").store(F["hs"])
 p.set(cur("con"), 1).set(F["fight"], 1)
 sound_blow(W["head"])
+p.load(SY["pts"]).push(int(round(0.45 * ONE))).emit("mulq").store(SY["pts"])
+p.set(SY["combo"], 0)
+for i in range(5):
+    p.set(int(S_REC) + i, 255)
 p.set(ANIM, 3).set(F["buf"], 0)                   # his swing is broken
 for vel, trig, neg in ((F["vx"], t["s"], True), (F["vz"], t["c"], False)):
     p.load(trig)
@@ -1784,6 +1931,11 @@ p.push(0).load(PHP).emit("lt", f"jz {lab['noC']}_k")
 p.emit(f"jmp {lab['noC']}")
 p.mark(f"{lab['noC']}_k")
 p.set(F["dead"], 1).set(ANIM, 4).set(F["hs"], 0)  # he is down
+bst = p.label("best")
+p.load(SY["pts"]).emit("shr 4").load(SY["best"]).emit("lt", f"jz {bst}", f"jmp {bst}_k")
+p.mark(bst)
+p.load(SY["pts"]).emit("shr 4").store(SY["best"])        # tear.py: the best run
+p.mark(f"{bst}_k")
 p.mark(lab["noC"])
 p.emit("ret")
 

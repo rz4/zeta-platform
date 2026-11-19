@@ -362,3 +362,50 @@ def test_the_cancel_lattice():
     hook = _launches(lambda f: A if f in (10, 30, 50) else (B if f == 72 else 0), 140)[1]
     assert hook == [1, 0, 2, 4], hook
     assert _launches(lambda f: B if f == 10 else (A if f == 50 else 0), 120)[1] == [4]
+
+
+# ---- P5: style ---------------------------------------------------------------
+def test_style_climbs_with_variety_and_draws_its_rank():
+    """combat.Style: the string's blows pay their moves' style, the combo
+    adds to it, and the brute's beating reaches C (60) -- drawn top right
+    as composed display-list glyphs, in C's colour."""
+    m = cabinet.VirtualMachine(cabinet.load_cart(CART))
+    for f in range(483):
+        m.frame((spec.PAD_RIGHT if 300 <= f < 308 else 0)
+                | (spec.PAD_A if f >= 320 and f % 9 == 0 else 0))
+    assert _cell(m, "s_rank") == 1, f"rank {_cell(m, 's_rank')} after the beating"
+    assert _cell(m, "s_combo") >= 5
+    n = m.vm.dmem[spec.DL_BASE]
+    assert n > 0, "no rank letter on glass"
+    rgb = m.vm.dmem[spec.DL_BASE + 1 + 6] & 0xFFFFFF
+    assert rgb == 0xAA8C78, f"C painted {rgb:06x}"
+
+
+def test_a_blow_taken_keeps_45_percent_and_breaks_the_combo():
+    """Untouched, the wave's first blow lands on a known frame. On the
+    frame before, give him 100 style and a combo of 4 (and a fresh idle
+    count, so nothing bleeds): the blow leaves 45 and no combo. (The
+    first version of this witness waited for the blow with the meter
+    bleeding -- and passed on zero.)"""
+    dry = cabinet.VirtualMachine(cabinet.load_cart(CART))
+    for hit in range(600):
+        dry.frame(0)
+        if _s32(_cell(dry, "p_hp")) < 140:
+            break
+    else:
+        raise AssertionError("never struck")
+    m = cabinet.VirtualMachine(cabinet.load_cart(CART))
+    for f in range(hit):
+        m.frame(0)
+    for name, v in (("s_pts", 100 * 16), ("s_combo", 4), ("s_idle", 0)):
+        m.vm.dmem[_sym(name)] = v
+    landed_before = sum(w["con"] for w in _wave(m))
+    m.frame(0)
+    assert _s32(_cell(m, "p_hp")) < 140, "the blow moved"
+    k = sum(w["con"] for w in _wave(m)) - landed_before   # (the wave swings
+    assert k >= 1                                         # in step: up to 3)
+    assert _cell(m, "s_combo") == 0
+    want = 1600
+    for _ in range(k):
+        want = want * 29491 >> 16                         # x0.45 per blow
+    assert abs(_cell(m, "s_pts") - want) <= k, (k, _cell(m, "s_pts"), want)

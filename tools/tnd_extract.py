@@ -194,7 +194,7 @@ out["moves"] = np.array([[combat.CROSS.startup, combat.CROSS.active, combat.CROS
 # at GUARD (a reach of 1.4-1.55 dwarfs how far they move).
 def move_row(m):
     return [m.startup, m.active, m.recovery, m.damage, m.reach, m.hitstop,
-            m.knock, m.lunge, m.lift]
+            m.knock, m.lunge, m.lift, m.style]
 def fists(sk, m):
     return np.array([sk.point(m.limb, m.pose_at(f))
                      for f in range(m.startup, m.startup + m.active)])

@@ -185,7 +185,27 @@ crossing; when he falls, the frame darkens and A is a new run.
 
 P4 is the archive's grounded fight, complete: what remains of its combat
 is the air layer (the jump, the gun, juggles, the spike), deliberately
-after the game ships. Next: P5 (style and sound) and P6 (the shell).
+after the game ships.
+
+## P5 -- style and sound: STYLE LANDED
+
+    the meter    combat.Style in integers (points x16; the combo's /400 a
+                 multiply by its reciprocal -- there is no divider): a
+                 landed blow pays its move's style (jab 8 ... haymaker 70)
+                 x its variety (1, 0.6, 0.4, 0.25 as it recurs in the last
+                 five) x the combo (+5% a hit, to twenty); a blow taken
+                 keeps 45% (three at once, as the wave swings in step,
+                 keep 9%); idle past 45 frames bleeds 0.6 a frame, past 90
+                 2.2 and the combo. Ranks D to SSS at 0 / 60 / 150 / 300 /
+                 520 / 800 / 1200; the best run is kept for P6's save.
+    on glass     the rank top right in the archive's colours, composed
+                 into the display list from five baked glyphs (an S three
+                 times is SSS) when it changes; the meter toward the next
+                 rank on the compositor's fourth rectangle.
+
+Still to come in P5: the music (the archive's synth theme, its stems
+gated by rank) and the remaining SFX. DMEM is the wall now -- 30 words
+free -- so the music needs room made for it first.
 
 ## The frame, measured (2026-11-19)
 
