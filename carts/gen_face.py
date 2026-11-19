@@ -75,6 +75,16 @@ T_DISS = 300             # ...and begins to dissolve
 T_TURN, T_PAN = 360, 364
 T_FLASH, T_WHITE = 420, 446
 T_ZETA, T_STEP, T_END = 480, 12, 600
+# THE HANDOFF (SLICE stage 3): the mark holds a second after the chord,
+# then the film launches the shelf with the mover protocol of
+# carts/gen_shelf.py -- four descending DMA blocks, the program on the
+# last. Driven by REG_FRAME and IMMEDIATES ONLY: the film's variables
+# share the pool with its meshes and reach cell ~7500, inside the
+# blocks that land first, so any launch counter in DMEM would be
+# overwritten mid-launch. The machine rewrites REG_FRAME every frame
+# and nothing can clobber it. The film is a ROOT cart (it boots at
+# power-on, window 0), so the shelf's window is simply its base.
+T_LAUNCH = T_END + 60
 
 GREEN = 0x125C2E
 WHITE = 0xDCE2DA
@@ -511,7 +521,35 @@ def main():
     tw_c = cart.var("tw")
     rd_c = cart.var("rd")
 
+    # the shelf rides in the film's segment, AFTER every plate, so no
+    # offset the film already uses moves
+    SH_P, SH_D, SH_S = cart.shelve(HERE / "shelf.zol")
+    assert SH_D - SH_S > 0 and SH_P - SH_S > 0   # pre-compensated offsets
+                                                 # must stay presentable
     p = cart.program()
+
+    # ---- the handoff: from T_LAUNCH the film is only a launcher --------
+    film_l, fdone_l = p.label("film"), p.label("fdone")
+    p.push(T_LAUNCH - 1).load(spec.REG_FRAME).emit("lt", f"jz {film_l}")
+    # step k = REG_FRAME - T_LAUNCH + 1 ; dst = 16384 - 4096k
+    p.push(16384).load(spec.REG_FRAME).push(T_LAUNCH - 1).emit("sub")
+    p.push(4096).emit("mul", "sub")
+    p.emit("dup").store(spec.DMA_DST)
+    p.push(int(SH_D)).emit("add").store(spec.DMA_SRC)
+    p.push(spec.DMA_MAX).store(spec.DMA_LEN)
+    p.set(spec.DMA_GO, 1)
+    p.load(spec.REG_FRAME).push(T_LAUNCH + 3).emit("eq", f"jz {fdone_l}")
+    # the final step: the shelf's window is armed during this run, so
+    # this frame's own movers present PRE-COMPENSATED offsets (dst is 0)
+    p.push(int(SH_D) - SH_S).store(spec.DMA_SRC)
+    p.push(int(SH_P) - SH_S).store(spec.OVL_SRC)
+    p.set(spec.OVL_DST, 0)
+    p.push(spec.OVL_MAX).store(spec.OVL_LEN)
+    p.set(spec.OVL_GO, 1)
+    p.push(SH_S).store(spec.SEG_BASE)
+    p.mark(fdone_l)
+    p.emit("halt")
+    p.mark(film_l)
 
     def cap_hi(cell, x):
         q = p.label("chi")

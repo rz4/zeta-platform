@@ -23,7 +23,6 @@ TIMEOUT = 180  # seconds; the SLOW set is excluded below, not raced
 # Generators the gate must SKIP, each with the measured reason.
 SKIP = {
     "bunny":   "reads assets/ (gitignored source media) and takes argv",
-    "face":    "reads assets/ (the PS1 grey-alien sculpt is not ours to carry)",
     "hall":    "SLOW: path-traces its plate for minutes (ROADMAP item 25's own note)",
     "vessel":  "SLOW: path-traces its plate for minutes",
     "stream":  "takes argv: bakes PCM from a source file not in the tree",
@@ -45,6 +44,16 @@ EXPECTED_DRIFT = {
     "bootprobe": ".data 278/280 regenerate as 0 against a committed 3028548 "
                  "-- the generator embeds an environment-dependent value and "
                  "is not deterministic across machines. Seed or delete it.",
+}
+
+
+# Generators that read third-party source media, which lives in the
+# gitignored root assets/ -- gated wherever the media is present (a dev
+# machine), skipped where it legally cannot be (CI). The film matters
+# more than most: it now carries the shelf, so a TEAR change that is
+# not regenerated through gen_shelf AND gen_face ships a stale column.
+NEEDS_ASSET = {
+    "face": CARTS.parent / "assets" / "ps1low-poly-grey-alien.zip",
 }
 
 
@@ -77,6 +86,8 @@ def _regen(name: str) -> tuple[int, bytes, bytes, str]:
 @pytest.mark.parametrize("name", [n for n in _gens()
                                   if n not in SKIP and n not in EXPECTED_DRIFT])
 def test_generator_reproduces_its_cart(name):
+    if name in NEEDS_ASSET and not NEEDS_ASSET[name].exists():
+        pytest.skip(f"{NEEDS_ASSET[name].name} absent (third-party media)")
     rc, original, regenerated, err = _regen(name)
     assert rc == 0, f"gen_{name}.py exited {rc}: {err}"
     assert regenerated == original, (

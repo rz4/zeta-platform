@@ -40,13 +40,13 @@ jobs:
         run: |
           docker run --rm -v "$PWD":/work -w /work \
             ghcr.io/rz4/zeta-quartus:25.1std \
-            python3 infra/fit_ci.py carts/tear.zol
+            python3 infra/fit_ci.py carts/face.zol
       - name: stage the SD layout
         if: success()
         run: |
           docker run --rm -v "$PWD":/work -w /work \
             ghcr.io/rz4/zeta-quartus:25.1std \
-            python3 -c "import sys; sys.path.insert(0, '.'); from zeta import cabinet, deploy; deploy.run(cabinet.load_cart('carts/tear.zol'), 'tear')"
+            python3 -c "import sys; sys.path.insert(0, '.'); from zeta import cabinet, deploy; deploy.run(cabinet.load_cart('carts/face.zol'), 'face')"
       - name: upload the card
         if: success()
         uses: actions/upload-artifact@v4

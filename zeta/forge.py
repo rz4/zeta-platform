@@ -481,6 +481,42 @@ class Cart:
         p.write_text("\n".join(self.lines()) + "\n")
         return p
 
+    def shelve(self, path) -> tuple[Sym, Sym, int]:
+        """Place another cart's images in THIS cart's segment, ready for
+        the mover handoff (carts/gen_shelf.py has the launch protocol):
+        its segment first (if it has one), then its program (4096 words,
+        zero-padded), then its whole initial DMEM (16384 words).
+
+        Returns (program, dmem, segment base). The base is for the launch
+        to write into SEG_BASE on the final frame -- NEVER baked into the
+        DMEM image, which lands block by block: the block carrying 12262
+        arrives two steps early and would relocate the launch's own
+        remaining steps. A cart that uses the card, or sets SEG_BASE in
+        its own .data, cannot be shelved (SLOT_BASE is not law yet)."""
+        from . import asm
+        g = asm.assemble(Path(path))
+        if g["sd"]:
+            raise ForgeError(f"{path} uses the card -- SLOT_BASE is not "
+                             f"law yet, so it cannot be shelved")
+        dmem_img = [0] * spec.DMEM_WORDS
+        for a, v in g["dmem"].items():
+            dmem_img[int(a)] = v
+        if dmem_img[spec.SEG_BASE]:
+            raise ForgeError(f"{path} sets SEG_BASE in .data; a shelved "
+                             f"cart's window belongs to its launcher")
+        name = Path(path).stem
+        base = 0
+        if g["cram"]:
+            top = max(int(a) for a in g["cram"])
+            seg_img = [0] * (top + 1)
+            for a, v in g["cram"].items():
+                seg_img[int(a)] = v
+            base = int(self.cram(Table(seg_img), f"{name}_seg"))
+        prog_img = list(g["imem"]) + [0] * (spec.IMEM_WORDS - len(g["imem"]))
+        prog = self.cram(Table(prog_img), f"{name}_prog")
+        dmem = self.cram(Table(dmem_img), f"{name}_dmem")
+        return prog, dmem, base
+
     def report(self) -> str:
         used = self._next - self._lo
         free = self._hi - self._next

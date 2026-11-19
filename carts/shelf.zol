@@ -81,14 +81,17 @@
 ; game_seg: 1 words at 736
 .data 736 0
 
-; txsrc_10: 1 words at 737
+; saved_window: 1 words at 737
 .data 737 0
 
-; txdst_11: 1 words at 738
+; txsrc_10: 1 words at 738
 .data 738 0
 
-; txcnt_12: 1 words at 739
+; txdst_11: 1 words at 739
 .data 739 0
+
+; txcnt_12: 1 words at 740
+.data 740 0
 
 .cram 1 33554456 822083641 33554456 16777217 285212672 50331672 33554456 822083593 805306986 16777276 50331664 16777452
 .cram 13 50331665 16777312 50331666 16777312 50331667 16777216 50331668 16777216 50331669 16777216 50331670 16777216
@@ -11197,30 +11200,30 @@ jz drawn_3
 jmp pads_4
 drawn_3:
 push 16
-store 737
+store 738
 push 12288
-store 738
-push 715
 store 739
+push 715
+store 740
 tx_13:
-load 739
+load 740
 jz txe_14
-load 737
-loadi
 load 738
+loadi
+load 739
 storei
-load 737
-push 1
-add
-store 737
 load 738
 push 1
 add
 store 738
 load 739
+push 1
+add
+store 739
+load 740
 push 1
 sub
-store 739
+store 740
 jmp tx_13
 txe_14:
 push 1
@@ -11236,6 +11239,8 @@ and
 jz arma_6
 jmp tryb_5
 arma_6:
+load 12262
+store 737
 push 4097
 store 734
 push 1
@@ -11256,6 +11261,8 @@ and
 jz armb_7
 jmp done_8
 armb_7:
+load 12262
+store 737
 push 116738
 store 734
 push 112642
@@ -11269,6 +11276,8 @@ load 1
 store 733
 halt
 steps_2:
+load 737
+store 12262
 push 16384
 load 731
 push 4096
@@ -11301,7 +11310,9 @@ push 4096
 store 12278
 push 1
 store 12279
+load 737
 load 736
+add
 store 12262
 halt
 more_9:

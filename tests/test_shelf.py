@@ -174,3 +174,71 @@ def test_the_silicon_crosses_the_launch(name, btn):
             f"{name}: machines diverge at frame {f}"
         assert np.array_equal(v.audio(), s.audio()), \
             f"{name}: audio diverges at frame {f}"
+
+
+# ---- THE COLUMN: power-on film -> the shelf -> a game ----------------------
+FILM_LAUNCH = 660               # carts/gen_face.py: T_LAUNCH = T_END + 60
+
+
+def _film_to_shelf():
+    """The film, fast-forwarded to its hold (its own 660 frames are gated
+    by the face claim and the regen gate), through the four launch
+    frames. The machine returned is one frame from the shelf's first."""
+    m = cabinet.VirtualMachine(cabinet.load_cart(ROOT / "carts/face.zol"))
+    m.vm.frame_no = FILM_LAUNCH - 1
+    for _ in range(1 + 4):
+        m.frame(0)
+    return m
+
+
+def test_the_film_hands_off_to_the_shelf():
+    """The shelf launched by the film runs inside a window and must not
+    be able to tell: 30 frames of menu, bit-equal to a shelf booted
+    directly."""
+    m = _film_to_shelf()
+    assert m.vm.dmem[spec.SEG_BASE] > 0, "the film never armed a window"
+    direct = cabinet.VirtualMachine(cabinet.load_cart(ROOT / "carts/shelf.zol"))
+    direct.vm.frame_no = m.vm.frame_no
+    for f in range(30):
+        m.frame(0)
+        direct.frame(0)
+        assert np.array_equal(m.framebuffer(), direct.framebuffer()), \
+            f"the nested shelf diverges {f} frames in"
+
+
+@pytest.mark.parametrize("game,btn", [("tear", "PAD_A"), ("hall", "PAD_B")])
+def test_the_column(game, btn):
+    """Power-on to play: film -> shelf -> game, against the game booted
+    directly. HALL is the NESTING witness -- its plate is read through
+    the shelf's window plus its own base, and its DMEM image lands the
+    0 in SEG_BASE at step 2, which the shelf must survive by restoring
+    its window every step."""
+    m = _film_to_shelf()
+    for f in range(HANDOFF):
+        m.frame(getattr(spec, btn) if f == PRESS else 0)
+    direct = cabinet.VirtualMachine(cabinet.load_cart(ROOT / f"carts/{game}.zol"))
+    direct.vm.frame_no = m.vm.frame_no
+    for f in range(90):
+        m.frame(0)
+        direct.frame(0)
+        assert np.array_equal(m.framebuffer(), direct.framebuffer()), \
+            f"{game} through the column diverges {f} frames after launch"
+        assert np.array_equal(m.audio(), direct.audio()), \
+            f"{game} through the column: audio diverges at {f}"
+        if f == 2:
+            # THE WORLD, NOT THE PICTURE. Pixels cannot see a corrupted
+            # cell the game never reads -- the first version of this
+            # gate passed with the shelf's per-step window restore
+            # DELETED, because hall keeps nothing in the one block that
+            # mutation garbled. So every cell must match, and the three
+            # that may not are named:
+            #   SEG_BASE          the window, different by design
+            #   OVL_SRC, OVL_LEN  the launch's own overlay request: the
+            #                     mover clears GO and the law leaves
+            #                     these as written (a cart sets all four
+            #                     before asking, so this is inert)
+            allowed = {spec.SEG_BASE, spec.OVL_SRC, spec.OVL_LEN}
+            bad = [a for a in range(spec.DMEM_WORDS)
+                   if a not in allowed and m.vm.dmem[a] != direct.vm.dmem[a]]
+            assert not bad, (f"{game}: the column delivered a different "
+                             f"world -- {len(bad)} cells, first {bad[:8]}")

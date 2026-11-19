@@ -34,39 +34,23 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from zeta import asm, spec                                   # noqa: E402
+from zeta import spec                                        # noqa: E402
 from zeta.forge import Cart, Table, Text                     # noqa: E402
 
 HERE = Path(__file__).parent
 cart = Cart("shelf")
 
+# NESTING. The shelf may itself run inside a window -- the boot film
+# launches it through one. Two consequences, both handled below: the
+# game's window is the shelf's window PLUS the game's base, and the
+# shelf's window must be RESTORED at the top of every launch step,
+# because the game's DMEM image lands block by block and the block
+# carrying SEG_BASE (holding the game's 0) arrives at step 2. At top
+# level the window is 0 either way, which is why nothing caught this
+# until a shelf ran inside one.
 
-def shelve(name: str):
-    """Assemble a game and place its images; return (prog, dmem, base).
-    A game's segment, if any, is placed first; its base is returned for
-    the launch to write, never baked into the image (see above)."""
-    g = asm.assemble(HERE / f"{name}.zol")
-    assert not g["sd"], f"{name} uses the card -- SLOT_BASE is not law yet"
-    dmem_img = [0] * spec.DMEM_WORDS
-    for a, v in g["dmem"].items():
-        dmem_img[int(a)] = v
-    assert dmem_img[spec.SEG_BASE] == 0, \
-        f"{name} sets SEG_BASE in .data; it cannot be shelved"
-    base = 0
-    if g["cram"]:
-        top = max(int(a) for a in g["cram"])
-        seg_img = [0] * (top + 1)
-        for a, v in g["cram"].items():
-            seg_img[int(a)] = v
-        base = int(cart.cram(Table(seg_img), f"{name}_seg"))
-    prog_img = list(g["imem"]) + [0] * (spec.IMEM_WORDS - len(g["imem"]))
-    prog = cart.cram(Table(prog_img), f"{name}_prog")
-    dmem = cart.cram(Table(dmem_img), f"{name}_dmem")
-    return prog, dmem, base
-
-
-TEAR_P, TEAR_D, TEAR_S = shelve("tear")
-HALL_P, HALL_D, HALL_S = shelve("hall")
+TEAR_P, TEAR_D, TEAR_S = cart.shelve(HERE / "tear.zol")
+HALL_P, HALL_D, HALL_S = cart.shelve(HERE / "hall.zol")
 
 # ---- the menu: one merged text table, copied over the DL once -------------
 lines = [Text("ZETA", 118, 80, rgb=0xE6C010, scale=4),
@@ -82,6 +66,11 @@ GD = cart.var("game_dmem")      # the chosen game's image bases, latched
 GP = cart.var("game_prog")      # at the press so the steps need no menu
 GS = cart.var("game_seg")       # ...and its segment base, written into
                                 # SEG_BASE on the final frame only
+SV = cart.var("saved_window")   # the shelf's OWN window, saved at the
+                                # press and restored every step
+for v in (L, GD, GP, GS, SV):   # the launch's state must outlive every
+    assert int(v) < 4096, (     # block but the last, which lands dmem
+        f"launch cell {int(v)} would be overwritten mid-launch")   # 0..4095
 
 p = cart.program()
 menu_l = p.label("menu")
@@ -107,6 +96,7 @@ p.emit("load 1", f"push {spec.PAD_A}", "and", f"jz {try_b_l}")
 p.load(PV).emit(f"push {spec.PAD_A}", "and", f"jz {arm_a_l}")
 p.emit(f"jmp {try_b_l}")                           # held, not fresh
 p.mark(arm_a_l)
+p.load(spec.SEG_BASE).store(SV)
 p.push(int(TEAR_D)).store(GD)
 p.push(int(TEAR_P)).store(GP)
 p.push(int(TEAR_S)).store(GS)
@@ -117,6 +107,7 @@ p.emit("load 1", f"push {spec.PAD_B}", "and", f"jz {done_l}")
 p.load(PV).emit(f"push {spec.PAD_B}", "and", f"jz {arm_b_l}")
 p.emit(f"jmp {done_l}")
 p.mark(arm_b_l)
+p.load(spec.SEG_BASE).store(SV)
 p.push(int(HALL_D)).store(GD)
 p.push(int(HALL_P)).store(GP)
 p.push(int(HALL_S)).store(GS)
@@ -127,6 +118,7 @@ p.emit("halt")
 
 # ---- the launch steps -----------------------------------------------------
 p.mark(steps_l)
+p.load(SV).store(spec.SEG_BASE)        # the window, restored (NESTING)
 # dst = 16384 - L*4096 ; src = GD + dst ; one block a frame
 p.push(16384).load(L).push(4096).emit("mul", "sub")
 p.emit("dup").store(spec.DMA_DST)
@@ -145,8 +137,8 @@ p.load(GP).load(GS).emit("sub").store(spec.OVL_SRC)
 p.set(spec.OVL_DST, 0)
 p.push(spec.OVL_MAX).store(spec.OVL_LEN)
 p.set(spec.OVL_GO, 1)
-p.load(GS).store(spec.SEG_BASE)
-p.emit("halt")
+p.load(SV).load(GS).emit("add").store(spec.SEG_BASE)   # nests: the
+p.emit("halt")                         # game's window is inside ours
 p.mark(more_l)
 p.addi(L, 1)
 p.emit("halt")
