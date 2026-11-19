@@ -48,6 +48,120 @@ standing, walking and jabbing on the Zeta, crossed bit-equal on silicon.
                  90 frames; the regen gate holds the bake where the
                  third-party source exists
 
+## P2 -- the street and the follow: LANDED
+
+Bancroft and Shattuck from the archive's own constants: the crossing,
+sidewalks, both zebra crossings, the centreline, four streetlights, the
+corner towers and the arms' facades, the red dusk fog; the archive's
+follow camera as integer easing. The street is held to the archive's
+arena (`tear.py` `_in_arena`): the crossing square inside 10.6 and the
+two streets 7.1 either side out to 40, sliding along an edge rather
+than sticking to it.
+
+## P3 -- the demons: LANDED
+
+The wave of three -- brute, lean, heavy, the archive's own builds and
+palettes -- closing in, squaring up, and swinging.
+
+![The wave on the Zeta: the brute squared up ahead, the lean demon
+throwing its cross](images/tnd-zeta-wave.png)
+
+    rig          rig.fighter's 17 rigid joints; five never rotate against
+                 their parent (MEASURED over every clip: 0.0), so they
+                 merge -- 12 parts, 12 objects a demon, each placed by its
+                 own angles word. Left and right limbs are one mesh
+                 (identical, vertex for vertex): 8 meshes a build.
+    clips        ONE table of packed character-local rotations serves all
+                 three builds; the cart walks the offsets through the
+                 parents at run time (three small rotations a part, the
+                 GPU's own order). idle 32 + walk 16 at 30/60 Hz, cross 19
+                 and lead hook 34 at 60, hurt, the fall: 1,392 words. The
+                 bake checks itself: the run-time chain, with QUANTISED
+                 angles, lands every joint within 3 mm of the archive's FK.
+    horns        the first LOD: the archive's 120-triangle box chains as a
+                 curved two-segment spike along the same curl, 18 faces,
+                 lit by the archive's own shade().
+    winding      the archive drew both sides, so its tapers are wound
+                 inward; the bake orients every face outward from its own
+                 convex solid.
+    minds        tear.py's turret AI in integers: bounded turn (0.034 rad
+                 a frame), walk along their own facing, stop inside 1.5,
+                 swing from a 0.46 rad cone every 74 frames, cross and
+                 hook alternating. Angles without atan2: the side is the
+                 sign of a cross product, the cone a ratio of squares.
+                 Mass-weighted shove between every pair of bodies.
+    gates        the wave closes and squares up; each throws cross, hook,
+                 cross with the move's clip rows; the swing moves pixels
+                 (0 under mutation); the shove holds (fails under
+                 mutation); the street holds him (fails under mutation);
+                 culling happens and changes with the view.
+
+## The frame, measured (2026-11-19)
+
+Three demons on the P2 street measured **858,900 clocks** at the worst
+frame of a brawl -- 119% of the frame. The silicon's own stage meter
+(`zeta_top.v`: clear / walk / idle / stall / seq / blocked) and a law-side
+walk attribution (`tools/tnd_meter.py`) found where it went, and the
+answers were not the ones the face counts suggested:
+
+1. **The rasteriser walks bounding boxes.** Every pixel of a triangle's
+   box costs a clock, covered or not, and a triangle covers at most half
+   its box. Ten asphalt faces walked 110k-189k pixels a frame: near-
+   clipped, they fan into triangles each boxing most of the lower screen.
+   **The ground now rides the camera**: the camera's height, pitch and
+   roll never change, so the visible ground is one fixed shape in camera
+   space -- a single triangle for everything nearer than the fog (its
+   screen-clipped box wholly covered: 1x, not 2-4x) and four rings out
+   to 60 with true vertex depths so the fog ramp reads right. It sits
+   0.2 below the street so that nothing standing on it can sink under
+   its over-read interpolated depth. 65k pixels, every frame, flat.
+   (A backdrop plate was tried first and cost MORE: reading a
+   full-screen plate is ~136k clocks against the clear's ~98k.)
+2. **The sequencer caches 2,048 transformed vertices a frame.** Past
+   that an object is re-transformed in every band it touches. The street
+   plus the player plus three demons came to 2,080-2,140, so the demons
+   -- last in the list -- spilled. This is also why cutting faces into
+   pieces measured WORSE (+25k to +67k median): every cut added vertices
+   past the cache. **What the camera cannot see is not sent**: every
+   street object and every demon carries a bounding sphere, tested in
+   ZOL against the view (yaw, the fixed pitch, side planes at 40 degrees
+   for the screen's 32) -- invisible by construction, 0 pixels differing
+   over every route -- and the frame now sends 1,074-1,733 vertices.
+3. **Group by place, not by kind** -- the street's faces by layer (the
+   floor, what stands up) and by sector round the crossing, so culling
+   has compact objects to drop.
+4. **Overlapping boxes are overdraw you cannot see.** The corner towers
+   are now the boundary of their union (no buried faces, no roofs the
+   2.15-high camera could never see).
+
+    route    start of day (peak / median)   now (peak / median)     over 90%
+    brawl    858,900 / 584k  (97 frames)   617,186 / 516k  (85.7%)   0 of 520
+    street   712,320 / 625k                543,397 / 473k  (75.5%)   0 of 240
+    tour     --                            653,012 / 495k  (90.7%)   1 of 900
+
+The one frame over is the player spinning in place with the brute 2.3
+units from the lens and a corner tower filling the top of the shot --
+under 100%, so it does not drop, but over the gate's 90% margin. P4
+(hit effects, HUD) needs headroom this does not have: DIV=6 (+20%
+clock, the second PLL) is now on the critical path, not optional.
+
+What did not work, so nobody tries it twice: the backdrop plate (above);
+regrouping street faces by region with facades and floor merged (each
+region spans the screen again; no saving, +340 words); splitting facades
+into strips (their walk does not drop -- they are seen near square-on);
+giving the camera a body that shoves demons off the lens (it shoves them
+sideways INTO the shot: 1 frame over the ceiling became 20).
+
+**DMEM is the other wall.** 16,384 words hold the player's two meshes
+(2,969), three demon builds (~3,000), their clips (1,392), the street,
+and the program's state. Two things paid for P3: the sine table folded
+to a quarter wave (1,024 -> 257 words) and the forge's new **display-list
+lease** -- a cart that promises at most N display-list triangles may
+place content in the list's unused tail (TND promises 64 for its HUD,
+and the other 1,344 words hold content). 64 triangles is about EIGHT
+characters of forge text (a glyph is ~8): P6's HUD has to be mostly the
+compositor's four free rectangles, or a different font.
+
 ## The constraints that shape everything after P1
 
 1. **ONE MOVER REQUEST A FRAME, and the player's pose takes it.** So
@@ -105,15 +219,10 @@ standing, walking and jabbing on the Zeta, crossed bit-equal on silicon.
 
 ## The phases
 
-    P2  THE STREET AND THE FOLLOW   Bancroft and Shattuck as lean
-        geometry (the "+" intersection, sidewalks, crosswalks, box
-        buildings, streetlights, fog); the archive's spring follow as
-        integer smoothing; walk in four directions and the run. More
-        clips baked under the 30/60 Hz rule.
-    P3  THE DEMONS                  rigid rigs from resident key poses,
-        three builds, the slow-turn turret AI (0.034 rad a frame, a
-        0.46 rad cone, a swing every 74 frames), waves of three,
-        mass-weighted shove.
+    P2  THE STREET AND THE FOLLOW   LANDED (above). Still to come from
+        its plan: walk in four directions and the run, more clips.
+    P3  THE DEMONS                  LANDED (above). Waves after the
+        first arrive with P4, when a demon can die.
     P4  THE FIGHT                   the input grammar (tap <= 9, hold
         >= 10, chord within 3, strings within 22, a 10-frame buffer),
         the 11-move table with its frame data, the cancel lattice,

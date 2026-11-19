@@ -263,3 +263,42 @@ def test_text_actually_draws(tmp_path):
     # and hiding it is one store
     p2 = c.program()
     assert "12288" in " ".join(p2.hide_text()._out)
+
+
+# --------------------------------------------------------------------------
+# THE DISPLAY-LIST LEASE: the list's unused tail, for a cart that promises
+# --------------------------------------------------------------------------
+def test_the_lease_spills_only_past_the_promise():
+    """Content goes to the tail only when the main region is full, and
+    then only past the entries the cart promised itself -- never onto
+    the count word or a promised triangle, never past the list's end."""
+    c = Cart("t", dl_lease=64)
+    first = spec.DL_BASE + 1 + 64 * spec.DL_STRIDE
+    end = spec.DL_BASE + 1 + spec.DL_MAX * spec.DL_STRIDE
+    main = c.data(Table([0] * 100), "small")
+    assert int(main) < spec.DL_BASE, "spilled while the main region had room"
+    c.data(Table([0] * (c._hi - c._next)), "fill")        # main now full
+    tail = c.data(Table([0] * 500), "spill")
+    assert int(tail) == first
+    c.data(Table([0] * (end - first - 500)), "rest")      # exactly fills it
+    with pytest.raises(ForgeError):
+        c.data(Table([0]), "one too many")
+
+
+def test_no_lease_no_tail():
+    c = Cart("t")
+    c.data(Table([0] * (c._hi - c._next)), "fill")
+    with pytest.raises(ForgeError):
+        c.data(Table([0]), "nowhere")
+
+
+def test_a_text_longer_than_the_lease_is_refused():
+    from zeta.forge import Text
+    c = Cart("t", dl_lease=8)        # a glyph is ~8 triangles
+    p = c.program()
+    short = c.data(Text("A", 0, 0), "short")
+    long_ = c.data(Text("WWWW", 0, 0), "long")
+    assert (short.length - 1) // spec.DL_STRIDE <= 8, "fixture: A must fit"
+    p.set_text(short)
+    with pytest.raises(ForgeError):
+        p.set_text(long_)

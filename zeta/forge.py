@@ -337,11 +337,26 @@ def _reserved():
 class Cart:
     """Holds resources, assigns their addresses, emits .zol."""
 
-    def __init__(self, name, data_base=None):
+    def __init__(self, name, data_base=None, dl_lease=None):
         self.name = name
         lo, hi = _reserved()
         self._lo, self._hi = (data_base or lo), hi
         self._next = self._lo
+        # THE DISPLAY LIST'S TAIL, LEASED. The machine reads only the
+        # first n_tris entries of the list (spec.DL_BASE), so the rest of
+        # its 1,792 words is ordinary DMEM that nothing reads. A cart
+        # that PROMISES to draw at most `dl_lease` display-list triangles
+        # may place content in the entries past that -- the forge spills
+        # there only when the main region is full, and set_text refuses a
+        # text longer than the promise. Keeping the promise at run time
+        # (never writing a count above it) is the cart's, and its gates'.
+        self.dl_lease = dl_lease
+        if dl_lease is not None:
+            if not 0 <= dl_lease < spec.DL_MAX:
+                raise ForgeError(f"{name}: dl_lease {dl_lease} is not "
+                                 f"0..{spec.DL_MAX - 1}")
+            self._tail = spec.DL_BASE + 1 + dl_lease * spec.DL_STRIDE
+            self._tail_hi = spec.DL_BASE + 1 + spec.DL_MAX * spec.DL_STRIDE
         self._data: list[tuple[Sym, Resource]] = []
         self._cram: list[tuple[Sym, Resource]] = []
         self._sd: dict[int, list[tuple[Sym, Resource]]] = {}
@@ -358,6 +373,12 @@ class Cart:
         res.check()
         w = res.words()
         at = self._next
+        if at + len(w) > self._hi and self.dl_lease is not None \
+                and self._tail + len(w) <= self._tail_hi:
+            sym = Sym(self._tail, name or type(res).__name__.lower(), len(w))
+            self._tail += len(w)
+            self._data.append((sym, res))
+            return sym
         if at + len(w) > self._hi:
             raise ForgeError(
                 f"{self.name}: DMEM full -- {name or type(res).__name__} "
@@ -521,9 +542,15 @@ class Cart:
         used = self._next - self._lo
         free = self._hi - self._next
         n = len(self._prog.lines()) if self._prog else 0
+        tail = ""
+        if self.dl_lease is not None:
+            lo = spec.DL_BASE + 1 + self.dl_lease * spec.DL_STRIDE
+            tail = (f"; display-list tail (lease: <= {self.dl_lease} "
+                    f"triangles) {self._tail - lo} used, "
+                    f"{self._tail_hi - self._tail} free")
         return (f"{self.name}: {len(self._data)} resources, "
                 f"{used} DMEM words used, {free} free "
-                f"(content must end by {self._hi})")
+                f"(content must end by {self._hi}){tail}")
 
 
 # ---------------------------------------------------------------------------
@@ -717,6 +744,14 @@ class Program:
         frame -- a HUD that does not change costs zero instructions, and a
         prompt costs this copy once, on the frame it appears.
         """
+        lease = self.cart.dl_lease
+        if lease is not None:
+            tris = getattr(sym, "length", None)
+            n = (n_words - 1) // spec.DL_STRIDE if n_words is not None else \
+                ((tris - 1) // spec.DL_STRIDE if tris else None)
+            if n is not None and n > lease:
+                raise ForgeError(f"{self.cart.name}: a {n}-triangle text "
+                                 f"breaks the cart's dl_lease of {lease}")
         src = self.cart.var(self.label("txsrc"))
         dst = self.cart.var(self.label("txdst"))
         cnt = self.cart.var(self.label("txcnt"))
