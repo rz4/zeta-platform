@@ -154,7 +154,8 @@ import pytest
 
 @pytest.mark.skipif(shutil.which("verilator") is None,
                     reason="verilator not installed")
-@pytest.mark.parametrize("name,btn", [("tear", "PAD_A"), ("hall", "PAD_B")])
+@pytest.mark.parametrize("name,btn", [("tear", "PAD_A"), ("hall", "PAD_B"),
+                                      ("tnd", "PAD_X")])
 def test_the_silicon_crosses_the_launch(name, btn):
     """Machine 2 through the whole handoff -- the DMA walk, the overlay,
     and (for hall) the backdrop pump reading through an armed window --
@@ -206,7 +207,8 @@ def test_the_film_hands_off_to_the_shelf():
             f"the nested shelf diverges {f} frames in"
 
 
-@pytest.mark.parametrize("game,btn", [("tear", "PAD_A"), ("hall", "PAD_B")])
+@pytest.mark.parametrize("game,btn", [("tear", "PAD_A"), ("hall", "PAD_B"),
+                                      ("tnd", "PAD_X")])
 def test_the_column(game, btn):
     """Power-on to play: film -> shelf -> game, against the game booted
     directly. HALL is the NESTING witness -- its plate is read through

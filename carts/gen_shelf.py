@@ -51,11 +51,13 @@ cart = Cart("shelf")
 
 TEAR_P, TEAR_D, TEAR_S = cart.shelve(HERE / "tear.zol")
 HALL_P, HALL_D, HALL_S = cart.shelve(HERE / "hall.zol")
+TND_P, TND_D, TND_S = cart.shelve(HERE / "tnd.zol")
 
 # ---- the menu: one merged text table, copied over the DL once -------------
-lines = [Text("ZETA", 118, 80, rgb=0xE6C010, scale=4),
-         Text("A  TEAR", 112, 150, rgb=0x3399FF, scale=3),
-         Text("B  HALL", 112, 190, rgb=0xEE4444, scale=3)]
+lines = [Text("ZETA", 118, 60, rgb=0xE6C010, scale=4),
+         Text("A  TEAR", 112, 120, rgb=0x3399FF, scale=3),
+         Text("B  HALL", 112, 160, rgb=0xEE4444, scale=3),
+         Text("X  TND", 112, 200, rgb=0xE8E8E8, scale=3)]
 tris = [t for ln in lines for t in ln.tris]
 menu = cart.data(Table([len(tris)] + [w for t in tris for w in t]), "menu")
 
@@ -80,6 +82,8 @@ pads_l = p.label("pads")
 try_b_l = p.label("tryb")
 arm_a_l = p.label("arma")
 arm_b_l = p.label("armb")
+try_x_l = p.label("tryx")
+arm_x_l = p.label("armx")
 done_l = p.label("done")
 more_l = p.label("more")
 
@@ -103,8 +107,19 @@ p.push(int(TEAR_S)).store(GS)
 p.set(L, 1)
 p.emit(f"jmp {done_l}")
 p.mark(try_b_l)
-p.emit("load 1", f"push {spec.PAD_B}", "and", f"jz {done_l}")
+p.emit("load 1", f"push {spec.PAD_B}", "and", f"jz {try_x_l}")
 p.load(PV).emit(f"push {spec.PAD_B}", "and", f"jz {arm_b_l}")
+p.emit(f"jmp {done_l}")
+p.mark(try_x_l)
+p.emit("load 1", f"push {spec.PAD_X}", "and", f"jz {done_l}")
+p.load(PV).emit(f"push {spec.PAD_X}", "and", f"jz {arm_x_l}")
+p.emit(f"jmp {done_l}")
+p.mark(arm_x_l)
+p.load(spec.SEG_BASE).store(SV)
+p.push(int(TND_D)).store(GD)
+p.push(int(TND_P)).store(GP)
+p.push(int(TND_S)).store(GS)
+p.set(L, 1)
 p.emit(f"jmp {done_l}")
 p.mark(arm_b_l)
 p.load(spec.SEG_BASE).store(SV)
