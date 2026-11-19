@@ -67,11 +67,33 @@ standing, walking and jabbing on the Zeta, crossed bit-equal on silicon.
 3. **64 OBJECTS.** Player 2 + three demons at 17 parts (51) + the
    street = ~60. Demon parts may merge (neck into head, hands into
    forearms: 13 parts, 39 objects) if the street needs more.
-4. **THE FRAME.** Measured 316k for the player and floor. Three demons
-   at 476 faces each, half culled, estimate ~250k; the street ~50k:
-   ~615k against the 648k ceiling at 43.2 MHz. Tight, so the horns
-   (152 of a demon's 476 faces) are the first LOD, and DIV=6 (+20%,
-   SEAMS/ZETA0) is the headroom.
+4. **THE FRAME -- and the street cost five times its estimate.** The
+   plan said ~50k for the street. MEASURED on silicon over a fixed
+   route (turn, walk into a corner, sweep, jab), decomposed by omitting
+   one part at a time:
+
+       first street, archive geometry    peak 684,846   median 631,064
+         of which the 60 buildings          ~247k           ~287k
+         sidewalks / paint                  ~37k / ~24k     ~44k / ~27k
+         road + boxer alone                 363,856         274,830
+       after FACADES (below)              peak 602,851   median 550,861
+
+   The buildings were OVERDRAW: down an arm, ten fronts a side stack
+   in depth and the rasteriser pays every pixel of every face, hidden
+   or not. The archive never paid this; it had no clock. The 48 street
+   buildings became one continuous facade a side (the archive's
+   heights, only the steps that face the crossing), the arms end at
+   the fog line with an end wall the fog turns to dusk, and sidewalks
+   keep only the faces anyone sees.
+
+   So the scene WITH three demons (est. ~75k each, horns dropped) is
+   ~775k: over the 648k ceiling at 43.2 MHz, and at the edge of DIV=6's
+   777k. To fit: DIV=6 (+20%, ZETA0/SEAMS -- the vertex-C register for
+   it landed in build 101; it still needs the second PLL), demon horns
+   as the first LOD (152 of 476 faces), the crosswalk as a texture
+   (~27k), and a boxer LOD (737 faces is more than ZETA0's arena
+   archetype gives a hero). Fill and overdraw get MEASURED, never
+   estimated -- the ledger's rule, with a third clause.
 5. **THE CAMERA IS FREE.** TND follows behind the player through
    every mode, so no plates in play: the street is real geometry. The
    archive's ~3,000 in-view triangles were incidental (asphalt
