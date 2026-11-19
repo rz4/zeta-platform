@@ -1095,12 +1095,12 @@
 .data 11630 15065300 32536605 15065300 33586205 15065300 36735009 15065300 37784609 15065300 40933413 15065300 41983013
 .data 11642 15065300 45131817 15065300 46181417 15065300
 
-; ground: 59 words at 12737
-.data 12737 13 9 0 -13107 65536 -1426172 -13107 983040 1426172 -13107 983040 -806727
-.data 12749 -13107 983040 806727 -13107 983040 -1070965 -13107 1310720 1070965 -13107 1310720 -1440898
-.data 12761 -13107 1769472 1440898 -13107 1769472 -1916526 -13107 2359296 1916526 -13107 2359296 -3184867
-.data 12773 -13107 3932160 3184867 -13107 3932160 2098176 3420984 4200451 3420984 6296579 3420984 6299653
-.data 12785 3420984 8395781 3420984 8398855 3420984 10494983 3420984 10498057 3420984 12594185 3420984
+; ground: 59 words at 11708
+.data 11708 13 9 0 -13107 65536 -1426172 -13107 983040 1426172 -13107 983040 -806727
+.data 11720 -13107 983040 806727 -13107 983040 -1070965 -13107 1310720 1070965 -13107 1310720 -1440898
+.data 11732 -13107 1769472 1440898 -13107 1769472 -1916526 -13107 2359296 1916526 -13107 2359296 -3184867
+.data 11744 -13107 3932160 3184867 -13107 3932160 2098176 3420984 4200451 3420984 6296579 3420984 6299653
+.data 11756 3420984 8395781 3420984 8398855 3420984 10494983 3420984 10498057 3420984 12594185 3420984
 
 ; p_fists: 42 words at 11647
 .data 11647 -17960 66704 31024 -17960 66704 31024 -17960 66704 31024 9467 65957 38435
@@ -1108,85 +1108,85 @@
 .data 11671 -4406 70614 24245 -4406 70614 24245 149 68278 31067 149 68278 31067
 .data 11683 149 68278 31067 149 68278 31067
 
-; p_moves: 44 words at 12796
-.data 12796 4 7 16 6 8 137789 5 1638 5112 152 11647 5
-.data 12808 8 19 9 12 157450 7 1966 5571 168 11656 11 15
-.data 12820 34 17 22 128451 13 5243 8192 187 11665 11 15 34
-.data 12832 17 22 128451 13 5243 8192 221 11677
+; p_moves: 44 words at 11767
+.data 11767 4 7 16 6 8 137789 5 1638 5112 152 11647 5
+.data 11779 8 19 9 12 157450 7 1966 5571 168 11656 11 15
+.data 11791 34 17 22 128451 13 5243 8192 187 11665 11 15 34
+.data 11803 17 22 128451 13 5243 8192 221 11677
 
 ; p_keys: 6 words at 11689
 .data 11689 60 66212 5987 1356 39322 4383
 
-; demon0_keys: 27 words at 12840
-.data 12840 81 89386 8082 1830 53084 5917 12966 88658 49673 12966 88658 49673
-.data 12852 12966 88658 49673 -6505 94632 30791 -6505 94632 30791 -6505 94632 30791
-.data 12864 -6505 94632 30791
+; demon0_keys: 27 words at 11811
+.data 11811 81 89386 8082 1830 53084 5917 12966 88658 49673 12966 88658 49673
+.data 11823 12966 88658 49673 -6505 94632 30791 -6505 94632 30791 -6505 94632 30791
+.data 11835 -6505 94632 30791
 
-; demon0_moves: 22 words at 12867
-.data 12867 5 8 19 9 12 157450 7 1966 5571 0 12846 11
-.data 12879 15 34 17 22 128451 13 5243 8192 0 12855
+; demon0_moves: 22 words at 11838
+.data 11838 5 8 19 9 12 157450 7 1966 5571 0 11817 11
+.data 11850 15 34 17 22 128451 13 5243 8192 0 11826
 
-; demon1_keys: 27 words at 12889
-.data 12889 78 86075 7783 1762 51118 5697 11236 87961 62755 11236 87961 62755
-.data 12901 11236 87961 62755 -2506 95823 42721 -2506 95823 42721 -2506 95823 42721
-.data 12913 -2506 95823 42721
+; demon1_keys: 27 words at 11860
+.data 11860 78 86075 7783 1762 51118 5697 11236 87961 62755 11236 87961 62755
+.data 11872 11236 87961 62755 -2506 95823 42721 -2506 95823 42721 -2506 95823 42721
+.data 11884 -2506 95823 42721
 
-; demon1_moves: 22 words at 12916
-.data 12916 5 8 19 9 12 157450 7 1966 5571 0 12895 11
-.data 12928 15 34 17 22 128451 13 5243 8192 0 12904
+; demon1_moves: 22 words at 11887
+.data 11887 5 8 19 9 12 157450 7 1966 5571 0 11866 11
+.data 11899 15 34 17 22 128451 13 5243 8192 0 11875
 
-; demon2_keys: 27 words at 12938
-.data 12938 57 62901 5688 1288 37356 4163 9516 61579 30282 9516 61579 30282
-.data 12950 9516 61579 30282 -5755 65122 17575 -5755 65122 17575 -5755 65122 17575
-.data 12962 -5755 65122 17575
+; demon2_keys: 27 words at 11909
+.data 11909 57 62901 5688 1288 37356 4163 9516 61579 30282 9516 61579 30282
+.data 11921 9516 61579 30282 -5755 65122 17575 -5755 65122 17575 -5755 65122 17575
+.data 11933 -5755 65122 17575
 
-; demon2_moves: 22 words at 12965
-.data 12965 5 8 19 9 12 157450 7 1966 5571 0 12944 11
-.data 12977 15 34 17 22 128451 13 5243 8192 0 12953
+; demon2_moves: 22 words at 11936
+.data 11936 5 8 19 9 12 157450 7 1966 5571 0 11915 11
+.data 11948 15 34 17 22 128451 13 5243 8192 0 11924
 
-; demons: 69 words at 12987
-.data 12987 -288634 421896 156160 70 0 0 0 0 0 0 0 6315
-.data 12999 0 0 0 0 0 0 6099 12840 12867 0 0 -221055
-.data 13011 -460913 243456 70 0 0 0 0 21 0 0 6315 0
-.data 13023 0 0 0 0 0 6171 12889 12916 0 0 509690 39017
-.data 13035 68608 70 0 0 0 0 42 0 0 6315 0 0
-.data 13047 0 0 0 0 6243 12938 12965 0 0
+; demons: 69 words at 11958
+.data 11958 -288634 421896 156160 70 0 0 0 0 0 0 0 6315
+.data 11970 0 0 0 0 0 0 6099 11811 11838 0 0 -221055
+.data 11982 -460913 243456 70 0 0 0 0 21 0 0 6315 0
+.data 11994 0 0 0 0 0 6171 11860 11887 0 0 509690 39017
+.data 12006 68608 70 0 0 0 0 42 0 0 6315 0 0
+.data 12018 0 0 0 0 6243 11909 11936 0 0
 
-; spawn: 69 words at 13056
-.data 13056 -288634 421896 156160 70 0 0 0 0 0 0 0 6315
-.data 13068 0 0 0 0 0 0 6099 12840 12867 0 0 -221055
-.data 13080 -460913 243456 70 0 0 0 0 21 0 0 6315 0
-.data 13092 0 0 0 0 0 6171 12889 12916 0 0 509690 39017
-.data 13104 68608 70 0 0 0 0 42 0 0 6315 0 0
-.data 13116 0 0 0 0 6243 12938 12965 0 0
+; spawn: 69 words at 12027
+.data 12027 -288634 421896 156160 70 0 0 0 0 0 0 0 6315
+.data 12039 0 0 0 0 0 0 6099 11811 11838 0 0 -221055
+.data 12051 -460913 243456 70 0 0 0 0 21 0 0 6315 0
+.data 12063 0 0 0 0 0 6171 11860 11887 0 0 509690 39017
+.data 12075 68608 70 0 0 0 0 42 0 0 6315 0 0
+.data 12087 0 0 0 0 6243 11909 11936 0 0
 
-; cur: 23 words at 13125
-.data 13125 0 0 0 0 0 0 0 0 0 0 0 0
-.data 13137 0 0 0 0 0 0 0 0 0 0 0
+; cur: 23 words at 12096
+.data 12096 0 0 0 0 0 0 0 0 0 0 0 0
+.data 12108 0 0 0 0 0 0 0 0 0 0 0
 
-; qsin: 257 words at 13148
-.data 13148 0 402 804 1206 1608 2010 2412 2814 3216 3617 4019 4420
-.data 13160 4821 5222 5623 6023 6424 6824 7224 7623 8022 8421 8820 9218
-.data 13172 9616 10014 10411 10808 11204 11600 11996 12391 12785 13180 13573 13966
-.data 13184 14359 14751 15143 15534 15924 16314 16703 17091 17479 17867 18253 18639
-.data 13196 19024 19409 19792 20175 20557 20939 21320 21699 22078 22457 22834 23210
-.data 13208 23586 23961 24335 24708 25080 25451 25821 26190 26558 26925 27291 27656
-.data 13220 28020 28383 28745 29106 29466 29824 30182 30538 30893 31248 31600 31952
-.data 13232 32303 32652 33000 33347 33692 34037 34380 34721 35062 35401 35738 36075
-.data 13244 36410 36744 37076 37407 37736 38064 38391 38716 39040 39362 39683 40002
-.data 13256 40320 40636 40951 41264 41576 41886 42194 42501 42806 43110 43412 43713
-.data 13268 44011 44308 44604 44898 45190 45480 45769 46056 46341 46624 46906 47186
-.data 13280 47464 47741 48015 48288 48559 48828 49095 49361 49624 49886 50146 50404
-.data 13292 50660 50914 51166 51417 51665 51911 52156 52398 52639 52878 53114 53349
-.data 13304 53581 53812 54040 54267 54491 54714 54934 55152 55368 55582 55794 56004
-.data 13316 56212 56418 56621 56823 57022 57219 57414 57607 57798 57986 58172 58356
-.data 13328 58538 58718 58896 59071 59244 59415 59583 59750 59914 60075 60235 60392
-.data 13340 60547 60700 60851 60999 61145 61288 61429 61568 61705 61839 61971 62101
-.data 13352 62228 62353 62476 62596 62714 62830 62943 63054 63162 63268 63372 63473
-.data 13364 63572 63668 63763 63854 63944 64031 64115 64197 64277 64354 64429 64501
-.data 13376 64571 64639 64704 64766 64827 64884 64940 64993 65043 65091 65137 65180
-.data 13388 65220 65259 65294 65328 65358 65387 65413 65436 65457 65476 65492 65505
-.data 13400 65516 65525 65531 65535 65536
+; qsin: 257 words at 12737
+.data 12737 0 402 804 1206 1608 2010 2412 2814 3216 3617 4019 4420
+.data 12749 4821 5222 5623 6023 6424 6824 7224 7623 8022 8421 8820 9218
+.data 12761 9616 10014 10411 10808 11204 11600 11996 12391 12785 13180 13573 13966
+.data 12773 14359 14751 15143 15534 15924 16314 16703 17091 17479 17867 18253 18639
+.data 12785 19024 19409 19792 20175 20557 20939 21320 21699 22078 22457 22834 23210
+.data 12797 23586 23961 24335 24708 25080 25451 25821 26190 26558 26925 27291 27656
+.data 12809 28020 28383 28745 29106 29466 29824 30182 30538 30893 31248 31600 31952
+.data 12821 32303 32652 33000 33347 33692 34037 34380 34721 35062 35401 35738 36075
+.data 12833 36410 36744 37076 37407 37736 38064 38391 38716 39040 39362 39683 40002
+.data 12845 40320 40636 40951 41264 41576 41886 42194 42501 42806 43110 43412 43713
+.data 12857 44011 44308 44604 44898 45190 45480 45769 46056 46341 46624 46906 47186
+.data 12869 47464 47741 48015 48288 48559 48828 49095 49361 49624 49886 50146 50404
+.data 12881 50660 50914 51166 51417 51665 51911 52156 52398 52639 52878 53114 53349
+.data 12893 53581 53812 54040 54267 54491 54714 54934 55152 55368 55582 55794 56004
+.data 12905 56212 56418 56621 56823 57022 57219 57414 57607 57798 57986 58172 58356
+.data 12917 58538 58718 58896 59071 59244 59415 59583 59750 59914 60075 60235 60392
+.data 12929 60547 60700 60851 60999 61145 61288 61429 61568 61705 61839 61971 62101
+.data 12941 62228 62353 62476 62596 62714 62830 62943 63054 63162 63268 63372 63473
+.data 12953 63572 63668 63763 63854 63944 64031 64115 64197 64277 64354 64429 64501
+.data 12965 64571 64639 64704 64766 64827 64884 64940 64993 65043 65091 65137 65180
+.data 12977 65220 65259 65294 65328 65358 65387 65413 65436 65457 65476 65492 65505
+.data 12989 65516 65525 65531 65535 65536
 
 ; px: 1 words at 11695
 .data 11695 0
@@ -1203,321 +1203,364 @@
 ; af: 1 words at 11699
 .data 11699 0
 
-; pose: 1 words at 13405
-.data 13405 0
+; pose: 1 words at 12119
+.data 12119 0
 
-; cam_yaw: 1 words at 13406
-.data 13406 0
+; cam_yaw: 1 words at 12120
+.data 12120 0
 
-; idle_f: 1 words at 13407
-.data 13407 0
+; idle_f: 1 words at 12121
+.data 12121 0
 
-; prevpad: 1 words at 13408
-.data 13408 0
+; prevpad: 1 words at 12122
+.data 12122 0
 
-; nobj: 1 words at 13409
-.data 13409 0
+; nobj: 1 words at 12123
+.data 12123 0
 
-; cp_src: 1 words at 13410
-.data 13410 0
+; cp_src: 1 words at 12124
+.data 12124 0
 
-; cp_dst: 1 words at 13411
-.data 13411 0
+; cp_dst: 1 words at 12125
+.data 12125 0
 
-; cp_n: 1 words at 13412
-.data 13412 0
+; cp_n: 1 words at 12126
+.data 12126 0
 
-; w_k: 1 words at 13413
-.data 13413 0
+; w_k: 1 words at 12127
+.data 12127 0
 
-; w_bx: 1 words at 13414
-.data 13414 0
+; w_bx: 1 words at 12128
+.data 12128 0
 
-; w_bz: 1 words at 13415
-.data 13415 0
+; w_bz: 1 words at 12129
+.data 12129 0
 
-; w_c: 1 words at 13416
-.data 13416 0
+; w_c: 1 words at 12130
+.data 12130 0
 
-; w_s: 1 words at 13417
-.data 13417 0
+; w_s: 1 words at 12131
+.data 12131 0
 
-; w_x: 1 words at 13418
-.data 13418 0
+; w_x: 1 words at 12132
+.data 12132 0
 
-; w_y: 1 words at 13419
-.data 13419 0
+; w_y: 1 words at 12133
+.data 12133 0
 
-; w_z: 1 words at 13420
-.data 13420 0
+; w_z: 1 words at 12134
+.data 12134 0
 
-; w_qx: 1 words at 13421
-.data 13421 0
+; w_qx: 1 words at 12135
+.data 12135 0
 
-; w_qy: 1 words at 13422
-.data 13422 0
+; w_qy: 1 words at 12136
+.data 12136 0
 
-; w_qz: 1 words at 13423
-.data 13423 0
+; w_qz: 1 words at 12137
+.data 12137 0
 
-; w_dc: 1 words at 13424
-.data 13424 0
+; w_dc: 1 words at 12138
+.data 12138 0
 
-; w_dg: 1 words at 13425
-.data 13425 0
+; w_dg: 1 words at 12139
+.data 12139 0
 
-; w_d2: 1 words at 13426
-.data 13426 0
+; w_d2: 1 words at 12140
+.data 12140 0
 
-; w_head: 1 words at 13427
-.data 13427 0
+; w_head: 1 words at 12141
+.data 12141 0
 
-; w_dmg: 1 words at 13428
-.data 13428 0
+; w_dmg: 1 words at 12142
+.data 12142 0
 
-; w_stop: 1 words at 13429
-.data 13429 0
+; w_stop: 1 words at 12143
+.data 12143 0
 
-; ar_x: 1 words at 13430
-.data 13430 0
+; ar_x: 1 words at 12144
+.data 12144 0
 
-; ar_z: 1 words at 13431
-.data 13431 0
+; ar_z: 1 words at 12145
+.data 12145 0
 
-; ar_ox: 1 words at 13432
-.data 13432 0
+; ar_ox: 1 words at 12146
+.data 12146 0
 
-; ar_oz: 1 words at 13433
-.data 13433 0
+; ar_oz: 1 words at 12147
+.data 12147 0
 
-; f_hs: 1 words at 13434
-.data 13434 0
+; sfx_blow: 144 words at 12994
+.data 12994 471859 10 33205 15 4194304 15 471859 6 32029 14 1048576 13
+.data 13006 471859 3 30854 12 1048576 9 471859 1 29678 11 1048576 5
+.data 13018 471859 0 28502 10 1048576 0 471859 0 27327 8 1048576 0
+.data 13030 471859 0 26151 7 1048576 0 471859 0 24975 5 1048576 0
+.data 13042 471859 0 23799 4 1048576 0 471859 0 22624 3 1048576 0
+.data 13054 471859 0 21448 1 1048576 0 471859 0 20272 0 1048576 0
+.data 13066 664098 10 39147 15 4194304 15 664098 6 37487 13 1817532 12
+.data 13078 664098 3 35826 11 1817532 7 664098 1 34166 9 1817532 3
+.data 13090 664098 0 32506 8 1817532 0 664098 0 30846 6 1817532 0
+.data 13102 664098 0 29185 4 1817532 0 664098 0 27525 2 1817532 0
+.data 13114 664098 0 25865 0 1817532 0 664098 0 25865 0 1817532 0
+.data 13126 664098 0 25865 0 1817532 0 664098 0 25865 0 1817532 0
 
-; f_stop: 1 words at 13435
-.data 13435 0
+; sfx_meat: 2 words at 12148
+.data 12148 1048576 1817532
 
-; f_vx: 1 words at 13436
-.data 13436 0
+; sfx_t: 1 words at 12150
+.data 12150 12
 
-; f_vz: 1 words at 13437
-.data 13437 0
+; sfx_h: 1 words at 12151
+.data 12151 0
 
-; f_con: 1 words at 13438
-.data 13438 0
+; sfx_r: 1 words at 12152
+.data 12152 0
 
-; f_ltap: 1 words at 13439
-.data 13439 0
+; f_hs: 1 words at 12153
+.data 12153 0
 
-; f_c3: 1 words at 13440
-.data 13440 0
+; f_stop: 1 words at 12154
+.data 12154 0
 
-; f_alt: 1 words at 13441
-.data 13441 0
+; f_vx: 1 words at 12155
+.data 12155 0
 
-; f_buf: 1 words at 13442
-.data 13442 0
+; f_vz: 1 words at 12156
+.data 12156 0
 
-; f_bmv: 1 words at 13443
-.data 13443 0
+; f_con: 1 words at 12157
+.data 12157 0
 
-; f_mv: 1 words at 13444
-.data 13444 0
+; f_ltap: 1 words at 12158
+.data 12158 0
 
-; f_dead: 1 words at 13445
-.data 13445 0
+; f_c3: 1 words at 12159
+.data 12159 0
 
-; f_shake: 1 words at 13446
-.data 13446 0
+; f_alt: 1 words at 12160
+.data 12160 0
 
-; f_act: 1 words at 13447
-.data 13447 0
+; f_buf: 1 words at 12161
+.data 12161 0
 
-; f_fx: 1 words at 13448
-.data 13448 0
+; f_bmv: 1 words at 12162
+.data 12162 0
 
-; f_fy: 1 words at 13449
-.data 13449 0
+; f_mv: 1 words at 12163
+.data 12163 0
 
-; f_fz: 1 words at 13450
-.data 13450 0
+; f_dead: 1 words at 12164
+.data 12164 0
 
-; f_pc: 1 words at 13451
-.data 13451 0
+; f_shake: 1 words at 12165
+.data 12165 0
 
-; f_ps: 1 words at 13452
-.data 13452 0
+; f_act: 1 words at 12166
+.data 12166 0
 
-; f_fight: 1 words at 13453
-.data 13453 0
+; f_fx: 1 words at 12167
+.data 12167 0
 
-; f_wave: 1 words at 13454
-.data 13454 0
+; f_fy: 1 words at 12168
+.data 12168 0
 
-; f_tilt: 1 words at 13455
-.data 13455 0
+; f_fz: 1 words at 12169
+.data 12169 0
 
-; p_hp: 1 words at 13456
-.data 13456 140
+; f_pc: 1 words at 12170
+.data 12170 0
 
-; t_retry: 267 words at 13457
-.data 13457 38 136 80 140 80 136 82 15259840 140 80 140 82
-.data 13469 136 82 15259840 136 82 138 82 136 90 15259840 138 82
-.data 13481 138 90 136 90 15259840 140 82 142 82 140 84 15259840
-.data 13493 142 82 142 84 140 84 15259840 138 84 140 84 138
-.data 13505 86 15259840 140 84 140 86 138 86 15259840 140 86 142
-.data 13517 86 140 90 15259840 142 86 142 90 140 90 15259840 144
-.data 13529 80 150 80 144 82 15259840 150 80 150 82 144 82
-.data 13541 15259840 144 82 146 82 144 90 15259840 146 82 146 90
-.data 13553 144 90 15259840 146 84 148 84 146 86 15259840 148 84
-.data 13565 148 86 146 86 15259840 146 88 150 88 146 90 15259840
-.data 13577 150 88 150 90 146 90 15259840 152 80 158 80 152
-.data 13589 82 15259840 158 80 158 82 152 82 15259840 154 82 156
-.data 13601 82 154 90 15259840 156 82 156 90 154 90 15259840 160
-.data 13613 80 164 80 160 82 15259840 164 80 164 82 160 82
-.data 13625 15259840 160 82 162 82 160 90 15259840 162 82 162 90
-.data 13637 160 90 15259840 164 82 166 82 164 84 15259840 166 82
-.data 13649 166 84 164 84 15259840 162 84 164 84 162 86 15259840
-.data 13661 164 84 164 86 162 86 15259840 164 86 166 86 164
-.data 13673 90 15259840 166 86 166 90 164 90 15259840 168 80 170
-.data 13685 80 168 84 15259840 170 80 170 84 168 84 15259840 172
-.data 13697 80 174 80 172 84 15259840 174 80 174 84 172 84
-.data 13709 15259840 170 84 172 84 170 90 15259840 172 84 172 90
-.data 13721 170 90 15259840
+; f_ps: 1 words at 12171
+.data 12171 0
 
-; txsrc_44: 1 words at 13724
-.data 13724 0
+; f_fight: 1 words at 12172
+.data 12172 0
 
-; txdst_45: 1 words at 13725
-.data 13725 0
+; f_wave: 1 words at 12173
+.data 12173 0
 
-; txcnt_46: 1 words at 13726
-.data 13726 0
+; f_tilt: 1 words at 12174
+.data 12174 0
 
-; cam_d: 1 words at 13727
-.data 13727 0
+; p_hp: 1 words at 12175
+.data 12175 140
 
-; dt_ty: 1 words at 13728
-.data 13728 0
+; t_retry: 267 words at 13138
+.data 13138 38 136 80 140 80 136 82 15259840 140 80 140 82
+.data 13150 136 82 15259840 136 82 138 82 136 90 15259840 138 82
+.data 13162 138 90 136 90 15259840 140 82 142 82 140 84 15259840
+.data 13174 142 82 142 84 140 84 15259840 138 84 140 84 138
+.data 13186 86 15259840 140 84 140 86 138 86 15259840 140 86 142
+.data 13198 86 140 90 15259840 142 86 142 90 140 90 15259840 144
+.data 13210 80 150 80 144 82 15259840 150 80 150 82 144 82
+.data 13222 15259840 144 82 146 82 144 90 15259840 146 82 146 90
+.data 13234 144 90 15259840 146 84 148 84 146 86 15259840 148 84
+.data 13246 148 86 146 86 15259840 146 88 150 88 146 90 15259840
+.data 13258 150 88 150 90 146 90 15259840 152 80 158 80 152
+.data 13270 82 15259840 158 80 158 82 152 82 15259840 154 82 156
+.data 13282 82 154 90 15259840 156 82 156 90 154 90 15259840 160
+.data 13294 80 164 80 160 82 15259840 164 80 164 82 160 82
+.data 13306 15259840 160 82 162 82 160 90 15259840 162 82 162 90
+.data 13318 160 90 15259840 164 82 166 82 164 84 15259840 166 82
+.data 13330 166 84 164 84 15259840 162 84 164 84 162 86 15259840
+.data 13342 164 84 164 86 162 86 15259840 164 86 166 86 164
+.data 13354 90 15259840 166 86 166 90 164 90 15259840 168 80 170
+.data 13366 80 168 84 15259840 170 80 170 84 168 84 15259840 172
+.data 13378 80 174 80 172 84 15259840 174 80 174 84 172 84
+.data 13390 15259840 170 84 172 84 170 90 15259840 172 84 172 90
+.data 13402 170 90 15259840
 
-; dt_fx: 1 words at 13729
-.data 13729 0
+; txsrc_44: 1 words at 12176
+.data 12176 0
 
-; dt_fz: 1 words at 13730
-.data 13730 0
+; txdst_45: 1 words at 12177
+.data 12177 0
 
-; dt_dx: 1 words at 13731
-.data 13731 0
+; txcnt_46: 1 words at 12178
+.data 12178 0
 
-; dt_dz: 1 words at 13732
-.data 13732 0
+; cam_d: 1 words at 12179
+.data 12179 0
 
-; dt_cr: 1 words at 13733
-.data 13733 0
+; dt_ty: 1 words at 12180
+.data 12180 0
 
-; dt_dot: 1 words at 13734
-.data 13734 0
+; dt_fx: 1 words at 12181
+.data 12181 0
 
-; dt_s: 1 words at 13735
-.data 13735 0
+; dt_fz: 1 words at 12182
+.data 12182 0
 
-; dt_c: 1 words at 13736
-.data 13736 0
+; dt_dx: 1 words at 12183
+.data 12183 0
 
-; sh_dx: 1 words at 13737
-.data 13737 0
+; dt_dz: 1 words at 12184
+.data 12184 0
 
-; sh_dz: 1 words at 13738
-.data 13738 0
+; dt_cr: 1 words at 12185
+.data 12185 0
 
-; fk_x: 1 words at 13739
-.data 13739 0
+; dt_dot: 1 words at 12186
+.data 12186 0
 
-; fk_z: 1 words at 13740
-.data 13740 0
+; dt_s: 1 words at 12187
+.data 12187 0
 
-; fk_yaw: 1 words at 13741
-.data 13741 0
+; dt_c: 1 words at 12188
+.data 12188 0
 
-; fk_jt: 1 words at 13742
-.data 13742 0
+; sh_dx: 1 words at 12189
+.data 12189 0
 
-; fk_cf: 1 words at 13743
-.data 13743 0
+; sh_dz: 1 words at 12190
+.data 12190 0
 
-; fk_j: 1 words at 13744
-.data 13744 0
+; fk_x: 1 words at 12191
+.data 12191 0
 
-; fk_rp: 1 words at 13745
-.data 13745 0
+; fk_z: 1 words at 12192
+.data 12192 0
 
-; fk_pp: 1 words at 13746
-.data 13746 0
+; fk_yaw: 1 words at 12193
+.data 12193 0
 
-; fk_a: 1 words at 13747
-.data 13747 0
+; fk_jt: 1 words at 12194
+.data 12194 0
 
-; fk_ra: 1 words at 13748
-.data 13748 0
+; fk_cf: 1 words at 12195
+.data 12195 0
 
-; fk_vx: 1 words at 13749
-.data 13749 0
+; fk_j: 1 words at 12196
+.data 12196 0
 
-; fk_vy: 1 words at 13750
-.data 13750 0
+; fk_rp: 1 words at 12197
+.data 12197 0
 
-; fk_vz: 1 words at 13751
-.data 13751 0
+; fk_pp: 1 words at 12198
+.data 12198 0
 
-; fk_q: 1 words at 13752
-.data 13752 0
+; fk_a: 1 words at 12199
+.data 12199 0
 
-; fk_t: 1 words at 13753
-.data 13753 0
+; fk_ra: 1 words at 12200
+.data 12200 0
 
-; fk_s: 1 words at 13754
-.data 13754 0
+; fk_vx: 1 words at 12201
+.data 12201 0
 
-; fk_c: 1 words at 13755
-.data 13755 0
+; fk_vy: 1 words at 12202
+.data 12202 0
 
-; fk_flags: 1 words at 13756
-.data 13756 0
+; fk_vz: 1 words at 12203
+.data 12203 0
 
-; vis_cx: 1 words at 13757
-.data 13757 0
+; fk_q: 1 words at 12204
+.data 12204 0
 
-; vis_cy: 1 words at 13758
-.data 13758 0
+; fk_t: 1 words at 12205
+.data 12205 0
 
-; vis_cz: 1 words at 13759
-.data 13759 0
+; fk_s: 1 words at 12206
+.data 12206 0
 
-; vis_r: 1 words at 13760
-.data 13760 0
+; fk_c: 1 words at 12207
+.data 12207 0
 
-; vis_rx: 1 words at 13761
-.data 13761 0
+; fk_flags: 1 words at 12208
+.data 12208 0
 
-; vis_rz: 1 words at 13762
-.data 13762 0
+; vis_cx: 1 words at 12209
+.data 12209 0
 
-; vis_xc: 1 words at 13763
-.data 13763 0
+; vis_cy: 1 words at 12210
+.data 12210 0
 
-; vis_zc: 1 words at 13764
-.data 13764 0
+; vis_cz: 1 words at 12211
+.data 12211 0
 
-; obj_base: 1 words at 13765
-.data 13765 0
+; vis_r: 1 words at 12212
+.data 12212 0
 
-; p_flags: 1 words at 13766
-.data 13766 0
+; vis_rx: 1 words at 12213
+.data 12213 0
 
-; qs_a: 1 words at 13767
-.data 13767 0
+; vis_rz: 1 words at 12214
+.data 12214 0
 
-; qs_i: 1 words at 13768
-.data 13768 0
+; vis_xc: 1 words at 12215
+.data 12215 0
+
+; vis_zc: 1 words at 12216
+.data 12216 0
+
+; obj_base: 1 words at 12217
+.data 12217 0
+
+; street_cull: 100 words at 13405
+.data 13405 7707 0 448922 2293760 1398147 7865 -1248461 416154 1248461 961997 8218 -2293760
+.data 13417 448922 0 1398147 8376 -1248461 416154 -1248461 961997 8729 0 448922 -2293760
+.data 13429 1398147 8887 1248461 416154 -1248461 961997 9240 2293760 448922 0 1398147 9398
+.data 13441 1248461 416154 1248461 961997 9751 -22938 -138281 1021270 576718 9875 0 -135660
+.data 13453 2149034 1158097 10025 -913135 -136970 913135 767905 10206 -1021270 -138281 22938 576718
+.data 13465 10330 -2149034 -135660 0 1158097 10480 -913135 -136970 -890198 787143 10677 16384
+.data 13477 -138281 -1021270 592892 10812 0 -135660 -2149034 1158097 10962 890198 -136970 -890198
+.data 13489 775048 11165 1021270 -138281 -16384 592892 11300 2149034 -135660 0 1158097 11450
+.data 13501 890198 -136970 913135 787143
+
+; st_p: 1 words at 12218
+.data 12218 0
+
+; st_n: 1 words at 12219
+.data 12219 0
+
+; p_flags: 1 words at 12220
+.data 12220 0
+
+; qs_a: 1 words at 12221
+.data 12221 0
+
+; qs_i: 1 words at 12222
+.data 12222 0
 
 .cram 1 -3228 62056 -5040 6299 65478 -8066 4550 64789 2363 -2855 68584 -7465
 .cram 13 -3063 64385 2592 -5879 69997 -1994 1475 71304 -7483 79 69575 2873
@@ -64570,91 +64613,91 @@
 .cram 756577 986895 249797864 1118481 240355556 1447446 251899113 1184274 255046895 1118481
 
 load 11695
-store 13432
+store 12146
 load 11696
-store 13433
-load 13445
+store 12147
+load 12164
 jz dead_20_no
 jmp dead_20
 dead_20_no:
-load 13435
+load 12154
 jz frozen_21_no
-load 13435
+load 12154
 push 1
 sub
-store 13435
+store 12154
 jmp frozen_21
 frozen_21_no:
-load 13439
+load 12158
 push 1
 add
-store 13439
-load 13442
+store 12158
+load 12161
 jz nobuf_35
-load 13442
+load 12161
 push 1
 sub
-store 13442
+store 12161
 nobuf_35:
 load 1
 push 16
 and
 push 0
 eq
-load 13408
+load 12122
 push 16
 and
 or
 push 0
 eq
 jz notap_31
-load 13439
+load 12158
 push 22
 lt
 jz brk_32
-load 13440
+load 12159
 push 1
 add
-store 13440
+store 12159
 jmp brk_32_d
 brk_32:
 push 1
-store 13440
+store 12159
 brk_32_d:
 push 0
-store 13439
-load 13440
+store 12158
+load 12159
 push 3
 eq
 jz hook_33
 push 0
-store 13440
-load 13441
+store 12159
+load 12160
 push 2
 add
-store 13443
+store 12162
 jmp tapd_34
 hook_33:
-load 13441
+load 12160
 push 1
 xor
-store 13441
-load 13441
-store 13443
+store 12160
+load 12160
+store 12162
 tapd_34:
 push 10
-store 13442
+store 12161
 notap_31:
-load 13434
+load 12153
 jz hurt_37_no
-load 13434
+load 12153
 push 1
 sub
-store 13434
+store 12153
 push 3
 store 11698
 push 0
-store 13442
+store 12161
 jmp motion_25
 hurt_37_no:
 load 1
@@ -64688,8 +64731,8 @@ push 1
 add
 store 11699
 load 11699
-push 12796
-load 13444
+push 11767
+load 12163
 push 11
 mul
 add
@@ -64703,22 +64746,22 @@ free_22_end:
 push 0
 store 11698
 free_22:
-load 13442
+load 12161
 jz walk_23_q
-load 13443
-store 13444
+load 12162
+store 12163
 push 2
 store 11698
 push 0
 store 11699
 push 0
-store 13438
+store 12157
 push 0
-store 13442
+store 12161
 load 11697
 call sine_1
-push 12796
-load 13444
+push 11767
+load 12163
 push 11
 mul
 add
@@ -64726,16 +64769,16 @@ push 8
 add
 loadi
 mulq
-load 13436
+load 12155
 swap
 sub
-store 13436
+store 12155
 load 11697
 push 256
 add
 call sine_1
-push 12796
-load 13444
+push 11767
+load 12163
 push 11
 mul
 add
@@ -64743,9 +64786,9 @@ push 8
 add
 loadi
 mulq
-load 13437
+load 12156
 add
-store 13437
+store 12156
 jmp motion_25
 walk_23_q:
 load 1
@@ -64781,27 +64824,27 @@ push 0
 store 11698
 motion_25:
 load 11695
-load 13436
+load 12155
 add
 store 11695
-load 13436
+load 12155
 push 53740
 mulq
-store 13436
+store 12155
 load 11696
-load 13437
+load 12156
 add
 store 11696
-load 13437
+load 12156
 push 53740
 mulq
-store 13437
+store 12156
 load 11698
 push 2
 eq
 jz pm_40
-push 12796
-load 13444
+push 11767
+load 12163
 push 11
 mul
 add
@@ -64810,7 +64853,7 @@ add
 loadi
 load 11699
 add
-store 13405
+store 12119
 jmp pd_29
 pm_40:
 load 11698
@@ -64822,89 +64865,89 @@ push 31
 and
 push 120
 add
-store 13405
+store 12119
 jmp pd_29
 pi_27:
-load 13407
+load 12121
 push 1
 add
-store 13407
-load 13407
+store 12121
+load 12121
 push 120
 lt
 jz iw_30
-load 13407
+load 12121
 push 0
 add
-store 13405
+store 12119
 jmp pd_29
 iw_30:
 push 0
-store 13407
+store 12121
 push 0
-store 13405
+store 12119
 pd_29:
 jmp frozen_21
 dead_20:
-load 13445
+load 12164
 push 1
 add
-store 13445
-load 13445
+store 12164
+load 12164
 push 42
 lt
 jz dead_20_t
-load 13445
+load 12164
 push 6
 mul
-store 13455
+store 12174
 dead_20_t:
-load 13445
+load 12164
 push 46
 eq
 jz dead_20_s
-push 13457
-store 13724
+push 13138
+store 12176
 push 12288
-store 13725
-push 13457
+store 12177
+push 13138
 loadi
 push 7
 mul
 push 1
 add
-store 13726
+store 12178
 tx_47:
-load 13726
+load 12178
 jz txe_48
-load 13724
+load 12176
 loadi
-load 13725
+load 12177
 storei
-load 13724
+load 12176
 push 1
 add
-store 13724
-load 13725
+store 12176
+load 12177
 push 1
 add
-store 13725
-load 13726
+store 12177
+load 12178
 push 1
 sub
-store 13726
+store 12178
 jmp tx_47
 txe_48:
 dead_20_s:
 push 46
-load 13445
+load 12164
 lt
 load 1
 push 16
 and
 push 0
 eq
-load 13408
+load 12122
 push 16
 and
 or
@@ -64919,48 +64962,50 @@ store 11696
 push 0
 store 11697
 push 0
-store 13406
+store 12120
 push 0
 store 11698
 push 0
 store 11699
 push 140
-store 13456
+store 12175
 push 0
-store 13445
+store 12164
 push 0
-store 13455
+store 12174
 push 0
-store 13434
+store 12153
 push 0
-store 13435
+store 12154
 push 0
-store 13436
+store 12155
 push 0
-store 13437
+store 12156
 push 0
-store 13442
+store 12161
 push 0
-store 13440
+store 12159
 push 0
-store 13453
+store 12172
 push 0
-store 13454
+store 12173
+push 12
+store 12150
 push 0
 store 12288
-push 13056
-store 13410
-push 12987
-store 13411
+push 12027
+store 12124
+push 11958
+store 12125
 push 69
-store 13412
+store 12126
 call copy_6
 load 11695
-store 13432
+store 12146
 load 11696
-store 13433
+store 12147
 frozen_21:
-load 13405
+load 12119
 push 2967
 mul
 push 1
@@ -64973,59 +65018,59 @@ store 14
 push 1
 store 15
 load 11695
-store 13430
+store 12144
 load 11696
-store 13431
+store 12145
 call arena_5
 jz inarena_49_x
 jmp inarena_49
 inarena_49_x:
 load 11695
-store 13430
-load 13433
-store 13431
+store 12144
+load 12147
+store 12145
 call arena_5
 jz inarena_49_z
-load 13433
+load 12147
 store 11696
 jmp inarena_49
 inarena_49_z:
-load 13432
-store 13430
+load 12146
+store 12144
 load 11696
-store 13431
+store 12145
 call arena_5
 jz inarena_49_n
-load 13432
+load 12146
 store 11695
 jmp inarena_49
 inarena_49_n:
-load 13432
+load 12146
 store 11695
-load 13433
+load 12147
 store 11696
 inarena_49:
 load 11697
 push 256
 add
 call sine_1
-store 13451
+store 12170
 load 11697
 call sine_1
-store 13452
+store 12171
 push 0
-store 13447
+store 12166
 load 11698
 push 2
 eq
 jz nofist_50
-load 13438
+load 12157
 jz nofist_50_c
 jmp nofist_50
 nofist_50_c:
 load 11699
-push 12796
-load 13444
+push 11767
+load 12163
 push 11
 mul
 add
@@ -65037,8 +65082,8 @@ jz nofist_50_s
 jmp nofist_50
 nofist_50_s:
 load 11699
-push 12796
-load 13444
+push 11767
+load 12163
 push 11
 mul
 add
@@ -65047,8 +65092,8 @@ add
 loadi
 lt
 jz nofist_50
-push 12796
-load 13444
+push 11767
+load 12163
 push 11
 mul
 add
@@ -65056,8 +65101,8 @@ push 10
 add
 loadi
 load 11699
-push 12796
-load 13444
+push 11767
+load 12163
 push 11
 mul
 add
@@ -65068,27 +65113,27 @@ sub
 push 3
 mul
 add
-store 13413
+store 12127
 load 11695
-store 13414
+store 12128
 load 11696
-store 13415
-load 13451
-store 13416
-load 13452
-store 13417
+store 12129
+load 12170
+store 12130
+load 12171
+store 12131
 call wpt_7
-load 13418
-store 13448
-load 13419
-store 13449
-load 13420
-store 13450
+load 12132
+store 12167
+load 12133
+store 12168
+load 12134
+store 12169
 push 1
-store 13447
+store 12166
 nofist_50:
 load 11697
-load 13406
+load 12120
 sub
 push 512
 add
@@ -65096,30 +65141,30 @@ push 1023
 and
 push 512
 sub
-store 13727
-load 13727
+store 12179
+load 12179
 shr 3
 dup
 jz snap_51
-load 13406
+load 12120
 add
 push 1023
 and
-store 13406
+store 12120
 jmp snap_51_d
 snap_51:
 drop
 load 11697
-store 13406
+store 12120
 snap_51_d:
-load 13406
+load 12120
 call sine_1
 push 3
 mul
 load 11695
 add
 store 8
-load 13406
+load 12120
 push 256
 add
 call sine_1
@@ -65129,15 +65174,15 @@ load 11696
 swap
 sub
 store 10
-load 13406
+load 12120
 store 11
-load 13446
+load 12165
 jz shake_52
-load 13446
+load 12165
 push 1
 sub
-store 13446
-load 13446
+store 12165
+load 12165
 push 1
 and
 jz shake_52_l
@@ -65152,1871 +65197,932 @@ push 3276
 sub
 store 8
 shake_52:
-push 12987
-store 13410
-push 13125
-store 13411
+push 11958
+store 12124
+push 12096
+store 12125
 push 23
-store 13412
+store 12126
 call copy_6
 call dmind_9
-push 13125
-store 13410
-push 12987
-store 13411
+push 12096
+store 12124
+push 11958
+store 12125
 push 23
-store 13412
+store 12126
 call copy_6
-push 13010
-store 13410
-push 13125
-store 13411
+push 11981
+store 12124
+push 12096
+store 12125
 push 23
-store 13412
-call copy_6
-call dmind_9
-push 13125
-store 13410
-push 13010
-store 13411
-push 23
-store 13412
-call copy_6
-push 13033
-store 13410
-push 13125
-store 13411
-push 23
-store 13412
+store 12126
 call copy_6
 call dmind_9
-push 13125
-store 13410
-push 13033
-store 13411
+push 12096
+store 12124
+push 11981
+store 12125
 push 23
-store 13412
+store 12126
 call copy_6
-load 12991
+push 12004
+store 12124
+push 12096
+store 12125
+push 23
+store 12126
+call copy_6
+call dmind_9
+push 12096
+store 12124
+push 12004
+store 12125
+push 23
+store 12126
+call copy_6
+load 11962
 push 4
 eq
-load 13014
+load 11985
 push 4
 eq
-load 13037
+load 12008
 push 4
 eq
 and
 and
 jz nowave_53
-push 13056
-store 13410
-push 12987
-store 13411
+push 12027
+store 12124
+push 11958
+store 12125
 push 69
-store 13412
+store 12126
 call copy_6
-load 13454
+load 12173
 push 1
 add
-store 13454
+store 12173
 nowave_53:
-load 12991
+load 11962
 push 3
 lt
 jz up_54
-load 13014
+load 11985
 push 3
 lt
 jz up_54
-load 13010
-load 12987
+load 11981
+load 11958
 sub
-store 13737
-load 13011
-load 12988
+store 12189
+load 11982
+load 11959
 sub
-store 13738
-load 13737
-load 13737
+store 12190
+load 12189
+load 12189
 mulq
-load 13738
-load 13738
+load 12190
+load 12190
 mulq
 add
 push 53084
 lt
 jz shove_55
-load 12987
-load 13737
+load 11958
+load 12189
 push 3674
 mulq
 sub
-store 12987
-load 12988
-load 13738
+store 11958
+load 11959
+load 12190
 push 3674
 mulq
 sub
-store 12988
-load 13010
-load 13737
+store 11959
+load 11981
+load 12189
 push 4518
 mulq
 add
-store 13010
-load 13011
-load 13738
+store 11981
+load 11982
+load 12190
 push 4518
 mulq
 add
-store 13011
+store 11982
 shove_55:
 up_54:
-load 12991
+load 11962
 push 3
 lt
 jz up_56
-load 13037
+load 12008
 push 3
 lt
 jz up_56
-load 13033
-load 12987
+load 12004
+load 11958
 sub
-store 13737
-load 13034
-load 12988
+store 12189
+load 12005
+load 11959
 sub
-store 13738
-load 13737
-load 13737
+store 12190
+load 12189
+load 12189
 mulq
-load 13738
-load 13738
+load 12190
+load 12190
 mulq
 add
 push 53084
 lt
 jz shove_57
-load 12987
-load 13737
+load 11958
+load 12189
 push 4096
 mulq
 sub
-store 12987
-load 12988
-load 13738
+store 11958
+load 11959
+load 12190
 push 4096
 mulq
 sub
-store 12988
-load 13033
-load 13737
+store 11959
+load 12004
+load 12189
 push 4096
 mulq
 add
-store 13033
-load 13034
-load 13738
+store 12004
+load 12005
+load 12190
 push 4096
 mulq
 add
-store 13034
+store 12005
 shove_57:
 up_56:
-load 12991
+load 11962
 push 3
 lt
 jz up_58
 load 11695
-load 12987
+load 11958
 sub
-store 13737
+store 12189
 load 11696
-load 12988
+load 11959
 sub
-store 13738
-load 13737
-load 13737
+store 12190
+load 12189
+load 12189
 mulq
-load 13738
-load 13738
+load 12190
+load 12190
 mulq
 add
 push 53084
 lt
 jz shove_59
-load 12987
-load 13737
+load 11958
+load 12189
 push 3127
 mulq
 sub
-store 12987
-load 12988
-load 13738
+store 11958
+load 11959
+load 12190
 push 3127
 mulq
 sub
-store 12988
+store 11959
 load 11695
-load 13737
+load 12189
 push 5065
 mulq
 add
 store 11695
 load 11696
-load 13738
+load 12190
 push 5065
 mulq
 add
 store 11696
 shove_59:
 up_58:
-load 13014
+load 11985
 push 3
 lt
 jz up_60
-load 13037
+load 12008
 push 3
 lt
 jz up_60
-load 13033
-load 13010
+load 12004
+load 11981
 sub
-store 13737
-load 13034
-load 13011
+store 12189
+load 12005
+load 11982
 sub
-store 13738
-load 13737
-load 13737
+store 12190
+load 12189
+load 12189
 mulq
-load 13738
-load 13738
+load 12190
+load 12190
 mulq
 add
 push 53084
 lt
 jz shove_61
-load 13010
-load 13737
+load 11981
+load 12189
 push 4518
 mulq
 sub
-store 13010
-load 13011
-load 13738
+store 11981
+load 11982
+load 12190
 push 4518
 mulq
 sub
-store 13011
-load 13033
-load 13737
+store 11982
+load 12004
+load 12189
 push 3674
 mulq
 add
-store 13033
-load 13034
-load 13738
+store 12004
+load 12005
+load 12190
 push 3674
 mulq
 add
-store 13034
+store 12005
 shove_61:
 up_60:
-load 13014
+load 11985
 push 3
 lt
 jz up_62
 load 11695
-load 13010
+load 11981
 sub
-store 13737
+store 12189
 load 11696
-load 13011
+load 11982
 sub
-store 13738
-load 13737
-load 13737
+store 12190
+load 12189
+load 12189
 mulq
-load 13738
-load 13738
+load 12190
+load 12190
 mulq
 add
 push 53084
 lt
 jz shove_63
-load 13010
-load 13737
+load 11981
+load 12189
 push 3535
 mulq
 sub
-store 13010
-load 13011
-load 13738
+store 11981
+load 11982
+load 12190
 push 3535
 mulq
 sub
-store 13011
+store 11982
 load 11695
-load 13737
+load 12189
 push 4657
 mulq
 add
 store 11695
 load 11696
-load 13738
+load 12190
 push 4657
 mulq
 add
 store 11696
 shove_63:
 up_62:
-load 13037
+load 12008
 push 3
 lt
 jz up_64
 load 11695
-load 13033
+load 12004
 sub
-store 13737
+store 12189
 load 11696
-load 13034
+load 12005
 sub
-store 13738
-load 13737
-load 13737
+store 12190
+load 12189
+load 12189
 mulq
-load 13738
-load 13738
+load 12190
+load 12190
 mulq
 add
 push 53084
 lt
 jz shove_65
-load 13033
-load 13737
+load 12004
+load 12189
 push 3127
 mulq
 sub
-store 13033
-load 13034
-load 13738
+store 12004
+load 12005
+load 12190
 push 3127
 mulq
 sub
-store 13034
+store 12005
 load 11695
-load 13737
+load 12189
 push 5065
 mulq
 add
 store 11695
 load 11696
-load 13738
+load 12190
 push 5065
 mulq
 add
 store 11696
 shove_65:
 up_64:
-load 12987
-store 13430
-load 12988
-store 13431
+load 11958
+store 12144
+load 11959
+store 12145
 call arena_5
 jz inarena_66_x
 jmp inarena_66
 inarena_66_x:
-load 12987
-store 13430
-load 13009
-store 13431
+load 11958
+store 12144
+load 11980
+store 12145
 call arena_5
 jz inarena_66_z
-load 13009
-store 12988
+load 11980
+store 11959
 jmp inarena_66
 inarena_66_z:
-load 13008
-store 13430
-load 12988
-store 13431
+load 11979
+store 12144
+load 11959
+store 12145
 call arena_5
 jz inarena_66_n
-load 13008
-store 12987
+load 11979
+store 11958
 jmp inarena_66
 inarena_66_n:
-load 13008
-store 12987
-load 13009
-store 12988
+load 11979
+store 11958
+load 11980
+store 11959
 inarena_66:
-load 13010
-store 13430
-load 13011
-store 13431
+load 11981
+store 12144
+load 11982
+store 12145
 call arena_5
 jz inarena_67_x
 jmp inarena_67
 inarena_67_x:
-load 13010
-store 13430
-load 13032
-store 13431
+load 11981
+store 12144
+load 12003
+store 12145
 call arena_5
 jz inarena_67_z
-load 13032
-store 13011
+load 12003
+store 11982
 jmp inarena_67
 inarena_67_z:
-load 13031
-store 13430
-load 13011
-store 13431
+load 12002
+store 12144
+load 11982
+store 12145
 call arena_5
 jz inarena_67_n
-load 13031
-store 13010
+load 12002
+store 11981
 jmp inarena_67
 inarena_67_n:
-load 13031
-store 13010
-load 13032
-store 13011
+load 12002
+store 11981
+load 12003
+store 11982
 inarena_67:
-load 13033
-store 13430
-load 13034
-store 13431
+load 12004
+store 12144
+load 12005
+store 12145
 call arena_5
 jz inarena_68_x
 jmp inarena_68
 inarena_68_x:
-load 13033
-store 13430
-load 13055
-store 13431
+load 12004
+store 12144
+load 12026
+store 12145
 call arena_5
 jz inarena_68_z
-load 13055
-store 13034
+load 12026
+store 12005
 jmp inarena_68
 inarena_68_z:
-load 13054
-store 13430
-load 13034
-store 13431
+load 12025
+store 12144
+load 12005
+store 12145
 call arena_5
 jz inarena_68_n
-load 13054
-store 13033
+load 12025
+store 12004
 jmp inarena_68
 inarena_68_n:
-load 13054
-store 13033
-load 13055
-store 13034
+load 12025
+store 12004
+load 12026
+store 12005
 inarena_68:
 load 11695
-store 13430
+store 12144
 load 11696
-store 13431
+store 12145
 call arena_5
 jz inarena_69_x
 jmp inarena_69
 inarena_69_x:
 load 11695
-store 13430
-load 13433
-store 13431
+store 12144
+load 12147
+store 12145
 call arena_5
 jz inarena_69_z
-load 13433
+load 12147
 store 11696
 jmp inarena_69
 inarena_69_z:
-load 13432
-store 13430
+load 12146
+store 12144
 load 11696
-store 13431
+store 12145
 call arena_5
 jz inarena_69_n
-load 13432
+load 12146
 store 11695
 jmp inarena_69
 inarena_69_n:
-load 13432
+load 12146
 store 11695
-load 13433
+load 12147
 store 11696
 inarena_69:
-load 13406
+load 12120
 push 256
 add
 call sine_1
-store 13761
-load 13406
+store 12213
+load 12120
 call sine_1
-store 13762
+store 12214
 push 0
-store 13409
-load 13409
+store 12123
+load 12123
 push 6
 mul
 push 14085
 add
-store 13765
-push 12737
-load 13765
+store 12217
+push 11708
+load 12217
 push 0
 add
 storei
 load 8
-load 13765
+load 12217
 push 1
 add
 storei
 push 0
-load 13765
+load 12217
 push 2
 add
 storei
 load 10
-load 13765
+load 12217
 push 3
 add
 storei
 load 11
-load 13765
+load 12217
 push 4
 add
 storei
 push 1
-load 13765
+load 12217
 push 5
 add
 storei
-load 13409
+load 12123
 push 1
 add
-store 13409
-push 0
-store 13757
-push 2293760
-store 13759
-push 1398147
-store 13760
-push 448922
-store 13758
+store 12123
+push 13405
+store 12218
+push 20
+store 12219
+stl_70:
+load 12218
+push 1
+add
+loadi
+store 12209
+load 12218
+push 2
+add
+loadi
+store 12210
+load 12218
+push 3
+add
+loadi
+store 12211
+load 12218
+push 4
+add
+loadi
+store 12212
 call vis_4
-jz unseen_70
-load 13409
+jz stl_70_s
+load 12123
 push 6
 mul
 push 14085
 add
-store 13765
-push 7707
-load 13765
+store 12217
+load 12218
+loadi
+load 12217
 push 0
 add
 storei
 push 0
-load 13765
+load 12217
 push 1
 add
 storei
 push 0
-load 13765
+load 12217
 push 2
 add
 storei
 push 0
-load 13765
+load 12217
 push 3
 add
 storei
 push 0
-load 13765
+load 12217
 push 4
 add
 storei
 push 1
-load 13765
+load 12217
 push 5
 add
 storei
-load 13409
+load 12123
 push 1
 add
-store 13409
-unseen_70:
-push -1248461
-store 13757
-push 1248461
-store 13759
-push 961997
-store 13760
-push 416154
-store 13758
-call vis_4
-jz unseen_71
-load 13409
+store 12123
+stl_70_s:
+load 12218
+push 5
+add
+store 12218
+load 12219
+push 1
+sub
+store 12219
+load 12219
+jz stl_70_e
+jmp stl_70
+stl_70_e:
+push 1
+store 12220
+push 8
+load 12153
+lt
+jz flash_71
+push 250
+shl 8
+push 148
+or
+shl 8
+push 0
+or
+shl 8
+push 65
+or
+store 12220
+flash_71:
+load 12123
 push 6
 mul
 push 14085
 add
-store 13765
-push 7865
-load 13765
+store 12217
+push 16
+load 12217
 push 0
 add
 storei
-push 0
-load 13765
+load 11695
+load 12217
 push 1
 add
 storei
 push 0
-load 13765
+load 12217
 push 2
 add
 storei
-push 0
-load 13765
+load 11696
+load 12217
 push 3
 add
 storei
-push 0
-load 13765
+load 11697
+load 12174
+shl 10
+or
+load 12217
 push 4
 add
 storei
-push 1
-load 13765
+load 12220
+load 12217
 push 5
 add
 storei
-load 13409
+load 12123
 push 1
 add
-store 13409
-unseen_71:
-push -2293760
-store 13757
-push 0
-store 13759
-push 1398147
-store 13760
-push 448922
-store 13758
-call vis_4
-jz unseen_72
-load 13409
+store 12123
+load 12123
 push 6
 mul
 push 14085
 add
-store 13765
-push 8218
-load 13765
+store 12217
+push 1533
+load 12217
 push 0
 add
 storei
-push 0
-load 13765
+load 11695
+load 12217
 push 1
 add
 storei
 push 0
-load 13765
+load 12217
 push 2
 add
 storei
-push 0
-load 13765
+load 11696
+load 12217
 push 3
 add
 storei
-push 0
-load 13765
+load 11697
+load 12174
+shl 10
+or
+load 12217
 push 4
 add
 storei
-push 1
-load 13765
+load 12220
+load 12217
 push 5
 add
 storei
-load 13409
+load 12123
 push 1
 add
-store 13409
-unseen_72:
-push -1248461
-store 13757
-push -1248461
-store 13759
-push 961997
-store 13760
-push 416154
-store 13758
-call vis_4
-jz unseen_73
-load 13409
-push 6
-mul
-push 14085
-add
-store 13765
-push 8376
-load 13765
-push 0
-add
-storei
-push 0
-load 13765
+store 12123
+load 11958
+store 12191
+load 11959
+store 12192
+load 11969
+store 12195
+load 11960
+shr 8
+store 12193
+load 11976
+store 12194
 push 1
-add
-storei
+store 12208
+push 8
+load 11970
+lt
+jz flash_72
+push 250
+shl 8
+push 148
+or
+shl 8
 push 0
-load 13765
-push 2
-add
-storei
-push 0
-load 13765
-push 3
-add
-storei
-push 0
-load 13765
+or
+shl 8
+push 65
+or
+store 12208
+flash_72:
+load 11962
 push 4
+eq
+jz gone_73_n
+jmp gone_73
+gone_73_n:
+load 11958
+load 8
+sub
+dup
+mulq
+load 11959
+load 10
+sub
+dup
+mulq
 add
-storei
-push 1
-load 13765
-push 5
-add
-storei
-load 13409
-push 1
-add
-store 13409
-unseen_73:
-push 0
-store 13757
-push -2293760
-store 13759
-push 1398147
-store 13760
-push 448922
-store 13758
+push 110755
+swap
+lt
+jz gone_73
+load 11958
+store 12209
+load 11959
+store 12211
+push 104858
+store 12212
+push -75366
+store 12210
 call vis_4
 jz unseen_74
-load 13409
-push 6
-mul
-push 14085
-add
-store 13765
-push 8729
-load 13765
-push 0
-add
-storei
-push 0
-load 13765
-push 1
-add
-storei
-push 0
-load 13765
-push 2
-add
-storei
-push 0
-load 13765
-push 3
-add
-storei
-push 0
-load 13765
-push 4
-add
-storei
-push 1
-load 13765
-push 5
-add
-storei
-load 13409
-push 1
-add
-store 13409
+call fk_3
 unseen_74:
-push 1248461
-store 13757
-push -1248461
-store 13759
-push 961997
-store 13760
-push 416154
-store 13758
-call vis_4
-jz unseen_75
-load 13409
-push 6
-mul
-push 14085
-add
-store 13765
-push 8887
-load 13765
-push 0
-add
-storei
-push 0
-load 13765
+gone_73:
+load 11981
+store 12191
+load 11982
+store 12192
+load 11992
+store 12195
+load 11983
+shr 8
+store 12193
+load 11999
+store 12194
 push 1
-add
-storei
+store 12208
+push 8
+load 11993
+lt
+jz flash_75
+push 250
+shl 8
+push 148
+or
+shl 8
 push 0
-load 13765
-push 2
-add
-storei
-push 0
-load 13765
-push 3
-add
-storei
-push 0
-load 13765
+or
+shl 8
+push 65
+or
+store 12208
+flash_75:
+load 11985
 push 4
+eq
+jz gone_76_n
+jmp gone_76
+gone_76_n:
+load 11981
+load 8
+sub
+dup
+mulq
+load 11982
+load 10
+sub
+dup
+mulq
 add
-storei
-push 1
-load 13765
-push 5
-add
-storei
-load 13409
-push 1
-add
-store 13409
-unseen_75:
-push 2293760
-store 13757
-push 0
-store 13759
-push 1398147
-store 13760
-push 448922
-store 13758
-call vis_4
-jz unseen_76
-load 13409
-push 6
-mul
-push 14085
-add
-store 13765
-push 9240
-load 13765
-push 0
-add
-storei
-push 0
-load 13765
-push 1
-add
-storei
-push 0
-load 13765
-push 2
-add
-storei
-push 0
-load 13765
-push 3
-add
-storei
-push 0
-load 13765
-push 4
-add
-storei
-push 1
-load 13765
-push 5
-add
-storei
-load 13409
-push 1
-add
-store 13409
-unseen_76:
-push 1248461
-store 13757
-push 1248461
-store 13759
-push 961997
-store 13760
-push 416154
-store 13758
+push 110755
+swap
+lt
+jz gone_76
+load 11981
+store 12209
+load 11982
+store 12211
+push 104858
+store 12212
+push -75366
+store 12210
 call vis_4
 jz unseen_77
-load 13409
-push 6
-mul
-push 14085
-add
-store 13765
-push 9398
-load 13765
-push 0
-add
-storei
-push 0
-load 13765
-push 1
-add
-storei
-push 0
-load 13765
-push 2
-add
-storei
-push 0
-load 13765
-push 3
-add
-storei
-push 0
-load 13765
-push 4
-add
-storei
-push 1
-load 13765
-push 5
-add
-storei
-load 13409
-push 1
-add
-store 13409
+call fk_3
 unseen_77:
-push -22938
-store 13757
-push 1021270
-store 13759
-push 576718
-store 13760
-push -138281
-store 13758
-call vis_4
-jz unseen_78
-load 13409
-push 6
-mul
-push 14085
-add
-store 13765
-push 9751
-load 13765
-push 0
-add
-storei
-push 0
-load 13765
+gone_76:
+load 12004
+store 12191
+load 12005
+store 12192
+load 12015
+store 12195
+load 12006
+shr 8
+store 12193
+load 12022
+store 12194
 push 1
-add
-storei
+store 12208
+push 8
+load 12016
+lt
+jz flash_78
+push 250
+shl 8
+push 148
+or
+shl 8
 push 0
-load 13765
-push 2
-add
-storei
-push 0
-load 13765
-push 3
-add
-storei
-push 0
-load 13765
+or
+shl 8
+push 65
+or
+store 12208
+flash_78:
+load 12008
 push 4
+eq
+jz gone_79_n
+jmp gone_79
+gone_79_n:
+load 12004
+load 8
+sub
+dup
+mulq
+load 12005
+load 10
+sub
+dup
+mulq
 add
-storei
-push 1
-load 13765
-push 5
-add
-storei
-load 13409
-push 1
-add
-store 13409
-unseen_78:
-push 0
-store 13757
-push 2149034
-store 13759
-push 1158097
-store 13760
-push -135660
-store 13758
-call vis_4
-jz unseen_79
-load 13409
-push 6
-mul
-push 14085
-add
-store 13765
-push 9875
-load 13765
-push 0
-add
-storei
-push 0
-load 13765
-push 1
-add
-storei
-push 0
-load 13765
-push 2
-add
-storei
-push 0
-load 13765
-push 3
-add
-storei
-push 0
-load 13765
-push 4
-add
-storei
-push 1
-load 13765
-push 5
-add
-storei
-load 13409
-push 1
-add
-store 13409
-unseen_79:
-push -913135
-store 13757
-push 913135
-store 13759
-push 767905
-store 13760
-push -136970
-store 13758
+push 110755
+swap
+lt
+jz gone_79
+load 12004
+store 12209
+load 12005
+store 12211
+push 104858
+store 12212
+push -75366
+store 12210
 call vis_4
 jz unseen_80
-load 13409
-push 6
-mul
-push 14085
-add
-store 13765
-push 10025
-load 13765
-push 0
-add
-storei
-push 0
-load 13765
-push 1
-add
-storei
-push 0
-load 13765
-push 2
-add
-storei
-push 0
-load 13765
-push 3
-add
-storei
-push 0
-load 13765
-push 4
-add
-storei
-push 1
-load 13765
-push 5
-add
-storei
-load 13409
-push 1
-add
-store 13409
+call fk_3
 unseen_80:
-push -1021270
-store 13757
-push 22938
-store 13759
-push 576718
-store 13760
-push -138281
-store 13758
-call vis_4
-jz unseen_81
-load 13409
-push 6
-mul
-push 14085
-add
-store 13765
-push 10206
-load 13765
-push 0
-add
-storei
-push 0
-load 13765
-push 1
-add
-storei
-push 0
-load 13765
-push 2
-add
-storei
-push 0
-load 13765
-push 3
-add
-storei
-push 0
-load 13765
-push 4
-add
-storei
-push 1
-load 13765
-push 5
-add
-storei
-load 13409
-push 1
-add
-store 13409
-unseen_81:
-push -2149034
-store 13757
-push 0
-store 13759
-push 1158097
-store 13760
-push -135660
-store 13758
-call vis_4
-jz unseen_82
-load 13409
-push 6
-mul
-push 14085
-add
-store 13765
-push 10330
-load 13765
-push 0
-add
-storei
-push 0
-load 13765
-push 1
-add
-storei
-push 0
-load 13765
-push 2
-add
-storei
-push 0
-load 13765
-push 3
-add
-storei
-push 0
-load 13765
-push 4
-add
-storei
-push 1
-load 13765
-push 5
-add
-storei
-load 13409
-push 1
-add
-store 13409
-unseen_82:
-push -913135
-store 13757
-push -890198
-store 13759
-push 787143
-store 13760
-push -136970
-store 13758
-call vis_4
-jz unseen_83
-load 13409
-push 6
-mul
-push 14085
-add
-store 13765
-push 10480
-load 13765
-push 0
-add
-storei
-push 0
-load 13765
-push 1
-add
-storei
-push 0
-load 13765
-push 2
-add
-storei
-push 0
-load 13765
-push 3
-add
-storei
-push 0
-load 13765
-push 4
-add
-storei
-push 1
-load 13765
-push 5
-add
-storei
-load 13409
-push 1
-add
-store 13409
-unseen_83:
-push 16384
-store 13757
-push -1021270
-store 13759
-push 592892
-store 13760
-push -138281
-store 13758
-call vis_4
-jz unseen_84
-load 13409
-push 6
-mul
-push 14085
-add
-store 13765
-push 10677
-load 13765
-push 0
-add
-storei
-push 0
-load 13765
-push 1
-add
-storei
-push 0
-load 13765
-push 2
-add
-storei
-push 0
-load 13765
-push 3
-add
-storei
-push 0
-load 13765
-push 4
-add
-storei
-push 1
-load 13765
-push 5
-add
-storei
-load 13409
-push 1
-add
-store 13409
-unseen_84:
-push 0
-store 13757
-push -2149034
-store 13759
-push 1158097
-store 13760
-push -135660
-store 13758
-call vis_4
-jz unseen_85
-load 13409
-push 6
-mul
-push 14085
-add
-store 13765
-push 10812
-load 13765
-push 0
-add
-storei
-push 0
-load 13765
-push 1
-add
-storei
-push 0
-load 13765
-push 2
-add
-storei
-push 0
-load 13765
-push 3
-add
-storei
-push 0
-load 13765
-push 4
-add
-storei
-push 1
-load 13765
-push 5
-add
-storei
-load 13409
-push 1
-add
-store 13409
-unseen_85:
-push 890198
-store 13757
-push -890198
-store 13759
-push 775048
-store 13760
-push -136970
-store 13758
-call vis_4
-jz unseen_86
-load 13409
-push 6
-mul
-push 14085
-add
-store 13765
-push 10962
-load 13765
-push 0
-add
-storei
-push 0
-load 13765
-push 1
-add
-storei
-push 0
-load 13765
-push 2
-add
-storei
-push 0
-load 13765
-push 3
-add
-storei
-push 0
-load 13765
-push 4
-add
-storei
-push 1
-load 13765
-push 5
-add
-storei
-load 13409
-push 1
-add
-store 13409
-unseen_86:
-push 1021270
-store 13757
-push -16384
-store 13759
-push 592892
-store 13760
-push -138281
-store 13758
-call vis_4
-jz unseen_87
-load 13409
-push 6
-mul
-push 14085
-add
-store 13765
-push 11165
-load 13765
-push 0
-add
-storei
-push 0
-load 13765
-push 1
-add
-storei
-push 0
-load 13765
-push 2
-add
-storei
-push 0
-load 13765
-push 3
-add
-storei
-push 0
-load 13765
-push 4
-add
-storei
-push 1
-load 13765
-push 5
-add
-storei
-load 13409
-push 1
-add
-store 13409
-unseen_87:
-push 2149034
-store 13757
-push 0
-store 13759
-push 1158097
-store 13760
-push -135660
-store 13758
-call vis_4
-jz unseen_88
-load 13409
-push 6
-mul
-push 14085
-add
-store 13765
-push 11300
-load 13765
-push 0
-add
-storei
-push 0
-load 13765
-push 1
-add
-storei
-push 0
-load 13765
-push 2
-add
-storei
-push 0
-load 13765
-push 3
-add
-storei
-push 0
-load 13765
-push 4
-add
-storei
-push 1
-load 13765
-push 5
-add
-storei
-load 13409
-push 1
-add
-store 13409
-unseen_88:
-push 890198
-store 13757
-push 913135
-store 13759
-push 787143
-store 13760
-push -136970
-store 13758
-call vis_4
-jz unseen_89
-load 13409
-push 6
-mul
-push 14085
-add
-store 13765
-push 11450
-load 13765
-push 0
-add
-storei
-push 0
-load 13765
-push 1
-add
-storei
-push 0
-load 13765
-push 2
-add
-storei
-push 0
-load 13765
-push 3
-add
-storei
-push 0
-load 13765
-push 4
-add
-storei
-push 1
-load 13765
-push 5
-add
-storei
-load 13409
-push 1
-add
-store 13409
-unseen_89:
-push 1
-store 13766
-push 8
-load 13434
-lt
-jz flash_90
-push 250
-shl 8
-push 148
-or
-shl 8
-push 0
-or
-shl 8
-push 65
-or
-store 13766
-flash_90:
-load 13409
-push 6
-mul
-push 14085
-add
-store 13765
-push 16
-load 13765
-push 0
-add
-storei
-load 11695
-load 13765
-push 1
-add
-storei
-push 0
-load 13765
-push 2
-add
-storei
-load 11696
-load 13765
-push 3
-add
-storei
-load 11697
-load 13455
-shl 10
-or
-load 13765
-push 4
-add
-storei
-load 13766
-load 13765
-push 5
-add
-storei
-load 13409
-push 1
-add
-store 13409
-load 13409
-push 6
-mul
-push 14085
-add
-store 13765
-push 1533
-load 13765
-push 0
-add
-storei
-load 11695
-load 13765
-push 1
-add
-storei
-push 0
-load 13765
-push 2
-add
-storei
-load 11696
-load 13765
-push 3
-add
-storei
-load 11697
-load 13455
-shl 10
-or
-load 13765
-push 4
-add
-storei
-load 13766
-load 13765
-push 5
-add
-storei
-load 13409
-push 1
-add
-store 13409
-load 12987
-store 13739
-load 12988
-store 13740
-load 12998
-store 13743
-load 12989
-shr 8
-store 13741
-load 13005
-store 13742
-push 1
-store 13756
-push 8
-load 12999
-lt
-jz flash_91
-push 250
-shl 8
-push 148
-or
-shl 8
-push 0
-or
-shl 8
-push 65
-or
-store 13756
-flash_91:
-load 12991
-push 4
-eq
-jz gone_92_n
-jmp gone_92
-gone_92_n:
-load 12987
-load 8
-sub
-dup
-mulq
-load 12988
-load 10
-sub
-dup
-mulq
-add
-push 110755
-swap
-lt
-jz gone_92
-load 12987
-store 13757
-load 12988
-store 13759
-push 104858
-store 13760
-push -75366
-store 13758
-call vis_4
-jz unseen_93
-call fk_3
-unseen_93:
-gone_92:
-load 13010
-store 13739
-load 13011
-store 13740
-load 13021
-store 13743
-load 13012
-shr 8
-store 13741
-load 13028
-store 13742
-push 1
-store 13756
-push 8
-load 13022
-lt
-jz flash_94
-push 250
-shl 8
-push 148
-or
-shl 8
-push 0
-or
-shl 8
-push 65
-or
-store 13756
-flash_94:
-load 13014
-push 4
-eq
-jz gone_95_n
-jmp gone_95
-gone_95_n:
-load 13010
-load 8
-sub
-dup
-mulq
-load 13011
-load 10
-sub
-dup
-mulq
-add
-push 110755
-swap
-lt
-jz gone_95
-load 13010
-store 13757
-load 13011
-store 13759
-push 104858
-store 13760
-push -75366
-store 13758
-call vis_4
-jz unseen_96
-call fk_3
-unseen_96:
-gone_95:
-load 13033
-store 13739
-load 13034
-store 13740
-load 13044
-store 13743
-load 13035
-shr 8
-store 13741
-load 13051
-store 13742
-push 1
-store 13756
-push 8
-load 13045
-lt
-jz flash_97
-push 250
-shl 8
-push 148
-or
-shl 8
-push 0
-or
-shl 8
-push 65
-or
-store 13756
-flash_97:
-load 13037
-push 4
-eq
-jz gone_98_n
-jmp gone_98
-gone_98_n:
-load 13033
-load 8
-sub
-dup
-mulq
-load 13034
-load 10
-sub
-dup
-mulq
-add
-push 110755
-swap
-lt
-jz gone_98
-load 13033
-store 13757
-load 13034
-store 13759
-push 104858
-store 13760
-push -75366
-store 13758
-call vis_4
-jz unseen_99
-call fk_3
-unseen_99:
-gone_98:
-load 13409
+gone_79:
+load 12123
 store 14084
 push 3
 store 12244
@@ -67026,8 +66132,8 @@ push 0
 store 12250
 push 0
 store 12253
-load 13453
-jz hud_100
+load 12172
+jz hud_81
 push 112648
 store 12245
 push 14344
@@ -67038,7 +66144,7 @@ push 1050632
 or
 store 12247
 push 9
-load 13456
+load 12175
 push 183
 mul
 shr 8
@@ -67050,9 +66156,9 @@ store 12248
 push 13321
 store 12249
 push 0
-load 13456
+load 12175
 lt
-jz hud_100
+jz hud_81
 push 16
 shl 24
 push 0
@@ -67067,223 +66173,296 @@ push 24
 or
 or
 store 12250
-hud_100:
-load 13445
-jz dark_101
+hud_81:
+load 12164
+jz dark_82
 push 326656
 store 12251
 push 293888
 store 12252
-load 13445
+load 12164
 shr 2
 push 7
 over
 over
 lt
-jz dark_101_m
+jz dark_82_m
 drop
-jmp dark_101_k
-dark_101_m:
+jmp dark_82_k
+dark_82_m:
 swap
 drop
-dark_101_k:
+dark_82_k:
 shl 24
 push 0
 or
 store 12253
-dark_101:
-load 1
-store 13408
-halt
-vis_4:
-load 13757
-load 8
-sub
-store 13757
-load 13759
-load 10
-sub
-store 13759
-load 13757
-load 13761
-mulq
-load 13759
-load 13762
-mulq
+dark_82:
+push 0
+store 14512
+load 12150
+push 12
+lt
+jz sfx_83_q
+load 12151
+push 12
+mul
+load 12150
 add
-store 13763
-load 13759
-load 13761
-mulq
-load 13757
-load 13762
-mulq
-sub
-store 13764
-push 0
-load 13758
-sub
-push 8022
-mulq
-load 13764
-push 65043
-mulq
+push 6
+mul
+push 12994
 add
-store 13764
-load 13764
-load 13760
+store 12152
+load 12152
+push 0
 add
-push 0
-lt
-jz vno_102_b
-jmp vno_102
-vno_102_b:
-load 13763
-dup
-push 0
-lt
-jz vyes_103_a
-push 0
-swap
-sub
-vyes_103_a:
-push 50203
-mulq
-load 13764
-push 42126
-mulq
-sub
-load 13760
-swap
-lt
-jz vyes_103
-vno_102:
-push 0
-ret
-vyes_103:
-push 1
-ret
-arena_5:
-load 13430
-dup
-push 0
-lt
-jz abs_104
-push 0
-swap
-sub
-abs_104:
-store 13430
-load 13431
-dup
-push 0
-lt
-jz abs_105
-push 0
-swap
-sub
-abs_105:
-store 13431
-push 694681
-load 13430
-lt
-push 694681
-load 13431
-lt
-or
-jz ain_106
-push 465305
-load 13430
-lt
-push 2621440
-load 13431
-lt
-or
-jz ain_106
-push 465305
-load 13431
-lt
-push 2621440
-load 13430
-lt
-or
-jz ain_106
-push 0
-ret
-ain_106:
-push 1
-ret
-copy_6:
-copy_l_107:
-load 13412
-jz copy_l_107_e
-load 13410
 loadi
-load 13411
-storei
-load 13410
-push 1
-add
-store 13410
-load 13411
-push 1
-add
-store 13411
-load 13412
-push 1
-sub
-store 13412
-jmp copy_l_107
-copy_l_107_e:
-ret
-wpt_7:
-load 13413
-loadi
-store 13418
-load 13413
+store 14480
+load 12152
 push 1
 add
 loadi
-store 13419
-load 13413
+store 14481
+load 12152
 push 2
 add
 loadi
-store 13420
-load 13418
-load 13416
+store 14484
+load 12152
+push 3
+add
+loadi
+store 14485
+load 12152
+push 4
+add
+loadi
+store 14486
+load 12152
+push 5
+add
+loadi
+store 14487
+load 12150
+jz sfx_83_ev
+jmp sfx_83_n
+sfx_83_ev:
+push 1
+store 14512
+push 3264
+store 14513
+push 12148
+load 12151
+add
+loadi
+store 14514
+sfx_83_n:
+load 12150
+push 1
+add
+store 12150
+jmp sfx_83
+sfx_83_q:
+push 0
+store 14481
+push 0
+store 14485
+push 0
+store 14487
+sfx_83:
+load 1
+store 12122
+halt
+vis_4:
+load 12209
+load 8
+sub
+store 12209
+load 12211
+load 10
+sub
+store 12211
+load 12209
+load 12213
 mulq
-load 13420
-load 13417
+load 12211
+load 12214
+mulq
+add
+store 12215
+load 12211
+load 12213
+mulq
+load 12209
+load 12214
 mulq
 sub
-load 13418
-load 13417
+store 12216
+push 0
+load 12210
+sub
+push 8022
 mulq
-load 13420
-load 13416
+load 12216
+push 65043
 mulq
 add
-load 13415
+store 12216
+load 12216
+load 12212
 add
-store 13420
-load 13414
+push 0
+lt
+jz vno_84_b
+jmp vno_84
+vno_84_b:
+load 12215
+dup
+push 0
+lt
+jz vyes_85_a
+push 0
+swap
+sub
+vyes_85_a:
+push 50203
+mulq
+load 12216
+push 42126
+mulq
+sub
+load 12212
+swap
+lt
+jz vyes_85
+vno_84:
+push 0
+ret
+vyes_85:
+push 1
+ret
+arena_5:
+load 12144
+dup
+push 0
+lt
+jz abs_86
+push 0
+swap
+sub
+abs_86:
+store 12144
+load 12145
+dup
+push 0
+lt
+jz abs_87
+push 0
+swap
+sub
+abs_87:
+store 12145
+push 694681
+load 12144
+lt
+push 694681
+load 12145
+lt
+or
+jz ain_88
+push 465305
+load 12144
+lt
+push 2621440
+load 12145
+lt
+or
+jz ain_88
+push 465305
+load 12145
+lt
+push 2621440
+load 12144
+lt
+or
+jz ain_88
+push 0
+ret
+ain_88:
+push 1
+ret
+copy_6:
+copy_l_89:
+load 12126
+jz copy_l_89_e
+load 12124
+loadi
+load 12125
+storei
+load 12124
+push 1
 add
-store 13418
+store 12124
+load 12125
+push 1
+add
+store 12125
+load 12126
+push 1
+sub
+store 12126
+jmp copy_l_89
+copy_l_89_e:
+ret
+wpt_7:
+load 12127
+loadi
+store 12132
+load 12127
+push 1
+add
+loadi
+store 12133
+load 12127
+push 2
+add
+loadi
+store 12134
+load 12132
+load 12130
+mulq
+load 12134
+load 12131
+mulq
+sub
+load 12132
+load 12131
+mulq
+load 12134
+load 12130
+mulq
+add
+load 12129
+add
+store 12134
+load 12128
+add
+store 12132
 ret
 d2_8:
-load 13418
-load 13421
+load 12132
+load 12135
 sub
 dup
 mulq
-load 13419
-load 13422
+load 12133
+load 12136
 sub
 dup
 mulq
-load 13420
-load 13423
+load 12134
+load 12137
 sub
 dup
 mulq
@@ -67291,81 +66470,81 @@ add
 add
 ret
 dmind_9:
-load 13129
+load 12100
 push 4
 eq
-jz dmgone_108
+jz dmgone_90
 ret
-dmgone_108:
-load 13125
-store 13146
-load 13126
-store 13147
-load 13127
+dmgone_90:
+load 12096
+store 12117
+load 12097
+store 12118
+load 12098
 shr 8
-store 13728
-load 13728
+store 12180
+load 12180
 call sine_1
-store 13735
-load 13728
+store 12187
+load 12180
 push 256
 add
 call sine_1
-store 13736
-load 13447
-jz dmnoA_109
-load 13129
+store 12188
+load 12166
+jz dmnoA_91
+load 12100
 push 3
 lt
-jz dmnoA_109
-load 13448
-store 13421
-load 13449
-store 13422
-load 13450
-store 13423
-load 13144
-store 13413
-load 13125
-store 13414
-load 13126
-store 13415
-load 13736
-store 13416
-load 13735
-store 13417
+jz dmnoA_91
+load 12167
+store 12135
+load 12168
+store 12136
+load 12169
+store 12137
+load 12115
+store 12127
+load 12096
+store 12128
+load 12097
+store 12129
+load 12188
+store 12130
+load 12187
+store 12131
 call wpt_7
 call d2_8
-store 13424
-load 13144
+store 12138
+load 12115
 push 3
 add
-store 13413
-load 13125
-store 13414
-load 13126
-store 13415
-load 13736
-store 13416
-load 13735
-store 13417
+store 12127
+load 12096
+store 12128
+load 12097
+store 12129
+load 12188
+store 12130
+load 12187
+store 12131
 call wpt_7
 call d2_8
-store 13425
-load 13424
-load 13425
+store 12139
+load 12138
+load 12139
 lt
-store 13427
-load 13425
-store 13426
-load 13427
-jz hd_133
-load 13424
-store 13426
-hd_133:
-load 13426
-push 12796
-load 13444
+store 12141
+load 12139
+store 12140
+load 12141
+jz hd_115
+load 12138
+store 12140
+hd_115:
+load 12140
+push 11767
+load 12163
 push 11
 mul
 add
@@ -67373,68 +66552,72 @@ push 5
 add
 loadi
 lt
-jz dmnoA_109
-push 12796
-load 13444
+jz dmnoA_91
+push 11767
+load 12163
 push 11
 mul
 add
 push 3
 add
 loadi
-store 13428
-push 12796
-load 13444
+store 12142
+push 11767
+load 12163
 push 11
 mul
 add
 push 6
 add
 loadi
-store 13429
-load 13427
-jz hdmg_134
-push 12796
-load 13444
+store 12143
+load 12141
+jz hdmg_116
+push 11767
+load 12163
 push 11
 mul
 add
 push 4
 add
 loadi
-store 13428
-load 13429
+store 12142
+load 12143
 push 3
 add
-store 13429
-hdmg_134:
-load 13128
-load 13428
+store 12143
+hdmg_116:
+load 12099
+load 12142
 sub
-store 13128
-load 13429
+store 12099
+load 12143
 dup
 dup
-store 13138
-store 13435
-store 13446
-load 13429
+store 12109
+store 12154
+store 12165
+load 12143
 push 12
 add
-store 13137
+store 12108
 push 1
-store 13438
+store 12157
 push 0
-store 13447
+store 12166
 push 1
-store 13453
+store 12172
+push 0
+store 12150
+load 12141
+store 12151
 push 2
-store 13129
+store 12100
 push 0
-store 13130
-load 13452
-push 12796
-load 13444
+store 12101
+load 12171
+push 11767
+load 12163
 push 11
 mul
 add
@@ -67442,13 +66625,13 @@ push 7
 add
 loadi
 mulq
-load 13139
+load 12110
 swap
 sub
-store 13139
-load 13451
-push 12796
-load 13444
+store 12110
+load 12170
+push 11767
+load 12163
 push 11
 mul
 add
@@ -67456,172 +66639,172 @@ push 7
 add
 loadi
 mulq
-load 13140
+load 12111
 swap
 add
-store 13140
+store 12111
 push 0
-load 13128
+load 12099
 lt
-jz dmdeadA_132
-jmp dmnoA_109
-dmdeadA_132:
+jz dmdeadA_114
+jmp dmnoA_91
+dmdeadA_114:
 push 3
-store 13129
+store 12100
 push 0
-store 13142
+store 12113
 push 0
-store 13137
-dmnoA_109:
-load 13138
-jz dmfrz_112
-load 13138
+store 12108
+dmnoA_91:
+load 12109
+jz dmfrz_94
+load 12109
 push 1
 sub
-store 13138
+store 12109
 ret
-dmfrz_112:
-load 13125
-load 13139
+dmfrz_94:
+load 12096
+load 12110
 add
-store 13125
-load 13139
+store 12096
+load 12110
 push 53740
 mulq
-store 13139
-load 13126
-load 13140
+store 12110
+load 12097
+load 12111
 add
-store 13126
-load 13140
+store 12097
+load 12111
 push 53740
 mulq
-store 13140
-load 13129
+store 12111
+load 12100
 push 3
 eq
-jz dmfall_113
-load 13142
+jz dmfall_95
+load 12113
 push 1
 add
-store 13142
-load 13142
+store 12113
+load 12113
 push 116
 lt
-jz dmfallc_114
-load 13142
+jz dmfallc_96
+load 12113
 shr 1
 dup
 push 13
 lt
-jz dmfallc_114_m
-jmp dmfallc_114_k
-dmfallc_114_m:
+jz dmfallc_96_m
+jmp dmfallc_96_k
+dmfallc_96_m:
 drop
 push 13
-dmfallc_114_k:
+dmfallc_96_k:
 push 102
 add
 push 12
 mul
 push 6315
 add
-store 13136
+store 12107
 ret
-dmfallc_114:
+dmfallc_96:
 push 4
-store 13129
+store 12100
 ret
-dmfall_113:
-load 13137
-jz dmstun_115
-load 13137
+dmfall_95:
+load 12108
+jz dmstun_97
+load 12108
 push 1
 sub
-store 13137
+store 12108
 push 7527
-store 13136
-load 13137
-jz dmstun_115_e
+store 12107
+load 12108
+jz dmstun_97_e
 ret
-dmstun_115_e:
+dmstun_97_e:
 push 0
-store 13129
+store 12100
 ret
-dmstun_115:
+dmstun_97:
 push 0
-load 13735
+load 12187
 sub
-store 13729
-load 13736
-store 13730
+store 12181
+load 12188
+store 12182
 load 11695
-load 13125
+load 12096
 sub
-store 13731
+store 12183
 load 11696
-load 13126
+load 12097
 sub
-store 13732
-load 13729
-load 13732
+store 12184
+load 12181
+load 12184
 mulq
-load 13730
-load 13731
+load 12182
+load 12183
 mulq
 sub
-store 13733
-load 13729
-load 13731
+store 12185
+load 12181
+load 12183
 mulq
-load 13730
-load 13732
+load 12182
+load 12184
 mulq
 add
-store 13734
+store 12186
 push 0
-load 13734
+load 12186
 lt
-load 13733
-load 13733
+load 12185
+load 12185
 mulq
-load 13734
-load 13734
+load 12186
+load 12186
 mulq
 shr 8
 lt
 and
-jz dmnoturn_117
-jmp dmturned_119
-dmnoturn_117:
-load 13733
+jz dmnoturn_99
+jmp dmturned_101
+dmnoturn_99:
+load 12185
 push 0
 lt
-jz dmneg_118
-load 13127
+jz dmneg_100
+load 12098
 push 1419
 sub
-store 13127
-jmp dmturned_119
-dmneg_118:
-load 13127
+store 12098
+jmp dmturned_101
+dmneg_100:
+load 12098
 push 1419
 add
-store 13127
-dmturned_119:
-load 13127
+store 12098
+dmturned_101:
+load 12098
 push 262143
 and
-store 13127
-load 13129
-jz dmfree_120
-load 13130
+store 12098
+load 12100
+jz dmfree_102
+load 12101
 push 1
 add
-store 13130
-load 13130
-load 13145
-load 13131
+store 12101
+load 12101
+load 12116
+load 12102
 push 11
 mul
 add
@@ -67629,86 +66812,86 @@ push 2
 add
 loadi
 lt
-jz dmover_129
-jmp dmclip_123
-dmover_129:
+jz dmover_111
+jmp dmclip_105
+dmover_111:
 push 0
-store 13129
-dmfree_120:
+store 12100
+dmfree_102:
 push 0
-store 13134
-load 13731
-load 13731
+store 12105
+load 12183
+load 12183
 mulq
-load 13732
-load 13732
+load 12184
+load 12184
 mulq
 add
 push 147456
 swap
 lt
-jz dmnear_121
-load 13729
+jz dmnear_103
+load 12181
 push 1310
 mulq
-load 13125
+load 12096
 add
-store 13125
-load 13730
+store 12096
+load 12182
 push 1310
 mulq
-load 13126
+load 12097
 add
-store 13126
+store 12097
 push 1
-store 13134
+store 12105
 push 0
-store 13132
-jmp dmclip_123
-dmnear_121:
-load 13445
-jz dmnocone_122_l
-jmp dmnocone_122
-dmnocone_122_l:
+store 12103
+jmp dmclip_105
+dmnear_103:
+load 12164
+jz dmnocone_104_l
+jmp dmnocone_104
+dmnocone_104_l:
 push 0
-load 13734
+load 12186
 lt
-load 13733
-load 13733
+load 12185
+load 12185
 mulq
-load 13734
-load 13734
+load 12186
+load 12186
 mulq
 push 16087
 mulq
 lt
 and
-jz dmnocone_122
-load 13132
+jz dmnocone_104
+load 12103
 push 1
 add
-store 13132
-load 13132
+store 12103
+load 12103
 push 74
 eq
-jz dmclip_123
+jz dmclip_105
 push 0
-store 13132
+store 12103
 push 1
-store 13129
+store 12100
 push 0
-store 13130
+store 12101
 push 0
-store 13141
-load 13135
-store 13131
-load 13135
+store 12112
+load 12106
+store 12102
+load 12106
 push 1
 xor
-store 13135
-load 13729
-load 13145
-load 13131
+store 12106
+load 12181
+load 12116
+load 12102
 push 11
 mul
 add
@@ -67716,12 +66899,12 @@ push 8
 add
 loadi
 mulq
-load 13139
+load 12110
 add
-store 13139
-load 13730
-load 13145
-load 13131
+store 12110
+load 12182
+load 12116
+load 12102
 push 11
 mul
 add
@@ -67729,71 +66912,71 @@ push 8
 add
 loadi
 mulq
-load 13140
+load 12111
 add
-store 13140
-jmp dmclip_123
-dmnocone_122:
+store 12111
+jmp dmclip_105
+dmnocone_104:
 push 0
-store 13132
-dmclip_123:
-load 13133
+store 12103
+dmclip_105:
+load 12104
 push 1
 add
 push 63
 and
-store 13133
-load 13129
-jz dmwalkc_124
-load 13131
-jz dmmovec_125
-load 13130
+store 12104
+load 12100
+jz dmwalkc_106
+load 12102
+jz dmmovec_107
+load 12101
 push 67
 add
-jmp dmpose_127
-dmmovec_125:
-load 13130
+jmp dmpose_109
+dmmovec_107:
+load 12101
 push 48
 add
-jmp dmpose_127
-dmwalkc_124:
-load 13134
-jz dmidlec_126
-load 13133
+jmp dmpose_109
+dmwalkc_106:
+load 12105
+jz dmidlec_108
+load 12104
 shr 2
 push 15
 and
 push 32
 add
-jmp dmpose_127
-dmidlec_126:
-load 13133
+jmp dmpose_109
+dmidlec_108:
+load 12104
 shr 1
 push 31
 and
 push 0
 add
-dmpose_127:
+dmpose_109:
 push 12
 mul
 push 6315
 add
-store 13136
-load 13129
+store 12107
+load 12100
 push 1
 eq
-jz dmnoC_130
-load 13141
-jz dmnoC_130_c
-jmp dmnoC_130
-dmnoC_130_c:
-load 13445
-jz dmnoC_130_d
-jmp dmnoC_130
-dmnoC_130_d:
-load 13130
-load 13145
-load 13131
+jz dmnoC_112
+load 12112
+jz dmnoC_112_c
+jmp dmnoC_112
+dmnoC_112_c:
+load 12164
+jz dmnoC_112_d
+jmp dmnoC_112
+dmnoC_112_d:
+load 12101
+load 12116
+load 12102
 push 11
 mul
 add
@@ -67801,12 +66984,12 @@ push 0
 add
 loadi
 lt
-jz dmnoC_130_s
-jmp dmnoC_130
-dmnoC_130_s:
-load 13130
-load 13145
-load 13131
+jz dmnoC_112_s
+jmp dmnoC_112
+dmnoC_112_s:
+load 12101
+load 12116
+load 12102
 push 11
 mul
 add
@@ -67814,18 +66997,18 @@ push 1
 add
 loadi
 lt
-jz dmnoC_130
-load 13145
-load 13131
+jz dmnoC_112
+load 12116
+load 12102
 push 11
 mul
 add
 push 10
 add
 loadi
-load 13130
-load 13145
-load 13131
+load 12101
+load 12116
+load 12102
 push 11
 mul
 add
@@ -67836,64 +67019,64 @@ sub
 push 3
 mul
 add
-store 13413
-load 13125
-store 13414
-load 13126
-store 13415
-load 13736
-store 13416
-load 13735
-store 13417
+store 12127
+load 12096
+store 12128
+load 12097
+store 12129
+load 12188
+store 12130
+load 12187
+store 12131
 call wpt_7
-load 13418
-store 13421
-load 13419
-store 13422
-load 13420
-store 13423
+load 12132
+store 12135
+load 12133
+store 12136
+load 12134
+store 12137
 push 11689
-store 13413
+store 12127
 load 11695
-store 13414
+store 12128
 load 11696
-store 13415
-load 13451
-store 13416
-load 13452
-store 13417
+store 12129
+load 12170
+store 12130
+load 12171
+store 12131
 call wpt_7
 call d2_8
-store 13424
+store 12138
 push 11689
 push 3
 add
-store 13413
+store 12127
 load 11695
-store 13414
+store 12128
 load 11696
-store 13415
-load 13451
-store 13416
-load 13452
-store 13417
+store 12129
+load 12170
+store 12130
+load 12171
+store 12131
 call wpt_7
 call d2_8
-store 13425
-load 13424
-load 13425
+store 12139
+load 12138
+load 12139
 lt
-store 13427
-load 13425
-store 13426
-load 13427
-jz hd_135
-load 13424
-store 13426
-hd_135:
-load 13426
-load 13145
-load 13131
+store 12141
+load 12139
+store 12140
+load 12141
+jz hd_117
+load 12138
+store 12140
+hd_117:
+load 12140
+load 12116
+load 12102
 push 11
 mul
 add
@@ -67901,66 +67084,70 @@ push 5
 add
 loadi
 lt
-jz dmnoC_130
-load 13145
-load 13131
+jz dmnoC_112
+load 12116
+load 12102
 push 11
 mul
 add
 push 3
 add
 loadi
-store 13428
-load 13145
-load 13131
+store 12142
+load 12116
+load 12102
 push 11
 mul
 add
 push 6
 add
 loadi
-store 13429
-load 13427
-jz hdmg_136
-load 13145
-load 13131
+store 12143
+load 12141
+jz hdmg_118
+load 12116
+load 12102
 push 11
 mul
 add
 push 4
 add
 loadi
-store 13428
-load 13429
+store 12142
+load 12143
 push 3
 add
-store 13429
-hdmg_136:
-load 13456
-load 13428
+store 12143
+hdmg_118:
+load 12175
+load 12142
 sub
-store 13456
-load 13429
+store 12175
+load 12143
 dup
 dup
-store 13138
-store 13435
-store 13446
-load 13429
+store 12109
+store 12154
+store 12165
+load 12143
 push 12
 add
-store 13434
+store 12153
 push 1
-store 13141
+store 12112
 push 1
-store 13453
+store 12172
+push 0
+store 12150
+load 12141
+store 12151
 push 3
 store 11698
 push 0
-store 13442
-load 13735
-load 13145
-load 13131
+store 12161
+load 12187
+load 12116
+load 12102
 push 11
 mul
 add
@@ -67968,13 +67155,13 @@ push 7
 add
 loadi
 mulq
-load 13436
+load 12155
 swap
 sub
-store 13436
-load 13736
-load 13145
-load 13131
+store 12155
+load 12188
+load 12116
+load 12102
 push 11
 mul
 add
@@ -67982,317 +67169,317 @@ push 7
 add
 loadi
 mulq
-load 13437
+load 12156
 swap
 add
-store 13437
+store 12156
 push 0
-load 13456
+load 12175
 lt
-jz dmnoC_130_k
-jmp dmnoC_130
-dmnoC_130_k:
+jz dmnoC_112_k
+jmp dmnoC_112
+dmnoC_112_k:
 push 1
-store 13445
+store 12164
 push 4
 store 11698
 push 0
-store 13434
-dmnoC_130:
+store 12153
+dmnoC_112:
 ret
 sine_1:
 push 1023
 and
 dup
-store 13767
+store 12221
 push 255
 and
-store 13768
-load 13767
+store 12222
+load 12221
 push 256
 and
 jz sine_1_q
 push 256
-load 13768
+load 12222
 sub
-store 13768
+store 12222
 sine_1_q:
-push 13148
-load 13768
+push 12737
+load 12222
 add
 loadi
-load 13767
+load 12221
 push 512
 and
-jz qpos_137
+jz qpos_119
 push 0
 swap
 sub
-qpos_137:
+qpos_119:
 ret
 rot_2:
-load 13748
+load 12200
 shr 20
 push 1023
 and
-store 13753
-load 13753
+store 12205
+load 12205
 call sine_1
-store 13754
-load 13753
+store 12206
+load 12205
 push 256
 add
 call sine_1
-store 13755
-load 13749
-load 13755
+store 12207
+load 12201
+load 12207
 mulq
-load 13750
-load 13754
+load 12202
+load 12206
 mulq
 sub
-load 13749
-load 13754
+load 12201
+load 12206
 mulq
-load 13750
-load 13755
+load 12202
+load 12207
 mulq
 add
-store 13750
-store 13749
-load 13748
+store 12202
+store 12201
+load 12200
 shr 10
 push 1023
 and
-store 13753
-load 13753
+store 12205
+load 12205
 call sine_1
-store 13754
-load 13753
+store 12206
+load 12205
 push 256
 add
 call sine_1
-store 13755
-load 13750
-load 13755
+store 12207
+load 12202
+load 12207
 mulq
-load 13751
-load 13754
+load 12203
+load 12206
 mulq
 sub
-load 13750
-load 13754
+load 12202
+load 12206
 mulq
-load 13751
-load 13755
+load 12203
+load 12207
 mulq
 add
-store 13751
-store 13750
-load 13748
+store 12203
+store 12202
+load 12200
 push 1023
 and
-store 13753
-load 13753
+store 12205
+load 12205
 call sine_1
-store 13754
-load 13753
+store 12206
+load 12205
 push 256
 add
 call sine_1
-store 13755
-load 13749
-load 13755
+store 12207
+load 12201
+load 12207
 mulq
-load 13751
-load 13754
+load 12203
+load 12206
 mulq
 sub
-load 13749
-load 13754
+load 12201
+load 12206
 mulq
-load 13751
-load 13755
+load 12203
+load 12207
 mulq
 add
-store 13751
-store 13749
+store 12203
+store 12201
 ret
 fk_3:
 push 0
-store 13744
-load 13742
-store 13745
+store 12196
+load 12194
+store 12197
 push 6063
-store 13746
-fk_top_138:
-load 13743
-load 13744
+store 12198
+fk_top_120:
+load 12195
+load 12196
 add
 loadi
-store 13747
-load 13745
+store 12199
+load 12197
 push 2
 add
 loadi
-store 13749
-load 13745
+store 12201
+load 12197
 push 3
 add
 loadi
-store 13750
-load 13745
+store 12202
+load 12197
 push 4
 add
 loadi
-store 13751
-load 13745
+store 12203
+load 12197
 loadi
 push 0
 lt
-jz fk_place_139_par
-jmp fk_place_139
-fk_place_139_par:
-load 13743
-load 13745
+jz fk_place_121_par
+jmp fk_place_121
+fk_place_121_par:
+load 12195
+load 12197
 loadi
 add
 loadi
-store 13748
+store 12200
 call rot_2
-load 13745
+load 12197
 push 1
 add
 loadi
-store 13752
-load 13749
-load 13752
+store 12204
+load 12201
+load 12204
 loadi
 add
-store 13749
-load 13750
-load 13752
+store 12201
+load 12202
+load 12204
 push 1
 add
 loadi
 add
-store 13750
-load 13751
-load 13752
+store 12202
+load 12203
+load 12204
 push 2
 add
 loadi
 add
-store 13751
-fk_place_139:
-load 13749
-load 13746
+store 12203
+fk_place_121:
+load 12201
+load 12198
 storei
-load 13750
-load 13746
+load 12202
+load 12198
 push 1
 add
 storei
-load 13751
-load 13746
+load 12203
+load 12198
 push 2
 add
 storei
-load 13741
+load 12193
 call sine_1
-store 13754
-load 13741
+store 12206
+load 12193
 push 256
 add
 call sine_1
-store 13755
-load 13749
-load 13755
+store 12207
+load 12201
+load 12207
 mulq
-load 13751
-load 13754
+load 12203
+load 12206
 mulq
 sub
-load 13749
-load 13754
+load 12201
+load 12206
 mulq
-load 13751
-load 13755
+load 12203
+load 12207
 mulq
 add
-store 13751
-store 13749
-load 13409
+store 12203
+store 12201
+load 12123
 push 6
 mul
 push 14085
 add
-store 13765
-load 13745
+store 12217
+load 12197
 push 5
 add
 loadi
-load 13765
+load 12217
 push 0
 add
 storei
-load 13749
-load 13739
+load 12201
+load 12191
 add
-load 13765
+load 12217
 push 1
 add
 storei
-load 13750
-load 13765
+load 12202
+load 12217
 push 2
 add
 storei
-load 13751
-load 13740
+load 12203
+load 12192
 add
-load 13765
+load 12217
 push 3
 add
 storei
-load 13747
+load 12199
 push -1024
 and
-load 13747
-load 13741
+load 12199
+load 12193
 add
 push 1023
 and
 or
-load 13765
+load 12217
 push 4
 add
 storei
-load 13756
-load 13765
+load 12208
+load 12217
 push 5
 add
 storei
-load 13409
+load 12123
 push 1
 add
-store 13409
-load 13745
+store 12123
+load 12197
 push 6
 add
-store 13745
-load 13746
+store 12197
+load 12198
 push 3
 add
-store 13746
-load 13744
+store 12198
+load 12196
 push 1
 add
-store 13744
-load 13744
+store 12196
+load 12196
 push 12
 lt
-jz fk_top_138_end
-jmp fk_top_138
-fk_top_138_end:
+jz fk_top_120_end
+jmp fk_top_120
+fk_top_120_end:
 ret

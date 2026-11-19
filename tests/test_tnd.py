@@ -292,3 +292,24 @@ def test_a_demon_against_the_lens_is_not_drawn():
         return m.vm.dmem[spec.OL_BASE]
     near, far = listed_with_demon_at(0.5), listed_with_demon_at(2.5)
     assert far - near == 12, f"near {near}, far {far}: the lens rule is not 12 objects"
+
+
+def test_a_blow_is_heard():
+    """The street is silent until a blow lands; then the slap, the meat
+    and the falling thump, gone again within twelve frames."""
+    m = cabinet.VirtualMachine(cabinet.load_cart(CART))
+    base, heard = _sym("demons"), []
+    for f in range(400):
+        m.frame((spec.PAD_RIGHT if 300 <= f < 308 else 0)
+                | (spec.PAD_A if f >= 320 and f % 9 == 0 else 0))
+        heard.append(int(np.abs(np.asarray(m.audio(), dtype=np.int64)).max()))
+        if m.vm.dmem[base + FIELDS.index("hp")] < 70:
+            break
+    else:
+        raise AssertionError("no blow landed")
+    assert max(heard[:-1]) == 0, "the street was not silent before the blow"
+    assert heard[-1] > 4000, f"the blow was not heard ({heard[-1]})"
+    for _ in range(13):
+        m.frame(0)
+    assert int(np.abs(np.asarray(m.audio(), dtype=np.int64)).max()) == 0, \
+        "the blow never ended"

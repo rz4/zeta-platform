@@ -278,6 +278,8 @@ def test_the_lease_spills_only_past_the_promise():
     main = c.data(Table([0] * 100), "small")
     assert int(main) < spec.DL_BASE, "spilled while the main region had room"
     c.data(Table([0] * (c._hi - c._next)), "fill")        # main now full
+    lo, hi = forge._above_the_mirror()
+    c.data(Table([0] * (hi - lo)), "gap")                 # ...and the gap
     tail = c.data(Table([0] * 500), "spill")
     assert int(tail) == first
     c.data(Table([0] * (end - first - 500)), "rest")      # exactly fills it
@@ -288,6 +290,8 @@ def test_the_lease_spills_only_past_the_promise():
 def test_no_lease_no_tail():
     c = Cart("t")
     c.data(Table([0] * (c._hi - c._next)), "fill")
+    lo, hi = forge._above_the_mirror()
+    c.data(Table([0] * (hi - lo)), "gap")
     with pytest.raises(ForgeError):
         c.data(Table([0]), "nowhere")
 
@@ -302,3 +306,19 @@ def test_a_text_longer_than_the_lease_is_refused():
     p.set_text(short)
     with pytest.raises(ForgeError):
         p.set_text(long_)
+
+
+def test_the_gap_above_the_mirror_is_offered_after_the_main_region():
+    """Between the loader's signature mirror and the first register of
+    the high block the law legislates nothing; a cart whose main region
+    is full spills there -- never onto the mirror, never onto a register
+    -- and only then into a leased display-list tail."""
+    lo, hi = forge._above_the_mirror()
+    assert lo == spec.LOADER_SIG2 + spec.LOADER_SIG_WORDS
+    assert hi == spec.CO_BASE
+    c = Cart("t", dl_lease=64)
+    c.data(Table([0] * (c._hi - c._next)), "fill")        # main now full
+    gap = c.data(Table([0] * (hi - lo)), "gap")
+    assert int(gap) == lo, "the spill did not start above the mirror"
+    tail = c.data(Table([0] * 10), "next")
+    assert int(tail) == spec.DL_BASE + 1 + 64 * spec.DL_STRIDE

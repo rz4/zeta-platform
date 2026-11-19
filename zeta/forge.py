@@ -334,6 +334,21 @@ def _reserved():
     return lo, min(spec.DL_BASE, min(regs, default=spec.DL_BASE))
 
 
+def _above_the_mirror():
+    """THE GAP ABOVE THE MIRROR: from the end of the loader's signature
+    mirror to the first register of the high block (spec.CO_BASE today).
+    The law legislates nothing there (tests/test_dmem_map.py lists every
+    region), but content used to stop at the LOWEST reserved word -- the
+    mirror -- so these 536 words were never offered. The loader writes
+    the whole DMEM image, and glass has shown it delivers far above here
+    (TND's tables live in the display list's tail, at 12,737+)."""
+    lo = spec.LOADER_SIG2 + spec.LOADER_SIG_WORDS
+    regs = [v for n, v in vars(spec).items()
+            if isinstance(v, int) and lo <= v < spec.DMEM_WORDS
+            and n.isupper() and not n.endswith("_WORDS") and v > 12000]
+    return lo, min(regs + [spec.DL_BASE])
+
+
 class Cart:
     """Holds resources, assigns their addresses, emits .zol."""
 
@@ -355,8 +370,13 @@ class Cart:
             if not 0 <= dl_lease < spec.DL_MAX:
                 raise ForgeError(f"{name}: dl_lease {dl_lease} is not "
                                  f"0..{spec.DL_MAX - 1}")
-            self._tail = spec.DL_BASE + 1 + dl_lease * spec.DL_STRIDE
-            self._tail_hi = spec.DL_BASE + 1 + spec.DL_MAX * spec.DL_STRIDE
+        # THE SPILL REGIONS, in order, filled first-fit once the main region
+        # cannot take a resource: the gap above the loader's mirror, then
+        # the display list's leased tail. Each is [next, end).
+        self._spill = [list(_above_the_mirror())]
+        if dl_lease is not None:
+            self._spill.append([spec.DL_BASE + 1 + dl_lease * spec.DL_STRIDE,
+                                spec.DL_BASE + 1 + spec.DL_MAX * spec.DL_STRIDE])
         self._data: list[tuple[Sym, Resource]] = []
         self._cram: list[tuple[Sym, Resource]] = []
         self._sd: dict[int, list[tuple[Sym, Resource]]] = {}
@@ -373,12 +393,13 @@ class Cart:
         res.check()
         w = res.words()
         at = self._next
-        if at + len(w) > self._hi and self.dl_lease is not None \
-                and self._tail + len(w) <= self._tail_hi:
-            sym = Sym(self._tail, name or type(res).__name__.lower(), len(w))
-            self._tail += len(w)
-            self._data.append((sym, res))
-            return sym
+        if at + len(w) > self._hi:
+            for reg in self._spill:
+                if reg[0] + len(w) <= reg[1]:
+                    sym = Sym(reg[0], name or type(res).__name__.lower(), len(w))
+                    reg[0] += len(w)
+                    self._data.append((sym, res))
+                    return sym
         if at + len(w) > self._hi:
             raise ForgeError(
                 f"{self.name}: DMEM full -- {name or type(res).__name__} "
@@ -542,12 +563,14 @@ class Cart:
         used = self._next - self._lo
         free = self._hi - self._next
         n = len(self._prog.lines()) if self._prog else 0
-        tail = ""
+        gap_lo = _above_the_mirror()[0]
+        g = self._spill[0]
+        tail = f"; above the mirror {g[0] - gap_lo} used, {g[1] - g[0]} free"
         if self.dl_lease is not None:
             lo = spec.DL_BASE + 1 + self.dl_lease * spec.DL_STRIDE
-            tail = (f"; display-list tail (lease: <= {self.dl_lease} "
-                    f"triangles) {self._tail - lo} used, "
-                    f"{self._tail_hi - self._tail} free")
+            t = self._spill[1]
+            tail += (f"; display-list tail (lease: <= {self.dl_lease} "
+                     f"triangles) {t[0] - lo} used, {t[1] - t[0]} free")
         return (f"{self.name}: {len(self._data)} resources, "
                 f"{used} DMEM words used, {free} free "
                 f"(content must end by {self._hi}){tail}")

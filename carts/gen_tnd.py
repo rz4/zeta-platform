@@ -809,6 +809,50 @@ def sin_of(q, plus=0, cell=None):
     q.emit(f"call {L_SINE}")
 
 
+# ---- THE BLOW, HEARD (sfx.meat_impact, on this machine's voices) -------------
+# The archive builds an impact in four layers; three carry here, on three
+# voices TND leaves free:
+#   SLAP   noise stepping at a bright 12 kHz for the first 4 ms -- the
+#          contact the ear places the blow by -- then, at sample 192
+#          exactly (the EVENT LIST: sub-frame and bit-exact), the MEAT:
+#          noise at a wet mid step, fast-decaying
+#   THUMP  the triangle, its pitch FALLING as it fades (112 -> 74 Hz on a
+#          head, 95 -> 58 on the body: heavy, not merely loud)
+#   RING   the archive's metal partial as a thin pulse, a clang that dies
+#          into the flesh within four frames
+# A head shot is brighter and shorter (150 ms), the body darker and longer
+# (190 ms): the same event at two weights.
+def hz(f):
+    return int(round(f * (1 << 24) / spec.SND_HZ))
+
+
+SFX_N = 12                                       # frames: 190 ms, rounded up
+SFX_SLAP = spec.SND_HZ * 4 // 1000               # sample 192
+sfx_rows = []
+for head in (0, 1):
+    n = 9 if head else 12
+    f0, f1 = (112, 74) if head else (95, 58)
+    meat, ring = (5200, 1900) if head else (3000, 1350)
+    noise = (15, 12, 7, 3) if head else (15, 13, 9, 5)
+    for k in range(SFX_N):
+        u = min(1.0, k / (n - 1))
+        sfx_rows += [hz(ring), (10, 6, 3, 1)[k] if k < 4 else 0,           # ch0
+                     hz(f0 + (f1 - f0) * u),
+                     max(0, round(15 * (1 - u))) if k < n else 0,          # ch2
+                     hz(12000 if k == 0 else meat), noise[k] if k < 4 else 0]  # ch3
+SFX = cart.data(Table(sfx_rows), "sfx_blow")
+SFX_MEAT = cart.data(Table([hz(3000), hz(5200)]), "sfx_meat")
+SFX_T = cart.data(Table([SFX_N]), "sfx_t")     # boots past its end: quiet
+SFX_H, SFX_R = cart.var("sfx_h"), cart.var("sfx_r")
+
+
+def sound_blow(head_cell):
+    """start the blow from the top; head_cell holds 1 for a head shot"""
+    p.set(SFX_T, 0)
+    p.load(head_cell).store(SFX_H)
+
+
+
 # ---- P4: THE FIGHT ----------------------------------------------------------
 # tear.py, in integers. A move LANDS when the attacker's posed fist, in its
 # active frames, comes within the move's reach of the target's chin or gut
@@ -976,7 +1020,7 @@ p.emit("and", f"jz {L['frozen']}")
 for c, v in ((PX, 0), (PZ, 0), (YAW, 0), (CY, 0), (ANIM, 0), (AF, 0),
              (PHP, 140), (F["dead"], 0), (F["tilt"], 0), (F["hs"], 0),
              (F["stop"], 0), (F["vx"], 0), (F["vz"], 0), (F["buf"], 0),
-             (F["c3"], 0), (F["fight"], 0), (F["wave"], 0)):
+             (F["c3"], 0), (F["fight"], 0), (F["wave"], 0), (SFX_T, SFX_N)):
     p.set(c, v)
 p.hide_text()
 p.push(int(SPAWN)).store(CP["src"]).push(int(DS)).store(CP["dst"])
@@ -1186,10 +1230,24 @@ def if_visible(cx, cy, cz, r, body):
     p.mark(skip)
 
 
-ST_TAB = []
-for m, (c, r) in zip(STREET, SPHERE):
-    if_visible(float(c[0]), float(c[1]), float(c[2]), float(r) + 0.05,
-               lambda m=m: p.object(NOBJ, m, 0, 0, 0, 0, spec.OBJ_CULL))
+# the street as ONE loop over a table (mesh, centre, radius -- the y
+# already relative to the eye): twenty unrolled copies of the test were
+# ~500 of IMEM's 4,096 words
+ST_TAB = cart.data(Table([w for m, (c, r) in zip(STREET, SPHERE) for w in (
+    m, int(round(c[0] * ONE)), int(round((c[1] - 2.15) * ONE)),
+    int(round(c[2] * ONE)), int(round((r + 0.05) * ONE)))]), "street_cull")
+STP, STN = cart.var("st_p"), cart.var("st_n")
+stl = p.label("stl")
+p.push(int(ST_TAB)).store(STP).push(len(STREET)).store(STN)
+p.mark(stl)
+for k, c in enumerate(("cx", "cy", "cz", "r")):
+    p.load(STP).push(k + 1).emit("add", "loadi").store(VIS[c])
+p.emit(f"call {L_VIS}", f"jz {stl}_s")
+p.object(NOBJ, (f"load {int(STP)}", "loadi"), 0, 0, 0, 0, spec.OBJ_CULL)
+p.mark(f"{stl}_s")
+p.addi(STP, 5).addi(STN, -1)
+p.load(STN).emit(f"jz {stl}_e", f"jmp {stl}")
+p.mark(f"{stl}_e")
 def flash_flags(hs, out):
     """out = FLASH while the blow is fresh -- the STRUCK body only: hitstop
     freezes the attacker too, but only the target carries a stun (12 +
@@ -1257,6 +1315,26 @@ p.emit("swap", "drop")
 p.mark(f"{dk}_k")
 p.emit("shl 24").push32(0x000000).emit("or").store(HB + 8)
 p.mark(dk)
+sx = p.label("sfx")
+p.set(spec.AU_EV_BASE, 0)
+p.load(SFX_T).push(SFX_N).emit("lt", f"jz {sx}_q")
+p.load(SFX_H).push(SFX_N).emit("mul").load(SFX_T).emit("add")
+p.push(6).emit("mul").push(int(SFX)).emit("add").store(SFX_R)
+for k, reg in enumerate((0, 1, 4, 5, 6, 7)):     # ch0, ch2, ch3: inc, ctrl
+    p.load(SFX_R).push(k).emit("add", "loadi").store(spec.AU_BASE + reg)
+p.load(SFX_T).emit(f"jz {sx}_ev", f"jmp {sx}_n")
+p.mark(f"{sx}_ev")                               # first frame: slap -> meat
+p.set(spec.AU_EV_BASE, 1)
+p.set(spec.AU_EV_BASE + 1, SFX_SLAP | (3 << 10))  # ch3, its inc, at 4 ms
+p.push(int(SFX_MEAT)).load(SFX_H).emit("add", "loadi").store(spec.AU_EV_BASE + 2)
+p.mark(f"{sx}_n")
+p.addi(SFX_T, 1)
+p.emit(f"jmp {sx}")
+p.mark(f"{sx}_q")
+for reg in (1, 5, 7):                            # quiet
+    p.set(spec.AU_BASE + reg, 0)
+p.mark(sx)
+
 p.emit("load 1").store(PV)
 
 # ---- subroutines (after the halt) -------------------------------------------
@@ -1414,6 +1492,7 @@ p.load(W["stop"]).emit("dup", "dup").store(cur("stop")).store(F["stop"])
 p.store(F["shake"])
 p.load(W["stop"]).push(12).emit("add").store(cur("hs"))
 p.set(F["con"], 1).set(F["act"], 0).set(F["fight"], 1)
+sound_blow(W["head"])
 p.set(ST, 2).set(MF, 0)                         # a hit stops a swing
 for vel, trig, neg in ((cur("vx"), F["ps"], True), (cur("vz"), F["pc"], False)):
     p.load(trig)
@@ -1565,6 +1644,7 @@ p.load(W["stop"]).emit("dup", "dup").store(cur("stop")).store(F["stop"])
 p.store(F["shake"])
 p.load(W["stop"]).push(12).emit("add").store(F["hs"])
 p.set(cur("con"), 1).set(F["fight"], 1)
+sound_blow(W["head"])
 p.set(ANIM, 3).set(F["buf"], 0)                   # his swing is broken
 for vel, trig, neg in ((F["vx"], t["s"], True), (F["vz"], t["c"], False)):
     p.load(trig)
