@@ -53,6 +53,17 @@ def main(argv=None) -> int:
     p.add_argument("--diff", default=None,
                    help="write the closest frame with differing pixels marked")
 
+    p = sub.add_parser("sd", help="the card ferry: push the build, pull shots")
+    p.add_argument("action", choices=("push", "shots", "witness"))
+    p.add_argument("cart", nargs="?", default=None,
+                   help="witness only: the cart the capture came from")
+    p.add_argument("--card", default=None, help="card mountpoint (default: find it)")
+    p.add_argument("-n", type=int, default=1, help="shots: how many, newest first")
+    p.add_argument("-f", "--frames", type=int, default=600,
+                   help="witness: search this many frames")
+    p.add_argument("--tape", default=None, help="witness: pad-log tape")
+    p.add_argument("--diff", default=None, help="witness: write marked diff PPM")
+
     p = sub.add_parser("budget", help="the frame-budget gate: does it fit 60?")
     p.add_argument("carts", nargs="*", help="default: every suite cart")
     p.add_argument("-f", "--frames", type=int, default=10)
@@ -111,6 +122,25 @@ def main(argv=None) -> int:
         print(f"; {total} words, chunk base(s) {bases} -- point your "
               f"object-list entries here")
         return 0
+
+    if args.cmd == "sd":
+        from . import sdcard
+        card = sdcard.find_card(args.card)
+        if args.action == "push":
+            return sdcard.push(card)
+        if args.action == "shots":
+            sdcard.shots(card, args.n)
+            return 0
+        # witness: the newest capture, straight into the gate
+        if not args.cart:
+            raise SystemExit("zeta sd witness CART -- name the cart the "
+                             "capture came from")
+        from . import cabinet, witness as wit
+        shot_path = sdcard.shots(card, 1)[0]
+        tape = wit.read_tape(args.tape) if args.tape else None
+        return wit.witness(cabinet.load_cart(args.cart),
+                           wit.read_shot(shot_path), args.frames,
+                           tape, None, args.diff)
 
     from . import cabinet
     cart = cabinet.load_cart(args.cart)
