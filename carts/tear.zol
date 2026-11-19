@@ -1,25 +1,40 @@
 ; tear.zol -- TEAR, the fight, in pure ZOL. You (blue) vs the machine (red).
 ;
-;   move: .oeu or arrows      punch: n (the A button; 14-frame swing,
-;                                       lands on its 5th frame)
+;   move: .oeu or arrows     jab: n (A)     heavy: h (B)
+;   block: hold AWAY from the machine with your hands free
 ;
-; A punch that connects takes 12 of 96 health and knocks the loser back.
+; THE FRAME DATA (stage 1 of FLAGSHIP.md -- the fight grows teeth):
+;
+;   move    total  startup  active at  damage  reach  knockback
+;   JAB       14      4     timer==10     8      52      18
+;   HEAVY     26     14     timer==12    20      56      30
+;
+; and the triangle that makes a fight out of it:
+;   JAB beats HEAVY    a hit landed during a wind-up CANCELS the move,
+;                      and the heavy's wind-up is 14 readable frames
+;   BLOCK beats JAB    holding away with free hands turns a jab into
+;                      2 chip, no knockback
+;   HEAVY beats BLOCK  the heavy goes through a guard at full price
+;
+; A clean hit freezes both fighters for 6 frames (HITSTOP); a blocked
+; one for 3. A button pressed mid-move is BUFFERED for 10 frames and
+; fires the instant the hands are free. The machine walks in and swings
+; every 32 frames, and every fourth swing is the heavy -- the wind-up
+; you jab through.
+;
 ; Empty a health bar and the round freezes on the winner's color, then
-; resets. The machine walks in and swings every 32 frames -- crowd it,
-; punch faster, and step out of its cadence.
-;
-; Everything below is the whole engine: game state in cells 16..30,
-; a fixed 20-triangle display list at 12288 whose static words are .data
-; and whose moving words are rewritten each frame. Hidden shapes are
-; parked at x=-100 where the GPU's clipped bounding box skips them.
+; resets. Game state in cells 16..35, a fixed 20-triangle display list
+; at 12288 whose static words are .data and whose moving words are
+; rewritten each frame. Hidden shapes park at x=-100 where the GPU's
+; clipped bounding box skips them.
 
 .const PAD 1
 .const PX 16               ; player left edge
 .const EX 17               ; enemy left edge
 .const PH 18               ; player health 0..96
 .const EH 19               ; enemy health
-.const PP 20               ; player punch timer, 14 -> 0, hits at 10
-.const EP 21               ; enemy punch timer
+.const PP 20               ; player move timer, counts down to 0
+.const EP 21               ; enemy move timer
 .const PFL 22              ; player hit-flash frames
 .const EFL 23              ; enemy hit-flash frames
 .const KO 24               ; round-freeze countdown, 0 = fighting
@@ -29,6 +44,11 @@
 .const ADX 28              ; |dx|
 .const T0 29               ; scratch
 .const T1 30               ; scratch
+.const PMV 31              ; player move: 0 none, 1 jab, 2 heavy
+.const EMV 32              ; enemy move
+.const PBUF 33             ; buffered move, fires when the hands free
+.const BTIM 34             ; the buffer's 10-frame life
+.const HST 35              ; hitstop: both fighters frozen while > 0
 
 .data 16 60 236 96 96 0 0 0 0 0 0 1 0 0
 
@@ -84,6 +104,16 @@ push 0
 store EFL
 push 0
 store WIN
+push 0
+store PMV
+push 0
+store EMV
+push 0
+store PBUF
+push 0
+store BTIM
+push 0
+store HST
 jmp aftermath
 
 ; ==== the fight ============================================================
@@ -110,15 +140,72 @@ push 1
 store FACE
 dx_done:
 
-; ---- player: swing ticks down, else move and maybe swing ------------------
+; ---- hitstop: the connect freezes the WORLD, not the flash ------------------
+load HST
+jz hst_z
+load HST
+push 1
+sub
+store HST
+jmp aftermath
+hst_z:
+
+; ---- player: mid-move ticks down (presses buffer), else act -----------------
 load PP
 jz p_free
+load PAD                   ; a press made mid-move is held ten frames
+push 16                    ; and fires the instant the hands are free
+and
+jz p_bufa_no
+push 1
+store PBUF
+push 10
+store BTIM
+p_bufa_no:
+load PAD
+push 32
+and
+jz p_bufb_no
+push 2
+store PBUF
+push 10
+store BTIM
+p_bufb_no:
 load PP
 push 1
 sub
 store PP
+load PP
+jz p_move_end
+jmp p_done
+p_move_end:
+push 0
+store PMV
 jmp p_done
 p_free:
+load BTIM                  ; the buffer ages while the hands are free
+jz p_buf_dead
+load BTIM
+push 1
+sub
+store BTIM
+load PBUF
+jz p_input
+load PBUF
+push 2
+eq
+jz p_buf_jab
+push 0
+store PBUF
+jmp p_heavy
+p_buf_jab:
+push 0
+store PBUF
+jmp p_jab
+p_buf_dead:
+push 0
+store PBUF
+p_input:
 load PAD
 push 8                     ; RIGHT
 and
@@ -138,10 +225,24 @@ sub
 store PX
 p_no_l:
 load PAD
-push 16                    ; A: punch
+push 16                    ; A: the jab
 and
-jz p_done
+jz p_try_b
+p_jab:
+push 1
+store PMV
 push 14
+store PP
+jmp p_done
+p_try_b:
+load PAD
+push 32                    ; B: the heavy -- 14 frames of wind-up,
+and                        ; and it goes through a guard
+jz p_done
+p_heavy:
+push 2
+store PMV
+push 26
 store PP
 p_done:
 
@@ -152,6 +253,12 @@ load EP
 push 1
 sub
 store EP
+load EP
+jz e_move_end
+jmp e_done
+e_move_end:
+push 0
+store EMV
 jmp e_done
 e_free:
 push 48                    ; far? walk in
@@ -178,63 +285,239 @@ and
 jz e_swing
 jmp e_done
 e_swing:
+load 0                     ; every fourth swing is the heavy: the long
+shr 5                      ; wind-up the player is meant to jab through
+push 3
+and
+push 3
+eq
+jz e_jab
+push 2
+store EMV
+push 26
+store EP
+jmp e_done
+e_jab:
+push 1
+store EMV
 push 14
 store EP
 e_done:
 
-; ---- fists land on their 5th frame (timer == 10) ---------------------------
+; ---- the active frame: the jab lands at 10, the heavy at 12 -----------------
+load PMV
+push 1
+eq
+jz p_act_h
 load PP
 push 10
 eq
 jz p_no_hit
-load ADX
 push 52
+store T1                   ; T1 = the move's reach
+jmp p_reach
+p_act_h:
+load PMV
+push 2
+eq
+jz p_no_hit
+load PP
+push 12
+eq
+jz p_no_hit
+push 56
+store T1
+p_reach:
+load ADX
+load T1
 lt
 jz p_no_hit
-load EH
+load EMV                   ; a hit during a WIND-UP cancels the move --
+jz p_int_done              ; this is how the jab beats the heavy
+load EMV
+push 1
+eq
+jz p_int_hv
+push 10
+load EP
+lt
+jz p_int_done
+jmp p_int_do
+p_int_hv:
 push 12
+load EP
+lt
+jz p_int_done
+p_int_do:
+push 0
+store EP
+push 0
+store EMV
+p_int_done:
+load PMV
+push 2
+eq
+jz p_dmg_jab
+load EH
+push 20
 sub
 store EH
+push 30
+store T0                   ; T0 = knockback
+jmp p_dmg_done
+p_dmg_jab:
+load EH
+push 8
+sub
+store EH
+push 18
+store T0
+p_dmg_done:
+load PP                    ; the connect spends the active frame -- a
+push 1                     ; frozen timer must NOT re-land the hit when
+sub                        ; the hitstop lets go
+store PP
 push 8
 store EFL
+push 6
+store HST
 load FACE
 jz p_kb_l
 load EX
-push 18
+load T0
 add
 store EX
 jmp p_no_hit
 p_kb_l:
 load EX
-push 18
+load T0
 sub
 store EX
 p_no_hit:
 
+load EMV
+push 1
+eq
+jz e_act_h
 load EP
 push 10
 eq
 jz e_no_hit
-load ADX
 push 52
+store T1
+jmp e_reach
+e_act_h:
+load EMV
+push 2
+eq
+jz e_no_hit
+load EP
+push 12
+eq
+jz e_no_hit
+push 56
+store T1
+e_reach:
+load ADX
+load T1
 lt
 jz e_no_hit
-load PH
-push 12
+load EMV                   ; the heavy does not respect a guard
+push 2
+eq
+jz e_blk_chk
+jmp e_clean
+e_blk_chk:
+load PP                    ; mid-move hands cannot block
+jz e_blk_free
+jmp e_clean
+e_blk_free:
+load FACE                  ; away = LEFT when the enemy is to the right
+jz e_back_r
+push 4
+store T0
+jmp e_back_t
+e_back_r:
+push 8
+store T0
+e_back_t:
+load PAD
+load T0
+and
+jz e_clean
+load PH                    ; BLOCKED: chip, a short flash, a short stop,
+push 2                     ; and the ground held
 sub
 store PH
+load EP                    ; the blocked swing is spent too
+push 1
+sub
+store EP
+push 3
+store PFL
+push 3
+store HST
+jmp e_no_hit
+e_clean:
+load PMV                   ; the machine's hit cancels YOUR wind-up too
+jz e_int_done
+load PMV
+push 1
+eq
+jz e_int_hv
+push 10
+load PP
+lt
+jz e_int_done
+jmp e_int_do
+e_int_hv:
+push 12
+load PP
+lt
+jz e_int_done
+e_int_do:
+push 0
+store PP
+push 0
+store PMV
+e_int_done:
+load EMV
+push 2
+eq
+jz e_dmg_jab
+load PH
+push 20
+sub
+store PH
+push 30
+store T0
+jmp e_dmg_done
+e_dmg_jab:
+load PH
+push 8
+sub
+store PH
+push 18
+store T0
+e_dmg_done:
+load EP                    ; the connect spends the active frame
+push 1
+sub
+store EP
 push 8
 store PFL
+push 6
+store HST
 load FACE
 jz e_kb_r
 load PX
-push 18
+load T0
 sub
 store PX
 jmp e_no_hit
 e_kb_r:
 load PX
-push 18
+load T0
 add
 store PX
 e_no_hit:
@@ -352,6 +635,14 @@ load PX
 push 48
 add
 store T1
+load PMV                   ; the heavy reaches 8 further, and shows it
+push 2
+eq
+jz pf_write
+load T1
+push 8
+add
+store T1
 jmp pf_write
 pf_left:
 load PX
@@ -360,6 +651,14 @@ sub
 store T0
 load PX
 store T1
+load PMV
+push 2
+eq
+jz pf_write
+load T0
+push 8
+sub
+store T0
 jmp pf_write
 pf_park:
 push -100
@@ -391,6 +690,14 @@ sub
 store T0
 load EX
 store T1
+load EMV
+push 2
+eq
+jz ef_write
+load T0
+push 8
+sub
+store T0
 jmp ef_write
 ef_right:
 load EX
@@ -399,6 +706,14 @@ add
 store T0
 load EX
 push 48
+add
+store T1
+load EMV
+push 2
+eq
+jz ef_write
+load T1
+push 8
 add
 store T1
 jmp ef_write
