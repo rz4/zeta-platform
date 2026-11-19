@@ -88,18 +88,16 @@ def test_the_tape_drives_the_replay(tmp_path):
 GLASS = Path(__file__).parent / "glass"
 
 
-def test_tnd_on_glass_is_frame_143_through_the_pockets_camera():
+def test_the_pockets_camera_is_rgb565():
     """Captured with Menu+Start on 2026-11-19 (the Pocket writes PNG; kept
-    here as a lossless PPM): the column cart (film ->
-    shelf -> X) running TND untouched, the brute walking in. It is the
-    law's frame 143 of TND to the pixel -- once the law's panel goes
-    through the Pocket's RGB565 screenshot. Without that model it is not
-    (green's low bits), so the model is held both ways."""
-    # (TND now opens on its title: Start on frame 0, and the fight that
-    # ran from frame 0 on glass runs from frame 1 -- its frame 143 is 144)
-    cart = cabinet.load_cart(Path(__file__).parents[1] / "carts/tnd.zol")
+    as a lossless PPM): the column cart of commit 12a5f44 running TND
+    untouched, the brute walking in -- the law's frame 143 to the pixel
+    once the law's panel goes through the Pocket's RGB565 screenshot, and
+    not without it (green's low bits). The law's own frame is kept beside
+    it: the cart has moved on since (the aware markers stand in that
+    opening now), and the camera's model must not depend on the cart.
+    (The hardware-equals-law witness itself was that day's, at 12a5f44.)"""
+    law = witness.read_shot(GLASS / "tnd-wave-143-law.ppm")
     shot = witness.read_shot(GLASS / "tnd-wave-143.ppm")
-    start = (0, [spec.PAD_START])
-    assert witness.witness(cart, shot, 145, start, 144,
-                           capture=witness.pocket_capture) == 0
-    assert witness.witness(cart, shot, 145, start, 144) == 1
+    assert (witness.pocket_capture(law) == shot).all(), "the camera model drifted"
+    assert not (law == shot).all(), "the witness cannot tell 555 from 565"

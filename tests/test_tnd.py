@@ -83,7 +83,7 @@ def test_both_machines_play_the_fighter():
 # (the forge assigns addresses), with gen_tnd.py's field order.
 FIELDS = ("x", "z", "h8", "hp", "st", "mf", "mv", "ai", "wf", "mov", "alt", "cf",
           "hs", "stop", "vx", "vz", "con", "dt", "jt", "kp", "mt", "ox", "oz",
-          "py", "vy")
+          "py", "vy", "aw")
 
 
 def _sym(name):
@@ -514,3 +514,26 @@ def test_the_dpad_aims_the_strike_and_holds_the_steering():
     launch = next(f for f in range(60) if seen[f][2] == 2)
     assert seen[launch][1] == (yaw - 256) & 1023, "the strike did not face left"
     assert seen[59][1] == yaw, "the body never faced its steering again"
+
+
+def test_the_aware_marker_has_hysteresis():
+    """tear.py's AWARE: the marker is on when he is inside the demon's
+    frontal cone -- entered at 0.46 rad, left only past 0.60 -- so at 0.53
+    it keeps whatever it was. Facing away, it is off."""
+    import math
+    def aware_after(offset, was):
+        m = _fight_vm()
+        m.frame(0)
+        base, nf = _sym("demons"), len(FIELDS)
+        w = _wave(m)[0]
+        px, pz = _player(m)
+        bearing = math.atan2(-(px - w["x"] / 65536), pz - w["z"] / 65536)  # yaw: fwd (-sin, cos)
+        yaw = int(round((bearing + offset) * 1024 / (2 * math.pi))) & 1023
+        m.vm.dmem[base + FIELDS.index("h8")] = yaw << 8
+        m.vm.dmem[base + FIELDS.index("aw")] = was
+        m.frame(0)
+        return _wave(m)[0]["aw"]
+    assert aware_after(0.30, 0) == 1
+    assert aware_after(0.53, 1) == 1, "left the cone early: no hysteresis"
+    assert aware_after(0.53, 0) == 0, "entered the cone early: no hysteresis"
+    assert aware_after(math.pi, 1) == 0

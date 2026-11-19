@@ -664,6 +664,28 @@ def ground_mesh():
 
 GROUND_M = int(cart.data(ground_mesh(), "ground"))
 
+# THE AWARE MARKER (tear.py _AWARE): a small gold tetrahedron over every
+# demon that has you inside its frontal cone and so can swing -- the ones
+# without one are facing the wrong way, the gaps to move through.
+
+
+def tetra_mesh(size, col):
+    V = np.array([(1, 1, 1), (1, -1, -1), (-1, 1, -1), (-1, -1, 1)], float) * size
+    F_ = []
+    for a, b, c in ((0, 1, 2), (0, 3, 1), (0, 2, 3), (1, 3, 2)):
+        P = V[[a, b, c]]
+        n = np.cross(P[1] - P[0], P[2] - P[0])
+        if np.dot(n, P.mean(0)) < 0:
+            b, c = c, b
+        n = n / np.linalg.norm(n)
+        k = 0.7 + 0.3 * max(0.0, n[1])                    # lit from above
+        F_.append((a, b, c, rgb(tuple(min(255, int(ch * k)) for ch in col))))
+    return Mesh([int(round(c * ONE)) for v in V for c in v], F_)
+
+
+AWARE_M = int(cart.data(tetra_mesh(0.10, (255, 210, 80)), "aware"))
+AWARE_LIFT = int(1.62 * ONE)
+
 # ---- P6: THE TITLE -- the archive's own start screen, baked -----------------
 # tools/tnd_title.py renders it with the archive itself at the panel's
 # 320x288 (TEAR / NOT / DEMON in its gothic hand, the demonic Ns, the
@@ -755,7 +777,7 @@ NMR = len(MROW)
 DF = {f: k for k, f in enumerate(
     ("x", "z", "h8", "hp", "st", "mf", "mv", "ai", "wf", "mov", "alt", "cf",
      "hs", "stop", "vx", "vz", "con", "dt", "jt", "kp", "mt", "ox", "oz",
-     "py", "vy"))}
+     "py", "vy", "aw"))}
 NF = len(DF)
 DMASS = [0.85 + 0.55 * b for b in (1.40, 0.85, 1.40)]   # tear.py: e.mass
 DHP = 70
@@ -1459,6 +1481,7 @@ DTURN = int(round(0.034 * 1024 / (2 * np.pi) * 256))  # heading is yaw << 8
 DWALK = int(0.020 * ONE)       # slower than his 0.032: distance is yours
 DREACH2 = int(1.5 ** 2 * ONE)  # closer than 1.5 they stop and square up
 DCONE = int(np.tan(0.46) ** 2 * ONE)
+CONE_OUT = int(np.tan(0.60) ** 2 * ONE)            # tear.py ENEMY_CONE_EXIT
 DREST = 74
 DTEMP = {k: cart.var("dt_" + k) for k in
          ("ty", "fx", "fz", "dx", "dz", "cr", "dot", "s", "c")}
@@ -1534,7 +1557,7 @@ keep_in_arena(PX, PZ, AR["ox"], AR["oz"])          # a shove cannot either
 
 FK = {k: cart.var("fk_" + k) for k in
       ("x", "z", "yaw", "jt", "cf", "j", "rp", "pp", "a", "ra",
-       "vx", "vy", "vz", "q", "t", "s", "c", "flags", "y")}
+       "vx", "vy", "vz", "q", "t", "s", "c", "flags", "y", "aw")}
 # THE FLASH (tear.py t.flash): the struck body goes blood-red for the
 # blow's first frames. OBJ_OTINT can only darken, so it is red at full and
 # green and blue cut to a third -- a cast, not a strobe.
@@ -1623,6 +1646,7 @@ for d in range(3 if "demons" not in OMIT else 0):     # the demons, last
     p.load(dslot(d, "h8")).emit("shr 8").store(FK["yaw"])
     p.load(dslot(d, "jt")).store(FK["jt"])
     p.load(dslot(d, "py")).store(FK["y"])
+    p.load(dslot(d, "aw")).store(FK["aw"])
     flash_flags(dslot(d, "hs"), FK["flags"])
     gone = p.label("gone")
     p.load(dslot(d, "st")).push(4).emit("eq", f"jz {gone}_n", f"jmp {gone}")
@@ -2244,6 +2268,13 @@ p.load(t["fx"]).load(t["dz"]).emit("mulq")
 p.load(t["fz"]).load(t["dx"]).emit("mulq", "sub").store(t["cr"])
 p.load(t["fx"]).load(t["dx"]).emit("mulq")
 p.load(t["fz"]).load(t["dz"]).emit("mulq", "add").store(t["dot"])
+# AWARE: he is inside the frontal cone -- entered at 0.46 rad, left only
+# past 0.60, so circling right at its edge does not chatter the marker
+p.push(0).load(t["dot"]).emit("lt")
+p.load(t["cr"]).load(t["cr"]).emit("mulq")
+p.load(t["dot"]).load(t["dot"]).emit("mulq")
+p.load(cur("aw")).push(CONE_OUT - DCONE).emit("mul").push(DCONE).emit("add", "mulq")
+p.emit("lt", "and").store(cur("aw"))
 # turn -- unless already on him (cross^2 < dot^2 / 256, dot > 0)
 p.push(0).load(t["dot"]).emit("lt")
 p.load(t["cr"]).load(t["cr"]).emit("mulq")
@@ -2515,6 +2546,11 @@ p.addi(FK["pp"], 3)
 p.addi(FK["j"], 1)
 p.load(FK["j"]).push(NPART).emit("lt", f"jz {top}_end", f"jmp {top}")
 p.mark(f"{top}_end")
+p.load(FK["aw"]).emit(f"jz {top}_na")                 # the aware marker
+p.object(NOBJ, AWARE_M, (f"load {int(FK['x'])}",),
+         (f"load {int(FK['y'])}", f"push {AWARE_LIFT}", "add"),
+         (f"load {int(FK['z'])}",), 0, spec.OBJ_CULL)
+p.mark(f"{top}_na")
 p.emit("ret")
 
 

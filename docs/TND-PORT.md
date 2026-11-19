@@ -252,9 +252,31 @@ does from a cold boot, gated on both machines.
                  its frame 144, to the pixel.
     already      death and retry (P4), the gauge and the rank (P4, P5).
 
-Still to come in P6: the best score saved to the card -- which needs
-SLOT_BASE in the law (a shelved cart cannot use the card yet) -- and the
-HUD's wordmark.
+    the hud      a TEXT ENGINE: glyphs as packed rectangles (two words a
+                 glyph, not ~57 of baked triangles) composed into the
+                 display list when what the HUD says changes -- the rank,
+                 the archive's combo counter (X5, X12), RETRY. It gave
+                 back 336 words of DMEM with the lease restored to 64.
+    the marker   tear.py's AWARE: a gold tetrahedron over every demon that
+                 has him in its frontal cone (entered at 0.46 rad, left
+                 past 0.60, so circling its edge does not chatter) -- the
+                 unmarked are the gaps to move through.
+    movement     the tank's other half (down walks back), and the strike's
+                 facing: at launch the body faces the D-pad's octant off
+                 the steering, the camera never sees it, and steering is
+                 frozen while a strike button is held (tear.py
+                 _aim_at_dpad, _tank). Taps fire for a THUMB: on release
+                 or at the fourth frame held -- the archive's 9-frame
+                 release rule is a keyboard's, and on glass it made the
+                 string and the haymaker do nothing.
+
+Still to come in P6: the best score saved to the card. Deeper than a law
+amendment: on the Pocket the card is one data slot served from Assets,
+which every sd push rewrites -- a save needs the Pocket's own save slots
+(and likely the card bridge), and the archive never shows the score.
+GLASS QUEUE: the frame-143 capture is now a witness of the Pocket's
+RGB565 camera (the cart has moved on); a fresh capture of the current
+build is wanted.
 
 ## The frame, measured (2026-11-19)
 

@@ -35,10 +35,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from zeta import budget, cabinet, gpu, silicon, spec  # noqa: E402
 
-ROUTES = {"street": 240, "brawl": 520, "tour": 900}
+ROUTES = {"street": 241, "brawl": 521, "tour": 901}      # (+ the title's frame)
 
 
 def pad(route, f):
+    """frame 0 presses Start (TND opens on its title); the route's frame f
+    is the machine's f + 1"""
+    if f == 0:
+        return spec.PAD_START
+    f -= 1
     if route == "brawl":
         if f < 340:
             return 0
