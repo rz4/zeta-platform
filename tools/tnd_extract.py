@@ -50,8 +50,11 @@ def frozen(res):
 seqs = {}
 seqs["idle"] = [frozen(bm.idle_mesh(f / 60.0)) for f in range(120)]
 seqs["walk"] = [frozen(bm.walk_mesh(f / 32.0, "fwd")) for f in range(32)]
-jt = TOTAL.get("jab", 16)
-seqs["jab"] = [frozen(bm.move_mesh("jab", f / (jt - 1))) for f in range(jt)]
+# the swings, at the game's own timing: the clip stretched over the move's
+# startup + active + recovery, as tear.py draws it (t = frame / (total-1))
+for mv in ("jab", "cross", "lead_hook", "rear_hook"):
+    n = TOTAL[mv]
+    seqs[mv] = [frozen(bm.move_mesh(mv, f / (n - 1))) for f in range(n)]
 out = {"F": F, "C": C}
 for k, frames in seqs.items():
     out["V_" + k] = np.stack([v for v, _ in frames])
@@ -181,6 +184,34 @@ out["moves"] = np.array([[combat.CROSS.startup, combat.CROSS.active, combat.CROS
                           combat.CROSS.damage],
                          [combat.LEAD_HOOK.startup, combat.LEAD_HOOK.active,
                           combat.LEAD_HOOK.recovery, combat.LEAD_HOOK.damage]])
+
+# ---- THE KEYS: what the fight hit-tests (tear.py _resolve_hits) ----------
+# A move lands when the attacker's posed FIST, during its active frames,
+# comes within the move's reach of the target's CHIN or GUT -- keypoints
+# of the primitive rig, which the archive hit-tests on whatever is drawn.
+# Fists are baked for every active frame (character-local); chins and guts
+# at GUARD (a reach of 1.4-1.55 dwarfs how far they move).
+def move_row(m):
+    return [m.startup, m.active, m.recovery, m.damage, m.reach, m.hitstop,
+            m.knock, m.lunge]
+def fists(sk, m):
+    return np.array([sk.point(m.limb, m.pose_at(f))
+                     for f in range(m.startup, m.startup + m.active)])
+player = rig.fighter(rig.Build(body=(38, 52, 96), trim=(255, 214, 92),
+                               skin=(226, 178, 140)))   # tear.py's player
+PM = (combat.JAB, combat.CROSS, combat.LEAD_HOOK, combat.REAR_HOOK)
+out["p_moves"] = np.array([move_row(m) for m in PM], float)
+for m in PM:
+    out["p_fist_" + m.name] = fists(player, m)
+out["p_chin"] = np.array(player.point("chin", rig.GUARD))
+out["p_gut"] = np.array(player.point("body", rig.GUARD))
+DM = (combat.CROSS, combat.LEAD_HOOK)
+out["d_moves"] = np.array([move_row(m) for m in DM], float)
+for i, sk in enumerate(sks):
+    out[f"b{i}_chin"] = np.array(sk.point("chin", rig.GUARD))
+    out[f"b{i}_gut"] = np.array(sk.point("body", rig.GUARD))
+    for m in DM:
+        out[f"b{i}_fist_{m.name}"] = fists(sk, m)
 np.savez_compressed(sys.argv[1], **out)
 print(names, {c: len(v) for c, v in clips.items()})
 '''

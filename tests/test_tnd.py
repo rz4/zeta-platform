@@ -71,7 +71,8 @@ def test_both_machines_play_the_fighter():
 # ---- P3: the demons -----------------------------------------------------------
 # The wave's cells are read by NAME from the cart's own symbol comments
 # (the forge assigns addresses), with gen_tnd.py's field order.
-FIELDS = ("x", "z", "h8", "hp", "st", "mf", "mv", "ai", "wf", "mov", "alt", "cf")
+FIELDS = ("x", "z", "h8", "hp", "st", "mf", "mv", "ai", "wf", "mov", "alt", "cf",
+          "hs", "stop", "vx", "vz", "con", "dt", "jt", "kp", "mt", "ox", "oz")
 
 
 def _sym(name):
@@ -194,3 +195,100 @@ def test_what_the_camera_cannot_see_is_not_sent():
         assert n < 59, f"frame {f}: all {n} objects listed -- nothing culled"
         counts.add(n)
     assert len(counts) > 3, f"the list never changed as he turned: {counts}"
+
+
+# ---- P4: the fight -------------------------------------------------------------
+def _cell(m, name):
+    return m.vm.dmem[_sym(name)]
+
+
+def _s32(v):
+    return v - (1 << 32) if v & (1 << 31) else v
+
+
+def _launches(pads, frames):
+    """the moves he throws, in order, under a pad schedule"""
+    m = cabinet.VirtualMachine(cabinet.load_cart(CART))
+    out, was = [], 0
+    for f in range(frames):
+        m.frame(pads(f))
+        anim, af = _cell(m, "anim"), _cell(m, "af")
+        if anim == 2 and af == 0:
+            out.append(_cell(m, "f_mv"))
+    return m, out
+
+
+def test_the_string_alternates_and_cashes_out_a_hook():
+    """combat.resolve: each tap swaps hands -- the first is the CROSS, the
+    archive's alternation starting from the jab hand -- and the third tap
+    of a string (taps within 22 frames) is a hook off the next hand. Taps
+    during a swing are buffered and thrown when it ends."""
+    _, moves = _launches(lambda f: spec.PAD_A if f in (10, 25, 40) else 0, 120)
+    assert moves == [1, 0, 2], f"cross, jab, lead hook expected: {moves}"
+    _, apart = _launches(lambda f: spec.PAD_A if f in (10, 60, 110) else 0, 160)
+    assert apart == [1, 0, 1], f"taps 50 apart are not a string: {apart}"
+
+
+def test_his_blows_land():
+    """Turned onto the brute as it squares up, he works the string and it
+    falls -- damage, a stun, and down."""
+    m = cabinet.VirtualMachine(cabinet.load_cart(CART))
+    for f in range(560):
+        m.frame((spec.PAD_RIGHT if 300 <= f < 308 else 0)
+                | (spec.PAD_A if f >= 320 and f % 9 == 0 else 0))
+    w = _wave(m)[0]
+    assert w["hp"] <= 0 and w["st"] >= 3, f"the brute stands: {w['hp']} hp, st {w['st']}"
+
+
+def test_their_blows_land_and_he_goes_down():
+    """Untouched, the wave beats him down; after the death beat a fresh
+    press of A is a new run: full health, the wave back where it began."""
+    m = cabinet.VirtualMachine(cabinet.load_cart(CART))
+    for f in range(900):
+        m.frame(0)
+    assert _s32(_cell(m, "p_hp")) <= 0 and _cell(m, "f_dead") > 46
+    assert m.vm.dmem[spec.DL_BASE] > 0, "no prompt after the death beat"
+    m.frame(spec.PAD_A)
+    assert _s32(_cell(m, "p_hp")) == 140 and _cell(m, "f_dead") == 0
+    assert m.vm.dmem[spec.DL_BASE] == 0, "the prompt outlived the retry"
+    spawn = _sym("spawn")
+    for i, w in enumerate(_wave(m)):
+        assert w["hp"] == 70 and w["st"] == 0, f"demon {i} not reset"
+    assert abs(_wave(m)[0]["x"] - _s32(m.vm.dmem[spawn])) < 65536
+
+
+def test_the_fallen_go_and_the_wave_returns():
+    """A demon knocked down falls, lies a beat and is gone; when all three
+    are, the next wave stands round the crossing (tear.py _spawn_wave)."""
+    m = cabinet.VirtualMachine(cabinet.load_cart(CART))
+    base, st = _sym("demons"), FIELDS.index("st")
+    m.frame(0)
+    for i in range(3):
+        m.vm.dmem[base + i * len(FIELDS) + st] = 3       # all three falling
+    seen_gone = False
+    for f in range(200):
+        m.frame(0)
+        sts = [w["st"] for w in _wave(m)]
+        seen_gone |= all(s == 4 for s in sts)
+        if _cell(m, "f_wave") == 1:
+            break
+    else:
+        raise AssertionError(f"no new wave (st {sts})")
+    assert all(w["st"] == 0 and w["hp"] == 70 for w in _wave(m))
+
+
+def test_a_demon_against_the_lens_is_not_drawn():
+    """Within 1.3 of the camera a demon is a wall of near-clipped faces --
+    the sequencer's most expensive path (the tour's worst frame went over
+    100% on one) -- so it is not listed. Elsewhere it is: twelve objects."""
+    def listed_with_demon_at(dist):
+        m = cabinet.VirtualMachine(cabinet.load_cart(CART))
+        m.frame(0)
+        base = _sym("demons")
+        cam_x, cam_z = _s32(m.vm.dmem[spec.CAM_X]), _s32(m.vm.dmem[spec.CAM_Z])
+        m.vm.dmem[base + 0] = (cam_x) & 0xFFFFFFFF                 # demon 0 ...
+        m.vm.dmem[base + 1] = (cam_z + int(dist * 65536)) & 0xFFFFFFFF   # ... ahead of the lens
+        m.frame(0)
+        return m.vm.dmem[spec.OL_BASE]
+    near, far = listed_with_demon_at(0.5), listed_with_demon_at(2.5)
+    assert far - near == 12, f"near {near}, far {far}: the lens rule is not 12 objects"

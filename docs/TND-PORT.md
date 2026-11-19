@@ -103,6 +103,59 @@ That capture also found that the Pocket's own screenshots are RGB565
                  mutation); the street holds him (fails under mutation);
                  culling happens and changes with the view.
 
+## P4 -- the fight: CORE LANDED
+
+Blows land both ways, and the fight has its ends: a demon falls, lies a
+beat and is gone; when all three are, the next wave stands round the
+crossing; when he falls, the frame darkens and A is a new run.
+
+    the string   combat.resolve: every tap of A swaps hands (the first is
+                 the cross), the third tap of a string -- taps within 22
+                 frames -- cashes out a hook off the next hand; a tap
+                 during a swing is buffered 10 frames. Read on the press:
+                 nothing on A is a hold yet, so the archive's tap-on-
+                 release would only add a frame.
+    a hit        tear.py _resolve_hits: the posed fist, in the move's
+                 active frames, within reach of the target's chin or gut
+                 (nearest decides; head x1.35 and +3 hitstop). Both
+                 fighters freeze, the target is stunned 12 + that, knocked
+                 along the blow; the camera shakes; one hit per swing.
+                 Fists baked per active frame from the archive's own rig
+                 (the one it hit-tests on); chins and guts at GUARD -- a
+                 reach of 1.4-1.55 dwarfs how far they move.
+    moves        jab, cross, lead hook, rear hook: pose spans baked from
+                 the archive (255 poses, 757k CRAM words), the archive's
+                 frame data, damage, reach, hitstop, knock and lunge.
+    feel         the lunge as one impulse at the launch (both sides),
+                 friction 0.82; the struck body flashes blood-red (the
+                 object tint can only darken, so red stays and green and
+                 blue drop to a third); his stun holds the idle mesh, as
+                 the archive's did; down, he folds forward away from the
+                 lens.
+    the gauge    his health on the compositor's free rectangles, from the
+                 first blow either way -- so an untouched opening is the
+                 street alone, and the glass witness of frame 143 still
+                 stands.
+    the lens     a demon within 1.3 of the camera is not drawn: near-
+                 clipping it is the sequencer's most expensive path, and
+                 one demon 0.95 from the lens put a frame at 722,865
+                 clocks -- over 100%. It still fights. (Hidden in 31 of
+                 1,560 demon-frames on the brawl, never mid-swing.)
+    gates        the string's order; his blows fell the brute; theirs beat
+                 him down and A restarts with the wave reset; the fallen go
+                 and the wave returns; the lens rule; and a 720-frame
+                 silicon cross through blows both ways.
+
+    budget with the fight   brawl 635k peak / 520k median (0 over 90%)
+                            street 548k / 477k (0)
+                            tour 668k / 459k (6 of 900 over 90%, none
+                            over 100%)
+
+Still to come in P4: the uppercuts (the two chords), the body shots, the
+special, the cancel lattice, demons' head-versus-gut reactions, and
+sound for the blows (P5's SFX, wanted sooner). IMEM is the next wall:
+3,535 of 4,096 words.
+
 ## The frame, measured (2026-11-19)
 
 Three demons on the P2 street measured **858,900 clocks** at the worst
@@ -228,8 +281,7 @@ compositor's four free rectangles, or a different font.
 
     P2  THE STREET AND THE FOLLOW   LANDED (above). Still to come from
         its plan: walk in four directions and the run, more clips.
-    P3  THE DEMONS                  LANDED (above). Waves after the
-        first arrive with P4, when a demon can die.
+    P3  THE DEMONS                  LANDED (above).
     P4  THE FIGHT                   the input grammar (tap <= 9, hold
         >= 10, chord within 3, strings within 22, a 10-frame buffer),
         the 11-move table with its frame data, the cancel lattice,
