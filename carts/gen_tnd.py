@@ -95,9 +95,10 @@ def pose_span(V, S):
     return (half_words(V, S, halves[0])[2:] + half_words(V, S, halves[1]))
 
 
-# THE HUD'S PROMISE: at most 64 display-list triangles, ever (P6 draws
-# the HUD inside it), so the list's other 1,344 words hold content.
-DL_LEASE = 64
+# THE HUD'S PROMISE: at most 40 display-list triangles, ever -- the
+# largest text on glass at once is RETRY (38); the rank (<= 24) never
+# shares the list with it -- so the list's other 1,512 words hold content.
+DL_LEASE = 40
 cart = Cart("tnd", dl_lease=DL_LEASE)
 
 # ---- the body: two meshes, back to back, holding the first idle pose ----
@@ -853,19 +854,20 @@ def hz(f):
 
 SFX_N = 12                                       # frames: 190 ms, rounded up
 SFX_SLAP = spec.SND_HZ * 4 // 1000               # sample 192
-sfx_rows = []
+# The curves are a linear pitch fall and linear fades, so they are COMPUTED
+# a frame at a time from six words a weight (a 144-word table, before
+# DMEM ran out): ring inc, thump inc and its fall a frame, the thump's
+# fade a frame (x256), the meat's inc, the thump's length.
+SFXP = []
 for head in (0, 1):
     n = 9 if head else 12
     f0, f1 = (112, 74) if head else (95, 58)
     meat, ring = (5200, 1900) if head else (3000, 1350)
-    noise = (15, 12, 7, 3) if head else (15, 13, 9, 5)
-    for k in range(SFX_N):
-        u = min(1.0, k / (n - 1))
-        sfx_rows += [hz(ring), (10, 6, 3, 1)[k] if k < 4 else 0,           # ch0
-                     hz(f0 + (f1 - f0) * u),
-                     max(0, round(15 * (1 - u))) if k < n else 0,          # ch2
-                     hz(12000 if k == 0 else meat), noise[k] if k < 4 else 0]  # ch3
-SFX = cart.data(Table(sfx_rows), "sfx_blow")
+    SFXP += [hz(ring), hz(f0), (hz(f1) - hz(f0)) // (n - 1), 15 * 256 // (n - 1),
+             hz(meat), n]
+SFX = cart.data(Table(SFXP), "sfx_blow")
+SFX_V = cart.data(Table([10, 6, 3, 1,                  # the ring's fade
+                         15, 13, 9, 5, 15, 12, 7, 3]), "sfx_vol")   # the noise, body / head
 SFX_MEAT = cart.data(Table([hz(3000), hz(5200)]), "sfx_meat")
 SFX_T = cart.data(Table([SFX_N]), "sfx_t")     # boots past its end: quiet
 SFX_H, SFX_R = cart.var("sfx_h"), cart.var("sfx_r")
@@ -912,6 +914,111 @@ for r in RANKS:
     _rows += row_ + [0] * (7 - len(row_))
 S_GL = cart.data(Table(_rows), "s_glyphs")
 S_Y = 10
+
+# ---- P5: THE MUSIC -- Fable's synth theme, its stems gated by rank -------------
+# sfx._synth_battle_stems, on this machine's voices: 148 BPM, a two-bar
+# loop, eight layers -- drums, bass, the palm-muted chug, the half-time
+# breakdown, and the phrygian lead hook revealing itself by rank (a
+# fragment, the hook, the harmony a third up; the octave shred is rank
+# eight, which no fight reaches -- as in the archive). Stem k sounds from
+# rank k up, all riding one eased intensity (70 + 34 a rank, falling to
+# nothing when he is down). The free voices, not the blow's:
+#   ch1   the kick: a pulse dropping in pitch, a fast fade
+#   ch3   the snare and the china: noise (a blow's slap takes it back)
+#   ch5   the bass, ch6 the chug, ch7 the breakdown, ch8-10 the leads --
+#         wave voices on two pages: a square, and a POWER CHORD (root,
+#         fifth and octave summed and hard-clipped, as _power_chug does,
+#         two root cycles a page so it plays at half the root)
+# A step sequencer at the sixteenth, on the archive's own sample grid
+# (step j at j * BEAT//4): a sixteenth is 4,864 samples and a frame 800,
+# so at most one step falls in a frame, and its notes start on their exact
+# sample through the event list.
+BEAT = spec.SND_HZ * 60 // 148
+SIX = BEAT // 4
+LOOP = BEAT * 4 * 2                                   # 155,672 samples
+A2 = 110.0
+
+
+def semi_hz(s):
+    return A2 * 2 ** (s / 12)
+
+
+def page(samples):
+    w = []
+    for i in range(0, 256, 4):
+        w.append(sum((samples[i + k] & 0xFF) << (8 * k) for k in range(4)))
+    return w
+
+
+_sq_page = [100 if i < 128 else -100 for i in range(256)]
+_chug = []
+for i in range(256):                    # 2 root cycles, 3 fifths, 4 octaves
+    ph = i / 256
+    sq = lambda c: 1 if (ph * c) % 1 < 0.5 else -1   # noqa: E731
+    _chug.append(max(-14, min(14, (sq(2) * 5 + sq(3) * 4 + sq(4) * 3) * 4)) * 8)
+WAVES = cart.data(Table(page(_sq_page) + page(_chug)), "wave_pages")
+cart.boot(spec.WAV_SRC, int(WAVES))
+PG_SQ, PG_CHUG = 0, 1
+
+# the stems: (name, voice, page or None, base volume, fade a frame x16)
+STEMS = (("drums", None, None, 0, 0),
+         ("bass", 5, PG_SQ, 11, 18),
+         ("chug", 6, PG_CHUG, 10, 26),
+         ("breakdown", 7, PG_CHUG, 12, 9),
+         ("lead_tease", 8, PG_SQ, 9, 0),
+         ("lead", 9, PG_SQ, 11, 0),
+         ("harmony", 10, PG_SQ, 9, 0))
+NSTEM = len(STEMS)
+HOLD, REST = 0, 1                                      # else 2 + note index
+notes = []                                             # inc values, by index
+
+
+def note(hz_):
+    v = hz(hz_)
+    if v not in notes:
+        notes.append(v)
+    return 2 + notes.index(v)
+
+
+def lead_steps(events):
+    out, at = [HOLD] * 32, 0
+    for semi, beats in events:
+        n = int(beats * 4)
+        if at < 32:
+            out[at] = REST if semi is None else note(semi_hz(semi))
+        at += n
+    return out
+
+
+HOOK = [(0, .5), (3, .5), (5, .5), (3, .5), (0, 1), (1, .5), (0, .5),
+        (7, .5), (5, .5), (3, .5), (1, .5), (0, 1.5), (None, .5)]
+TIER_B = [(0, .5), (3, .5), (5, .5), (3, .5), (0, 1), (1, .5), (0, .5), (0, 4)]
+HARMONY = [(3, .5), (7, .5), (8, .5), (7, .5), (3, 1), (5, .5), (3, .5),
+           (10, .5), (8, .5), (7, .5), (5, .5), (None, 2)]
+pat = {}
+# drums: bit 0 kick, bit 1 snare, bit 2 china (sfx._stem_drums)
+kpat = [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1,
+        1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1]
+pat["drums"] = [kpat[j] | (2 if j % 8 == 4 else 0) | (4 if j % 16 == 0 else 0)
+                for j in range(32)]
+line = (55, 55, 82, 55, 73, 73, 98, 73)               # the root-fifth riff
+pat["bass"] = [note(line[(j // 2) % 8]) if j % 2 == 0 else HOLD for j in range(32)]
+cpat = [1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 1] * 2
+roots = [55, 55, 55, 55, 82, 82, 82, 82, 73, 73, 73, 73, 98, 98, 98, 55] * 2
+pat["chug"] = [note(roots[j] / 2) if cpat[j] else HOLD for j in range(32)]
+bk = {0: 55, 3: 55, 6: 55, 8: 82, 12: 73, 14: 73}      # half-time, by step
+pat["breakdown"] = [note(bk[j % 16] / 2) if j % 16 in bk else HOLD for j in range(32)]
+pat["lead_tease"] = lead_steps(TIER_B)
+pat["lead"] = lead_steps(HOOK)
+pat["harmony"] = lead_steps(HARMONY)
+assert len(notes) <= 254
+MPAT = cart.data(Table([sum(pat[st[0]][j * 4 + k] << (8 * k) for k in range(4))
+                        for st in STEMS for j in range(8)]), "music_steps")
+MNOTE = cart.data(Table(notes), "music_notes")
+MU = {k: cart.var("mu_" + k) for k in ("t", "step", "inten", "o", "code", "s",
+                                        "kick", "drum", "dfade")}
+MENV = cart.var("mu_env", NSTEM)                       # each stem's level x16
+KICK_HI, KICK_DROP = hz(135), (hz(135) - hz(30)) // 4
 
 # ---- P4: THE FIGHT ----------------------------------------------------------
 # tear.py, in integers. A move LANDS when the attacker's posed fist, in its
@@ -1534,25 +1641,221 @@ p.emit("swap", "drop")
 p.mark(f"{dk}_k")
 p.emit("shl 24").push32(0x000000).emit("or").store(HB + 8)
 p.mark(dk)
+# ---- the music's frame (stems as one loop over a table: IMEM is 4,096) ----------
+EVN = cart.var("ev_n")
+EV_BASE = spec.AU_EV_BASE + 1
+EVW, EVV = cart.var("ev_w"), cart.var("ev_v")
+L_EV = p.label("ev")
+p.set(EVN, 0)
+
+
+def ev_at(o_cell, ch_bits, value_ops):
+    """append an event at sample o_cell: ch_bits = ch << 10 | ctrl << 14"""
+    p.load(o_cell).push(ch_bits).emit("or").store(EVW)
+    p.emit(*value_ops).store(EVV)
+    p.emit(f"call {L_EV}")
+
+
+INC, CTL = 0, 1 << 14
+# the voiced stems, one row each: ctrl register, event channel bits,
+# page bits, base volume, fade a frame (x16), its rank
+_vs = [(s, st) for s, st in enumerate(STEMS) if st[1] is not None]
+MSTEM = cart.data(Table([w for s, (n, v, pg, bv, fd) in _vs for w in (
+    spec.AU_BASE + 2 * v + 1, v << 10, pg << 8, bv, fd, s)]), "music_stems")
+MS = {k: cart.var("ms_" + k) for k in ("r", "n", "env")}
+mi = p.label("mint")
+p.push(70).load(SY["rank"]).push(34).emit("mul", "add").store(MU["s"])
+p.load(F["dead"]).emit(f"jz {mi}_a")
+p.set(MU["s"], 0)
+p.mark(f"{mi}_a")
+p.load(MU["inten"]).load(MU["s"]).emit("lt", f"jz {mi}_dn")
+p.load(MU["inten"]).push(10).emit("add").store(MU["inten"])
+p.load(MU["s"]).load(MU["inten"]).emit("lt", f"jz {mi}", f"jmp {mi}_cl")
+p.mark(f"{mi}_dn")
+p.load(MU["inten"]).push(3).emit("sub").store(MU["inten"])
+p.load(MU["inten"]).load(MU["s"]).emit("lt", f"jz {mi}")
+p.mark(f"{mi}_cl")
+p.load(MU["s"]).store(MU["inten"])
+p.mark(mi)
+
+
+def field(k):
+    p.load(MS["r"]).push(k).emit("add", "loadi")
+
+
+def env_addr():
+    field(5)
+    p.push(int(MENV)).emit("add")
+
+
+# ---- the frame's fades: every voiced stem, one loop -------------------------------
+fl = p.label("fl")
+p.push(int(MSTEM)).store(MS["r"]).push(len(_vs)).store(MS["n"])
+p.mark(fl)
+env_addr()
+p.emit("loadi")
+field(4)
+p.emit("sub", "dup").push(0).emit("lt", f"jz {fl}_c")
+p.emit("drop").push(0)
+p.mark(f"{fl}_c")
+p.store(MS["env"])
+field(5)
+p.push(1).emit("sub").load(SY["rank"]).emit("lt", f"jz {fl}_g", f"jmp {fl}_k")
+p.mark(f"{fl}_g")
+p.set(MS["env"], 0)                               # silent below its rank
+p.mark(f"{fl}_k")
+p.load(MS["env"])
+env_addr()
+p.emit("storei")
+p.load(MS["env"]).emit("shr 4").load(MU["inten"]).emit("mul", "shr 8")
+field(2)
+p.emit("or")
+field(0)
+p.emit("storei")
+p.addi(MS["r"], 6).addi(MS["n"], -1)
+p.load(MS["n"]).emit(f"jz {fl}_e", f"jmp {fl}")
+p.mark(f"{fl}_e")
+# the kick: four frames of falling pitch and fading level
+kk = p.label("kick")
+p.load(MU["kick"]).push(4).emit("lt", f"jz {kk}_off")
+p.push(KICK_HI).load(MU["kick"]).push(KICK_DROP).emit("mul", "sub")
+p.store(spec.AU_BASE + 2)
+p.push(15).load(MU["kick"]).push(4).emit("mul", "sub").load(MU["inten"]).emit("mul", "shr 8")
+p.push(2 << 4).emit("or").store(spec.AU_BASE + 3)
+p.addi(MU["kick"], 1).emit(f"jmp {kk}")
+p.mark(f"{kk}_off")
+p.set(spec.AU_BASE + 3, 0)
+p.mark(kk)
+dn = p.label("drumn")
+p.load(MU["drum"]).load(MU["dfade"]).emit("sub", "dup").push(0).emit("lt", f"jz {dn}")
+p.emit("drop").push(0)
+p.mark(dn)
+p.store(MU["drum"])
+p.load(MU["drum"]).emit("shr 4").load(MU["inten"]).emit("mul", "shr 8")
+p.store(spec.AU_BASE + 7)
+
+# ---- a step, if one falls in this frame --------------------------------------------
+st_ = p.label("step")
+p.push(LOOP).load(MU["step"]).push(32).emit("eq", f"jz {st_}_g", f"jmp {st_}_n")
+p.mark(f"{st_}_g")
+p.emit("drop").load(MU["step"]).push(SIX).emit("mul")
+p.mark(f"{st_}_n")
+p.load(MU["t"]).emit("sub").store(MU["o"])
+p.load(MU["o"]).push(spec.SAMPLES_PER_FRAME).emit("lt", f"jz {st_}")
+p.load(MU["step"]).push(31).emit("and").store(MU["step"])     # 32 -> 0
+L_BYTE = p.label("byte")
+# the drums (stem 0): bit 0 kick, bit 1 snare, bit 2 china
+p.push(int(MPAT)).emit(f"call {L_BYTE}")
+nk = p.label("nk")
+p.load(MU["code"]).push(1).emit("and", f"jz {nk}")
+p.set(MU["kick"], 0)
+ev_at(MU["o"], (1 << 10) | INC, (f"push {KICK_HI}",))
+ev_at(MU["o"], (1 << 10) | CTL, (f"load {int(MU['inten'])}", "push 15", "mul",
+                                 "shr 8", f"push {2 << 4}", "or"))
+p.mark(nk)
+nd = p.label("nd")
+p.load(MU["code"]).push(6).emit("and", f"jz {nd}")
+p.push(15 * 16).store(MU["drum"]).set(MU["dfade"], 34).push(hz(9000)).store(MU["s"])
+p.load(MU["code"]).push(4).emit("and", f"jz {nd}_s")
+p.set(MU["dfade"], 11).push(hz(6000)).store(MU["s"])           # the china
+p.mark(f"{nd}_s")
+ev_at(MU["o"], (3 << 10) | INC, (f"load {int(MU['s'])}",))
+ev_at(MU["o"], (3 << 10) | CTL, (f"load {int(MU['inten'])}", "push 15", "mul", "shr 8"))
+p.mark(nd)
+# the voiced stems: one loop
+sl = p.label("sl")
+p.push(int(MSTEM)).store(MS["r"]).push(len(_vs)).store(MS["n"])
+p.mark(sl)
+field(5)
+p.push(1).emit("sub").load(SY["rank"]).emit("lt", f"jz {sl}_nx")   # below its rank
+field(5)
+p.push(8).emit("mul").push(int(MPAT)).emit("add", f"call {L_BYTE}")
+p.load(MU["code"]).emit(f"jz {sl}_nx")           # HOLD
+p.load(MU["code"]).push(REST).emit("eq", f"jz {sl}_note")
+p.push(0)
+env_addr()
+p.emit("storei")
+field(1)
+p.load(MU["o"]).emit("or").push(CTL).emit("or").store(EVW)
+field(2)
+p.store(EVV).emit(f"call {L_EV}", f"jmp {sl}_nx")
+p.mark(f"{sl}_note")
+field(3)
+p.push(16).emit("mul")
+env_addr()
+p.emit("storei")
+field(1)
+p.load(MU["o"]).emit("or").store(EVW)
+p.push(int(MNOTE) - 2).load(MU["code"]).emit("add", "loadi").store(EVV)
+p.emit(f"call {L_EV}")
+field(1)
+p.load(MU["o"]).emit("or").push(CTL).emit("or").store(EVW)
+field(3)
+p.load(MU["inten"]).emit("mul", "shr 8")
+field(2)
+p.emit("or").store(EVV).emit(f"call {L_EV}")
+p.mark(f"{sl}_nx")
+p.addi(MS["r"], 6).addi(MS["n"], -1)
+p.load(MS["n"]).emit(f"jz {sl}_e", f"jmp {sl}")
+p.mark(f"{sl}_e")
+p.addi(MU["step"], 1)
+p.mark(st_)
+p.load(MU["t"]).push(spec.SAMPLES_PER_FRAME).emit("add").store(MU["t"])
+lp = p.label("loop")
+p.load(MU["t"]).push(LOOP).emit("lt", f"jz {lp}_w", f"jmp {lp}")
+p.mark(f"{lp}_w")
+p.load(MU["t"]).push(LOOP).emit("sub").store(MU["t"])
+p.mark(lp)
+
 sx = p.label("sfx")
-p.set(spec.AU_EV_BASE, 0)
 p.load(SFX_T).push(SFX_N).emit("lt", f"jz {sx}_q")
-p.load(SFX_H).push(SFX_N).emit("mul").load(SFX_T).emit("add")
-p.push(6).emit("mul").push(int(SFX)).emit("add").store(SFX_R)
-for k, reg in enumerate((0, 1, 4, 5, 6, 7)):     # ch0, ch2, ch3: inc, ctrl
-    p.load(SFX_R).push(k).emit("add", "loadi").store(spec.AU_BASE + reg)
+p.load(SFX_H).push(6).emit("mul").push(int(SFX)).emit("add").store(SFX_R)
+fv = p.label("fv")
+p.load(SFX_R).emit("loadi").store(spec.AU_BASE + 0)                  # ring inc
+p.load(SFX_T).push(4).emit("lt", f"jz {fv}_r0")
+p.push(int(SFX_V)).load(SFX_T).emit("add", "loadi", f"jmp {fv}_r")
+p.mark(f"{fv}_r0")
+p.push(0)
+p.mark(f"{fv}_r")
+p.store(spec.AU_BASE + 1)
+p.load(SFX_R).push(1).emit("add", "loadi")                          # thump falls
+p.load(SFX_R).push(2).emit("add", "loadi").load(SFX_T).emit("mul", "add")
+p.store(spec.AU_BASE + 4)
+p.push(15 * 256).load(SFX_R).push(3).emit("add", "loadi").load(SFX_T)
+p.emit("mul", "sub", "shr 8", "dup").push(0).emit("lt", f"jz {fv}_t")   # ...and fades
+p.emit("drop").push(0)
+p.mark(f"{fv}_t")
+p.load(SFX_T).load(SFX_R).push(5).emit("add", "loadi").emit("lt", f"jz {fv}_t0")
+p.emit(f"jmp {fv}_t1")
+p.mark(f"{fv}_t0")
+p.emit("drop").push(0)
+p.mark(f"{fv}_t1")
+p.store(spec.AU_BASE + 5)
+p.load(SFX_R).push(4).emit("add", "loadi").store(spec.AU_BASE + 6)   # the meat
+p.load(SFX_T).emit(f"jz {fv}_s", f"jmp {fv}_m")
+p.mark(f"{fv}_s")
+p.push(hz(12000)).store(spec.AU_BASE + 6)                            # (the slap)
+p.mark(f"{fv}_m")
+p.load(SFX_T).push(4).emit("lt", f"jz {fv}_n0")
+p.push(int(SFX_V) + 4).load(SFX_H).push(4).emit("mul", "add").load(SFX_T)
+p.emit("add", "loadi", f"jmp {fv}_n")
+p.mark(f"{fv}_n0")
+p.push(0)
+p.mark(f"{fv}_n")
+p.store(spec.AU_BASE + 7)
 p.load(SFX_T).emit(f"jz {sx}_ev", f"jmp {sx}_n")
 p.mark(f"{sx}_ev")                               # first frame: slap -> meat
-p.set(spec.AU_EV_BASE, 1)
-p.set(spec.AU_EV_BASE + 1, SFX_SLAP | (3 << 10))  # ch3, its inc, at 4 ms
-p.push(int(SFX_MEAT)).load(SFX_H).emit("add", "loadi").store(spec.AU_EV_BASE + 2)
+SLAP_AT = cart.var("sfx_slap_at")
+p.set(SLAP_AT, SFX_SLAP)
+ev_at(SLAP_AT, (3 << 10) | INC, (f"push {int(SFX_MEAT)}", f"load {int(SFX_H)}", "add", "loadi"))
 p.mark(f"{sx}_n")
 p.addi(SFX_T, 1)
 p.emit(f"jmp {sx}")
 p.mark(f"{sx}_q")
-for reg in (1, 5, 7):                            # quiet
+for reg in (1, 5):                               # quiet (ch3 is the drums')
     p.set(spec.AU_BASE + reg, 0)
 p.mark(sx)
+p.load(EVN).store(spec.AU_EV_BASE)
 
 p.emit("load 1").store(PV)
 
@@ -1938,6 +2241,22 @@ p.load(SY["pts"]).emit("shr 4").store(SY["best"])        # tear.py: the best run
 p.mark(f"{bst}_k")
 p.mark(lab["noC"])
 p.emit("ret")
+
+# EV: append (ev_w, ev_v) to the frame's event list
+p.mark(L_EV)
+p.load(EVW).push(EV_BASE).load(EVN).push(2).emit("mul", "add", "storei")
+p.load(EVV).push(EV_BASE + 1).load(EVN).push(2).emit("mul", "add", "storei")
+p.addi(EVN, 1).emit("ret")
+# BYTE: ( stem's pattern base -- ) mu_code = that stem's byte at mu_step
+bl = p.label("bl")
+p.mark(L_BYTE)
+p.load(MU["step"]).emit("shr 2", "add", "loadi")
+p.load(MU["step"]).push(3).emit("and").store(MU["s"])
+p.mark(bl)
+p.load(MU["s"]).emit(f"jz {bl}_e")
+p.emit("shr 8").addi(MU["s"], -1).emit(f"jmp {bl}")
+p.mark(f"{bl}_e")
+p.push(255).emit("and").store(MU["code"]).emit("ret")
 
 # SINE: ( a -- sin a ), Q16.16, from the quarter wave. sin(a) for a in
 # 256..511 is sin(512 - a); the lower half-turn negates the upper.

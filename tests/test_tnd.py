@@ -296,24 +296,26 @@ def test_a_demon_against_the_lens_is_not_drawn():
 
 
 def test_a_blow_is_heard():
-    """The street is silent until a blow lands; then the slap, the meat
-    and the falling thump, gone again within twelve frames."""
+    """The blow's own voices (ch0 the ring, ch2 the thump -- the music
+    never touches them) are silent until a blow lands, sound on it, and
+    are gone again within twelve frames."""
+    def blow_level(m):
+        return m.vm.dmem[spec.AU_BASE + 1] & 15, m.vm.dmem[spec.AU_BASE + 5] & 15
     m = cabinet.VirtualMachine(cabinet.load_cart(CART))
-    base, heard = _sym("demons"), []
+    base, levels = _sym("demons"), []
     for f in range(400):
         m.frame((spec.PAD_RIGHT if 300 <= f < 308 else 0)
                 | (spec.PAD_A if f >= 320 and f % 9 == 0 else 0))
-        heard.append(int(np.abs(np.asarray(m.audio(), dtype=np.int64)).max()))
+        levels.append(blow_level(m))
         if m.vm.dmem[base + FIELDS.index("hp")] < 70:
             break
     else:
         raise AssertionError("no blow landed")
-    assert max(heard[:-1]) == 0, "the street was not silent before the blow"
-    assert heard[-1] > 4000, f"the blow was not heard ({heard[-1]})"
+    assert all(lv == (0, 0) for lv in levels[:-1]), "the blow's voices sounded early"
+    assert levels[-1][0] > 0 and levels[-1][1] > 0, f"the blow was not heard {levels[-1]}"
     for _ in range(13):
         m.frame(0)
-    assert int(np.abs(np.asarray(m.audio(), dtype=np.int64)).max()) == 0, \
-        "the blow never ended"
+    assert blow_level(m) == (0, 0), "the blow never ended"
 
 
 def test_the_grammar_taps_on_release_and_reads_chords():
@@ -409,3 +411,28 @@ def test_a_blow_taken_keeps_45_percent_and_breaks_the_combo():
     for _ in range(k):
         want = want * 29491 >> 16                         # x0.45 per blow
     assert abs(_cell(m, "s_pts") - want) <= k, (k, _cell(m, "s_pts"), want)
+
+
+
+def test_the_music_is_gated_by_rank():
+    """sfx._synth_battle_stems on its voices: the drums from the first
+    frame; the bass (stem 1) only from rank C; nothing once he is down."""
+    m = cabinet.VirtualMachine(cabinet.load_cart(CART))
+    heard, bass = 0, 0
+    for f in range(200):
+        m.frame(0)
+        heard = max(heard, int(np.abs(np.asarray(m.audio(), dtype=np.int64)).max()))
+        bass = max(bass, m.vm.dmem[spec.AU_BASE + 2 * 5 + 1] & 15)
+    assert heard > 0, "no drums at rank D"
+    assert bass == 0, "the bass played at rank D"
+    m.vm.dmem[_sym("s_pts")] = 70 * 16                  # rank C
+    for f in range(120):
+        m.frame(0)
+        m.vm.dmem[_sym("s_idle")] = 0                   # (hold the rank)
+        bass = max(bass, m.vm.dmem[spec.AU_BASE + 2 * 5 + 1] & 15)
+    assert bass > 0, "no bass at rank C"
+    m.vm.dmem[_sym("f_dead")] = 100                     # down
+    for f in range(120):
+        m.frame(0)
+    assert int(np.abs(np.asarray(m.audio(), dtype=np.int64)).max()) == 0, \
+        "the music played over his corpse"

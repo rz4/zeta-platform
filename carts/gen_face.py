@@ -547,6 +547,7 @@ def main():
     p.push(spec.OVL_MAX).store(spec.OVL_LEN)
     p.set(spec.OVL_GO, 1)
     p.push(SH_S).store(spec.SEG_BASE)
+    p.set(spec.AU_RESET, 1)              # the shelf's synth starts cold
     p.mark(fdone_l)
     p.emit("halt")
     p.mark(film_l)

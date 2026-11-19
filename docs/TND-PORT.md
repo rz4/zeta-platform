@@ -203,9 +203,35 @@ after the game ships.
                  times is SSS) when it changes; the meter toward the next
                  rank on the compositor's fourth rectangle.
 
-Still to come in P5: the music (the archive's synth theme, its stems
-gated by rank) and the remaining SFX. DMEM is the wall now -- 30 words
-free -- so the music needs room made for it first.
+    the music    sfx._synth_battle_stems on this machine's voices: 148
+                 BPM, a two-bar loop, the stems un-muting one a rank --
+                 drums at D, the bass at C, the chug at B, the half-time
+                 breakdown at A, the lead hook revealing itself (fragment,
+                 hook, harmony a third up) through S and SS -- all riding
+                 one eased intensity, silent when he is down. A step
+                 sequencer at the sixteenth on the archive's own sample
+                 grid (a sixteenth is 4,864 samples, a frame 800, so one
+                 step at most a frame), each note on its exact sample
+                 through the event list. The kick a pulse falling in pitch;
+                 snare and china on the noise voice; bass and leads on a
+                 square page, chug and breakdown on a POWER CHORD page
+                 (root, fifth and octave hard-clipped, as _power_chug).
+                 One loop over a stem table: unrolled it was 1,150 words
+                 and IMEM holds 4,096.
+    room made    the display-list lease cut to 40 triangles (the largest
+                 text at once is RETRY's 38) and the blow's curves
+                 computed instead of tabled.
+
+**THE SYNTH'S COLD START (build 103).** The music turned the cross
+across a launch red, on audio, the first frame after: oscillator phases
+and the noise LFSR are machine state outside DMEM, and a launched game
+inherited the film's. Silent games never showed it -- every launch
+gate passed because nothing in its window sounded. The law gained
+spec.AU_RESET: a cart writes it and the machine zeroes every phase and
+reseeds the LFSR before this frame's samples (on silicon, a one-clock
+pulse at the audio latch). The shelf writes it on its launch frame, and
+the film on its launch of the shelf; the launched game sounds as it
+does from a cold boot, gated on both machines.
 
 ## The frame, measured (2026-11-19)
 

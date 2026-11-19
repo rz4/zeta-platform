@@ -16,6 +16,9 @@ module zsnd (
     input  wire [31:0] reg_data,
     input  wire        tick,         // one 48 kHz sample step
     input  wire        frame_go,     // pulse: a new frame's events begin
+    input  wire        phase_rst,    // spec.AU_RESET: a one-clock pulse at the
+                                     // latch -- the synth's cold start (phases
+                                     // 0, LFSR 1), before this frame's samples
     input  wire        ev_we,        // the event list's load port
     input  wire [7:0]  ev_a,         // 0 = count, then two words each
     input  wire [31:0] ev_d,
@@ -204,17 +207,23 @@ module zsnd (
   // is about to advance, so the address skips an extra increment.
 
   // next phases (spec: advance, THEN synthesize from the new phase)
-  wire [23:0] p0 = ph[0] + inc[0];
-  wire [23:0] p1 = ph[1] + inc[1];
-  wire [23:0] p2 = ph[2] + inc[2];
-  wire [24:0] p3 = {1'b0, ph[3]} + {1'b0, inc[3]};
+  // (in the cold-start clock the phase about to be advanced is ZERO: the
+  // wave read below runs one sample ahead, so its address must already
+  // come from the cold phase, or the first sample after a reset reads the
+  // old one; and a tick landing in that same clock advances FROM the cold
+  // state -- reset, then advance, then synthesize, the law's order)
+  wire        cold = phase_rst;
+  wire [23:0] p0 = (cold ? 24'd0 : ph[0]) + inc[0];
+  wire [23:0] p1 = (cold ? 24'd0 : ph[1]) + inc[1];
+  wire [23:0] p2 = (cold ? 24'd0 : ph[2]) + inc[2];
+  wire [24:0] p3 = {1'b0, cold ? 24'd0 : ph[3]} + {1'b0, inc[3]};
 
   wire [23:0] pn [0:AU_CHANNELS-1];
   assign pn[0] = p0, pn[1] = p1, pn[2] = p2, pn[3] = p3[23:0];
   genvar gv;
   generate for (gv = AU_TONE_CHANNELS; gv < AU_CHANNELS; gv = gv + 1)
     begin : vph
-      assign pn[gv] = ph[gv] + inc[gv];
+      assign pn[gv] = (cold ? 24'd0 : ph[gv]) + inc[gv];
     end
   endgenerate
   genvar gw;
@@ -279,7 +288,8 @@ module zsnd (
                                    : (vmul($signed(trc[7:0]), vol[2]) <<< 3);
   // the spec steps the LFSR first, then the sample reads it -- so the
   // wrap-sample must already hear the new bit
-  wire [14:0] lnext = p3[24] ? {lfsr[0] ^ lfsr[1], lfsr[14:1]} : lfsr;
+  wire [14:0] lcur  = cold ? 15'd1 : lfsr;
+  wire [14:0] lnext = p3[24] ? {lcur[0] ^ lcur[1], lcur[14:1]} : lcur;
   wire signed [15:0] a3 = wmode[3] ? (wm3 <<< 3)
                         : lnext[0] ? {2'd0, vol[3], 10'd0}
                                    : -{2'd0, vol[3], 10'd0};
@@ -336,6 +346,11 @@ module zsnd (
       // frame's worth drains between them; in the cross they are back to
       // back, so `tick` is gated while any event is still due -- which is
       // what keeps the two machines bit-equal.
+      if (phase_rst) begin                    // spec.AU_RESET (a tick in
+        for (i = 0; i < AU_CHANNELS; i = i + 1)   // this clock overrides
+          ph[i] <= 24'd0;                     // below, from the cold state)
+        lfsr <= 15'd1;
+      end
       if (frame_go) begin ev_p <= 7'd0; ev_s <= 10'd0; end
       else if (ev_due) begin
         ev_p <= ev_p + 7'd1;

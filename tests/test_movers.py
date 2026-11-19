@@ -75,3 +75,79 @@ def test_both_machines_agree(tmp_path):
         s.frame(0)
         assert np.array_equal(v.framebuffer(), s.framebuffer()), \
             f"the movers' instant reads requests differently at frame {f}"
+
+
+# ---- spec.AU_RESET: the synth's cold start -----------------------------------
+def _tone_cart(tmp_path, reset_on):
+    """a pulse voice that sounds for a while, then (on frame reset_on, if
+    any) asks for the cold start, then plays the same note again"""
+    body = f"""
+load 0
+push 10
+lt
+jz later
+push 99999
+store {spec.AU_BASE}
+push 15
+store {spec.AU_BASE + 1}
+halt
+later:
+load 0
+push {reset_on}
+eq
+jz go
+push 1
+store {spec.AU_RESET}
+go:
+push 77777
+store {spec.AU_BASE}
+push 15
+store {spec.AU_BASE + 1}
+halt
+"""
+    pth = tmp_path / f"tone{reset_on}.zol"
+    pth.write_text(body)
+    return cabinet.VirtualMachine(cabinet.load_cart(pth))
+
+
+def test_au_reset_is_a_cold_start(tmp_path):
+    """Two machines with DIFFERENT histories (one ran an extra frame of a
+    different pitch first) sound the same once both ask for the cold
+    start -- and without it they do not. The cell clears itself."""
+    a = _tone_cart(tmp_path, 12)
+    b = _tone_cart(tmp_path, 12)
+    b.vm.frame_no = 3                   # b skips 3 frames of the first tone
+    for _ in range(12):
+        a.frame(0)
+    for _ in range(9):
+        b.frame(0)
+    a.frame(0)
+    b.frame(0)                          # both: frame 12, the cold start
+    assert np.array_equal(a.audio(), b.audio()), "the cold start left history"
+    assert a.vm.dmem[spec.AU_RESET] == 0, "AU_RESET did not clear itself"
+    c = _tone_cart(tmp_path, -1)        # (never asks)
+    d = _tone_cart(tmp_path, -1)
+    d.vm.frame_no = 3
+    for _ in range(12):
+        c.frame(0)
+    for _ in range(9):
+        d.frame(0)
+    c.frame(0)
+    d.frame(0)
+    assert not np.array_equal(c.audio(), d.audio()), \
+        "the witness cannot tell histories apart: it proves nothing"
+
+
+@pytest.mark.skipif(shutil.which("verilator") is None,
+                    reason="verilator not installed")
+def test_au_reset_on_silicon(tmp_path):
+    """Machine 2 resets its phases at the frame boundary the law resets
+    at: every sample of every frame, through the cold start, bit-equal."""
+    from zeta import silicon
+    _tone_cart(tmp_path, 12)                    # writes tone12.zol
+    cart = cabinet.load_cart(tmp_path / "tone12.zol")
+    v, s = cabinet.VirtualMachine(cart), silicon.SiliconMachine(cart)
+    for f in range(20):
+        v.frame(0)
+        s.frame(0)
+        assert np.array_equal(v.audio(), s.audio()), f"audio diverges at {f}"

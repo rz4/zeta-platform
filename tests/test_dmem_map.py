@@ -51,7 +51,7 @@ def regions():
                  "SD_SLOT", "SD_OFF", "SD_DST", "SD_LEN", "SD_GO",
                  "WAV_SRC", "TEX_SRC", "TEX_PAGE", "BG_SRC",
                  "REG_FRAME", "REG_PAD",
-                 "PICK_SH", "EDGE_RGB", "GRADE_SRC"):
+                 "PICK_SH", "EDGE_RGB", "GRADE_SRC", "AU_RESET", "SEG_BASE"):
         r.append((name, getattr(spec, name), 1))
     return r
 

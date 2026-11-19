@@ -83,6 +83,7 @@ def gen_params() -> str:
         f"localparam TEX_STRIDE = {spec.TEX_STRIDE};",
         f"localparam VIS_BASE = {spec.VIS_BASE};",
         f"localparam AUD_BASE = {spec.AUD_BASE};",
+        f"localparam AU_RESET = {spec.AU_RESET};",
         f"localparam LIGHT_DIR = {spec.LIGHT_DIR}, LIGHT_AMB = {spec.LIGHT_AMB},"
         f" LIGHT_DIF = {spec.LIGHT_DIF};",
         f"localparam GRADE_SRC = {spec.GRADE_SRC}, "

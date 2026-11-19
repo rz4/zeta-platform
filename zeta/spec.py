@@ -74,6 +74,19 @@ REG_PAD2 = 12263                # in:  pad 2 word   (cabinet writes)
 # offset, which must land inside CRAM or the move is the usual no-op.
 # A shelved cart must not write this cell; a standalone cart that does
 # is relocating against its own segment, which is legal and odd.
+# THE SYNTH'S COLD START (build 103). A channel's phase and the noise LFSR
+# are machine state OUTSIDE DMEM, and they persist across frames -- and
+# across a LAUNCH: a game the shelf hands off inherits the film's phases,
+# where the same game booted cold starts from zero. Silent games never
+# showed it (a silent voice's phase cannot be heard); TND's music did, and
+# the cross across a launch went red on audio the first frame after.
+#   AU_RESET   the cart writes nonzero; before THIS frame's synthesis the
+#              machine zeroes every channel's phase and reseeds the LFSR
+#              to 1 -- exactly the power-on state -- and clears the cell.
+# The shelf writes it on its launch frame, when the game's image has just
+# landed with every increment zero, so nothing advances before the game's
+# first frame and that frame sounds as it does from a cold boot.
+AU_RESET = 12261
 SEG_BASE = 12262                # segment window base, added to every
                                 # presented CRAM offset
 # ---- the pick register: the GPU as a spatial query engine ----------------
@@ -1145,7 +1158,7 @@ LOADER_SIG2 = 11700             # a MIRROR of the signature, written into
                                 # delivers intact -- so the loader's
                                 # testimony survives even if the top of
                                 # memory does not
-LOADER_BUILD = 102              # bumped per bitstream: word +7 of the
+LOADER_BUILD = 103              # bumped per bitstream: word +7 of the
                                 # signature, so a cart can say WHICH core
                                 # it is running on.
                                 # (101 = vertex C registered in zseq;

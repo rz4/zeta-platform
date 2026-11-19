@@ -123,7 +123,8 @@ module zeta_top (
              // shape as the event list: present, wait, commit.
              I_GRP = 6'd47, I_GRR = 6'd48, I_GRR2 = 6'd49,
              I_GRW = 6'd50, I_GRC = 6'd51,
-             I_VIS = 6'd52, I_AUD = 6'd53;    // (0..46 were taken)
+             I_VIS = 6'd52, I_AUD = 6'd53,    // (0..46 were taken)
+             I_ARW = 6'd54, I_ARC = 6'd55, I_ARZ = 6'd56;   // spec.AU_RESET
                                     // were taken, and a duplicate here
                                     // wedges the frame in silence)
   localparam [13:0] A_FRAME = REG_FRAME, A_PAD = REG_PAD;
@@ -257,6 +258,9 @@ module zeta_top (
   reg [3:0]  w_ch;                   // which voice is being filled
   reg [2:0]  wpg [0:AU_CHANNELS-1];  // each voice's chosen page, latched
   reg        wav_we;                 // from its ctrl word during I_AUC
+  // spec.AU_RESET, read after the event list: a ONE-CLOCK pulse into the
+  // engine, before any of this frame's samples (they tick after the latch)
+  reg        au_rst;
   reg [3:0]  wav_ch;
   reg [5:0]  wav_a;
   reg [31:0] wav_d;
@@ -400,7 +404,7 @@ module zeta_top (
                           card_we || st == I_CCLR || st == I_CGO ||
                           st == I_CDG || st == I_CDG2 || st == I_CDG3 ||
                           st == I_CDG4 || (st == I_VIS && visi != 7'd0)
-                          || (st == I_AUD && audi != 5'd0);
+                          || (st == I_AUD && audi != 5'd0) || st == I_ARZ;
   wire [13:0] ext_addr  = boot_dmem   ? boot_addr[13:0] :
                           (st == I_VIS)
                               ? (VIS_BASE[13:0] + {7'd0, visi} - 14'd1) :
@@ -429,6 +433,8 @@ module zeta_top (
                           (st == I_WVC || st == I_WVC2) ? WAV_SRC[13:0] :
                           (st == I_WVW || st == I_WVD)
                               ? w_src + w_off + {8'd0, w_i} :
+                          (st == I_ARW || st == I_ARC || st == I_ARZ)
+                              ? AU_RESET[13:0] :
                           (st == I_GRP || st == I_GRR) ? GRADE_SRC[13:0] :
                           (st == I_GRW || st == I_GRC) ? g_addr :
                           (st == I_AUW || st == I_AUC ||
@@ -464,7 +470,7 @@ module zeta_top (
                           (st == I_AUD) ? { 8'd0, aud_q} :
                           boot_dmem   ? boot_data :
                           dma_we       ? dma_word :
-                          (st == I_DCLR) ? 32'd0 :
+                          (st == I_DCLR || st == I_ARZ) ? 32'd0 :
                           (st == I_OCLR) ? 32'd0 :
                           card_we ? card_q :
                           (st == I_CCLR) ? 32'd0 :
@@ -563,6 +569,7 @@ module zeta_top (
     .tick(snd_tick), .sample(snd_sample), .busy(snd_busy),
     .aud_rd(st == I_AUD), .aud_a(audi[3:0]), .aud_q(aud_q),
     .frame_go(st == I_GK && tpass == 6'd0),
+    .phase_rst(au_rst),
     .ev_we(ev_we), .ev_a(ev_a), .ev_d(ev_d),
     .wav_we(wav_we), .wav_ch(wav_ch), .wav_a(wav_a), .wav_d(wav_d));
 
@@ -608,12 +615,13 @@ module zeta_top (
     if (card_we && ~&n_copy) n_copy <= n_copy + 8'd1;
     if (!core_rst_n) begin
       st <= I_IDLE; frame_no <= 0; busy <= 1'b0;
-      dma_hi <= 1'b0; d_fin <= 1'b0; tpass <= 6'd0;
+      dma_hi <= 1'b0; d_fin <= 1'b0; tpass <= 6'd0; au_rst <= 1'b0;
       m_clr <= 0; m_walk <= 0; m_idle <= 0;
       m_stall <= 0; m_seq <= 0; m_blkd <= 0; m_skp <= 0;
     end else begin
       // THE METER TICKS ONLY DURING THE PAINT, and zeroes at the frame's
       // first band so each frame's numbers stand alone.
+      au_rst <= 1'b0;                     // a pulse: I_ARC raises it
       if (st == I_GK && tpass == 6'd0) begin
         m_clr <= 0; m_walk <= 0; m_idle <= 0;
         m_stall <= 0; m_seq <= 0; m_blkd <= 0; m_skp <= 0;
@@ -1006,8 +1014,13 @@ module zeta_top (
         ev_we <= 1'b1; ev_a <= evi; ev_d <= dl_data;
         evi <= evi + 8'd1;
         au_addr <= au_addr + 1'b1;
-        st <= (evi == 2 * AU_EV_MAX) ? I_GRP : I_EVW;
+        st <= (evi == 2 * AU_EV_MAX) ? I_ARW : I_EVW;
       end
+      I_ARW: st <= I_ARC;                 // registered-read wait
+      I_ARC: if (dl_data != 32'd0) begin  // a cold start asked for
+               au_rst <= 1'b1; st <= I_ARZ;
+             end else st <= I_GRP;
+      I_ARZ: st <= I_GRP;                 // ...and the cell cleared
       I_PW:                             // the pick's answer, THREE cells
         if (pws != 2'd2) pws <= pws + 2'd1;   // PICK_ID, PICK_Z, PICK_SH
         else begin visi <= 7'd0; st <= I_VIS; end

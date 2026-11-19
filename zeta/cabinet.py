@@ -103,6 +103,10 @@ class VirtualMachine:
                         v = (w >> (8 * b)) & 0xFF
                         page.append(v - 256 if v > 127 else v)
                 self._wav[c] = page
+        if self.vm.dmem[spec.AU_RESET]:          # the synth's cold start
+            self.snd.phase = [0] * spec.AU_CHANNELS
+            self.snd.lfsr = 1
+            self.vm.dmem[spec.AU_RESET] = 0
         self._audio = self.snd.frame(self.vm.dmem, self._wav)
         self._heard = [self._heard[1], self.snd.heard]
         # the paint happens EVERY frame, eagerly: render now writes the

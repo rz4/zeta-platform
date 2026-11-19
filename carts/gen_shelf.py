@@ -153,7 +153,8 @@ p.set(spec.OVL_DST, 0)
 p.push(spec.OVL_MAX).store(spec.OVL_LEN)
 p.set(spec.OVL_GO, 1)
 p.load(SV).load(GS).emit("add").store(spec.SEG_BASE)   # nests: the
-p.emit("halt")                         # game's window is inside ours
+p.set(spec.AU_RESET, 1)                # game's window is inside ours; and
+p.emit("halt")                         # its synth starts COLD (spec.AU_RESET)
 p.mark(more_l)
 p.addi(L, 1)
 p.emit("halt")
