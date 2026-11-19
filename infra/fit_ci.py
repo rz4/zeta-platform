@@ -78,8 +78,12 @@ if fail:
     print("\n---- the failing fit's testimony (infra/worst_paths.tcl) ----")
     w = subprocess.run(["quartus_sta", "-t", "../../infra/worst_paths.tcl"],
                        cwd=template, capture_output=True, text=True)
+    # keep the PATH lines -- the first version of this filter kept only
+    # the slacks and threw the node names away, which is a testimony
+    # that says how badly something failed but not what
     keep = [l for l in (w.stdout + w.stderr).splitlines()
-            if l.startswith("========") or l.lstrip().startswith(";")
+            if l.startswith("========") or "Path #" in l
+            or "From Node" in l or "To Node" in l
             or "Slack" in l or "Error" in l]
     print("\n".join(keep[:400]))
     sys.exit("FIT FAIL: a timing corner is violated. A fit quoted at one "
