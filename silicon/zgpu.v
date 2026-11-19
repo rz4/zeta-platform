@@ -120,6 +120,21 @@ module zgpu (
   reg [50:0] c0;
   reg [15:0] fz0;
   reg signed [25:0] fzx, fzy;
+  // THE HOLD FIX (build 102). zseq's tzy fed fzy register-to-register
+  // across the module boundary, and the fitter PACKED fzy into the depth
+  // multiplier's DSP input register -- a fixed site it cannot pad with
+  // routing delay -- so at the fast corners the data arrived too early:
+  // hold -0.073 ns at 0C, five bits of the bus violating. Same class as
+  // discovery's s2_z -> zmem. The multiplier now takes fzy through an
+  // AND with zarm: set when a triangle latches, cleared after the plane
+  // products are taken, so it is 1 at the only beat zpy0 captures (nine
+  // or more after the latch) and the product is UNCHANGED -- but fzy no
+  // longer touches the DSP directly, so it cannot be packed there, and
+  // the path to zpy0 runs through the whole multiplier. zarm is set by
+  // its own sequence rather than derived from zpy0's enable, so
+  // synthesis cannot prove the AND redundant and remove it.
+  reg               zarm;
+  wire signed [25:0] fzy_m = fzy & {26{zarm}};
   reg signed [25:0] fcx [0:2], fcy [0:2];   // r, g, b color gradients
   reg [8:0]  px, py, lx, hx, hy;    // walk cursor and clamped box (pixels)
   // FOUR BITS, and the width is deliberate: the sequence now runs 10 down
@@ -877,6 +892,7 @@ module zgpu (
           fcx[1] <= tcxg; fcy[1] <= tcyg;
           fcx[2] <= tcxb; fcy[2] <= tcyb;
           fz0 <= tz0; fzx <= tzx; fzy <= tzy;
+          zarm <= 1'b1;                      // see THE HOLD FIX
           boxing <= 4'd10;
           st <= S_WALK;
         end
@@ -902,13 +918,14 @@ module zgpu (
         end else if (boxing == 4'd2) begin   // plane products (depth and
           boxing <= 4'd1;                    // colors), off the registered
           zpx0 <= zdx * fzx;                 // cursor
-          zpy0 <= zdy * fzy;
+          zpy0 <= zdy * fzy_m;               // fzy, unpackable (HOLD FIX)
           for (i = 0; i < 3; i = i + 1) begin
             cpx0[i] <= zdx * fcx[i];
             cpy0[i] <= zdy * fcy[i];
           end
         end else if (boxing == 4'd1) begin   // values at the start corner
           boxing <= 4'd0;
+          zarm <= 1'b0;                      // products taken (HOLD FIX)
           for (i = 0; i < 3; i = i + 1) begin
             eacc[i] <= eseed[i]; erow[i] <= eseed[i];
           end
