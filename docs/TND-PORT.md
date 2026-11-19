@@ -233,6 +233,29 @@ pulse at the audio latch). The shelf writes it on its launch frame, and
 the film on its launch of the shelf; the launched game sounds as it
 does from a cold boot, gated on both machines.
 
+## P6 -- the shell of the game: THE TITLE LANDED
+
+    the title    the archive's own start screen -- TEAR / NOT / DEMON in
+                 its gothic hand, the demonic Ns, the blood gash, the
+                 inverted cross, the boxer on the street -- rendered BY THE
+                 ARCHIVE (tools/tnd_title.py) at the panel's own 320x288
+                 (its console scales x3 by nearest neighbour, checked
+                 block by block) and baked to a backdrop plate. The menu is
+                 cut to START: the port has no LOAD or OPTIONS yet, and a
+                 title must not promise what the game cannot do. On the
+                 title nothing else is drawn, the music keeps the intro
+                 lock, and PRESS START breathes on the archive's beat (one
+                 compositor rectangle). Start or A begins the fight the
+                 next frame; an A held through the cut is no jab.
+    the glass    the frame-143 witness stands: Start on frame 0, and the
+                 fight that ran from frame 0 on glass runs from frame 1 --
+                 its frame 144, to the pixel.
+    already      death and retry (P4), the gauge and the rank (P4, P5).
+
+Still to come in P6: the best score saved to the card -- which needs
+SLOT_BASE in the law (a shelved cart cannot use the card yet) -- and the
+HUD's wordmark.
+
 ## The frame, measured (2026-11-19)
 
 Three demons on the P2 street measured **858,900 clocks** at the worst

@@ -16,11 +16,19 @@ from zeta import cabinet, spec  # noqa: E402
 CART = Path(__file__).parents[1] / "carts/tnd.zol"
 
 
+def _fight_vm():
+    """TND opens on its title; Start on the first frame begins the fight,
+    which runs from the next -- so a test's frame f is the fight's f."""
+    m = cabinet.VirtualMachine(cabinet.load_cart(CART))
+    m.frame(spec.PAD_START)
+    return m
+
+
 def _jab_vs_still():
     """Two machines, same camera, same frame count: one jabs at frame 30.
     Anything that differs is the POSE -- delivered by the mover."""
-    a = cabinet.VirtualMachine(cabinet.load_cart(CART))
-    b = cabinet.VirtualMachine(cabinet.load_cart(CART))
+    a = _fight_vm()
+    b = _fight_vm()
     for f in range(36):
         a.frame(spec.PAD_A if f == 30 else 0)
         b.frame(0)
@@ -58,6 +66,8 @@ def test_both_machines_play_the_fighter():
     from zeta import silicon
     cart = cabinet.load_cart(CART)
     v, s = cabinet.VirtualMachine(cart), silicon.SiliconMachine(cart)
+    v.frame(spec.PAD_START)                         # the title, then the fight
+    s.frame(spec.PAD_START)
     for f in range(90):
         pad = (spec.PAD_UP if 15 <= f < 45 else 0) \
             | (spec.PAD_A if f == 50 else 0) \
@@ -100,7 +110,7 @@ def test_the_wave_closes_in_and_squares_up():
     short, inside the 1.5 reach -- every one of them, with nobody
     touching the pad. (The shove has its own witness below; this one
     passes without it, because the wave stops before it touches.)"""
-    m = cabinet.VirtualMachine(cabinet.load_cart(CART))
+    m = _fight_vm()
     start = [np.hypot(w["x"], w["z"]) / 65536 for w in _wave(m)]
     assert all(abs(r - 7.8) < 0.01 for r in start)
     for _ in range(360):
@@ -115,7 +125,7 @@ def test_the_demons_swing_cross_then_hook():
     """Squared up and on his nose, each swings on the 74-frame rest,
     alternating the archive's two moves -- and while a swing runs, its
     clip row is the move's, not the idle's."""
-    m = cabinet.VirtualMachine(cabinet.load_cart(CART))
+    m = _fight_vm()
     clips, npart = _sym("demon_clips"), 12
     seen = [[] for _ in range(3)]
     for _ in range(700):
@@ -135,8 +145,8 @@ def test_the_demon_swing_moves_its_body():
     their swing counters off, and the pictures part when the other's
     swing starts. (Deleting the move rows from the clip select would
     leave these frames identical.)"""
-    a = cabinet.VirtualMachine(cabinet.load_cart(CART))
-    b = cabinet.VirtualMachine(cabinet.load_cart(CART))
+    a = _fight_vm()
+    b = _fight_vm()
     base = _sym("demons")
     first = None
     for f in range(560):
@@ -156,7 +166,7 @@ def test_the_demon_swing_moves_its_body():
 def test_bodies_do_not_pass_through_him():
     """He walks straight at the brute and keeps walking: the shove holds
     every body apart."""
-    m = cabinet.VirtualMachine(cabinet.load_cart(CART))
+    m = _fight_vm()
     for f in range(500):
         m.frame(spec.PAD_UP | (spec.PAD_RIGHT if f < 40 else 0))
         px, pz = _player(m)
@@ -170,7 +180,7 @@ def test_the_street_holds_him():
     never through the wall beside it. (Without the clamp, 1,400 frames
     of walking is 44.8 units -- in the fog -- and the turn into the wall
     walks him through it. He SLIDES along the end to the wall.)"""
-    m = cabinet.VirtualMachine(cabinet.load_cart(CART))
+    m = _fight_vm()
     for f in range(1700):
         m.frame(spec.PAD_UP | (spec.PAD_RIGHT if 1400 <= f < 1420 else 0))
         px, pz = _player(m)
@@ -188,7 +198,7 @@ def test_what_the_camera_cannot_see_is_not_sent():
     against the view before the sequencer sees them (its vertex cache
     holds 2,048 a frame). Witnessed both ways: some objects are always
     left out, and the count changes as he turns."""
-    m = cabinet.VirtualMachine(cabinet.load_cart(CART))
+    m = _fight_vm()
     counts = set()
     for f in range(90):
         m.frame(spec.PAD_RIGHT)
@@ -209,7 +219,7 @@ def _s32(v):
 
 def _launches(pads, frames):
     """the moves he throws, in order, under a pad schedule"""
-    m = cabinet.VirtualMachine(cabinet.load_cart(CART))
+    m = _fight_vm()
     out, was = [], 0
     for f in range(frames):
         m.frame(pads(f))
@@ -233,7 +243,7 @@ def test_the_string_alternates_and_cashes_out_a_hook():
 def test_his_blows_land():
     """Turned onto the brute as it squares up, he works the string and it
     falls -- damage, a stun, and down."""
-    m = cabinet.VirtualMachine(cabinet.load_cart(CART))
+    m = _fight_vm()
     for f in range(560):
         m.frame((spec.PAD_RIGHT if 300 <= f < 308 else 0)
                 | (spec.PAD_A if f >= 320 and f % 9 == 0 else 0))
@@ -244,7 +254,7 @@ def test_his_blows_land():
 def test_their_blows_land_and_he_goes_down():
     """Untouched, the wave beats him down; after the death beat a fresh
     press of A is a new run: full health, the wave back where it began."""
-    m = cabinet.VirtualMachine(cabinet.load_cart(CART))
+    m = _fight_vm()
     for f in range(900):
         m.frame(0)
     assert _s32(_cell(m, "p_hp")) <= 0 and _cell(m, "f_dead") > 46
@@ -261,7 +271,7 @@ def test_their_blows_land_and_he_goes_down():
 def test_the_fallen_go_and_the_wave_returns():
     """A demon knocked down falls, lies a beat and is gone; when all three
     are, the next wave stands round the crossing (tear.py _spawn_wave)."""
-    m = cabinet.VirtualMachine(cabinet.load_cart(CART))
+    m = _fight_vm()
     base, st = _sym("demons"), FIELDS.index("st")
     m.frame(0)
     for i in range(3):
@@ -283,7 +293,7 @@ def test_a_demon_against_the_lens_is_not_drawn():
     the sequencer's most expensive path (the tour's worst frame went over
     100% on one) -- so it is not listed. Elsewhere it is: twelve objects."""
     def listed_with_demon_at(dist):
-        m = cabinet.VirtualMachine(cabinet.load_cart(CART))
+        m = _fight_vm()
         m.frame(0)
         base = _sym("demons")
         cam_x, cam_z = _s32(m.vm.dmem[spec.CAM_X]), _s32(m.vm.dmem[spec.CAM_Z])
@@ -301,7 +311,7 @@ def test_a_blow_is_heard():
     are gone again within twelve frames."""
     def blow_level(m):
         return m.vm.dmem[spec.AU_BASE + 1] & 15, m.vm.dmem[spec.AU_BASE + 5] & 15
-    m = cabinet.VirtualMachine(cabinet.load_cart(CART))
+    m = _fight_vm()
     base, levels = _sym("demons"), []
     for f in range(400):
         m.frame((spec.PAD_RIGHT if 300 <= f < 308 else 0)
@@ -336,7 +346,7 @@ def test_the_grammar_taps_on_release_and_reads_chords():
 def test_the_uppercut_launches():
     """A launcher sends its target up -- 0.45 a frame against the aerial
     gravity of 0.014 is seven units -- helpless the whole arc, and down."""
-    m = cabinet.VirtualMachine(cabinet.load_cart(CART))
+    m = _fight_vm()
     peak, landed = 0.0, False
     for f in range(480):
         m.frame((spec.PAD_RIGHT if 300 <= f < 308 else 0)
@@ -371,7 +381,7 @@ def test_style_climbs_with_variety_and_draws_its_rank():
     """combat.Style: the string's blows pay their moves' style, the combo
     adds to it, and the brute's beating reaches C (60) -- drawn top right
     as composed display-list glyphs, in C's colour."""
-    m = cabinet.VirtualMachine(cabinet.load_cart(CART))
+    m = _fight_vm()
     for f in range(483):
         m.frame((spec.PAD_RIGHT if 300 <= f < 308 else 0)
                 | (spec.PAD_A if f >= 320 and f % 9 == 0 else 0))
@@ -389,14 +399,14 @@ def test_a_blow_taken_keeps_45_percent_and_breaks_the_combo():
     count, so nothing bleeds): the blow leaves 45 and no combo. (The
     first version of this witness waited for the blow with the meter
     bleeding -- and passed on zero.)"""
-    dry = cabinet.VirtualMachine(cabinet.load_cart(CART))
+    dry = _fight_vm()
     for hit in range(600):
         dry.frame(0)
         if _s32(_cell(dry, "p_hp")) < 140:
             break
     else:
         raise AssertionError("never struck")
-    m = cabinet.VirtualMachine(cabinet.load_cart(CART))
+    m = _fight_vm()
     for f in range(hit):
         m.frame(0)
     for name, v in (("s_pts", 100 * 16), ("s_combo", 4), ("s_idle", 0)):
@@ -417,7 +427,7 @@ def test_a_blow_taken_keeps_45_percent_and_breaks_the_combo():
 def test_the_music_is_gated_by_rank():
     """sfx._synth_battle_stems on its voices: the drums from the first
     frame; the bass (stem 1) only from rank C; nothing once he is down."""
-    m = cabinet.VirtualMachine(cabinet.load_cart(CART))
+    m = _fight_vm()
     heard, bass = 0, 0
     for f in range(200):
         m.frame(0)
@@ -436,3 +446,22 @@ def test_the_music_is_gated_by_rank():
         m.frame(0)
     assert int(np.abs(np.asarray(m.audio(), dtype=np.int64)).max()) == 0, \
         "the music played over his corpse"
+
+
+
+# ---- P6: the title -------------------------------------------------------------
+def test_the_title_is_the_archives_and_start_begins():
+    """TND opens on its title -- the archive's own start screen, baked to a
+    backdrop plate, nothing else drawn -- and waits; Start (or A) begins
+    the fight the next frame, and an A held through the cut is no jab."""
+    m = cabinet.VirtualMachine(cabinet.load_cart(CART))
+    for f in range(60):
+        m.frame(0)
+        assert m.vm.dmem[spec.BG_SRC] > 0 and m.vm.dmem[spec.OL_BASE] == 0
+    m.frame(spec.PAD_A)
+    m.frame(spec.PAD_A)                             # held through the cut
+    assert m.vm.dmem[spec.BG_SRC] == 0, "Start/A did not leave the title"
+    assert m.vm.dmem[spec.OL_BASE] > 0, "no street after the title"
+    for f in range(20):
+        m.frame(0)                                  # ...and released
+        assert _cell(m, "anim") != 2, "the A that left the title threw a jab"

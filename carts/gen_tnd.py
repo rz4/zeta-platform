@@ -35,7 +35,7 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from zeta import spec                                        # noqa: E402
-from zeta.forge import ONE, Cart, Mesh, Table, Text                # noqa: E402
+from zeta.forge import ONE, Cart, Mesh, Plate, Table, Text                # noqa: E402
 
 HERE = Path(__file__).parent
 # THE BUDGET HOOK: TND_OMIT=buildings,paint,... drops street parts and
@@ -663,6 +663,20 @@ def ground_mesh():
 
 
 GROUND_M = int(cart.data(ground_mesh(), "ground"))
+
+# ---- P6: THE TITLE -- the archive's own start screen, baked -----------------
+# tools/tnd_title.py renders it with the archive itself at the panel's
+# 320x288 (TEAR / NOT / DEMON in its gothic hand, the demonic Ns, the
+# gash, the inverted cross, PRESS START; the menu cut to START, the one
+# thing the port does). Here it is a BACKDROP PLATE: on the title the
+# frame clears to it, nothing else is drawn, and the music keeps the
+# archive's intro lock. ~136k clocks to read, on a screen with no fight.
+_title = np.load(HERE.parent / "assets" / "tnd" / "title.npz")["img"].astype(np.int64)
+TITLE = cart.cram(Plate([int(r >> 3) << 10 | int(g >> 3) << 5 | int(b >> 3)
+                         for r, g, b in _title.reshape(-1, 3)],
+                        [spec.ZFAR] * spec.BG_WORDS), "title")
+MODE = cart.data(Table([0]), "mode")             # 0 the title, 1 the fight
+TT = cart.var("title_t")
 STREET_FACES = sum(len(b.f) for b in street)
 
 # ---- P4: THE KEYS -- what the fight hit-tests (tools/tnd_extract.py) -----
@@ -1062,6 +1076,30 @@ def row(table_cell_or_sym, mv_cell, field, const_table=True):
     p.load(mv_cell).push(NMR).emit("mul", "add").push(MR[field]).emit("add", "loadi")
 
 
+BTN = (("carve", spec.PAD_A), ("special", spec.PAD_B),
+       ("jump", spec.PAD_X), ("shoot", spec.PAD_Y))
+GT = {b: cart.var("g_t_" + b) for b, _ in BTN}       # frames held, 0 = up
+GC = {b: cart.var("g_c_" + b) for b, _ in BTN}       # read as a chord
+L_MUSIC = p.label("music")
+tl = p.label("title")
+p.load(int(MODE)).emit(f"jz {tl}", f"jmp {tl}_fight")
+p.mark(tl)
+p.push(int(TITLE)).store(spec.BG_SRC)
+p.set(spec.OL_BASE, 0).set(spec.DL_BASE, 0)
+# PRESS START breathes as the archive's does (bright, then dim, on a
+# 60-frame beat): one compositor rectangle dims it on the off beat
+p.addi(TT, 1)
+p.set(spec.CO_BASE, 1)
+p.rect(0, 115, 265, 204, 276, 0x16141C,         # the prompt, exactly
+       lambda q: q.load(TT).emit("shr 5").push(1).emit("and").push(9).emit("mul"))
+# a FRESH press of Start or A (up now? or down last frame? -- neither)
+p.emit("load 1").push(spec.PAD_START | spec.PAD_A).emit("and").push(0).emit("eq")
+p.load(PV).push(spec.PAD_START | spec.PAD_A).emit("and", "or").push(0).emit("eq")
+p.emit(f"jz {L_MUSIC}")
+p.set(int(MODE), 1).set(spec.BG_SRC, 0).set(spec.CO_BASE, 0)
+p.set(GT["carve"], 100)                 # a held A is not the first jab
+p.emit(f"jmp {L_MUSIC}")
+p.mark(f"{tl}_fight")
 p.load(PX).store(AR["ox"]).load(PZ).store(AR["oz"])     # where he stood
 L = {k: p.label(k) for k in ("dead", "frozen", "free", "walk", "idle",
                              "motion", "anim", "pi", "pj", "pd", "iw",
@@ -1084,10 +1122,6 @@ p.mark(f"{L['frozen']}_no")
 #   shoot+special  the lead uppercut, a launcher
 # (jump and shoot alone -- the jump and the gun -- come after the game
 # ships, with the air layer; their buttons already chord.)
-BTN = (("carve", spec.PAD_A), ("special", spec.PAD_B),
-       ("jump", spec.PAD_X), ("shoot", spec.PAD_Y))
-GT = {b: cart.var("g_t_" + b) for b, _ in BTN}       # frames held, 0 = up
-GC = {b: cart.var("g_c_" + b) for b, _ in BTN}       # read as a chord
 GTAP = {b: cart.var("g_tap_" + b) for b in ("carve", "special")}
 TAP_MAX, CHORD_SLOP = 9, 3
 MOVE = {n: i for i, n in enumerate(PMN)}
@@ -1642,6 +1676,7 @@ p.mark(f"{dk}_k")
 p.emit("shl 24").push32(0x000000).emit("or").store(HB + 8)
 p.mark(dk)
 # ---- the music's frame (stems as one loop over a table: IMEM is 4,096) ----------
+p.mark(L_MUSIC)
 EVN = cart.var("ev_n")
 EV_BASE = spec.AU_EV_BASE + 1
 EVW, EVV = cart.var("ev_w"), cart.var("ev_v")

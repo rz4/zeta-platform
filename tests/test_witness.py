@@ -95,8 +95,11 @@ def test_tnd_on_glass_is_frame_143_through_the_pockets_camera():
     law's frame 143 of TND to the pixel -- once the law's panel goes
     through the Pocket's RGB565 screenshot. Without that model it is not
     (green's low bits), so the model is held both ways."""
+    # (TND now opens on its title: Start on frame 0, and the fight that
+    # ran from frame 0 on glass runs from frame 1 -- its frame 143 is 144)
     cart = cabinet.load_cart(Path(__file__).parents[1] / "carts/tnd.zol")
     shot = witness.read_shot(GLASS / "tnd-wave-143.ppm")
-    assert witness.witness(cart, shot, 144, None, 143,
+    start = (0, [spec.PAD_START])
+    assert witness.witness(cart, shot, 145, start, 144,
                            capture=witness.pocket_capture) == 0
-    assert witness.witness(cart, shot, 144, None, 143) == 1
+    assert witness.witness(cart, shot, 145, start, 144) == 1
