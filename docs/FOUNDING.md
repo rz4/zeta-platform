@@ -80,20 +80,40 @@ Glass is the one serial resource. Three moves:
                           machines, witnessed, on every push.
     5. methods/ v1        regen gate DONE (and it caught gen_shade and
                           gen_bootprobe drifting on its first run,
-                          beyond the known gen_room). Claims schema,
-                          mutation enforcement, estimate ledger remain.
-    6. the glass queue    screenshot gate + requires-glass tagging
-    7. LICENSE            DONE 2026-11-18: Apache-2.0 + CERN-OHL-S
-                          split, TRADEMARKS.md, DCO. SDK docs rewrite
-                          for outsiders remains.
-    8. the flagship       resurrect TEAR (carts/tear.zol survived into
-                          the tree) or build the arena -- the first
-                          cart with a goal, a fail state and a player
-                          loop
-    9. gate build 101     the fit stage's first real job, once the
-                          quartus image exists: cross (green already),
-                          fit at 43.2 and DIV=6, all four corners,
-                          meter the one-clock-per-face cost
+                          beyond the known gen_room). Estimate ledger
+                          DONE: methods/ledger/ledger.tsv, schema-
+                          checked, storage rows must count their bits.
+                          Claims-as-files and mutation enforcement
+                          remain (the suite's --witness-only is the
+                          seed).
+    6. the glass queue    SCREENSHOT GATE DONE: `zeta witness` holds a
+                          Pocket Menu+Start capture against the law's
+                          panel() -- frame search or exact, integer
+                          upscales accepted only if uniform, and the
+                          PAD-LOG TAPE FORMAT legislated with it (one
+                          word a line, @start N). Six tests prove it
+                          by mutation. requires-glass claim tagging
+                          remains.
+    7. LICENSE            DONE 2026-11-18. SDK docs DONE:
+                          docs/GETTING-STARTED.md, written for someone
+                          who did not live through discovery, every
+                          number verified against spec.py.
+    8. the flagship       DECIDED: TEAR. docs/FLAGSHIP.md -- tear.zol
+                          already has a goal, a fail state and a loop
+                          (the only cart that does, with balance
+                          pinned by replay tests); the July TND
+                          archive is the design quarry; the staged
+                          plan is nearly all content. Biggest gap:
+                          decision depth (one move, no block, no
+                          second pad).
+    9. gate build 101     cross HALF DONE: the migrated tree includes
+                          build 101 and the CI suite passes on it.
+                          The fit waits on the quartus image, which
+                          waits on a human browser download (Intel
+                          gates the installer): drop
+                          QuartusLiteSetup-25.1std.0.1129-linux.run
+                          and cyclonev-25.1std.0.1129.qdz into
+                          infra/quartus-dist/ and build per infra/.
 
 ## What this repo is not
 

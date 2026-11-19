@@ -3,7 +3,7 @@
     zeta build carts/game.zol            .zol -> .zc cart
     zeta run   carts/game.zol            play it (pygame, 60 fps)
     zeta dump  carts/game.zol -f 120 -a 0,60,119   headless frames -> PPM
-    zeta cross carts/game.zol            virtual vs silicon, bit-exact (soon)
+    zeta cross carts/game.zol            virtual vs silicon, bit-exact
 
 `run` and `dump` take either .zol (assembled on the fly) or .zc.
 """
@@ -39,6 +39,19 @@ def main(argv=None) -> int:
 
     p = sub.add_parser("glass", help="video head: scanned pixels vs virtual")
     p.add_argument("cart")
+
+    p = sub.add_parser("witness",
+                       help="the screenshot gate: a Pocket capture vs the law")
+    p.add_argument("cart")
+    p.add_argument("shot", help="Menu+Start capture (PNG/PPM, 1x or integer scale)")
+    p.add_argument("-f", "--frames", type=int, default=600,
+                   help="search this many frames for the match")
+    p.add_argument("--at", type=int, default=None,
+                   help="the exact frame instead of a search")
+    p.add_argument("--tape", default=None,
+                   help="pad-log tape driving the replay (one word a line)")
+    p.add_argument("--diff", default=None,
+                   help="write the closest frame with differing pixels marked")
 
     p = sub.add_parser("budget", help="the frame-budget gate: does it fit 60?")
     p.add_argument("carts", nargs="*", help="default: every suite cart")
@@ -115,6 +128,12 @@ def main(argv=None) -> int:
         dumps = {int(t) for t in args.at.split(",")}
         cabinet.dump(cabinet.VirtualMachine(cart), args.frames, dumps, args.prefix)
         return 0
+
+    if args.cmd == "witness":
+        from . import witness as wit
+        tape = wit.read_tape(args.tape) if args.tape else None
+        shot = wit.read_shot(args.shot)
+        return wit.witness(cart, shot, args.frames, tape, args.at, args.diff)
 
     if args.cmd == "cross":
         import numpy as np

@@ -22,3 +22,5 @@ pocket/template/incremental_db/
 # forge INPUTS: third-party source media, not this repo's to carry.
 # What the machine plays is the baked cart, which IS committed.
 assets/
+infra/quartus-dist/*.run
+infra/quartus-dist/*.qdz

@@ -670,7 +670,7 @@ OBJ_PAGE_SHIFT, OBJ_PAGE_MASK = 8, 31
 
 def tex_page(sel: int) -> int:
     """A page selector, resolved. Out of range reads as page 0 --
-    TEX_PAGES is 24 and the field holds 0..31."""
+    TEX_PAGES is not a power of two and the field holds 0..31."""
     sel &= OBJ_PAGE_MASK
     return sel if sel < TEX_PAGES else 0
 

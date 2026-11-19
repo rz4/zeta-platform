@@ -1,0 +1,8 @@
+build	item	kind	est_alm	measured_alm	bits	note
+102	texture repack	logic	-50	-37		stride 2048 -> 1360; estimate fine
+103	radix-4 dividers	logic	400	131		a third of the estimate; logic estimates run high
+rev	triangle queue	storage	100	9231	543 bits/record x 17 deep	two orders out; built, measured, REVERTED
+94	region accumulators	storage	150	832	64 x 17 flops + muxes	estimate useless for state
+95	the sensor rebuild	storage	70	812	55 flops + 17-bit adder + 6-bit compare	counting the BITS landed inside 5%
+96	amplitude accumulators	mixed	140	294	768 bits = 2 MLABs (~20 ALM exact)	storage counted exactly; the 16:1 mux guess ran 2x low -- WIDE MUXES ARE WHERE GUESSES RUN LOW
+98	per-vertex lighting	logic	300	88	n/a (the miss was TIMING: -4.5 ns first cut)	area estimate fine and silent about depth
