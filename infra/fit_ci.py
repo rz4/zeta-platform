@@ -74,6 +74,14 @@ for (speed, mv, temp, kind), s in sorted(worst.items()):
         fail = True
     print(f"{speed} {mv} {temp:<16} {kind:<6} {s:+.3f}{flag}")
 if fail:
+    # NAME THE CULPRIT before failing: the worst paths at every corner
+    print("\n---- the failing fit's testimony (infra/worst_paths.tcl) ----")
+    w = subprocess.run(["quartus_sta", "-t", "../../infra/worst_paths.tcl"],
+                       cwd=template, capture_output=True, text=True)
+    keep = [l for l in (w.stdout + w.stderr).splitlines()
+            if l.startswith("========") or l.lstrip().startswith(";")
+            or "Slack" in l or "Error" in l]
+    print("\n".join(keep[:400]))
     sys.exit("FIT FAIL: a timing corner is violated. A fit quoted at one "
              "corner is not a fit.")
 

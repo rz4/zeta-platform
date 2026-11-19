@@ -57,3 +57,12 @@ jobs:
             pocket/template/output_files/ap_core.fit.summary
             pocket/template/output_files/ap_core.sta.rpt
           retention-days: 30
+      - name: keep the reports of a failed fit
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fit-reports-failed
+          path: |
+            pocket/template/output_files/*.rpt
+            pocket/template/output_files/*.summary
+          retention-days: 30
