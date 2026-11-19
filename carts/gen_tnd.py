@@ -95,10 +95,10 @@ def pose_span(V, S):
     return (half_words(V, S, halves[0])[2:] + half_words(V, S, halves[1]))
 
 
-# THE HUD'S PROMISE: at most 40 display-list triangles, ever -- the
-# largest text on glass at once is RETRY (38); the rank (<= 24) never
-# shares the list with it -- so the list's other 1,512 words hold content.
-DL_LEASE = 40
+# THE HUD'S PROMISE: at most 64 display-list triangles, ever -- the rank
+# (SSS: 30) and the combo (X99: 28) together, or RETRY (34) alone -- so the
+# list's other 1,344 words hold content.
+DL_LEASE = 64
 cart = Cart("tnd", dl_lease=DL_LEASE)
 
 # ---- the body: two meshes, back to back, holding the first idle pose ----
@@ -791,6 +791,25 @@ IDLE = cart.var("idle_f")       # idle's own frame, WRAPPED -- never a
                                 # modulo off REG_FRAME, whose cost would
                                 # grow every frame for as long as you play
 PV = cart.var("prevpad")
+# THE STRIKE FACING (tear.py _aim_at_dpad): the body faces HEAD, which is
+# the steering YAW except while a strike runs -- at its launch HEAD snaps
+# to the D-pad's direction off the steering (forward ahead, left to the
+# left, back spins and strikes behind, the diagonals between), the camera
+# never sees it, and it reverts when the strike is done. Indexed by the
+# pad's four direction bits (up 1, down 2, left 4, right 8).
+HEAD = cart.var("head")
+
+
+def _octant(bits):
+    f = (1 if bits & 1 else 0) - (1 if bits & 2 else 0)
+    t = (1 if bits & 4 else 0) - (1 if bits & 8 else 0)
+    if not (f or t):
+        return 0
+    # left turns are NEGATIVE yaw on this cart (PAD_LEFT: yaw -= 12)
+    return int(round(-np.arctan2(t, f) * 1024 / (2 * np.pi))) & 1023
+
+
+OCTANT = cart.data(Table([_octant(b) for b in range(16)]), "octants")
 NOBJ = cart.var("nobj")
 
 cart.boot(spec.CAM_Y, int(2.15 * ONE))           # the archive's follow height
@@ -804,6 +823,7 @@ L_SINE, L_ROT, L_FK = p.label("sine"), p.label("rot"), p.label("fk")
 L_VIS = p.label("vis")
 L_ARENA = p.label("arena")
 L_COPY, L_WPT, L_D2, L_DMIND = (p.label(k) for k in ("copy", "wpt", "d2", "dmind"))
+L_TEXT = p.label("text")
 CP = {k: cart.var("cp_" + k) for k in ("src", "dst", "n")}
 W = {k: cart.var("w_" + k) for k in ("k", "bx", "bz", "c", "s", "x", "y", "z", "oy",
                                      "qx", "qy", "qz", "dc", "dg", "d2", "head",
@@ -915,19 +935,43 @@ BAR_W = 100
 S_FAC = cart.data(Table([int(BAR_W * ONE / ((RANK_AT[r + 1] - RANK_AT[r]) * 16))
                          for r in range(6)] + [0]), "s_bar")
 S_RGB = cart.data(Table(list(RANK_RGB)), "s_rgb")
-# the letters, baked once at the origin; the HUD copies them into place
-# (an S three times is SSS) and paints each in its rank's colour
-GLYPH = {c: cart.data(Text(c, 0, 0, scale=3), "g_" + c) for c in "DCBAS"}
-GW = 4 * 3                                               # a 3x5 glyph + 1, x3
-_rows = []
-for r in RANKS:
-    x0 = 310 - GW * len(r)                               # right-aligned
-    row_ = [len(r)]
-    for k, c in enumerate(r):
-        row_ += [int(GLYPH[c]), x0 + k * GW]
-    _rows += row_ + [0] * (7 - len(row_))
-S_GL = cart.data(Table(_rows), "s_glyphs")
-S_Y = 10
+# THE TEXT ENGINE. Baked text is finished display-list triangles -- seven
+# words a triangle, ~57 a glyph: the five rank letters and RETRY were 552
+# words of a DMEM that had none left. A glyph here is its rectangles
+# PACKED -- x, y (2 and 3 bits), width, height (2 and 3), ten bits a
+# rectangle, three a word, every glyph of this font in six or fewer --
+# and one routine (L_TEXT) turns a string of them into triangles when the
+# HUD changes. Two words a glyph; a string is its length and its glyphs.
+# (The width is stored as itself, 1..3, so an all-zero rectangle is none.)
+from zeta.forge import glyph_rects                          # noqa: E402
+FONT_CH = "DCBASRETYX0123456789"
+_fw = []
+for c in FONT_CH:
+    rs = glyph_rects(c)
+    assert len(rs) <= 6, c
+    packed = [x | y << 2 | w << 5 | (h - 1) << 7 for x, y, w, h in rs]   # w >= 1: 0 is none
+    packed += [0] * (6 - len(packed))
+    _fw += [packed[0] | packed[1] << 10 | packed[2] << 20,
+            packed[3] | packed[4] << 10 | packed[5] << 20]
+FONT = cart.data(Table(_fw), "font")
+
+
+def glyphs(text):
+    return [len(text)] + [FONT_CH.index(c) for c in text]
+
+
+STR_RANK = [cart.data(Table(glyphs(r)), "str_" + r) for r in RANKS]
+STR_RETRY = cart.data(Table(glyphs("RETRY")), "str_retry")
+S_STRS = cart.data(Table([int(x) for x in STR_RANK]), "str_ranks")
+S_LEN = cart.data(Table([len(r) for r in RANKS]), "rank_len")
+GW = 4 * 3                                     # a glyph and its gap, x3
+STR_COMBO = cart.data(Table([3, FONT_CH.index("X"), 0, 0]), "str_combo")  # X + 2 digits
+TX = {k: cart.var("tx_" + k) for k in ("str", "x", "y", "sc", "rgb", "n", "gp",
+                                        "w", "k", "r", "x0", "y0", "x1", "y1",
+                                        "dl", "j")}
+TRI_CELLS = cart.data(Table([int(TX[c]) for c in (     # the forge's two triangles
+    "x0", "y0", "x1", "y0", "x0", "y1", "rgb", "x1", "y0", "x1", "y1", "x0", "y1",
+    "rgb")]), "tri_cells")
 
 # ---- P5: THE MUSIC -- Fable's synth theme, its stems gated by rank -------------
 # sfx._synth_battle_stems, on this machine's voices: 148 BPM, a two-bar
@@ -1057,7 +1101,6 @@ PHP = cart.data(Table([140]), "p_hp")
 FRIC = int(round(0.82 * ONE))                   # tear.py: body friction
 J = int(0.05 * ONE)                             # the shake, lateral
 BUFFER, STRING = 10, 22
-TEXT_RETRY = cart.data(Text("RETRY", 136, 80, rgb=0xE8D8C0, scale=2), "t_retry")
 
 
 def fresh(bit):
@@ -1216,10 +1259,17 @@ p.addi(F["hs"], -1).set(ANIM, 3).set(F["buf"], 0)
 p.emit(f"jmp {L['motion']}")
 p.mark(f"{L['hurt']}_no")
 
-# ---- tank turn ----------------------------------------------------------------
+# ---- tank turn -- frozen while a strike button is held: the D-pad is then
+# choosing where the strike goes, and must not spin the frame it is
+# measured from (tear.py _tank, `charging`)
+tk = p.label("turn")
+p.emit("load 1").push(spec.PAD_A | spec.PAD_B | spec.PAD_X | spec.PAD_Y)
+p.emit("and", f"jz {tk}_go", f"jmp {tk}")
+p.mark(f"{tk}_go")
 p.if_pad(spec.PAD_LEFT, lambda q: q.addi(YAW, -12))
 p.if_pad(spec.PAD_RIGHT, lambda q: q.addi(YAW, 12))
 p.load(YAW).push(1023).emit("and").store(YAW)
+p.mark(tk)
 
 # ---- a swing owns the body until its frames are done --------------------------
 p.load(ANIM).push(2).emit("eq", f"jz {L['free']}")
@@ -1243,21 +1293,36 @@ p.load(F["buf"]).emit(f"jz {L['walk']}_q")
 # LAUNCH: the buffered move, and its lunge as ONE impulse (tear.py _launch)
 p.load(F["bmv"]).store(F["mv"])
 p.set(ANIM, 2).set(AF, 0).set(F["con"], 0).set(F["buf"], 0)
-sin_of(p)
+p.push(int(OCTANT)).emit("load 1").push(15).emit("and", "add", "loadi")
+p.load(YAW).emit("add").push(1023).emit("and").store(HEAD)   # the strike's facing
+sin_of(p, cell=HEAD)
 row(PMT, F["mv"], "lunge")
 p.emit("mulq").load(F["vx"]).emit("swap", "sub").store(F["vx"])   # fwd x = -sin
-sin_of(p, 256)
+sin_of(p, 256, cell=HEAD)
 row(PMT, F["mv"], "lunge")
 p.emit("mulq").load(F["vz"]).emit("add").store(F["vz"])
 p.emit(f"jmp {L['motion']}")
 p.mark(f"{L['walk']}_q")
-p.emit("load 1", f"push {spec.PAD_UP}", "and", f"jz {L['idle']}")
+p.load(YAW).store(HEAD)                       # no strike: he faces his steering
+wb = p.label("wback")
+p.emit("load 1", f"push {spec.PAD_UP}", "and", f"jz {wb}")
 p.set(ANIM, 1)
 p.addi(AF, 1)
 sin_of(p)                                     # forward is model +z: (-sin, cos)
 p.push(WALK).emit("mulq").load(PX).emit("swap", "sub").store(PX)
 sin_of(p, 256)
 p.push(WALK).emit("mulq").load(PZ).emit("add").store(PZ)
+p.emit(f"jmp {L['motion']}")
+# BACK: the tank's other half, at the same pace (tear.py _tank: fwd = +-1),
+# the walk played backwards
+p.mark(wb)
+p.emit("load 1", f"push {spec.PAD_DOWN}", "and", f"jz {L['idle']}")
+p.set(ANIM, 1)
+p.addi(AF, -1)
+sin_of(p)
+p.push(WALK).emit("mulq").load(PX).emit("add").store(PX)
+sin_of(p, 256)
+p.push(WALK).emit("mulq").load(PZ).emit("swap", "sub").store(PZ)
 p.emit(f"jmp {L['motion']}")
 p.mark(L["idle"])
 p.set(ANIM, 0)
@@ -1295,10 +1360,6 @@ p.addi(F["dead"], 1)
 p.load(F["dead"]).push(42).emit("lt", f"jz {L['dead']}_t")
 p.load(F["dead"]).push(6).emit("mul").store(F["tilt"])    # to ~89 degrees
 p.mark(f"{L['dead']}_t")
-p.load(F["dead"]).push(DEATH_BEAT).emit("eq", f"jz {L['dead']}_s")
-p.set_text(TEXT_RETRY)
-p.set(int(S_SHOWN), 255)
-p.mark(f"{L['dead']}_s")
 p.push(DEATH_BEAT).load(F["dead"]).emit("lt")
 fresh(spec.PAD_A)
 p.emit("and", f"jz {L['frozen']}")
@@ -1310,7 +1371,6 @@ for c, v in ((PX, 0), (PZ, 0), (YAW, 0), (CY, 0), (ANIM, 0), (AF, 0),
              (SY["pts"], 0), (SY["combo"], 0), (SY["idle"], 0), (int(S_SHOWN), 255),
              *((int(S_REC) + i, 255) for i in range(5))):
     p.set(c, v)
-p.hide_text()
 p.push(int(SPAWN)).store(CP["src"]).push(int(DS)).store(CP["dst"])
 p.push(3 * NF).store(CP["n"]).emit(f"call {L_COPY}")
 p.load(PX).store(AR["ox"]).load(PZ).store(AR["oz"])
@@ -1325,10 +1385,10 @@ p.set(spec.DMA_GO, 1)
 
 keep_in_arena(PX, PZ, AR["ox"], AR["oz"])
 
-# his trig, for his keys and his fist
-sin_of(p, 256)
+# his trig, for his keys and his fist: the BODY's facing
+sin_of(p, 256, cell=HEAD)
 p.store(F["pc"])
-sin_of(p)
+sin_of(p, cell=HEAD)
 p.store(F["ps"])
 # HIS FIST, if a swing is in its active frames and has not yet landed
 p.set(F["act"], 0)
@@ -1555,7 +1615,7 @@ for m in ((UPPER, LOWER) if "player" not in OMIT else ()):
     # archive's collapse folds over the guard, and backwards took him out
     # of the bottom of the shot
     p.object(NOBJ, m, (f"load {int(PX)}",), 0, (f"load {int(PZ)}",),
-             (f"load {int(YAW)}", f"load {int(F['tilt'])}", "shl 10", "or"),
+             (f"load {int(HEAD)}", f"load {int(F['tilt'])}", "shl 10", "or"),
              (f"load {int(PFLAGS)}",))
 for d in range(3 if "demons" not in OMIT else 0):     # the demons, last
     for f, c in (("x", "x"), ("z", "z"), ("cf", "cf")):
@@ -1605,46 +1665,66 @@ p.addi(SY["rank"], 1).addi(SY["src"], 1)
 p.load(SY["rank"]).push(6).emit("lt", f"jz {rk}_e2", f"jmp {rk}")
 p.mark(f"{rk}_e2")
 
-# ---- the rank on glass: composed into the display list when it changes ------
-gl = p.label("glyphs")
-p.load(F["fight"]).emit(f"jz {gl}")
-p.push(DEATH_BEAT - 1).load(F["dead"]).emit("lt", f"jz {gl}_alive", f"jmp {gl}")
-p.mark(f"{gl}_alive")
-p.load(SY["rank"]).push(int(S_SHOWN)).emit("loadi", "eq", f"jz {gl}_draw", f"jmp {gl}")
-p.mark(f"{gl}_draw")
-p.load(SY["rank"]).push(int(S_SHOWN)).emit("storei")
-p.push(int(S_RGB)).load(SY["rank"]).emit("add", "loadi").store(SY["rgb"])
-p.push(int(S_GL)).load(SY["rank"]).push(7).emit("mul", "add").store(SY["g"])
-p.load(SY["g"]).emit("loadi").store(SY["cnt"])
-p.push(spec.DL_BASE + 1).store(SY["dst"]).set(SY["n"], 0)
-gk = p.label("gk")
-p.mark(gk)
-p.load(SY["cnt"]).emit(f"jz {gk}_e")
-p.load(SY["g"]).push(1).emit("add", "loadi").store(SY["src"])      # glyph text
-p.load(SY["g"]).push(2).emit("add", "loadi").store(SY["dx"])
-p.addi(SY["g"], 2)
-p.load(SY["src"]).emit("loadi").store(CP["n"])                    # its triangles
-p.load(SY["n"]).load(CP["n"]).emit("add").store(SY["n"])
-p.addi(SY["src"], 1)
-gt = p.label("gt")
-p.mark(gt)
-p.load(CP["n"]).emit(f"jz {gt}_e")
-for k in range(spec.DL_STRIDE):          # x0 y0 x1 y1 x2 y2 rgb
-    p.load(SY["src"]).push(k).emit("add", "loadi")
-    if k == 6:
-        p.emit("drop").load(SY["rgb"])
-    elif k % 2 == 0:
-        p.load(SY["dx"]).emit("add")
-    else:
-        p.push(S_Y).emit("add")
-    p.load(SY["dst"]).push(k).emit("add", "storei")
-p.addi(SY["src"], spec.DL_STRIDE).addi(SY["dst"], spec.DL_STRIDE).addi(CP["n"], -1)
-p.emit(f"jmp {gt}")
-p.mark(f"{gt}_e")
-p.addi(SY["cnt"], -1).emit(f"jmp {gk}")
-p.mark(f"{gk}_e")
-p.load(SY["n"]).store(spec.DL_BASE)
-p.mark(gl)
+# ---- the HUD's words: the rank, the combo, or RETRY -------------------------------
+# Rebuilt only when what it says changes (a key of what is shown):
+#   down, past the beat   RETRY                          (key 1)
+#   fighting              the rank, top right, in its colour; X and the
+#                         combo over the meter once it passes one -- key
+#                         (rank + 1) << 8 | combo, so its fields cannot touch
+#   the opening           nothing                        (key 0)
+hk = p.label("hudk")
+p.set(SY["g"], 0)                                     # (the key, building)
+p.push(DEATH_BEAT - 1).load(F["dead"]).emit("lt", f"jz {hk}_f")
+p.set(SY["g"], 1).emit(f"jmp {hk}_c")
+p.mark(f"{hk}_f")
+p.load(F["fight"]).emit(f"jz {hk}_c")
+p.load(SY["rank"]).push(1).emit("add").push(1 << 8).emit("mul").store(SY["g"])  # (rank+1)<<8
+p.load(SY["combo"]).push(1).emit("swap", "lt", f"jz {hk}_c")     # 1 < combo
+p.load(SY["combo"]).emit("dup").push(99).emit("lt", f"jz {hk}_99", f"jmp {hk}_k")
+p.mark(f"{hk}_99")
+p.emit("drop").push(99)
+p.mark(f"{hk}_k")
+p.load(SY["g"]).emit("add").store(SY["g"])
+p.mark(f"{hk}_c")
+p.load(SY["g"]).push(int(S_SHOWN)).emit("loadi", "eq", f"jz {hk}_draw", f"jmp {hk}")
+p.mark(f"{hk}_draw")
+p.load(SY["g"]).push(int(S_SHOWN)).emit("storei")
+p.set(TX["n"], 0)
+p.load(SY["g"]).push(1).emit("eq", f"jz {hk}_fight")
+for k, v in (("str", int(STR_RETRY)), ("x", 141), ("y", 80), ("sc", 2), ("rgb", 0xE8D8C0)):
+    p.set(TX[k], v)
+p.emit(f"call {L_TEXT}", f"jmp {hk}_out")
+p.mark(f"{hk}_fight")
+p.load(SY["g"]).emit(f"jz {hk}_out")
+p.push(int(S_RGB)).load(SY["rank"]).emit("add", "loadi").store(TX["rgb"])
+# the rank's string: a small table of their addresses
+p.push(int(S_STRS)).load(SY["rank"]).emit("add", "loadi").store(TX["str"])
+p.push(310).push(GW).push(int(S_LEN)).load(SY["rank"]).emit("add", "loadi", "mul", "sub")
+p.store(TX["x"])
+p.set(TX["y"], 10).set(TX["sc"], 3)
+p.emit(f"call {L_TEXT}")
+p.load(SY["g"]).push(255).emit("and", f"jz {hk}_out")       # the combo
+# X and the combo, as the archive writes it (X5, X12): the digits are
+# glyphs from index 10 of the font; no leading zero
+D0 = FONT_CH.index("0")
+cz = p.label("cz")
+p.load(SY["g"]).push(255).emit("and", "dup").push(205).emit("mul", "shr 11")  # /10
+p.emit("dup").store(TX["j"])                               # tens
+p.push(10).emit("mul", "sub").push(D0).emit("add").store(TX["r"])   # units glyph
+p.set(int(STR_COMBO), 3)
+p.load(TX["j"]).push(D0).emit("add").store(int(STR_COMBO) + 2)
+p.load(TX["r"]).store(int(STR_COMBO) + 3)
+p.load(TX["j"]).emit(f"jz {cz}_one", f"jmp {cz}")
+p.mark(f"{cz}_one")
+p.set(int(STR_COMBO), 2)
+p.load(TX["r"]).store(int(STR_COMBO) + 2)
+p.mark(cz)
+p.push(int(STR_COMBO)).store(TX["str"])
+p.set(TX["x"], 158).set(TX["y"], 218).set(TX["sc"], 3)
+p.emit(f"call {L_TEXT}")
+p.mark(f"{hk}_out")
+p.load(TX["n"]).store(spec.DL_BASE)
+p.mark(hk)
 
 # ---- THE GAUGE (P6 dresses it): his health, on the compositor's free
 # rectangles, from the first blow either way -- an untouched opening is
@@ -2303,6 +2383,54 @@ p.load(MU["s"]).emit(f"jz {bl}_e")
 p.emit("shr 8").addi(MU["s"], -1).emit(f"jmp {bl}")
 p.mark(f"{bl}_e")
 p.push(255).emit("and").store(MU["code"]).emit("ret")
+
+# TEXT: the string at tx_str (length, then glyphs) at (tx_x, tx_y), x tx_sc,
+# in tx_rgb, appended to the display list (tx_n triangles so far) -- each
+# glyph's packed rectangles as the forge's Text draws them: two triangles
+# a rectangle, the advance four pixels a scale.
+tl_, ts_, tw_ = p.label("tl"), p.label("ts"), p.label("tw")
+p.mark(L_TEXT)
+p.load(TX["str"]).emit("loadi").store(TX["k"])
+p.mark(tl_)                                       # each glyph
+p.load(TX["k"]).emit(f"jz {tl_}_e")
+p.addi(TX["str"], 1)
+p.load(TX["str"]).emit("loadi").push(2).emit("mul").push(int(FONT)).emit("add")
+p.store(TX["gp"])                                 # its two packed words
+p.set(TX["r"], 6)                                 # six rectangle slots
+p.mark(ts_)
+p.load(TX["r"]).push(3).emit("eq").load(TX["r"]).push(6).emit("eq", "or", f"jz {ts_}_s")
+p.load(TX["gp"]).emit("loadi").store(TX["w"]).addi(TX["gp"], 1)   # the next word
+p.mark(f"{ts_}_s")
+nr = p.label("nr")
+p.load(TX["w"]).push(3 << 5).emit("and", f"jz {nr}")          # no width: none
+p.load(TX["w"]).push(3).emit("and").load(TX["sc"]).emit("mul")
+p.load(TX["x"]).emit("add").store(TX["x0"])
+p.load(TX["w"]).emit("shr 2").push(7).emit("and").load(TX["sc"]).emit("mul")
+p.load(TX["y"]).emit("add").store(TX["y0"])
+p.load(TX["w"]).emit("shr 5").push(3).emit("and").load(TX["sc"]).emit("mul")
+p.load(TX["x0"]).emit("add").store(TX["x1"])
+p.load(TX["w"]).emit("shr 7").push(7).emit("and").push(1).emit("add")
+p.load(TX["sc"]).emit("mul").load(TX["y0"]).emit("add").store(TX["y1"])
+# two triangles, fourteen words: which cell each is comes from a table
+p.push(spec.DL_BASE + 1).load(TX["n"]).push(spec.DL_STRIDE).emit("mul", "add")
+p.store(TX["dl"])
+p.set(TX["j"], 0)
+p.mark(tw_)
+p.push(int(TRI_CELLS)).load(TX["j"]).emit("add", "loadi", "loadi")
+p.load(TX["dl"]).load(TX["j"]).emit("add", "storei")
+p.addi(TX["j"], 1)
+p.load(TX["j"]).push(2 * spec.DL_STRIDE).emit("lt", f"jz {tw_}_e", f"jmp {tw_}")
+p.mark(f"{tw_}_e")
+p.addi(TX["n"], 2)
+p.mark(nr)
+p.load(TX["w"]).emit("shr 10").store(TX["w"])
+p.addi(TX["r"], -1)
+p.load(TX["r"]).emit(f"jz {ts_}_e", f"jmp {ts_}")
+p.mark(f"{ts_}_e")
+p.load(TX["x"]).load(TX["sc"]).push(4).emit("mul", "add").store(TX["x"])
+p.addi(TX["k"], -1).emit(f"jmp {tl_}")
+p.mark(f"{tl_}_e")
+p.emit("ret")
 
 # SINE: ( a -- sin a ), Q16.16, from the quarter wave. sin(a) for a in
 # 256..511 is sin(512 - a); the lower half-turn negates the upper.

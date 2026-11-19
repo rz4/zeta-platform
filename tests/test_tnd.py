@@ -468,3 +468,49 @@ def test_the_title_is_the_archives_and_start_begins():
     for f in range(20):
         m.frame(0)                                  # ...and released
         assert _cell(m, "anim") != 2, "the A that left the title threw a jab"
+
+
+def test_the_hud_writes_the_combo_from_packed_glyphs():
+    """The rank alone, then the rank and X and the combo once it passes
+    one (no leading zero), composed at run time from two-word glyphs."""
+    m = _fight_vm()
+    m.frame(0)
+    m.vm.dmem[_sym("f_fight")] = 1
+    m.frame(0)
+    rank_only = m.vm.dmem[spec.DL_BASE]
+    assert rank_only > 0, "no rank on glass"
+    counts = {}
+    for combo in (5, 12):
+        m.vm.dmem[_sym("s_combo")] = combo
+        m.vm.dmem[_sym("s_idle")] = 0
+        m.frame(0)
+        counts[combo] = m.vm.dmem[spec.DL_BASE] - rank_only
+    # X (5 rects) + 5 (5) = 20 triangles; X + 1 (4) + 2 (5) = 28
+    assert counts == {5: 20, 12: 28}, counts
+
+
+# ---- the tank's other half and the strike's facing (tear.py _tank, _aim_at_dpad)
+def test_down_walks_him_backward():
+    m = _fight_vm()
+    for f in range(40):
+        m.frame(spec.PAD_DOWN)
+    px, pz = _player(m)
+    assert abs(px) < 0.01 and pz < -1.2, (px, pz)
+
+
+def test_the_dpad_aims_the_strike_and_holds_the_steering():
+    """Left held into a jab: the steering turns until A goes down, then
+    freezes (the D-pad is choosing the aim); the strike launches facing a
+    quarter turn LEFT of the steering; when it is done the body faces its
+    steering again. The camera follows the steering throughout."""
+    L, A = spec.PAD_LEFT, spec.PAD_A
+    m = _fight_vm()
+    seen = {}
+    for f in range(60):
+        m.frame((L if 10 <= f < 20 else 0) | (A if 12 <= f < 20 else 0))
+        seen[f] = (_cell(m, "yaw"), _cell(m, "head"), _cell(m, "anim"))
+    yaw = seen[12][0]
+    assert all(seen[f][0] == yaw for f in range(12, 20)), "steering turned under A"
+    launch = next(f for f in range(60) if seen[f][2] == 2)
+    assert seen[launch][1] == (yaw - 256) & 1023, "the strike did not face left"
+    assert seen[59][1] == yaw, "the body never faced its steering again"
