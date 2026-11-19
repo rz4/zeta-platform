@@ -12,6 +12,18 @@ spec (`zeta-sdk/docs/ZETA0.md` §7, `AXES.md`).
 the only cart in the tree with a goal, a fail state and a loop — small,
 but real on all three counts.
 
+The machine's own frames, dumped headless under the balance test's
+pads (`docs/images/gen_shots.py` — the frames are found by reading the
+cart's state cells, so the shots regenerate from any build):
+
+| ![stance](images/tear-stance.png) | ![a landed hit](images/tear-hit.png) | ![the KO](images/tear-ko.png) |
+|---|---|---|
+| frame 24: the stance. Two fighters, two health bars. | frame 64: a hit lands — the fist's one active frame, the enemy flashed white, its bar already shorter. | frame 195: the KO. The banner takes the winner's colour; the emptied bar is gone. |
+
+Two coloured rectangles and a fist — the honest kernel, exactly as
+inventoried below. Stage 4 of the plan is the distance from this to
+two lit 700-face characters over a path-traced plate.
+
 Measured inventory:
 
 - **State**: 15 cells (16..30) — positions, two 96-point health bars,
