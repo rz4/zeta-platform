@@ -53,16 +53,20 @@ def _fill(fb, zbuf, x0, y0, x1, y1, x2, y2, c0, cgrad, z0, dzdx, dzdy,
         hi_x, hi_y = min(hi_x, clip[2]), min(hi_y, clip[3])
     if lo_x > hi_x or lo_y > hi_y:
         return False
-    ys, xs = np.mgrid[lo_y:hi_y + 1, lo_x:hi_x + 1]
-    ys = (ys.astype(np.int64) << spec.SUB) + spec.HALF
-    xs = (xs.astype(np.int64) << spec.SUB) + spec.HALF
+    # broadcasted axes instead of mgrid: same grid, a fraction of the
+    # setup -- this function runs once per triangle per band and the
+    # small-triangle case is all overhead
+    yy = np.arange(lo_y, hi_y + 1, dtype=np.int64)
+    xx = np.arange(lo_x, hi_x + 1, dtype=np.int64)
+    ys = ((yy << spec.SUB) + spec.HALF)[:, None]
+    xs = ((xx << spec.SUB) + spec.HALF)[None, :]
     e0 = (x1 - x0) * (ys - y0) - (y1 - y0) * (xs - x0)
     e1 = (x2 - x1) * (ys - y1) - (y2 - y1) * (xs - x1)
     e2 = (x0 - x2) * (ys - y2) - (y0 - y2) * (xs - x2)
     covered = ((e0 >= 0) & (e1 >= 0) & (e2 >= 0)) | \
               ((e0 <= 0) & (e1 <= 0) & (e2 <= 0))
     zfp = (z0 << spec.ZFP) + (xs - x0) * dzdx + (ys - y0) * dzdy
-    zpx = np.clip(zfp >> spec.ZFP, 0, spec.ZFAR)
+    zpx = np.minimum(np.maximum(zfp >> spec.ZFP, 0), spec.ZFAR)
     ecov = covered.copy()      # EDGE coverage: the silicon latches this
                                # at beat 0 and bails at beat 1, so the
                                # span's level is set by the first
@@ -73,9 +77,8 @@ def _fill(fb, zbuf, x0, y0, x1, y1, x2, y2, c0, cgrad, z0, dzdx, dzdy,
     if clip is not None and not naive_clip:
         # mask AFTER the arithmetic: ecov (and so the span level) stays
         # face-wide, and only the writes are confined to the tile
-        gy, gx = np.mgrid[lo_y:hi_y + 1, lo_x:hi_x + 1]
-        covered &= ((gx >= clip[0]) & (gx <= clip[2])
-                    & (gy >= clip[1]) & (gy <= clip[3]))
+        covered &= ((xx[None, :] >= clip[0]) & (xx[None, :] <= clip[2])
+                    & (yy[:, None] >= clip[1]) & (yy[:, None] <= clip[3]))
     tile = fb[lo_y:hi_y + 1, lo_x:hi_x + 1]
     def _fogged(c5, ch):
         """Blend a 5-bit channel toward the fog colour by depth, in
@@ -83,9 +86,8 @@ def _fill(fb, zbuf, x0, y0, x1, y1, x2, y2, c0, cgrad, z0, dzdx, dzdy,
         if fog is None:
             return c5
         f5, near, sh = fog
-        t = np.clip((zpx - near) >> sh, 0, 16)   # 16, not 15: the far
-                                                 # plane must reach the
-                                                 # fog colour exactly
+        t = np.minimum(np.maximum((zpx - near) >> sh, 0), 16)
+        # 16, not 15: the far plane must reach the fog colour exactly
         return (c5 * (16 - t) + f5[ch] * t) >> 4
 
     def _put(ch, c5):
@@ -154,7 +156,7 @@ def _fill(fb, zbuf, x0, y0, x1, y1, x2, y2, c0, cgrad, z0, dzdx, dzdy,
             dcdx, dcdy = cgrad[ch]
             cfp = ((c0[ch] << spec.CFP) + (1 << (spec.CFP - 1))
                    + (xs - x0) * dcdx + (ys - y0) * dcdy)
-            c5 = np.clip(cfp >> spec.CFP, 0, 31)
+            c5 = np.minimum(np.maximum(cfp >> spec.CFP, 0), 31)
             if tint is not None:      # OBJ_OTINT: a lit ACTOR, not a
                 c5 = ((tint[ch] + 1) * c5) >> 5    # lit surface
             _put(ch, _fogged(c5, ch))
@@ -182,6 +184,63 @@ def _rot(x: int, z: int, yaw: int) -> tuple[int, int]:
     s = spec.SIN_Q14[yaw & 1023]
     c = spec.SIN_Q14[(yaw + 256) & 1023]
     return s32((x * c - z * s) >> 14), s32((x * s + z * c) >> 14)
+
+
+# ---- the vertex walk, vectorised ------------------------------------------
+# The SAME arithmetic as _rot/_project above, over a whole mesh at once.
+# Every intermediate is int64 (the widest product is 2^45, the Q14 sine
+# against a 32-bit coordinate), every wrap lands exactly where the scalar
+# s32 lands, shifts are arithmetic in numpy as in Python, and the divide
+# reproduces spec.tdiv's truncation toward zero against an always-positive
+# vz. This exists because the film's 692-triangle rig walked one vertex at
+# a time at 40 fps; the gates (every cart's framebuffer, and the silicon
+# cross) are what hold it to the scalar law bit for bit.
+
+def _w32(a):
+    """s32, vectorised: wrap int64 to the silicon's 32-bit datapath."""
+    return ((a + (1 << 31)) & 0xFFFFFFFF) - (1 << 31)
+
+
+def _rotv(x, z, yaw: int):
+    s = spec.SIN_Q14[yaw & 1023]
+    c = spec.SIN_Q14[(yaw + 256) & 1023]
+    return _w32((x * c - z * s) >> 14), _w32((x * s + z * c) >> 14)
+
+
+def _tdivv(num, den):
+    """tdiv over arrays, den > 0: truncate toward zero."""
+    return np.where(num >= 0, num // den, -((-num) // den))
+
+
+def _verts(dmem, mb, nv, yaw, pit, rol, ox, oy, oz,
+           cx, cy, cz, cyaw, cpit, crol):
+    """The per-vertex transform chain for one object: model rotations,
+    placement, the camera, projection and the guard band -- exactly the
+    walk the scalar loop performed, returned as (pts, vws)."""
+    V = np.array(dmem[mb + 2:mb + 2 + nv * 3], np.int64).reshape(nv, 3)
+    vx, vy, vz = _w32(V[:, 0]), _w32(V[:, 1]), _w32(V[:, 2])
+    vx, vy = _rotv(vx, vy, rol)                # model: roll (x,y),
+    vy, vz = _rotv(vy, vz, pit)                # pitch (y,z),
+    vx, vz = _rotv(vx, vz, yaw)                # then yaw (x,z)
+    vx, vy, vz = _w32(vx + ox), _w32(vy + oy), _w32(vz + oz)
+    vx, vy, vz = _w32(vx - cx), _w32(vy - cy), _w32(vz - cz)
+    vx, vz = _rotv(vx, vz, (1024 - cyaw) & 1023)   # world -> camera
+    vy, vz = _rotv(vy, vz, (1024 - cpit) & 1023)   # then the pitch
+    vx, vy = _rotv(vx, vy, (1024 - crol) & 1023)   # ...then the BANK (see
+                                                   # the scalar note)
+    vws = [(int(a), int(b), int(c)) for a, b, c in zip(vx, vy, vz)]
+    near = vz < spec.ZNEAR
+    vzs = np.where(near, 1, vz)                # placeholder; masked out
+    sx = (spec.W // 2 << spec.SUB) + \
+        _tdivv(vx * (spec.FOCAL << spec.SUB), vzs)
+    sy = (spec.H // 2 << spec.SUB) - \
+        _tdivv(vy * (spec.FOCAL << spec.SUB), vzs)
+    g = spec.GUARD << spec.SUB
+    z16 = np.minimum(vz >> spec.ZSHIFT, spec.ZFAR)
+    w = np.maximum(spec.PERSP_NUM // vzs, 1)
+    bad = near | (sx < -g) | (sx >= g) | (sy < -g) | (sy >= g)
+    cols = np.stack((sx, sy, z16, w), 1).tolist()
+    return [None if b else tuple(r) for b, r in zip(bad.tolist(), cols)], vws
 
 
 def _project(v):
@@ -232,35 +291,13 @@ def _geom(fb, zbuf, dmem, watch, pick, tex=None, fog=None,
         if nv > spec.MESH_NV_MAX or nf > spec.MESH_NF_MAX or \
            mb + 2 + nv * 3 + vcw + nf * 2 > spec.DMEM_WORDS:
             continue                       # a mesh outside DMEM is skipped
-        pts: list[tuple[int, int] | None] = []
-        vws: list[tuple[int, int, int]] = []   # view space, kept for the
-                                               # clipper (zeta/clip.py)
-        for i in range(nv):
-            vx, vy, vz = (s32(v) for v in dmem[mb + 2 + i * 3:mb + 5 + i * 3])
-            vx, vy = _rot(vx, vy, rol)             # model: roll (x,y),
-            vy, vz = _rot(vy, vz, pit)             # pitch (y,z),
-            vx, vz = _rot(vx, vz, yaw)             # then yaw (x,z)
-            vx, vy, vz = s32(vx + ox), s32(vy + oy), s32(vz + oz)
-            vx, vy, vz = s32(vx - cx), s32(vy - cy), s32(vz - cz)
-            vx, vz = _rot(vx, vz, (1024 - cyaw) & 1023)   # world -> camera
-            vy, vz = _rot(vy, vz, (1024 - cpit) & 1023)   # then the pitch
-            vx, vy = _rot(vx, vy, (1024 - crol) & 1023)   # ...then the BANK,
-            # last and about the view axis, which is what makes it a bank
-            # and not a yaw: rolling first would tilt the axis the pitch
-            # then turns about.
-            vws.append((vx, vy, vz))
-            if vz < spec.ZNEAR:
-                pts.append(None)
-            else:
-                sx = (spec.W // 2 << spec.SUB) + \
-                    tdiv(vx * (spec.FOCAL << spec.SUB), vz)
-                sy = (spec.H // 2 << spec.SUB) - \
-                    tdiv(vy * (spec.FOCAL << spec.SUB), vz)
-                g = spec.GUARD << spec.SUB       # exactly the int16 range
-                z16 = min(vz >> spec.ZSHIFT, spec.ZFAR)
-                w = max(tdiv(spec.PERSP_NUM, vz), 1)   # the crown's 1/z
-                pts.append((sx, sy, z16, w) if -g <= sx < g and -g <= sy < g
-                           else None)
+        # the vertex walk, whole-mesh at once (see _verts): the same
+        # rotations in the same order -- roll, pitch, yaw, place, camera,
+        # then the BANK last and about the view axis, which is what makes
+        # it a bank and not a yaw -- with the gates holding it to the
+        # scalar arithmetic bit for bit
+        pts, vws = _verts(dmem, mb, nv, yaw, pit, rol, ox, oy, oz,
+                          cx, cy, cz, cyaw, cpit, crol)
         cbase = mb + 2 + nv * 3
         fbase = cbase + vcw
 
