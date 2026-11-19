@@ -58,11 +58,18 @@
 .const PPV 39              ; last frame's pad words: a buffer accepts a
 .const P2PV 40             ; FRESH press only -- a held button whiffing
                            ; forever at range was the bug this closes
+.const PRW 41              ; rounds won (stage 3): first to two takes
+.const ERW 42              ; the match
+.const RT 43               ; the round timer, 3600 frames = one minute.
+                           ; Hitstop skips the world, so it pauses the
+                           ; clock for free. At zero the health lead
+                           ; takes the round; a tie takes nothing.
 
 .data 16 60 236 96 96 0 0 0 0 0 0 1 0 0
+.data 41 0 0 3600
 
-; ---- the fixed display list: 20 triangles, static words baked ------------
-.data 12288 20
+; ---- the fixed display list: 30 triangles, static words baked ------------
+.data 12288 30
 .data 12289 0 240 320 240 0 288 0x232B3A       ; floor
 .data 12296 320 240 320 288 0 288 0x232B3A
 .data 12303 0 176 0 176 0 240 0x3399FF         ; player body (x words live)
@@ -83,6 +90,16 @@
 .data 12408 -76 168 -76 248 -100 248 0xFFFFFF
 .data 12415 0 100 0 100 0 140 0                ; KO banner (winner's color)
 .data 12422 0 100 0 140 0 140 0
+.data 12429 0 9 0 9 0 17 0xFFFFFF              ; round timer (x words live)
+.data 12436 0 9 0 17 0 17 0xFFFFFF
+.data 12443 -100 22 -76 22 -100 28 0x3399FF    ; player round pips (parked)
+.data 12450 -76 22 -76 28 -100 28 0x3399FF
+.data 12457 -100 22 -76 22 -100 28 0x3399FF
+.data 12464 -76 22 -76 28 -100 28 0x3399FF
+.data 12471 -100 22 -76 22 -100 28 0xEE4444    ; enemy round pips (parked)
+.data 12478 -76 22 -76 28 -100 28 0xEE4444
+.data 12485 -100 22 -76 22 -100 28 0xEE4444
+.data 12492 -76 22 -76 28 -100 28 0xEE4444
 
 ; ==== round freeze =========================================================
 load KO
@@ -127,6 +144,24 @@ push 0
 store EBUF
 push 0
 store EBTIM
+push 3600
+store RT
+push 1                     ; a finished MATCH resets the rounds too
+load PRW
+lt
+jz r_chk_e
+jmp r_fresh
+r_chk_e:
+push 1
+load ERW
+lt
+jz r_rounds_done
+r_fresh:
+push 0
+store PRW
+push 0
+store ERW
+r_rounds_done:
 jmp aftermath
 
 ; ==== the fight ============================================================
@@ -167,6 +202,61 @@ sub
 store HST
 jmp aftermath
 hst_z:
+
+; ---- the round clock: at zero the health lead takes the round ---------------
+load RT
+push 1
+sub
+store RT
+load RT
+jz rt_out
+jmp rt_done
+rt_out:
+load EH
+load PH
+lt                         ; EH < PH: the player leads on points
+jz rt_try_e
+push 1
+store WIN
+load PRW
+push 1
+add
+store PRW
+push 120
+store KO
+push 1
+load PRW
+lt                         ; a second round ends the MATCH: a longer
+jz rt_done                 ; freeze is the results screen
+push 300
+store KO
+jmp rt_done
+rt_try_e:
+load PH
+load EH
+lt
+jz rt_tie
+push 2
+store WIN
+load ERW
+push 1
+add
+store ERW
+push 120
+store KO
+push 1
+load ERW
+lt
+jz rt_done
+push 300
+store KO
+jmp rt_done
+rt_tie:
+push 0                     ; a dead-even clock takes nothing: the round
+store WIN                  ; replays, and the banner says so in gray
+push 90
+store KO
+rt_done:
 
 ; ---- player: mid-move ticks down (presses buffer), else act -----------------
 load PP
@@ -679,24 +769,52 @@ add
 store PX
 e_no_hit:
 
-; ---- KO? -------------------------------------------------------------------
+; ---- KO? (a round already decided this frame stands) ------------------------
+load KO
+jz ko_open
+jmp ph_ok
+ko_open:
 load EH
 push 1
 lt
 jz eh_ok
+push 1
+store WIN
+load PRW
+push 1
+add
+store PRW
 push 120
 store KO
 push 1
-store WIN
+load PRW
+lt
+jz eh_ok
+push 300
+store KO
 eh_ok:
+load KO                    ; a double KO: the first verdict wins
+jz ph_chk
+jmp ph_ok
+ph_chk:
 load PH
 push 1
 lt
 jz ph_ok
-push 120
-store KO
 push 2
 store WIN
+load ERW
+push 1
+add
+store ERW
+push 120
+store KO
+push 1
+load ERW
+lt
+jz ph_ok
+push 300
+store KO
 ph_ok:
 
 ; ==== every frame: decay, clamp, draw =======================================
@@ -919,6 +1037,137 @@ store 12377
 load T0
 store 12384
 
+; ---- the round clock: a white bar dying from both ends ----------------------
+load RT
+shr 6                      ; half-width, 56 pixels at a fresh minute
+store T0
+push 160
+load T0
+sub
+store T1
+load T1
+store 12429
+load T1
+store 12433
+load T1
+store 12440
+push 160
+load T0
+add
+store T1
+load T1
+store 12431
+load T1
+store 12436
+load T1
+store 12438
+
+; ---- the round pips: the match score, worn under the health bars ------------
+load PRW
+jz pip_p1_park
+push 8
+store T0
+push 16
+store T1
+jmp pip_p1_w
+pip_p1_park:
+push -100
+store T0
+push -76
+store T1
+pip_p1_w:
+load T0
+store 12443
+load T0
+store 12447
+load T0
+store 12454
+load T1
+store 12445
+load T1
+store 12450
+load T1
+store 12452
+push 1
+load PRW
+lt
+jz pip_p2_park
+push 20
+store T0
+push 28
+store T1
+jmp pip_p2_w
+pip_p2_park:
+push -100
+store T0
+push -76
+store T1
+pip_p2_w:
+load T0
+store 12457
+load T0
+store 12461
+load T0
+store 12468
+load T1
+store 12459
+load T1
+store 12464
+load T1
+store 12466
+load ERW
+jz pip_e1_park
+push 296
+store T0
+push 304
+store T1
+jmp pip_e1_w
+pip_e1_park:
+push -100
+store T0
+push -76
+store T1
+pip_e1_w:
+load T0
+store 12471
+load T0
+store 12475
+load T0
+store 12482
+load T1
+store 12473
+load T1
+store 12478
+load T1
+store 12480
+push 1
+load ERW
+lt
+jz pip_e2_park
+push 284
+store T0
+push 292
+store T1
+jmp pip_e2_w
+pip_e2_park:
+push -100
+store T0
+push -76
+store T1
+pip_e2_w:
+load T0
+store 12485
+load T0
+store 12489
+load T0
+store 12496
+load T1
+store 12487
+load T1
+store 12492
+load T1
+store 12494
+
 ; ---- hit flashes over whoever got tagged ------------------------------------
 load PFL
 jz pfla_park
@@ -990,16 +1239,26 @@ store T1
 load WIN
 push 1
 eq
-jz b_red
+jz b_not_p
 push 0x3399FF
 store 12421
 push 0x3399FF
 store 12428
 jmp b_write
-b_red:
+b_not_p:
+load WIN
+push 2
+eq
+jz b_gray
 push 0xEE4444
 store 12421
 push 0xEE4444
+store 12428
+jmp b_write
+b_gray:
+push 0x888888              ; the clock ran out on a dead-even round
+store 12421
+push 0x888888
 store 12428
 jmp b_write
 b_park:

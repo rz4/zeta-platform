@@ -180,13 +180,82 @@ def test_pad2_blocks_the_jab():
     assert 8 not in deltas, f"a jab landed clean through P2's guard: {deltas}"
 
 
-def test_ai_returns_only_at_power_on():
-    """A fresh machine is the AI again; a round reset is not."""
+def test_two_idle_humans_draw_on_time():
+    """With the AI gone and both humans idle, nobody can win -- so the
+    ROUND CLOCK must end it: a dead-even minute is a gray draw, 90
+    frames of banner, and no pip for anyone. (Before stage 3 this
+    stalemate lasted forever, which was the test's old premise.)"""
     m = vm.VM(asm.assemble(CART))
-    m.frame(0, spec.PAD_A)                     # human latched
-    while not m.dmem[KO]:                      # idle both: nobody can win...
+    m.frame(0, spec.PAD_A)                     # human latched: AI gone
+    while not m.dmem[KO]:
         m.frame(0)
-        if m.dmem[0] > 5000:
+        assert m.dmem[0] < 5000, "the clock never ended the stalemate"
+    assert m.dmem[KO] == 90 and m.dmem[25] == 0      # WIN: a draw
+    assert m.dmem[PH] == 96 and m.dmem[EH] == 96     # nobody was touched
+    assert m.dmem[41] == 0 and m.dmem[42] == 0       # and nobody scored
+
+
+# ---- stage 3: the match -----------------------------------------------------
+PRW, ERW, RT = 41, 42, 43
+
+
+def _play_round(m, pad1=0, pad2=0, limit=5000):
+    while not m.dmem[KO]:
+        m.frame(pad1, pad2)
+        limit -= 1
+        assert limit > 0, "no round verdict"
+    ko = m.dmem[KO]
+    while m.dmem[KO]:
+        m.frame(0)
+    return ko
+
+
+def test_two_rounds_take_the_match_and_reset_it():
+    """Best of three: the second round win freezes long (the results
+    screen), and the NEXT reset clears the score. One round is 120."""
+    m = vm.VM(asm.assemble(CART))
+    ko1 = _play_round(m)                       # idle player loses round 1
+    assert ko1 == 120 and m.dmem[ERW] == 1 and m.dmem[PRW] == 0
+    ko2 = _play_round(m)                       # ...and the match
+    assert ko2 == 300, "the match point did not hold the results screen"
+    assert m.dmem[ERW] == 0 and m.dmem[PRW] == 0, "the match did not reset"
+    assert m.dmem[PH] == 96 and m.dmem[EH] == 96
+
+
+def test_timeout_goes_to_the_health_lead():
+    """Stall the clock: both humans idle (pad 2 latched, the AI gone),
+    the player lands one jab, and the round must go to the lead on
+    points when the minute dies."""
+    m = vm.VM(asm.assemble(CART))
+    m.frame(0, spec.PAD_LEFT)                  # latch P2: nobody attacks now
+    for f in range(300):                       # P2 walks into range
+        m.frame(0, spec.PAD_LEFT)
+        if spec.s32(m.dmem[28]) < 52:
             break
-    # P2 idle forever: the fight stalls (no AI to kill the player)
-    assert m.dmem[KO] == 0 and m.dmem[PH] == 96
+    m.frame(spec.PAD_A)                        # one jab
+    for _ in range(20):
+        m.frame(0)
+    assert spec.s32(m.dmem[EH]) == 88, "the one jab did not land"
+    guard = 4000
+    while not m.dmem[KO] and guard:
+        m.frame(0)
+        guard -= 1
+    assert guard, "the clock never decided"
+    assert m.dmem[RT] == 0
+    assert m.dmem[WIN] == 1 and m.dmem[PRW] == 1, \
+        "the health lead did not take the timed-out round"
+
+
+def test_hitstop_pauses_the_clock():
+    """The connect freezes the world, and the world includes the clock."""
+    m = vm.VM(asm.assemble(CART))
+    for f in range(600):
+        m.frame(spec.PAD_RIGHT | spec.PAD_A)
+        if m.dmem[35]:                         # HST
+            break
+    else:
+        raise AssertionError("no hit connected")
+    rt = m.dmem[RT]
+    while m.dmem[35]:
+        m.frame(0)
+        assert m.dmem[RT] == rt, "the clock ran during hitstop"
