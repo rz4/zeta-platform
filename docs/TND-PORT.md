@@ -66,6 +66,13 @@ palettes -- closing in, squaring up, and swinging.
 ![The wave on the Zeta: the brute squared up ahead, the lean demon
 throwing its cross](images/tnd-zeta-wave.png)
 
+**On glass, 2026-11-19:** the column cart on a Pocket (build 102), film
+-> shelf -> X -> TND untouched, captured with Menu+Start: the law's
+frame 143 to the pixel, all 92,160 (`tests/glass/tnd-wave-143.ppm`).
+That capture also found that the Pocket's own screenshots are RGB565
+-- green passes through six bits -- which the witness now models
+(`witness.pocket_capture`) instead of a gate nobody could pass.
+
     rig          rig.fighter's 17 rigid joints; five never rotate against
                  their parent (MEASURED over every clip: 0.0), so they
                  merge -- 12 parts, 12 objects a demon, each placed by its

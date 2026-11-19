@@ -24,3 +24,6 @@ pocket/template/incremental_db/
 /assets/
 infra/quartus-dist/*.run
 infra/quartus-dist/*.qdz
+
+# glass fixtures: real Pocket captures the witness tests hold
+!tests/glass/*.ppm

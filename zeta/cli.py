@@ -146,7 +146,8 @@ def main(argv=None) -> int:
         tape = wit.read_tape(args.tape) if args.tape else None
         return wit.witness(cabinet.load_cart(args.cart),
                            wit.read_shot(shot_path), args.frames,
-                           tape, None, args.diff)
+                           tape, None, args.diff,
+                           capture=wit.capture_for(shot_path))
 
     from . import cabinet
     cart = cabinet.load_cart(args.cart)
@@ -169,7 +170,8 @@ def main(argv=None) -> int:
         from . import witness as wit
         tape = wit.read_tape(args.tape) if args.tape else None
         shot = wit.read_shot(args.shot)
-        return wit.witness(cart, shot, args.frames, tape, args.at, args.diff)
+        return wit.witness(cart, shot, args.frames, tape, args.at, args.diff,
+                           capture=wit.capture_for(args.shot))
 
     if args.cmd == "cross":
         import numpy as np

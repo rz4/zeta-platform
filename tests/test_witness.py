@@ -3,6 +3,8 @@
 # cart or a damaged pixel must FAIL, and a filtered (non-uniform)
 # upscale must be REFUSED -- a gate that cannot fail is not a gate.
 
+from pathlib import Path
+
 import numpy as np
 import pytest
 
@@ -80,3 +82,21 @@ def test_the_tape_drives_the_replay(tmp_path):
 
     assert witness.witness(cart, driven, 40, (start, pads), 39) == 0
     assert witness.witness(cart, driven, 40, None, 39) == 1
+
+
+# ---- GLASS: a real Pocket capture, kept --------------------------------------
+GLASS = Path(__file__).parent / "glass"
+
+
+def test_tnd_on_glass_is_frame_143_through_the_pockets_camera():
+    """Captured with Menu+Start on 2026-11-19 (the Pocket writes PNG; kept
+    here as a lossless PPM): the column cart (film ->
+    shelf -> X) running TND untouched, the brute walking in. It is the
+    law's frame 143 of TND to the pixel -- once the law's panel goes
+    through the Pocket's RGB565 screenshot. Without that model it is not
+    (green's low bits), so the model is held both ways."""
+    cart = cabinet.load_cart(Path(__file__).parents[1] / "carts/tnd.zol")
+    shot = witness.read_shot(GLASS / "tnd-wave-143.ppm")
+    assert witness.witness(cart, shot, 144, None, 143,
+                           capture=witness.pocket_capture) == 0
+    assert witness.witness(cart, shot, 144, None, 143) == 1

@@ -76,11 +76,37 @@ def read_shot(path) -> np.ndarray:
         f"multiple of it")
 
 
+# THE CAPTURE IS RGB565 (found 2026-11-19, the first TND capture off a
+# Pocket). The core sends 555 widened by bit replication (zeta_top.v
+# px_rgb), and red and blue arrive exactly so -- but the Pocket's own
+# Menu+Start screenshot stores GREEN in six bits: g6 = g5 << 1 | g5 >> 4,
+# then widened again. Every one of 92,160 pixels of that capture was
+# equal to the law's frame at 5 bits a channel; only green's low bits
+# differed, by the same rule on every value seen (and the August capture
+# obeys it too). So the law's panel is passed through the CAMERA before
+# the comparison: still exact, still all 24 bits, no tolerance -- the
+# device that took the picture is modelled, not forgiven.
+def pocket_capture(panel: np.ndarray) -> np.ndarray:
+    out = panel.copy()
+    g5 = (panel[..., 1].astype(np.int64) >> 3)
+    g6 = (g5 << 1) | (g5 >> 4)
+    out[..., 1] = ((g6 << 2) | (g6 >> 4)).astype(np.uint8)
+    return out
+
+
+def capture_for(path) -> "callable":
+    """Pocket screenshots are PNG (Memories/Screenshots); a PPM is a
+    direct dump of the panel and is compared as it stands."""
+    return pocket_capture if Path(path).suffix.lower() == ".png" else (lambda p: p)
+
+
 def witness(cart: dict, shot: np.ndarray, frames: int,
             tape: tuple[int, list[int]] | None, exact_frame: int | None,
-            save_diff: str | None = None) -> int:
+            save_diff: str | None = None, capture=None) -> int:
     """Replay machine 1 and hold the capture against every panel (or
-    one, with exact_frame). 0 = some frame matched to the pixel."""
+    one, with exact_frame), each panel first passed through the device
+    that took the capture. 0 = some frame matched to the pixel."""
+    capture = capture or (lambda p: p)
     start, pads = tape if tape else (0, [])
     m = cabinet.VirtualMachine(cart)
     best = (None, 1 << 60, None)                      # frame, diff, panel
@@ -91,7 +117,7 @@ def witness(cart: dict, shot: np.ndarray, frames: int,
         m.frame(pad)
         if f < lo:
             continue
-        panel = np.asarray(m.panel(), dtype=np.uint8)
+        panel = capture(np.asarray(m.panel(), dtype=np.uint8))
         diff = int((panel != shot).any(axis=-1).sum())
         if diff == 0:
             print(f"WITNESS PASS: frame {f} matches the capture, "
