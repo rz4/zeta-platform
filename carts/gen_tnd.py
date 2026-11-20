@@ -72,7 +72,8 @@ SEQS = ("idle", "walk", "air", "jab", "cross", "lead_hook", "rear_hook", "specia
         "lead_uppercut", "rear_uppercut", "gun", "gun_charged",
         "run", "kite_fwd", "kite_back", "kite_left", "kite_right",
         "flip_fwd", "flip_back", "flip_cart",
-        "dodge_fwd", "dodge_back", "dodge_left", "dodge_right")
+        "dodge_fwd", "dodge_back", "dodge_left", "dodge_right",
+        "land")                 # P15: the touchdown's squash
 
 
 def to_zeta(V):
@@ -883,6 +884,14 @@ def tetra_mesh(size, col):
 
 
 AWARE_M = int(cart.data(tetra_mesh(0.10, (255, 210, 80)), "aware"))
+# P15: THE SPARK (tear.py 3218, the impact burst). Where a fist lands, for
+# six frames: a white-hot tetrahedron drawn twice, tumbling against itself
+# -- the archive's burst grows through twelve sizes, and an object on this
+# machine cannot be scaled, so this one turns instead. Its cells: where,
+# and how many frames are left.
+SPARK_M = int(cart.data(tetra_mesh(0.20, (255, 244, 214)), "spark_m"))
+SPARK_FOR = 6
+SPK = cart.var("spark", 4)
 AWARE_LIFT = int(1.62 * ONE)
 
 # ---- P6: THE TITLE -- the archive's own start screen, baked -----------------
@@ -994,7 +1003,12 @@ for i in range(3):
              jt=int(DJT[i]), kp=int(DKEY[i]), mt=int(DMT[i]))
     slots += [v[f] for f in DF]
 DS = cart.data(Table(slots), "demons")
-SPAWN = cart.data(Table(slots), "spawn", borrow="auto")       # a new wave is this, copied
+# A NEW WAVE IS THIS, FETCHED (P15). The image was 78 words of DMEM read
+# only when a wave stands up -- so it lives in the segment now, and the
+# mover brings it: the one frame's request that would have carried his
+# pose carries the wave instead (he holds a pose a frame, as every clip
+# already does at 30 Hz). The 78 words went to the sounds below.
+SPAWN = cart.cram(Table(slots), "spawn")
 CUR = cart.var("cur", NF)                        # the demon being thought
 
 
@@ -1387,6 +1401,16 @@ KICK_HI, KICK_DROP = hz(135), (hz(135) - hz(30)) // 4
 # rings them long before the sounds themselves are placed (P15's landing)
 SG_T = {k: cart.data(Table([99]), "sg_" + k) for k in ("wt", "st", "gt", "nt")}
 LAND_SHAKE = 5                  # P15: frames of shake a touchdown is worth
+LAND_FOR = 8                    # ...and of squash: four poses, two frames each
+LANDT = cart.var("land_t")      # the squash's frames left
+# THE LEAN (tear.py 660, LEAN_VEL_GAIN / LEAN_LAT_GAIN). He leans into his
+# run -- 0.11 rad at full speed, the archive's own figure, 18 of this
+# machine's 1,024 -- and banks into a turn. The archive bends the spine;
+# this machine places a whole object, so both halves tip together from
+# the feet, where the mesh's origin already is.
+LEAN_PITCH = int(round(0.85 * 1024 / (2 * np.pi)))   # units per (unit a frame)
+LEAN_BANK = 14                  # the turn's bank at rest, eased an eighth a frame
+LEANR = cart.var("lean_r")
 CLEAR2 = int(0.65 ** 2 * ONE)   # tear.py JUMP_CLEARANCE: a flip clears a head
 BARGE_KEEP = int(0.15 * ONE)    # tear.py _collide: 85% of the run is lost
 F = {k: cart.var("f_" + k) for k in
@@ -2360,7 +2384,7 @@ ld_ = p.label("land")
 p.load(F["shake"]).push(LAND_SHAKE).emit("lt", f"jz {ld_}")
 p.set(F["shake"], LAND_SHAKE)
 p.mark(ld_)
-p.set(SG_T["st"], 0)
+p.set(SG_T["st"], 0).set(LANDT, LAND_FOR + 1)       # (the clock ticks before it is read)
 p.mark(f"{av}_e")
 # ---- P10: THREADING pays (tear.py _parkour_style) ---------------------------
 th = p.label("thread")
@@ -2408,6 +2432,10 @@ p.mark(th)
 # it has no hurt clip), 4 down (idle, tipped over -- see the objects)
 # P10: a flip's shape by its progress; the run and the step-drag by their
 # gait clocks (the step-drag by its last direction)
+sq_ = p.label("squash")                      # P15: the squash's clock, every frame
+p.load(LANDT).emit(f"jz {sq_}")
+p.addi(LANDT, -1)
+p.mark(sq_)
 fp = p.label("flippose")
 p.load(F["evf"]).emit(f"jz {fp}")
 p.load(F["evt"]).load(F["evf"]).emit("sub")
@@ -2450,8 +2478,15 @@ p.load(ANIM).push(2).emit("eq", f"jz {L['pm']}")
 row(PMT, F["mv"], "pose")
 p.load(AF).emit("add").store(POSE).emit(f"jmp {L['pd']}")
 p.mark(L["pm"])
+# P15: THE TOUCHDOWN'S KNEES. Standing or walking out of a landing he
+# takes it in the legs -- the archive's own absorb, four poses, two frames
+# each; anything he DOES (a swing, a flip, the air) is posed above and wins.
+p.load(LANDT).emit(f"jz {sq_}_n")
+p.push(LAND_FOR).load(LANDT).emit("sub", "shr 1").push(base["land"]).emit("add")
+p.store(POSE).emit(f"jmp {L['pd']}")
+p.mark(f"{sq_}_n")
 p.load(ANIM).push(1).emit("eq", f"jz {L['pi']}")
-p.load(AF).emit("shr 1").push(NPOSE["walk"] - 1).emit("and").push(base["walk"]).emit("add")  # 30 Hz
+p.load(AF).push(NPOSE["walk"] - 1).emit("and").push(base["walk"]).emit("add")  # 60 Hz: PLANTED
 p.store(POSE).emit(f"jmp {L['pd']}")
 p.mark(L["pi"])
 p.addi(IDLE, 1)                              # (the idle at 30 Hz: a pose
@@ -2486,8 +2521,11 @@ RETRY_CELLS = ((PX, 0), (PZ, 0), (YAW, 0), (CY, 0), (ANIM, 0), (AF, 0),
              *((int(S_REC) + i, 255) for i in range(5)))
 for c, v in RETRY_CELLS:
     p.set(c, v)
-p.push(int(SPAWN)).store(CP["src"]).push(int(DS)).store(CP["dst"])
-p.push(3 * NF).store(CP["n"]).emit(f"call {L_COPY}")
+# (the wave: the three are marked gone, and the fight's own respawn -- below,
+# this same frame -- fetches the new one, as the pause's QUIT always did)
+for d in range(3):
+    p.set(dslot(d, "st"), 4)
+p.set(F["wave"], -1)
 p.load(PX).store(AR["ox"]).load(PZ).store(AR["oz"])
 
 p.mark(L["frozen"])
@@ -2861,8 +2899,10 @@ nw = p.label("nowave")
 for d in range(3):
     p.load(dslot(d, "st")).push(4).emit("eq")
 p.emit("and", "and", f"jz {nw}")
-p.push(int(SPAWN)).store(CP["src"]).push(int(DS)).store(CP["dst"])
-p.push(3 * NF).store(CP["n"]).emit(f"call {L_COPY}")
+p.load(spec.OVL_GO).emit(f"jz {nw}_go", f"jmp {nw}")   # (not on a frame that pages a scene
+p.mark(f"{nw}_go")                                      # in: its handshake has the mover)
+p.set(spec.DMA_SRC, int(SPAWN)).set(spec.DMA_DST, int(DS))
+p.set(spec.DMA_LEN, 3 * NF).set(spec.DMA_GO, 1)
 p.addi(F["wave"], 1)
 p.mark(nw)
 
@@ -3111,9 +3151,8 @@ pz.load(W["head"]).emit(f"jz {pc_}_res")
 # QUIT: the retry's reset, the wave back, the title (its attract clock fresh)
 for c, v in RETRY_CELLS:
     pz.set(c, v)
-# (the spawn table lives in the borrowed end, which holds the pause's words
-# right now: the three are marked gone instead, and the fight's own wave
-# respawns them from the restored table on its first frame)
+# (the three are marked gone, and the fight's own wave respawn fetches the
+# new ones on its first frame -- the retry does the same)
 for d in range(3):
     pz.set(dslot(d, "st"), 4)
 pz.set(F["wave"], -1)
@@ -3258,6 +3297,21 @@ for cell, isroll in ((W["qx"], False), (W["qy"], True)):
             p.push(0).emit("swap", "sub")
         p.load(out).emit("add").store(out)
 p.mark(sp_)
+# P15: the bank eases toward the turn he is steering (left is positive: the
+# roll that tips his crown to his own left), and only while he runs
+lb_ = p.label("bank")
+p.push(0)
+p.load(F["spd"]).emit(f"jz {lb_}")
+held(spec.PAD_LEFT)
+p.emit(f"jz {lb_}_r", "drop").push(LEAN_BANK).emit(f"jmp {lb_}")
+p.mark(f"{lb_}_r")
+held(spec.PAD_RIGHT)
+p.emit(f"jz {lb_}", "drop").push(-LEAN_BANK)
+p.mark(lb_)
+p.load(LEANR).emit("sub", "dup").push(0).emit("swap", "lt", f"jz {lb_}_p")   # (toward it by an
+p.push(7).emit("add")                                # eighth, rounded away from zero: it arrives)
+p.mark(f"{lb_}_p")
+p.emit("shr 3").load(LEANR).emit("add").store(LEANR)
 for m in ((UPPER, LOWER) if "player" not in OMIT else ()):
     # down, he folds FORWARD over his feet, away from the lens -- the
     # archive's collapse folds over the guard, and backwards took him out
@@ -3266,7 +3320,10 @@ for m in ((UPPER, LOWER) if "player" not in OMIT else ()):
              (f"load {int(F['py'])}", f"load {int(W['y'])}", "add"),
              (f"load {int(PZ)}", f"load {int(W['z'])}", "add"),
              (f"load {int(HEAD)}", f"load {int(F['tilt'])}", f"load {int(W['qx'])}", "add",
-              "push 1023", "and", "shl 10", "or", f"load {int(W['qy'])}", "shl 20", "or"),
+              f"load {int(F['spd'])}", f"push {LEAN_PITCH}", "mul", "shr 16", "add",   # P15: the lean
+              "push 1023", "and", "shl 10", "or",
+              f"load {int(W['qy'])}", f"load {int(LEANR)}", "add", "push 1023", "and",
+              "shl 20", "or"),
              (f"load {int(PFLAGS)}",))
 for d in range(3 if "demons" not in OMIT else 0):     # the demons, last
     for f, c in (("x", "x"), ("z", "z"), ("cf", "cf")):
@@ -3304,6 +3361,19 @@ for d in range(3 if "demons" not in OMIT else 0):     # the demons, last
     if_visible((f"load {dslot(d, 'x')}",), 1.0, (f"load {dslot(d, 'z')}",), 1.6,
                draw_demon)
     p.mark(gone)
+# P15: the spark, last in the list, while its frames last
+sk_ = p.label("spark")
+p.load(int(SPK) + 3).emit(f"jz {sk_}")
+p.addi(int(SPK) + 3, -1)
+for turn in (0, 1):
+    p.object(NOBJ, SPARK_M, (f"load {int(SPK)}",), (f"load {int(SPK) + 1}",),
+             (f"load {int(SPK) + 2}",),
+             (f"load {int(SPK) + 3}", f"push {150 + 21 * turn}", "mul",
+              f"push {turn * 300}", "add", "push 1023", "and",
+              f"load {int(SPK) + 3}", f"push {97 + 60 * turn}", "mul", "push 1023", "and",
+              "shl 10", "or"),
+             0)
+p.mark(sk_)
 p.load(NOBJ).store(spec.OL_BASE)
 
 p = p_main                           # (the intro has no style, no HUD)
@@ -3828,6 +3898,18 @@ SND_STEP = cart.data(Table(seq([hz(9)] * 9, _sv)), "snd_step")
 # GUN the crack (sfx.gun_crack): a bright noise burst dropping fast, on ch15
 SND_GUN = cart.data(Table(seq([hz(260 - 26 * k) for k in range(9)],
                               (15, 13, 10, 7, 5, 3, 2, 1, 0))), "snd_gun")
+# P15: THE SWING, HEARD (tear.py 1188: sfx.swing_whoosh on every punch's
+# launch, sfx.special_boom on the haymaker's). Two more tables and no more
+# voices: the whoosh plays through the whiff's descriptor and the boom
+# through the step's, each trigger naming its table as it rings.
+#   WHOOSH  air moved fast: noise climbing as the arm comes round, gone in
+#           nine frames -- brighter and shorter than the whiff, which is
+#           the sound of that air finding nothing
+#   BOOM    the haymaker's wind-up let go: low noise, loud, falling
+SND_WHOOSH = cart.data(Table(seq([hz(46 + 9 * k) for k in range(9)],
+                                 (3, 6, 9, 9, 7, 5, 3, 2, 0))), "snd_whoosh", borrow="auto")
+SND_BOOM = cart.data(Table(seq([hz(16 - k) for k in range(9)],
+                               (15, 15, 13, 11, 9, 7, 5, 3, 0))), "snd_boom", borrow="auto")
 SG = {k: cart.var("sg_" + k) for k in ("gr", "last", "d", "t", "n")}
 SG.update(SG_T)                                     # (their time cells: declared with F)
 # a player's descriptor: its time cell, its table, its length, its voice
@@ -3854,13 +3936,42 @@ p.mark(f"{sw}_w1")
 p.load(AF).push(1).emit("add")
 row(PMT, F["mv"], "endact")
 p.emit("eq", f"jz {sw}_w")
-p.set(SG["wt"], 0)
+p.set(int(PLAYD["whiff"]) + 1, int(SND_WHIFF)).set(SG["wt"], 0)
 p.mark(f"{sw}_w")
+# P15: a punch's launch -- the haymaker's boom, or the whoosh
+p.load(ANIM).push(2).emit("eq", f"jz {sw}_l")
+p.load(AF).emit(f"jz {sw}_l0", f"jmp {sw}_l")
+p.mark(f"{sw}_l0")
+p.push(MOVE["gun"] - 1).load(F["mv"]).emit("lt", f"jz {sw}_lp", f"jmp {sw}_l")   # (a shot: the crack)
+p.mark(f"{sw}_lp")
+p.load(F["mv"]).push(MOVE["special"]).emit("eq", f"jz {sw}_lw")
+p.set(int(PLAYD["step"]) + 1, int(SND_BOOM)).set(SG["st"], 0).emit(f"jmp {sw}_l")
+p.mark(f"{sw}_lw")
+p.set(int(PLAYD["whiff"]) + 1, int(SND_WHOOSH)).set(SG["wt"], 0)
+p.mark(f"{sw}_l")
 p.load(ANIM).push(1).emit("eq", f"jz {sw}_s")         # a step each half stride
 p.load(AF).push(15).emit("and", f"jz {sw}_s1", f"jmp {sw}_s")
 p.mark(f"{sw}_s1")
-p.set(SG["st"], 0)
+p.set(int(PLAYD["step"]) + 1, int(SND_STEP)).set(SG["st"], 0)
 p.mark(f"{sw}_s")
+# P15: the touchdown rang the step's clock from the air's own code, long
+# before the sounds were placed: name its table here, on the same frame
+p.load(LANDT).push(LAND_FOR).emit("eq", f"jz {sw}_t")
+p.set(int(PLAYD["step"]) + 1, int(SND_STEP))
+p.mark(f"{sw}_t")
+# P15: THE RUN'S FEET (tear.py 2678: footsteps in every gait). A footfall
+# is the stride's clock crossing a half -- its pose index reaching 0 or 8
+# this frame and not the last
+rs_ = p.label("runstep")
+p.load(F["spd"]).emit(f"jz {rs_}")
+p.load(F["py"]).emit(f"jz {rs_}_g", f"jmp {rs_}")
+p.mark(f"{rs_}_g")
+p.load(F["ph"]).emit("shr 19")                                        # half strides so far
+p.load(F["ph"]).load(F["spd"]).push(int(4 * ONE)).emit("mulq", "sub", "shr 19")   # ...and a frame ago
+p.emit("eq", f"jz {rs_}_s", f"jmp {rs_}")
+p.mark(f"{rs_}_s")
+p.set(int(PLAYD["step"]) + 1, int(SND_STEP)).set(SG["st"], 0)
+p.mark(rs_)
 p.load(SG["last"]).load(SY["rank"]).emit("lt", f"jz {sw}_g")   # a rank climbed
 p.set(SG["gt"], 0).load(SY["rank"]).store(SG["gr"])
 p.mark(f"{sw}_g")
@@ -4018,6 +4129,9 @@ def nearest(kp_ops, bx, bz, c, s):
 
 def landed(table, mv, table_is_cell):
     """after nearest(): w_dmg and w_stop for the move, head or not"""
+    for k, c in enumerate(("qx", "qy", "qz")):      # P15: the spark, at the fist
+        p.load(W[c]).store(int(SPK) + k)
+    p.set(int(SPK) + 3, SPARK_FOR)
     hd = p.label("hdmg")
     row(table, mv, "dmg", const_table=not table_is_cell)
     p.store(W["dmg"])
@@ -4709,7 +4823,8 @@ for sym, res in cart._cram:
 for k, v in (("INTRO_PROG", INTRO_PROG), ("MAIN_PROG", MAIN_PROG), ("INTRO_LEN", INTRO_LEN),
              ("PAUSE_PROG", PAUSE_PROG),
              ("BORROW_FRONT", FRONT_LO), ("BORROW_FRONT_N", B_FRONT),
-             ("BORROW_END", END_LO), ("BORROW_END_N", B_END)):
+             ("BORROW_END", END_LO), ("BORROW_END_N", B_END),
+             ("POSE_WALK", base["walk"]), ("POSE_LAND", base["land"])):
     cart.const(k, int(v))                       # (for the gates: tests/test_tnd.py)
 out = cart.write(OUT)
 print(cart.report())

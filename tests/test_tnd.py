@@ -262,10 +262,10 @@ def test_their_blows_land_and_he_goes_down():
     m.frame(spec.PAD_A)
     assert _s32(_cell(m, "p_hp")) == 140 and _cell(m, "f_dead") == 0
     assert m.vm.dmem[spec.DL_BASE] == 0, "the prompt outlived the retry"
-    spawn = _sym("spawn")
+    born = _wave(cabinet.VirtualMachine(cabinet.load_cart(CART)))   # as the cart boots them
     for i, w in enumerate(_wave(m)):
         assert w["hp"] == 70 and w["st"] == 0, f"demon {i} not reset"
-    assert abs(_wave(m)[0]["x"] - _s32(m.vm.dmem[spawn])) < 65536
+    assert abs(_wave(m)[0]["x"] - born[0]["x"]) < 65536
 
 
 def test_the_fallen_go_and_the_wave_returns():
@@ -661,17 +661,22 @@ def test_the_small_sounds():
         m.frame(spec.PAD_UP)
         steps += vol(m, 12) > 0
     assert steps > 10, "no footsteps"
+    # (P15: the whoosh shares the whiff's voice, each trigger naming its table)
+    table = lambda m: m.vm.dmem[_sym("play_whiff") + 1]      # noqa: E731
+    WHIFF, WHOOSH = _sym("snd_whiff"), _sym("snd_whoosh")
     m = _fight_vm()
-    whiff = []
+    heard = []
     for f in range(40):
         m.frame(spec.PAD_X if f == 10 else 0)
-        whiff.append(vol(m, 11) > 0)
-    assert any(whiff), "a jab at the air made no whiff"
+        if vol(m, 11) > 0:
+            heard.append(table(m))
+    assert WHIFF in heard, "a jab at the air made no whiff"
+    assert heard and heard[0] == WHOOSH, "the jab's launch made no whoosh"
     m = _fight_vm()
     for f in range(345):
         m.frame((spec.PAD_LEFT if 300 <= f < 308 else 0) | (spec.PAD_X if f == 322 else 0))
-        if f > 322:
-            assert vol(m, 11) == 0, "a jab that landed whiffed"
+        if f > 322 and vol(m, 11) > 0:
+            assert table(m) == WHOOSH, "a jab that landed whiffed"
     assert _wave(m)[0]["hp"] < 70, "fixture: the jab must land"
     m = _fight_vm()
     sting = []
@@ -1202,3 +1207,143 @@ def test_a_flip_clears_a_head_and_a_touch_stops_a_run():
     assert _s32(_cell(high, "f_spd")) > 0.8 * spd, "clearing the head cost him his run"
     # (overhead there is no contact at all -- which is why the run above is
     # intact: the bleed fires exactly when the shove says the bodies touched)
+
+
+def test_he_takes_a_landing_in_the_knees():
+    """The touchdown's squash: the archive's own absorb, baked as four
+    poses and held two frames each from the frame he lands -- then he is
+    standing again."""
+    land = _const("POSE_LAND")
+    m = _fight_vm()
+    for f in range(5):
+        m.frame(0)
+    m.frame(spec.PAD_A)
+    aloft, seen = False, []
+    for f in range(100):
+        m.frame(0)
+        if _s32(_cell(m, "f_py")) > 0:
+            aloft = True
+        elif aloft:
+            seen.append(_cell(m, "pose") - land)
+            if len(seen) == 12:
+                break
+    assert seen[:8] == [0, 0, 1, 1, 2, 2, 3, 3], f"the squash played {seen[:8]}"
+    assert all(not 0 <= s < 4 for s in seen[8:]), "he never stood back up"
+
+
+def _body_angles(m):
+    """(pitch, roll) of his upper half in this frame's object list, signed."""
+    d, body = m.vm.dmem, _sym("body")
+    for o in range(min(d[spec.OL_BASE], spec.OL_MAX)):
+        base = spec.OL_BASE + 1 + o * spec.OL_STRIDE
+        if d[base] == body:
+            sg = lambda v: v - 1024 if v > 511 else v      # noqa: E731
+            return sg((d[base + 4] >> 10) & 1023), sg((d[base + 4] >> 20) & 1023)
+    raise AssertionError("he is not in the object list")
+
+
+def test_he_leans_into_his_run_and_banks_into_his_turn():
+    """tear.py's momentum lean: upright standing; pitched forward by his
+    speed in the run (0.11 rad at full pace is 18 of 1,024); rolled toward
+    the turn he steers, eased in and eased out again."""
+    L, U = spec.PAD_L, spec.PAD_UP
+    m = _fight_vm()
+    for f in range(10):
+        m.frame(0)
+    assert _body_angles(m) == (0, 0), f"he leans standing still: {_body_angles(m)}"
+    for f in range(110):
+        m.frame(L | U)
+    pitch, roll = _body_angles(m)
+    assert 16 <= pitch <= 18 and roll == 0, f"at full pace: pitch {pitch}, roll {roll}"
+    for f in range(20):
+        m.frame(L | U | spec.PAD_LEFT)
+    assert _body_angles(m)[1] == 14, f"steering left banks {_body_angles(m)[1]}"
+    for f in range(30):
+        m.frame(L | U | spec.PAD_RIGHT)
+    assert _body_angles(m)[1] == -14, f"steering right banks {_body_angles(m)[1]}"
+    for f in range(30):
+        m.frame(L | U)
+    assert _body_angles(m)[1] == 0, "the bank did not ease out"
+
+
+def test_the_walk_is_a_planted_stride_at_sixty():
+    """The tank walk plays a 32-pose stride, one pose a frame (the stance
+    foot was solved, offline, to fall behind him by exactly the ground he
+    covers each frame -- so the pose MUST advance with every frame he
+    walks, or the foot slides)."""
+    walk = _const("POSE_WALK")
+    m = _fight_vm()
+    m.frame(0)
+    seen = []
+    for f in range(40):
+        m.frame(spec.PAD_UP)
+        if _cell(m, "anim") == 1:
+            seen.append(_cell(m, "pose") - walk)
+    assert len(seen) >= 34, "he did not walk"
+    assert all(0 <= s < 32 for s in seen)
+    steps = {(b - a) % 32 for a, b in zip(seen, seen[1:])}
+    assert steps == {1}, f"the stride advanced by {sorted(steps)} a frame"
+
+
+def test_the_haymaker_booms_and_the_run_has_feet():
+    """tear.py 1188 and 2678: the haymaker's launch is a boom (through the
+    step's voice, its own table), and a run is heard footfall by footfall
+    -- faster as he speeds up, silent while he is in the air."""
+    vol = lambda m, ch: m.vm.dmem[spec.AU_BASE + 2 * ch + 1] & 15       # noqa: E731
+    table = lambda m: m.vm.dmem[_sym("play_step") + 1]                  # noqa: E731
+    m = _fight_vm()
+    for f in range(5):
+        m.frame(0)
+    m.frame(spec.PAD_Y)                          # the haymaker
+    boom = []
+    for f in range(14):
+        m.frame(0)
+        if vol(m, 12) > 0:
+            boom.append(table(m))
+    assert len(boom) >= 6 and set(boom) == {_sym("snd_boom")}, f"the boom: {boom}"
+    L, U = spec.PAD_L, spec.PAD_UP
+    m = _fight_vm()
+    m.frame(0)
+    falls = []
+    for f in range(150):
+        m.frame(L | U)
+        if _cell(m, "sg_st") == 1:               # rung this frame, and played once
+            assert table(m) == _sym("snd_step"), "a footfall played the boom"
+            falls.append(f)
+    gaps = [b - a for a, b in zip(falls, falls[1:])]
+    assert len(falls) >= 6, f"the run made {len(falls)} footfalls"
+    assert gaps[-1] < gaps[0], f"the feet did not quicken with the run: {gaps}"
+
+
+def test_a_blow_sparks_where_it_lands():
+    """tear.py's impact burst: for six frames from the frame a fist lands,
+    a spark stands at the fist -- drawn twice, tumbling -- and then it is
+    gone. A jab into the brute: the spark is within a fist's reach of him."""
+    spark = _sym("spark_m")
+
+    def sparks(m):
+        d, out = m.vm.dmem, []
+        for o in range(min(d[spec.OL_BASE], spec.OL_MAX)):
+            base = spec.OL_BASE + 1 + o * spec.OL_STRIDE
+            if d[base] == spark:
+                out.append(tuple(_s32(d[base + k]) / 65536 for k in (1, 2, 3)) + (d[base + 4],))
+        return out
+
+    m = _fight_vm()
+    hp, seen = 70, []
+    for f in range(360):
+        m.frame((spec.PAD_LEFT if 300 <= f < 308 else 0) | (spec.PAD_X if f == 322 else 0))
+        s = sparks(m)
+        if _wave(m)[0]["hp"] == hp:
+            assert not s or seen, f"frame {f}: a spark with no blow landed"
+        if s:
+            seen.append((f, s))
+    assert _wave(m)[0]["hp"] < 70, "fixture: the jab must land"
+    assert len(seen) == 6, f"the spark stood {len(seen)} frames"
+    assert [b[0] - a[0] for a, b in zip(seen, seen[1:])] == [1] * 5, "the spark flickered"
+    f0, s0 = seen[0]
+    assert len(s0) == 2 and s0[0][3] != s0[1][3], "not two sparks, tumbling apart"
+    x, y, z = s0[0][:3]
+    px, pz = _player(m)
+    assert 0.5 < y < 2.0, f"the spark is at height {y:.2f}"
+    assert ((x - px) ** 2 + (z - pz) ** 2) ** 0.5 < 2.5, "the spark is nowhere near the blow"

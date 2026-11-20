@@ -52,7 +52,57 @@ seqs = {}
 # keep every other frame, each held two -- the recorded music needed the
 # cart storage, and a sway this slow does not show it. Strikes stay 60.
 seqs["idle"] = [frozen(bm.idle_mesh(f / 60.0)) for f in range(0, 120, 2)]
-seqs["walk"] = [frozen(bm.walk_mesh(f / 32.0, "fwd")) for f in range(0, 32, 2)]
+# THE WALK, PLANTED (P15). The archive's walk is a step-drag shuffle whose
+# feet travel a fifth of the ground he covers; what keeps them from
+# sliding there is leg IK, solved every frame against a foot latched in
+# the world (tear.py 645, FOOT_PLANT_WEIGHT). That solve cannot run on
+# the Zeta -- but the cart walks at ONE speed (gen_tnd.py WALK, 0.032 a
+# frame, no momentum), so the whole stride can be solved HERE, with the
+# archive's own IK (walk_mesh's `plant`), and frozen: the stance foot is
+# aimed at a point that falls behind him by exactly the ground he covers
+# each frame, so on the glass it stays where it was put.
+#   Two departures from the archive's rule, both for what it looks like
+# at 320 x 288: each foot lands HALF a step ahead and lifts half a step
+# behind (the archive lands it under him, so he walks ahead of his own
+# support) and keeps its own side of the body (the archive pulls both to
+# his centre line); and the swinging foot is carried forward on an arc
+# (the archive lets it snap to the authored pose in one frame).
+#   At 60 Hz, 32 poses a stride: a planted foot held two frames slides a
+# frame's ground and snaps back -- two pixels of shimmer. (The 30 Hz walk
+# was a storage economy from before the second dies.)
+WALK, STEP = 0.032, 16
+anat = bm.anatomy(skel)
+def _foot(V, who):
+    return V[anat.leg(who).foot].mean(0)
+_guard = frozen(bm.walk_mesh(0.0, "fwd"))[0]
+_rest = {w: _foot(_guard, w) for w in ("lead", "rear")}
+# The solver aims the limb's own end, not the sole's centre, and the
+# difference turns with the leg -- so each frame is solved, measured, and
+# re-aimed by its own error until the SOLE is where the plant says (four
+# passes: the residue is under a millimetre).
+def _planted(t, wants):
+    aim = {w: np.array(p) for w, p in wants.items()}
+    for _ in range(4):
+        res = frozen(bm.walk_mesh(t, "fwd", plant=[(w, tuple(aim[w]), 1.0) for w in aim]))
+        for w in aim:
+            aim[w] += np.array(wants[w]) - _foot(res[0], w)
+    return frozen(bm.walk_mesh(t, "fwd", plant=[(w, tuple(aim[w]), 1.0) for w in aim]))
+def _at(who, x, lift):
+    return (x, _rest[who][1], _rest["lead"][2] + lift)
+_half = WALK * (STEP - 1) / 2
+walk = []
+for f in range(2 * STEP):
+    s, fs = divmod(f, STEP)
+    down, swing = (("rear", "lead"), ("lead", "rear"))[s]
+    u = (fs + 1) / (STEP + 1)
+    walk.append(_planted(f / (2.0 * STEP), {
+        down: _at(down, _half - WALK * fs, 0.0),
+        swing: _at(swing, -_half + 2 * _half * u * u * (3 - 2 * u), 0.10 * np.sin(np.pi * u))}))
+seqs["walk"] = walk
+# THE LANDING'S SQUASH (P15): the archive's own absorb (idle_mesh's
+# `squash`, tear.py land_squash) at four strengths -- the touchdown's
+# knees, frozen, since an object on this machine cannot be scaled
+seqs["land"] = [frozen(bm.idle_mesh(0.0, squash=q)) for q in (1.0, 0.75, 0.5, 0.25)]
 # THE AIR: boxer_mesh.air_mesh is a function of vz alone (the load at
 # takeoff, full extension at the apex, the capped brace falling), so seven
 # samples over its range -- vz = 0.16 down to -0.16 -- are the whole clip;
