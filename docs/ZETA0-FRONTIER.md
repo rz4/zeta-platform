@@ -730,7 +730,7 @@ build. The stressed brawl crosses bit-equal (300 frames).
   The object list and the vertex cache are. Both are memory, and block RAM
   is full (B8).
 
-## 15. B5: the 51.84 MHz clock (fitted; glass pending)
+## 15. B5: the 51.84 MHz clock (fitted, and witnessed on the Pocket)
 
 Branch `frontier/div6`. Six clocks a pixel where there were five: the
 frame is 864,000 clocks where it was 720,000, and the 90% ceiling 777,600
@@ -801,8 +801,13 @@ The pipeline registers cost about 11k clocks a frame. The clock gives
 is worth nearly four more demons than before, if the object list and the
 vertex cache let them in.
 
-**Only glass can prove the rest.**
-- The PSRAM pair runs 20% faster. Timing analysis says its pins meet, but
-  the constraints are conservative estimates, not measurements.
-- The audio master clock moves from 12.282 to 12.292 MHz.
-- The scaler's dot clock is unchanged at 8.64 MHz.
+**WITNESSED ON THE POCKET (2026-11-20).** The film, the shelf and TND ran
+on the 51.84 MHz core with the save intact. The player's report: it
+"plays a lot smoother", and the first SSS followed.
+- The PSRAM pair holds at the faster clock, and the audio is right.
+- **"Smoother" is a finding against the meter.** The brawl and tour routes
+  showed no frame over the ceiling on the 43.2 MHz stack, so real play
+  reaches heavier frames than either route does. The routes are scripted
+  pads, and a player's fight is not. The meter is owed a route recorded
+  from real play (the pad-log tape, `zeta sd witness --tape`), and until
+  it has one, "no frames over the ceiling" describes the routes only.
