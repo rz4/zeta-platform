@@ -33,8 +33,9 @@ from pathlib import Path
 
 from . import cabinet, silicon, spec
 
-#: the frame, in core clocks: 43.2 MHz / 60 Hz, from the video law
-FRAME_CLOCKS = 720_000
+#: the frame, in core clocks: 51.84 MHz / 60 Hz, from the video law at
+#: six clocks a pixel (frontier B5; 720,000 at five, through build 105)
+FRAME_CLOCKS = 864_000
 
 #: fail above this fraction of the frame. Not 100%: a cart that fits
 #: only in the fast corner does not fit.

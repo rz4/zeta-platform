@@ -492,7 +492,7 @@ core_bridge_cmd icb (
 // before it gets here: `zeta cross` (framebuffers) and `zeta glass`
 // (this module's own pixel stream) are both bit-equal gates.
 //
-// Clocks: clk_zeta (43.2 MHz) runs the whole console, 5 clocks per dot.
+// Clocks: clk_zeta (51.84 MHz) runs the whole console, 6 clocks per dot.
 // clk_dot / clk_dot_90 (8.64 MHz) are what the APF scaler samples RGB on;
 // the console's dot strobe is edge-detected FROM clk_dot inside the
 // clk_zeta domain, so rgb always transitions at a fixed, safe offset

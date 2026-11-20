@@ -1,6 +1,6 @@
 // tb_loaderglass.cpp -- stream a .zbin through the bridge at physical
 // pace and prove the machine that boots from it. Two free-running
-// clocks (74.25 MHz bridge, 43.2 MHz core) with no phase relationship,
+// clocks (74.25 MHz bridge, 51.84 MHz core) with no phase relationship,
 // bridge writes in 128-word SD-block bursts with short gaps, and no
 // waiting on anything the real OS can't see. Reports FIFO high-water
 // and drops (occupancy read straight out of the model), then scans one
@@ -26,7 +26,7 @@ static Vloaderglass_sim* dut;
 
 // two independent clocks: half-periods in picoseconds
 static const long long BHALF = 6734;    // 74.25 MHz
-static const long long CHALF = 11574;   // 43.2 MHz
+static const long long CHALF = 9645;    // 51.84 MHz
 static long long tb = 0, tc = 0;        // next edge times
 static int bv = 0, cv = 0;
 

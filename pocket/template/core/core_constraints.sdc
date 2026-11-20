@@ -23,7 +23,7 @@ set_clock_groups -asynchronous \
 
 
 # -- the CRAM interface: constrained, not lucky (boot-11 lesson) ------------
-# Chip clocks mirror the 43.2 MHz core clock at the pads. Outputs must
+# Chip clocks mirror the 51.84 MHz core clock at the pads. Outputs must
 # reach the chip 4 ns before its edge (setup) and hold 2 ns after it;
 # read data arrives up to 9 ns after the chip edge (CellularRAM-class
 # numbers, conservative at this speed).

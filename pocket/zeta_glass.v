@@ -2,7 +2,10 @@
 // stream. This is the module the Analogue Pocket's core_top instantiates.
 //
 // Timing: 400x360 total, 320x288 active, one pixel every DIV clocks.
-// At DIV=5 that wants clk = 400*360*60*5 = 43.2 MHz from the PLL.
+// At DIV=6 that wants clk = 400*360*60*6 = 51.84 MHz from the PLL
+// (frontier B5; it was DIV=5 and 43.2 MHz through build 105 -- every
+// clock count here is written in DIV, so the frame simply has 864,000
+// clocks where it had 720,000, and the audio strobe 1,080 where 900).
 //
 // The framebuffer is DOUBLE-BUFFERED in the CRAM pair: each frame's
 // VM+GPU work is kicked early in vblank (after the buffer swap applies)
@@ -20,7 +23,7 @@
 // must be bit-equal to the virtual machine's framebuffer for that frame.
 `default_nettype none
 
-module zeta_glass #(parameter DIV = 5, parameter EXT_CE = 0) (
+module zeta_glass #(parameter DIV = 6, parameter EXT_CE = 0) (
     input  wire        clk,
     input  wire        rst_n,
     input  wire        core_en,   // cart complete: let the console run

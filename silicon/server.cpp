@@ -20,7 +20,7 @@ static Vzeta_sim* dut;
 // than a compile-time define, so ONE cached build serves both the gates
 // and the measurement -- and so no gate's behaviour can depend on it.
 // Every clock the machine spends between `start` and `frame_done` is a
-// clock of the 720,000 the 60 Hz contract allows (43.2 MHz = 400*360*60*5).
+// clock of the 864,000 the 60 Hz contract allows (51.84 MHz = 400*360*60*6).
 static long g_clk = 0;
 static void tick() {
     dut->clk = 0; dut->eval();

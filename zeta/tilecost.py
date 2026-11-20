@@ -41,7 +41,7 @@ import numpy as np
 from . import gpu, spec
 
 ROOT = Path(__file__).resolve().parents[1]
-CLOCKS_PER_FRAME = 720_000           # 43.2 MHz / 60: the whole budget
+CLOCKS_PER_FRAME = 864_000           # 51.84 MHz / 60: the whole budget
 
 TILE_W, TILE_H = 64, 32
 TILES_X = (spec.W + TILE_W - 1) // TILE_W
