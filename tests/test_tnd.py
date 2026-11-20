@@ -959,3 +959,57 @@ def test_the_action_shot_frames_each_mode():
         m.frame(R | L | U)
     assert _cell(m, "cam_cv") == 65536, "the prowler's shot did not take over"
     assert _s32(m.vm.dmem[spec.CAM_Y]) / 65536 < 2.5, "the prowler's eye is not low"
+
+
+def test_start_pauses_resumes_and_quits():
+    """Start in the fight pages in the PAUSE (a third program): the street
+    stands frozen under its two words; Start resumes with the borrowed end
+    put back and no button live (no stray jump or punch); Down then A
+    QUITS to the title, the run reset, and the next fight a fresh wave."""
+    cart = cabinet.load_cart(CART)
+    pause = _image(cart, _const("PAUSE_PROG"), spec.OVL_MAX)
+    m = cabinet.VirtualMachine(cart)
+    m.frame(spec.PAD_START)
+    boot = list(m.vm.dmem)
+    for f in range(40):
+        m.frame(0)
+    for f in range(8):                                # a thumb on Start
+        m.frame(spec.PAD_START)
+    assert list(m.vm.imem) == pause, "Start did not page in the pause"
+    assert m.vm.dmem[spec.DL_BASE] > 0 and m.vm.dmem[spec.OL_BASE] > 0
+    w0 = [d["x"] for d in _wave(m)]
+    for f in range(30):
+        m.frame(0)
+    assert [d["x"] for d in _wave(m)] == w0, "the street moved under the pause"
+    for f in range(8):
+        m.frame(spec.PAD_START | spec.PAD_A)          # A held through the resume
+    a, k = _const("BORROW_END"), _const("BORROW_END_N")
+    assert list(m.vm.imem[:len(cart["imem"])]) == list(cart["imem"]), "not resumed"
+    assert m.vm.dmem[a:a + k] == boot[a:a + k], "the end was not put back"
+    assert _cell(m, "f_py") == 0 and _cell(m, "anim") != 2, "the resume fired a button"
+    for f in range(20):
+        m.frame(0)
+    m.frame(spec.PAD_START)
+    for p in (0, spec.PAD_DOWN, 0, spec.PAD_A, 0, 0):
+        m.frame(p)
+    assert _cell(m, "mode") == 0 and m.vm.dmem[spec.BG_SRC] > 0, "QUIT did not reach the title"
+    m.frame(spec.PAD_START)
+    m.frame(0)
+    m.frame(0)
+    assert [(d["st"], d["hp"]) for d in _wave(m)] == [(0, 70)] * 3, "no fresh wave after QUIT"
+
+
+def test_a_blow_taken_flashes_and_a_lunge_is_heard():
+    """Struck, the frame washes red through his hitstop (tear.py flash), and
+    a demon committing to its swing is heard (the lunge's whoosh)."""
+    m = _fight_vm()
+    flashed, heard, prev = 0, 0, 99
+    for f in range(600):
+        m.frame(0)
+        if (m.vm.dmem[spec.CO_BASE + 9] >> 24) and not _cell(m, "f_dead"):
+            flashed += 1
+        wt = _cell(m, "sg_wt")
+        heard += wt < prev
+        prev = wt
+    assert flashed > 0, "a blow taken did not flash"
+    assert heard > 0, "a lunge was not heard"

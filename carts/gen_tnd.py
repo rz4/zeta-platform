@@ -232,8 +232,23 @@ for x in INTRO_STRS:
 _iend += intro_row(0) + [0] * INTRO_CELLS
 assert len(_iend) == B_END
 END_INTRO = cart.cram(Table(_iend), "intro_end")
+# P13: THE PAUSE's end image -- its font (the glyphs of its two words) at
+# FONT's address, the words, and its cursor cell -- the intro's handshake
+PAUSE_STRS = ("RESUME", "QUIT")
+PAUSE_FONT_CH = "".join(sorted(set("".join(PAUSE_STRS)))) + " "
+_pend = font_words(PAUSE_FONT_CH)
+_pend += [0] * (2 * len(FONT_CH) - len(_pend))
+P_STR = []
+for x in PAUSE_STRS:
+    P_STR.append(END_LO + len(_pend))
+    _pend += [len(x)] + [PAUSE_FONT_CH.index(c) for c in x]
+P_CUR = END_LO + len(_pend)
+_pend += [0]
+_pend += [0] * (B_END - len(_pend))
+END_PAUSE = cart.cram(Table(_pend), "pause_end")
 # the images filled once everything is placed (the end of this file)
 INTRO_PROG = cart.cram(Table([0] * spec.OVL_MAX), "intro_prog")
+PAUSE_PROG = cart.cram(Table([0] * spec.OVL_MAX), "pause_prog")
 MAIN_PROG = cart.cram(Table([0] * spec.OVL_MAX), "main_prog")
 END_MAIN = cart.cram(Table([0] * B_END), "main_end")
 FRONT_MAIN = cart.cram(Table([0] * B_FRONT), "main_front")
@@ -1421,6 +1436,10 @@ VPS, VPC = cart.var("vis_ps"), cart.var("vis_pc")   # the camera's pitch, sin / 
 CAM_W = {k: cart.var("cam_" + k) for k in ("sp", "kind", "who", "hal", "halt", "ch",
                                            "chh", "pu", "sh", "cv")}
 CAM_W["d"] = cart.data(Table([3 * ONE]), "cam_d3")     # the follow's distance, eased
+if SONG:                     # P7's record state (here: the pause's QUIT resets it)
+    SM = {k: cart.var("sm_" + k) for k in ("cur", "pos", "pend", "q", "acc", "bib", "phr",
+                                            "bus", "t", "r", "last", "hs", "ref", "dwell",
+                                            "ret", "j")}
 # THE ACTION SHOT (tear.py _action_cam, _follow_cam, _prowl_cam): the tank's
 # follow stays as it has played -- three back, square, pitched 20 -- while
 # DEVIL TRIGGER's follow comes in to 2.6 and leans onto the right shoulder
@@ -1524,6 +1543,19 @@ p.set(spec.BG_SRC, 0).set(spec.CO_BASE, 1)
 p.rect(0, 0, 0, spec.W - 1, spec.H - 1, 0x000000, 16)
 p.emit(f"jmp {L_MUSIC}")
 p.mark(f"{tl}_fight")
+# P13: a FRESH Start in the fight pages in the pause (its words over the end)
+pa_ = p.label("pause")
+held(spec.PAD_START)
+p.emit(f"jz {pa_}")
+p.load(PV).push(spec.PAD_START).emit("and", f"jz {pa_}_g", f"jmp {pa_}")
+p.mark(f"{pa_}_g")
+p.load(F["dead"]).emit(f"jz {pa_}_go", f"jmp {pa_}")
+p.mark(f"{pa_}_go")
+p.set(spec.DMA_SRC, int(END_PAUSE)).set(spec.DMA_DST, END_LO)
+p.set(spec.DMA_LEN, B_END).set(spec.DMA_GO, 1)
+p.set(spec.OVL_SRC, int(PAUSE_PROG)).set(spec.OVL_DST, 0)
+p.set(spec.OVL_LEN, spec.OVL_MAX).set(spec.OVL_GO, 1)
+p.mark(pa_)
 p.load(PX).store(AR["ox"]).load(PZ).store(AR["oz"])     # where he stood
 L = {k: p.label(k) for k in ("dead", "frozen", "free", "walk", "idle",
                              "motion", "anim", "pi", "pj", "pd", "iw",
@@ -2357,7 +2389,7 @@ p.push(DEATH_BEAT).load(F["dead"]).emit("lt")
 fresh(spec.PAD_A)
 p.emit("and", f"jz {L['frozen']}")
 # RETRY: a fresh run -- full health, the start, a new wave (tear.py _retry)
-for c, v in ((PX, 0), (PZ, 0), (YAW, 0), (CY, 0), (ANIM, 0), (AF, 0),
+RETRY_CELLS = ((PX, 0), (PZ, 0), (YAW, 0), (CY, 0), (ANIM, 0), (AF, 0),
              (PHP, 140), (F["dead"], 0), (F["tilt"], 0), (F["hs"], 0),
              (F["stop"], 0), (F["vx"], 0), (F["vz"], 0), (F["buf"], 0),
              (F["c3"], 0), (F["fight"], 0), (F["wave"], 0), (SFX_T, SFX_N),
@@ -2366,7 +2398,8 @@ for c, v in ((PX, 0), (PZ, 0), (YAW, 0), (CY, 0), (ANIM, 0), (AF, 0),
              (F["spd"], 0), (F["evf"], 0), (F["flipu"], 0), (F["tgt"], 0),
              (F["plc"], 0), (F["met"], 0),
              (SY["pts"], 0), (SY["combo"], 0), (SY["idle"], 0), (int(S_SHOWN), 255),
-             *((int(S_REC) + i, 255) for i in range(5))):
+             *((int(S_REC) + i, 255) for i in range(5)))
+for c, v in RETRY_CELLS:
     p.set(c, v)
 p.push(int(SPAWN)).store(CP["src"]).push(int(DS)).store(CP["dst"])
 p.push(3 * NF).store(CP["n"]).emit(f"call {L_COPY}")
@@ -2384,10 +2417,15 @@ if DEDUPE:                     # the pose's slot: two 16-bit slots a word
 else:
     p.load(POSE)
 p.push(SPAN).emit("mul").push(int(BANK)).emit("add")
+pd_ = p.label("posedma")                     # (P13: not on a frame that pages a
+p.load(spec.OVL_GO).emit(f"jz {pd_}_go")     # scene in -- its handshake has the
+p.emit("drop", f"jmp {pd_}")                 # request, and the pose holds anyway)
+p.mark(f"{pd_}_go")
 p.store(spec.DMA_SRC)
 p.push(UPPER + 2).store(spec.DMA_DST)
 p.push(SPAN).store(spec.DMA_LEN)
 p.set(spec.DMA_GO, 1)
+p.mark(pd_)
 
 keep_in_arena(PX, PZ, AR["ox"], AR["oz"])
 
@@ -2938,7 +2976,73 @@ q.set(_b + 6, (spec.W - 1) << 10)
 q.push(spec.H).load(ir(14)).emit("sub").push((spec.H - 1) << 10).emit("or").store(_b + 7)
 q.load(ir(15)).store(_b + 8)
 q.addi(I_T, 1)
-p = Tee(p_main, q)                   # ...and from here, the shared frame
+# ---- P13: THE PAUSE -- a third program (tear.py _update_pause) ------------
+# Start in the fight pages it in; the street stands frozen under a dim and
+# two words, RESUME and QUIT, the chosen one in bone. Up and Down choose; A
+# confirms, and Start always resumes. Resuming puts the end back and pages
+# the game in with every face button SPENT, so the press that resumed is
+# not also a jump or a punch; QUIT is the retry's reset and the title.
+# The music plays on through it (the shared frame, as the intro's).
+pz = Program(cart)
+pz.label = p_main.label
+pc_ = pz.label("pz")
+for b, bit in ((spec.PAD_UP, 0), (spec.PAD_DOWN, 1)):        # Up / Down: choose
+    nb = pz.label("pu")
+    pz.emit("load 1").push(b).emit("and", f"jz {nb}")
+    pz.load(PV).push(b).emit("and", f"jz {nb}_g", f"jmp {nb}")
+    pz.mark(f"{nb}_g")
+    pz.set(P_CUR, bit)
+    pz.mark(nb)
+pz.set(W["head"], -1)                                         # (the choice, if any)
+pz.emit("load 1").push(spec.PAD_START).emit("and", f"jz {pc_}_a")
+pz.load(PV).push(spec.PAD_START).emit("and", f"jz {pc_}_s", f"jmp {pc_}_a")
+pz.mark(f"{pc_}_s")
+pz.set(W["head"], 0).emit(f"jmp {pc_}_go")                    # Start: resume
+pz.mark(f"{pc_}_a")
+pz.emit("load 1").push(spec.PAD_A).emit("and", f"jz {pc_}_dr")
+pz.load(PV).push(spec.PAD_A).emit("and", f"jz {pc_}_af", f"jmp {pc_}_dr")
+pz.mark(f"{pc_}_af")
+pz.load(P_CUR).store(W["head"])
+pz.mark(f"{pc_}_go")
+pz.load(W["head"]).emit(f"jz {pc_}_res")
+# QUIT: the retry's reset, the wave back, the title (its attract clock fresh)
+for c, v in RETRY_CELLS:
+    pz.set(c, v)
+# (the spawn table lives in the borrowed end, which holds the pause's words
+# right now: the three are marked gone instead, and the fight's own wave
+# respawns them from the restored table on its first frame)
+for d in range(3):
+    pz.set(dslot(d, "st"), 4)
+pz.set(F["wave"], -1)
+pz.set(int(MODE), 0).set(TT, 0)
+if SONG:
+    for c in ("cur", "pos", "pend", "acc", "bib", "phr", "ref", "ret", "j", "last"):
+        pz.set(SM[c], 0)                         # the record back to its intro lock
+pz.mark(f"{pc_}_res")
+for b, _ in BTN:                                 # resuming: every button spent
+    pz.set(GT[b], 100).set(GC[b], 1)
+pz.set(spec.DMA_SRC, int(END_MAIN)).set(spec.DMA_DST, END_LO)
+pz.set(spec.DMA_LEN, B_END).set(spec.DMA_GO, 1)
+pz.set(spec.OVL_SRC, int(MAIN_PROG)).set(spec.OVL_DST, 0)
+pz.set(spec.OVL_LEN, spec.OVL_MAX).set(spec.OVL_GO, 1)
+pz.set(spec.DL_BASE, 0).emit(f"jmp {L_MUSIC}")
+pz.mark(f"{pc_}_dr")
+# the dim and the two words
+pz.set(spec.CO_BASE, 1)
+pz.rect(0, 0, 0, spec.W - 1, spec.H - 1, 0x050408, 9)
+pz.set(TX["n"], 0)
+for k, word in enumerate(PAUSE_STRS):
+    sc = 3
+    x = (spec.W - len(word) * 4 * sc) // 2
+    pz.set(TX["str"], P_STR[k]).set(TX["x"], x).set(TX["y"], 120 + 30 * k).set(TX["sc"], sc)
+    cs = pz.label("pc")
+    pz.push32(0x948E84).store(TX["rgb"])
+    pz.load(P_CUR).push(k).emit("eq", f"jz {cs}")
+    pz.push32(0xD8CFC1).store(TX["rgb"])
+    pz.mark(cs)
+    pz.emit(f"call {L_TEXT}")
+pz.load(TX["n"]).store(spec.DL_BASE)
+p = Tee(p_main, q, pz)               # ...and from here, the shared frame
 
 # ---- WHAT THE CAMERA CANNOT SEE IS NOT SENT -----------------------------------
 # The sequencer transforms every vertex of every listed object, and its
@@ -3220,8 +3324,22 @@ p.emit("swap", "drop")
 p.mark(f"{dk}_k")
 p.emit("shl 24").push32(0x000000).emit("or").store(HB + 8)
 p.mark(dk)
+# P13: THE HIT FLASH (tear.py self.flash): struck, the frame washes red
+# through his hitstop -- on the darken rectangle, which only the fallen use
+fl_ = p.label("hflash")
+p.load(F["dead"]).emit(f"jz {fl_}_a", f"jmp {fl_}")
+p.mark(f"{fl_}_a")
+p.load(F["hs"]).push(12).emit("sub", "dup").push(1).emit("lt", f"jz {fl_}_p")
+p.emit("drop", f"jmp {fl_}")
+p.mark(f"{fl_}_p")
+p.emit("dup").push(6).emit("swap", "lt", f"jz {fl_}_c")
+p.emit("drop").push(6)
+p.mark(f"{fl_}_c")
+p.set(HB + 6, 0 | (319 << 10)).set(HB + 7, 0 | (287 << 10))
+p.emit("shl 24").push32(0xC01010).emit("or").store(HB + 8)
+p.mark(fl_)
 # ---- the music's frame (stems as one loop over a table: IMEM is 4,096) ----------
-p = Tee(p_main, q)                   # the music and the sounds: in both
+p = Tee(p_main, q, pz)               # the music and the sounds: in all three
 p.mark(L_MUSIC)
 EVN = cart.var("ev_n")
 EV_BASE = spec.AU_EV_BASE + 1
@@ -3423,9 +3541,6 @@ else:
             else (_at[n], _fr[n])
         _rows += [int(SONGC) + st0, nf, PHRASE.get(n, 4)]
     SECT = cart.data(Table(_rows), "song_sections")
-    SM = {k: cart.var("sm_" + k) for k in ("cur", "pos", "pend", "q", "acc", "bib", "phr",
-                                            "bus", "t", "r", "last", "hs", "ref", "dwell",
-                                            "ret", "j")}
     SBEAT = round(bakepcm.PCM_HZ * 60 / 122)               # 7,554 samples
     pg = p.label("prog")
     # the journey has come as far as the section playing (if on the ladder)
@@ -3677,7 +3792,7 @@ p.emit("halt")
 # vis_cz, vis_r) into view space: yaw by the camera's right/forward,
 # then its fixed pitch (vy' = vy cos + vz sin, vz' = -vy sin + vz cos).
 # Unseen if wholly behind the eye or wholly outside a side plane.
-for g, intro_vis in ((p_main, False), (q, True)):   # (the intro: its real pitch and height)
+for g, intro_vis in ((p_main, False), (q, True), (pz, True)):   # (the intro: its real pitch and height)
     no_l, yes_l = g.label("vno"), g.label("vyes")
     g.mark(L_VIS)
     g.load(VIS["cx"]).load(spec.CAM_X).emit("sub").store(VIS["cx"])
@@ -4017,6 +4132,7 @@ p.emit("lt", "and", f"jz {lab['nocone']}")      # ...and inside the cone
 p.addi(AI, 1)
 p.load(AI).push(DREST).emit("eq", f"jz {lab['clip']}")
 p.set(AI, 0).set(ST, 1).set(MF, 0).set(cur("con"), 0)
+p.set(SG["wt"], 0)                              # P13: its lunge, heard (the whoosh)
 p.load(ALT).store(MV)
 p.load(ALT).push(1).emit("xor").store(ALT)
 for vel, trig in ((cur("vx"), t["fx"]), (cur("vz"), t["fz"])):   # the lunge
@@ -4415,8 +4531,11 @@ def _imem(g):
     return words
 
 
-_main_w, _intro_w = _imem(p_main), _imem(q)
-cart_tables = {int(INTRO_PROG): _intro_w, int(MAIN_PROG): _main_w,
+_main_w, _intro_w, _pause_w = _imem(p_main), _imem(q), _imem(pz)
+if os.environ.get("TND_LIST"):          # (a debugging aid: each program's ZOL)
+    for nm, g in (("main", p_main), ("intro", q), ("pause", pz)):
+        (OUT.parent / f"tnd-{nm}.lst").write_text("\n".join(g.lines()) + "\n")
+cart_tables = {int(INTRO_PROG): _intro_w, int(MAIN_PROG): _main_w, int(PAUSE_PROG): _pause_w,
                int(END_MAIN): cart.borrowed("end")[1],
                int(FRONT_MAIN): cart.borrowed("front")[1]}
 for sym, res in cart._cram:
@@ -4424,12 +4543,14 @@ for sym, res in cart._cram:
         w = cart_tables[int(sym)]
         res._w[:len(w)] = [spec.s32(int(v)) & spec.WORD_MASK for v in w]
 for k, v in (("INTRO_PROG", INTRO_PROG), ("MAIN_PROG", MAIN_PROG), ("INTRO_LEN", INTRO_LEN),
+             ("PAUSE_PROG", PAUSE_PROG),
              ("BORROW_FRONT", FRONT_LO), ("BORROW_FRONT_N", B_FRONT),
              ("BORROW_END", END_LO), ("BORROW_END_N", B_END)):
     cart.const(k, int(v))                       # (for the gates: tests/test_tnd.py)
 out = cart.write(OUT)
 print(cart.report())
-print(f"programs: the game {len(_main_w)} words, the intro {len(_intro_w)}")
+print(f"programs: the game {len(_main_w)} words, the intro {len(_intro_w)}, "
+      f"the pause {len(_pause_w)}")
 print(f"street: {len(STREET)} objects, {STREET_FACES} faces")
 print(f"poses: {len(bank) // SPAN} x {SPAN} words = {len(bank)} words "
       f"of CRAM; bases {base}")

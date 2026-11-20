@@ -61,6 +61,12 @@ def push(card: Path, staged: Path = STAGED) -> int:
         if not src.is_file():
             continue
         dst = card / src.relative_to(staged)
+        # THE CARD FILES ARE SAVES: a card*.bin already on the card is what
+        # the games wrote there, and a push must never roll it back -- the
+        # staged one is only the first-ever image (TND P14)
+        if dst.exists() and dst.name.startswith("card") and dst.suffix == ".bin":
+            print(f"  kept {dst.relative_to(card)} (a save lives there)")
+            continue
         if dst.exists() and dst.stat().st_size == src.stat().st_size \
                 and dst.stat().st_mtime >= src.stat().st_mtime:
             continue
