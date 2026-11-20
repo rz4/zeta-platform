@@ -7,15 +7,17 @@ deterministic guarantees?
 **The answer so far.** Not yet, but the machine now holds about 1,400.
 - **Build 105:** the worst TND frames were over budget (30 brawl frames and
   51 tour frames above the 648k ceiling).
-- **With B1 + B2 + B3** (branch `frontier/stack`), the worst frame of either
-  route is **482k clocks, 74% of the ceiling**. That is 27% below build 105
-  on the brawl and 30% below on the tour.
+- **With B1 + B2 + B3** (branch `frontier/stack`), the worst frame is
+  **483k clocks on the brawl and 488k on the tour, 75% of the ceiling**.
+  That is 27% and 29% below build 105.
+- **It costs 543 ALMs** (16,390 → 16,933, 92%), four DSP blocks and no block
+  RAM. Timing closes with +2.468 ns of slack.
 - **What 2,000 would cost now.** A cost model fitted to the stack (§12) puts
   one drawn triangle at about 400 clocks at TND's mix.
   - The 43.2 MHz ceiling therefore holds about **1,400 drawn triangles**.
-  - 2,000 would cost about 893k clocks.
+  - 2,000 would cost about 885k clocks.
   - At the 51.84 MHz clock (not closed) the ceiling would hold about 1,730.
-- **The most drawn so far** is 1,229 triangles (tour frame 692): 461k on the
+- **The most drawn so far** is 1,229 triangles (tour frame 692): 464k on the
   stack.
 - **These are extrapolations of a linear fit.** A metered 2,000-triangle
   scene (C1) is still the measurement that settles it.
@@ -320,7 +322,8 @@ Clock figures are at the route peaks unless stated otherwise.
 | # | candidate | target | measured or expected gain | cost | disposition |
 |---|---|---|---|---|---|
 | B1 | **span walk**: anchor, seek, draw, early exit | fill | **measured:** −112k brawl peak, −143k tour peak | +353 ALMs, no RAM | **accepted** |
-| B3 | **fast clipper**: 2-beat DSP multiply, radix-4 divide | the geometry pass, on clip-heavy frames | **measured:** −61k (brawl 226), −41k (tour 887); small elsewhere | +4 DSP; ALMs between ~120 and ~830 depending on the run (§11) | **accepted**: the stack fits with it |
+| B3 | **fast clipper multiply**: one inferred product, one beat | the geometry pass, on clip-heavy frames | **measured:** −42k (brawl 226), −28k (tour 887); small elsewhere | +4 DSP, **−47 ALMs**, −232 registers | **accepted** |
+| — | radix-4 clipper divide | the same | **measured:** a further −20k (brawl 226), −13k (tour 887) | +1,019 ALMs fitted alone | **rejected**: the dear half of the first B3 (§10) |
 | B2 | **triangle queue**, 32 deep in MLAB | the sequencer's holds inside band 0 | **measured:** −28k on the *average* frame, −30k at the peaks | +422 ALMs (93%), no M10K | **accepted with a caveat**: one mutant unkilled (§9) |
 | — | early row exit only | fill | walk ×0.81 | small | **rejected**: B1 includes it |
 | — | serpentine walk | fill | walk ×0.63 (crude model) | small | **rejected**: breaks OBJ_LODSPAN's left-to-right order, so it changes the law |
@@ -494,111 +497,123 @@ had no DSP block to spare; it now has ten.
 
 That is 436 crossings × 3 coordinates × 66 beats = 86,328.
 
-**The change** (`frontier/clip-fast`, silicon/zseq.v only):
-- **The multiply takes two beats.** The 33 × 50-bit product is split into
-  four partial products (27×27, 27×23, 6×27, 6×23). They are registered,
-  then summed modulo 2^82, exactly as the old 82-bit accumulator took it.
-- **The divide takes seventeen beats.** It is the same restoring quotient in
-  radix 4: sixteen two-bit beats, then one radix-2 beat for the odd 33rd
-  bit. This is the projection divider's own form.
-- **Widths come from the declared range:** den < 2^51, so 3·den and the
-  doubly shifted remainder are 53 bits.
+**The first cut** did both halves:
+- **Multiply, two beats:** four hand-split partial products (27×27, 27×23,
+  6×27, 6×23), registered, then summed modulo 2^82.
+- **Divide, seventeen beats:** the same restoring quotient in radix 4:
+  sixteen two-bit beats, then one radix-2 beat for the odd 33rd bit.
 
-**Measured.** The prediction was 47 clocks saved per coordinate:
+It was exact and it measured as predicted (47 beats saved per coordinate):
 
-| frame | B1 | B1 + B3 | saved | predicted |
+| frame | B1 | B1 + first-cut B3 | saved | predicted |
 |---|---:|---:|---:|---:|
 | brawl 226 | 551,442 | 489,996 | **61,446** | 61,476 |
 | tour 887 | 543,552 | 502,371 | **41,181** | 41,172 |
 | brawl 466 (little clipping) | 514,470 | 510,485 | 3,985 | — |
 
-B3 is a peak fix, not an average one: the brawl's mean frame moves by 3k
-and the tour's by 9k.
+**But its fit came back at +829 ALMs,** four times the estimate. Two
+experiment branches split the cost by building each half alone
+(`exp/clip-m`, `exp/clip-d`; neither is for merging):
 
-**Verification.**
-- Cross bit-equal on nearclip, hall and tex (40 frames each).
-- Routed cross bit-equal on all 521 + 901 TND frames.
+| variant | zseq ALUTs | ALMs | registers | DSP | slack |
+|---|---:|---:|---:|---:|---:|
+| B1 baseline | 9,403 | 16,743 | 19,813 | 56 | +2.207 ns |
+| multiply alone, as one inferred product | **9,376** | **16,696** | **19,581** | 60 | +2.014 ns |
+| radix-4 divide alone | 11,418 | 17,762 | 19,701 | 56 | +1.735 ns |
+| both (the first cut) | 10,994 | 17,572 | 19,805 | 60 | +2.396 ns |
+
+- **The multiply is free.** As a single inferred product it is *smaller*
+  than the shift-and-add it replaces, and it is 32 of the 47 beats.
+- **The radix-4 divide is the dear half:** about 1,000 ALMs for the
+  remaining 15 beats.
+
+**The final form** (`frontier/clip-fast`, silicon/zseq.v only): the multiply
+in one beat, `cl_mac <= cl_mul * cl_dam`, taken modulo 2^82 exactly as the
+82-bit accumulator took it. The divide stays serial.
+
+| frame | B1 | B1 + final B3 (from the stack, §11) |
+|---|---|---|
+| brawl 226 | 551,442 | −42k of the first cut's −61k |
+| tour 887 | 543,552 | −28k of the first cut's −41k |
+
+**Verification of the final form.**
+- Cross bit-equal on nearclip, bigclip, hall and tex (40 frames each).
+- Routed cross bit-equal on all 521 + 901 TND frames (on the stack).
 - Lint at the baseline.
+- Fit 44747000736: 16,696 ALMs (90%), DSP 60, slack +2.014 ns.
 
-**Mutation witnesses, and the hole they found in the suite.**
+**Mutation witnesses, and the hole they found in the suite.** The first
+cut's mutants were where the hole showed:
 
-| mutant | nearclip | bigclip (new) |
+| mutant (first cut) | nearclip | bigclip (new) |
 |---|---|---|
 | C1: a partial product one bit off | **FAIL** | |
 | C2: the divide one beat short | **FAIL** | |
 | C3: the digit never reaches 3 | **FAIL** | |
 | C4: the top partial product (6×23) dropped | survives | **FAIL** (85,369 px) |
 | C5: the high-multiplier partial (6×27) dropped | survives | **FAIL** (11,270 px) |
-| C6: 3·den narrowed to 52 bits | survives | survives: **equivalent** |
+| C6: 3·den narrowed to 52 bits | survives | survives: **equivalent** (den ≤ 2^50) |
 
 - **The suite never reached the top of the clipper's range.** nearclip's
   tiles are 2 units wide, so every crossing it makes is small arithmetic.
   The wide end of the old serial datapath was just as unwitnessed.
 - **`carts/bigclip.zol` closes that.** It is the same checker with tiles
   6,000 units wide, so adjacent vertices differ by more than 2^27 in view
-  space, and the tiles cross all five planes at once. It crosses bit-equal
-  and kills C4 and C5. It is a suite claim now, so it is a standing gate.
-- **C6 is equivalent, not unwitnessed.** Plane distances are signed 50-bit,
-  so den ≤ 2^50 and 3·den < 2^52. The 53-bit width is the declared range's,
-  and it stays.
+  space, and the tiles cross all five planes at once. It is a suite claim
+  now, so it is a standing gate.
 
-**Physical cost** (fit 44737066652, B1 + B3):
+The final form's own mutants are all killed:
 
-| | B1 | B1 + B3 |
-|---|---:|---:|
-| ALMs needed | 16,743 (91%) | 17,572 (95%) |
-| combinational ALUTs | 26,575 | 28,235 |
-| DSP | 56 | **60** |
-| M10K | 308 | 308 |
-| core-clock setup slack, worst corner | +2.207 ns | +2.396 ns |
+| mutant (final form) | nearclip | bigclip |
+|---|---|---|
+| M1: the multiplier loses its high six bits | survives | **FAIL** (85,050 px) |
+| M2: the distance loses its high 23 bits | **FAIL** | **FAIL** |
+| M3: the product kept to 64 bits | survives | **FAIL** (81,635 px) |
+| M4: the product kept to 72 bits | survives | **FAIL** (7 px, at frame 1) |
 
-That reads as +829 ALMs, four times the estimate. **But §11 shows the
-number cannot be taken at face value:** the stack, which contains the same
-B3 code, used 1,096 fewer ALUTs than this run did.
+M4's margin is thin: products past 2^72 are rare even in bigclip.
 
 ## 11. The stack: B1 + B2 + B3
 
-Branch `frontier/stack`. Both routes cross bit-equal on every frame.
+Branch `frontier/stack`, with B3 in its final form. Both routes cross
+bit-equal on every frame.
 
-| | build 105 | B1 | B1+B2 | B1+B3 | **B1+B2+B3** |
+| | build 105 | B1 | B1+B2 | **stack** | stack with the first-cut B3 |
 |---|---:|---:|---:|---:|---:|
-| brawl peak | 663,546 | 551,442 | 521,589 | 510,485 | **481,842** |
-| brawl mean | — | 430,349 | 400,531 | 427,486 | **397,640** |
-| tour peak | 686,836 | 543,552 | 516,473 | 522,746 | **482,273** |
-| tour mean | — | 416,340 | 388,736 | 407,158 | **379,920** |
-| frames over 480k (brawl / tour) | — | 144 / 286 | 10 / 48 | 123 / 245 | **1 / 22** |
+| brawl peak | 663,546 | 551,442 | 521,589 | **483,091** | 481,842 |
+| brawl mean | — | 430,349 | 400,531 | **398,562** | 397,640 |
+| tour peak | 686,836 | 543,552 | 516,473 | **488,429** | 482,273 |
+| tour mean | — | 416,340 | 388,736 | **382,700** | 379,920 |
+| frames over 480k (brawl / tour) | — | 144 / 286 | 10 / 48 | **1 / 37** | 1 / 22 |
 
 - B2 and B3 are complementary: B3 lowers the clip-heavy frames, and B2
   lowers every frame.
-- The stack's worst frame is 67% of the 720k frame and 74% of the ceiling.
+- The stack's worst frame is 68% of the 720k frame and 75% of the ceiling.
+- Giving up the radix-4 divide costs 1k at the brawl peak and 6k at the
+  tour peak.
 
-**Physical cost** (fit 44739753754; CI gates 44739754175 green):
+**Physical cost** (fit 44747007080):
 
-| | build 105 | B1 | B1+B2 | B1+B3 | **stack** |
-|---|---:|---:|---:|---:|---:|
-| ALMs needed | 16,390 (89%) | 16,743 (91%) | 17,165 (93%) | 17,572 (95%) | **17,286 (94%)** |
-| ALMs in final placement | 17,426 | 17,757 | 17,999 | 18,143 | **18,056** |
-| combinational ALUTs | 26,336 | 26,575 | 26,886 | 28,235 | **27,139** |
-| registers | 19,694 | 19,813 | 19,979 | 19,805 | **19,765** |
-| DSP | 56 | 56 | 56 | 60 | **60** |
-| M10K | 308 | 308 | 308 | 308 | **308** |
-| core-clock setup slack, worst corner | +2.586 ns | +2.207 ns | +2.506 ns | +2.396 ns | **+2.571 ns** |
+| | build 105 | B1 | B1+B2 | B1+B3 | **stack** | first-cut stack |
+|---|---:|---:|---:|---:|---:|---:|
+| ALMs needed | 16,390 (89%) | 16,743 (91%) | 17,165 (93%) | 16,696 (90%) | **16,933 (92%)** | 17,286 (94%) |
+| ALMs in final placement | 17,426 | 17,757 | 17,999 | 17,648 | **17,855** | 18,056 |
+| combinational ALUTs | 26,336 | 26,575 | 26,886 | 26,549 | **26,397** | 27,139 |
+| registers | 19,694 | 19,813 | 19,979 | 19,581 | **19,787** | 19,765 |
+| DSP | 56 | 56 | 56 | 60 | **60** | 60 |
+| M10K | 308 | 308 | 308 | 308 | **308** | 308 |
+| core-clock setup slack, worst corner | +2.586 ns | +2.207 ns | +2.506 ns | +2.014 ns | **+2.468 ns** | +2.571 ns |
 
-**Two things to take from this table.**
-- **The stack fits and closes timing.** It ends at 94%, with as much slack
-  as build 105 had.
-- **Per-candidate ALM costs are noisy by several hundred.**
-  - The stack holds everything B1+B3 holds, plus the queue, yet it reports
-    286 fewer ALMs and 1,096 fewer ALUTs than B1+B3 alone.
-  - Synthesis is resolving the same RTL differently between runs, and the
-    fitter packs harder as the device fills ("difficulty packing" went
-    from Medium to High).
-  - So a single fit says whether a configuration *fits*. It does not price
-    one candidate to the ALM.
-- **The device is close to physically full.** Final placement uses 18,056
-  of 18,480 ALMs. The 94% figure counts on about 1,100 ALMs the fitter
-  estimates it could recover by packing more densely. Every further
-  candidate has to be weighed against that.
+**Reading the table.**
+- **The whole stack costs 543 ALMs** over build 105 and takes the worst
+  frames from 664k / 687k to 483k / 488k.
+- **Costs do not add cleanly.** B2 alone reads +422 ALMs over B1, but the
+  stack is only +237 over B1+B3. The fitter packs differently as the
+  design changes, so a fit says whether a configuration fits; it prices a
+  single candidate only roughly.
+- **The device is close to physically full.** Final placement uses 17,855
+  of 18,480 ALMs. The 92% figure counts on about 900 ALMs the fitter
+  estimates it could recover by packing more densely.
 
 **Staged for glass** (each is build/pocket's cart with a different core):
 
@@ -607,35 +622,35 @@ Branch `frontier/stack`. Both routes cross bit-equal on every frame.
 | build/pocket | build 105, the known-working one |
 | build/frontier-b1 | B1 |
 | build/frontier-b2 | B1 + B2 |
-| build/frontier-b3 | B1 + B3 |
-| build/frontier-stack | B1 + B2 + B3 |
+| build/frontier-b3 | B1 + B3 (final form) |
+| build/frontier-stack | B1 + B2 + B3 (final form) |
 
 ## 12. The cost model on the stack
 
 The same regression as §5 (1,420 frames, census against metered clocks),
-on the stack. The fit is tighter: residual σ ≈ 11.4k, worst 62k.
+on the final stack. Residual σ ≈ 13.9k, worst 78k.
 
 | term | after B1 | on the stack |
 |---|---:|---:|
-| fixed | 117,065 | 89,156 |
-| per submitted face | 80.1 | 68.4 |
-| per drawn triangle | 30.4 | 47.5 |
+| fixed | 117,065 | 97,175 |
+| per submitted face | 80.1 | 70.0 |
+| per drawn triangle | 30.4 | 43.6 |
 | per covered pixel | 1.1 | 1.1 |
 
 At TND's mix (2.34 faces and 172 covered pixels per drawn triangle), one
-drawn triangle costs about **400 clocks**: 160 for its faces, 48 for
-itself, 190 for its pixels.
+drawn triangle costs about **394 clocks**: 164 for its faces, 44 for
+itself, 186 for its pixels.
 
 | ceiling | clocks | drawn triangles it holds |
 |---|---:|---:|
 | 43.2 MHz, 90% | 648,000 | about 1,400 |
 | 51.84 MHz, 90% (not closed) | 777,600 | about 1,730 |
-| needed for 2,000 | about 893,000 | |
+| needed for 2,000 | about 885,000 | |
 
 **What would close the gap to 2,000.**
 - The clock alone is not enough: it reaches about 1,730.
 - The remaining 14% has to come out of the per-triangle cost. The
   candidates are the projection divides (B6) and the clear (B4).
 - The alternative is content that submits fewer faces per triangle drawn.
-  Culling earlier would cut the 160-clock face share.
+  Culling earlier would cut the 164-clock face share.
 - All of this is extrapolation. C1 measures it.
