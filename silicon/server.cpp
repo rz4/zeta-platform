@@ -12,9 +12,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include "Vzeta_sim.h"
-#ifdef ZDBGMEM
-#include "Vzeta_sim___024root.h"
-#endif
+#include "Vzeta_sim___024root.h"   // (ZDBGMEM's peeks, and ZETA_SEQHIST's)
 #include "verilated.h"
 
 static Vzeta_sim* dut;
@@ -92,7 +90,36 @@ int main(int argc, char** argv) {
         long clk0 = g_clk;
         dut->start = 1; tick(); dut->start = 0;
         long guard = 50L * 1000 * 1000;
-        while (!dut->frame_done && guard-- > 0) tick();
+        // THE SEQUENCER'S STATE HISTOGRAM (frontier phase A): which of
+        // zseq's states each clock of the frame was spent in, sampled here
+        // in the harness -- no RTL counter, so nothing in the bitstream
+        static const bool seqhist = getenv("ZETA_SEQHIST") != nullptr;
+        static unsigned long hist[128], hold[16];
+        if (seqhist) for (int i = 0; i < 128; i++) hist[i] = 0;
+        if (seqhist) for (int i = 0; i < 16; i++) hold[i] = 0;
+        while (!dut->frame_done && guard-- > 0) {
+            tick();
+            if (seqhist) {
+                unsigned q = dut->rootp->zeta_sim__DOT__u_top__DOT__u_seq__DOT__st & 127;
+                hist[q]++;
+                // a hold (S_DLE 5, S_FE 40) against the rasterizer's state:
+                // WHAT the held triangle is waiting behind
+                unsigned g = dut->rootp->zeta_sim__DOT__u_top__DOT__u_gpu__DOT__st & 7;
+                if (q == 5) hold[g]++;
+                if (q == 40) hold[8 + g]++;
+            }
+        }
+        if (seqhist) {
+            fprintf(stderr, "SEQ");
+            for (int i = 0; i < 128; i++) if (hist[i]) fprintf(stderr, " %d:%lu", i, hist[i]);
+            fprintf(stderr, "\n");
+            // gpu states: 0 idle, 1 clr, 2 wait, 3 walk, 4 flush
+            fprintf(stderr, "HOLD dle");
+            for (int i = 0; i < 8; i++) fprintf(stderr, " %lu", hold[i]);
+            fprintf(stderr, " fe");
+            for (int i = 0; i < 8; i++) fprintf(stderr, " %lu", hold[8 + i]);
+            fprintf(stderr, "\n");
+        }
         if (guard <= 0) { fprintf(stderr, "frame wedged\n"); return 3; }
         if (meter) {
             // meter is {blkd,seq,stall,idle,walk,clr}, six 32-bit fields
