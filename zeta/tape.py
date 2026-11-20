@@ -123,6 +123,20 @@ def write_text(pads, path, note: str = "") -> None:
     Path(path).write_text("\n".join(lines) + "\n")
 
 
+def replay(cart: dict, pads, each=None):
+    """The session again, on the reference machine: the cart from its first
+    frame, one pad word a frame. -> the machine as the session left it
+    (its picture, its sound, and `.vm.sd`, the card as the game wrote it).
+    `each(frame, machine)` is called after every frame."""
+    from . import cabinet
+    m = cabinet.VirtualMachine(cart)
+    for f, p in enumerate(pads):
+        m.frame(p)
+        if each:
+            each(f, m)
+    return m
+
+
 def check(header: dict, cart: dict) -> str | None:
     """Why this tape should not be trusted against this cart, or None."""
     if header["build"] != spec.LOADER_BUILD:

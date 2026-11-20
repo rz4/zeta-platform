@@ -50,10 +50,41 @@ def find_card(explicit: str | None = None) -> Path:
            if seen else "") + " -- mount the card or pass --card PATH")
 
 
-def tape(card: Path, out_dir: Path, cart=None) -> Path | None:
+TAPES = ROOT / "build" / "tapes"     # sessions and saves brought home
+TAPE_NAME = "tape.ztp"              # deploy.TAPE_FILE's name (tested equal)
+
+
+def saves_home(card: Path, out_dir: Path = TAPES, stamp: str | None = None) -> list[Path]:
+    """Copy the card's save files home, under the time of this visit.
+
+    A replay needs the save its session STARTED with, and the card only
+    ever holds the one it ended with. So every visit -- a push or a tape
+    pull -- keeps what it finds: this visit's copy is the end of the
+    session just played and the start of the next."""
+    import time
+    from . import deploy
+    stamp = stamp or time.strftime("%Y%m%d-%H%M%S")
+    src = card / deploy.ASSETS
+    out = []
+    for f in sorted(src.glob("card*.bin")):
+        if deploy.card_slot(f.name) is None:
+            continue
+        dst = out_dir / f"{stamp}.{f.name}"
+        last = sorted(out_dir.glob(f"*.{f.name}"))
+        if last and last[-1].read_bytes() == f.read_bytes():
+            out.append(last[-1])                # unchanged since the last visit
+            continue
+        out_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(f, dst)
+        out.append(dst)
+    return out
+
+
+def tape(card: Path, out_dir: Path = TAPES, cart=None) -> Path | None:
     """Bring the recorded session home: the tape the OS wrote when the
-    core last exited, copied to out_dir under the time it was written,
-    and described. `cart` (a loaded cart) is checked against its header."""
+    core last exited, trimmed to the session and named by the time it was
+    written; the save files beside it; and which game on the card it was.
+    `cart` (a loaded cart) is checked against its header instead."""
     import time
     from . import deploy, tape as ztape
     src = card / deploy.TAPE_FILE
@@ -67,6 +98,8 @@ def tape(card: Path, out_dir: Path, cart=None) -> Path | None:
         print(f"the card's tape is blank or not a tape: {e}")
         return None
     stamp = time.strftime("%Y%m%d-%H%M%S", time.localtime(src.stat().st_mtime))
+    before = sorted(out_dir.glob("*.card.bin"))          # the save it started with
+    after = saves_home(card, out_dir, stamp)
     out_dir.mkdir(parents=True, exist_ok=True)
     dst = out_dir / f"{stamp}.ztp"
     used = 4 * (ztape.HEADER_WORDS + head["runs"] + 1)
@@ -75,10 +108,36 @@ def tape(card: Path, out_dir: Path, cart=None) -> Path | None:
     print(f"  {dst}: {len(pads):,} frames ({int(secs // 60)}m{secs % 60:04.1f}s), "
           f"{head['runs']:,} runs, build {head['build']}, "
           f"cart sum {head['cart_sum']:#010x}")
+    if head["runs"] >= ztape.WORDS - ztape.HEADER_WORDS - 1:
+        print("  THE TAPE IS FULL: the session ran on after it")
     if cart is not None:
         why = ztape.check(head, cart)
         print(f"  {'DOES NOT MATCH: ' + why if why else 'matches the cart given'}")
+        return dst
+    # which game was it? the card holds every game, and the sum names one
+    game = None
+    for z in sorted((card / deploy.ASSETS).glob("*.zbin")):
+        if zbin_sum(z) == head["cart_sum"]:
+            game = z
+    if game is None:
+        print("  no game on the card has that sum (restaged since it was played?)")
+        return dst
+    print(f"  the game: {game.name}")
+    line = f"zeta replay {dst} \"{game}\""
+    if before:
+        line += f" --card {before[-1]}"
+    slot2 = [a for a in after if a.name.endswith(".card.bin")]
+    if slot2:
+        line += f" --expect {slot2[-1]}"
+    print(f"  again, on the desktop:  {line}")
     return dst
+
+
+def zbin_sum(path: Path) -> int:
+    """tape.cart_sum of a slot file: every word, added mod 2^32."""
+    import numpy as np
+    blob = Path(path).read_bytes()
+    return int(np.frombuffer(blob[:len(blob) // 4 * 4], dtype="<u4").sum(dtype=np.uint64)) & 0xFFFFFFFF
 
 
 def push(card: Path, staged: Path = STAGED) -> int:
@@ -87,6 +146,7 @@ def push(card: Path, staged: Path = STAGED) -> int:
     if not staged.is_dir():
         raise SystemExit(f"{staged} does not exist -- run `zeta deploy` "
                          f"(or download the CI fit artifact) first")
+    saves_home(card)                # the save the next session starts with
     copied = 0
     for src in sorted(staged.rglob("*")):
         if not src.is_file():
@@ -97,6 +157,11 @@ def push(card: Path, staged: Path = STAGED) -> int:
         # staged one is only the first-ever image (TND P14)
         if dst.exists() and dst.name.startswith("card") and dst.suffix == ".bin":
             print(f"  kept {dst.relative_to(card)} (a save lives there)")
+            continue
+        # ...and so is the tape: a session nobody has brought home yet may
+        # be on it, and a re-staged blank is always the newer file
+        if dst.exists() and dst.name == TAPE_NAME \
+                and dst.stat().st_size == src.stat().st_size:
             continue
         if dst.exists() and dst.stat().st_size == src.stat().st_size \
                 and dst.stat().st_mtime >= src.stat().st_mtime:

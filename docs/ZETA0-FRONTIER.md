@@ -830,7 +830,7 @@ corners pass with more than 2 ns to spare. The slow corners are the wall.
 
 | Worst | Paths | From → to | What it is |
 |---:|---:|---|---|
-| −1.477 ns | about 800 | program data memory → the sequencer's `nlev`, `fcached` | a block-RAM read used the same clock it arrives, through the level and fit logic |
+| −1.477 ns | about 750 | program data memory → the sequencer's `nlev`, `fcached` | a block-RAM read used the same clock it arrives, through the level and fit logic |
 | −1.134 ns | 32 | `cram0_dq`, `cram1_dq` pins → the burst reader's `r_data` | **the frame memory's own access time** |
 | −1.088 ns | 16 | texture memory → `s2_col` | a block-RAM read into the texel's colour |
 

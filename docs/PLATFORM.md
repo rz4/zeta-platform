@@ -80,8 +80,13 @@ Analogue's slot rules allow it (data.json, read 2026-11-20):
 | Game | `required: true`, `extensions: ["zbin"]`, parameters bit 0 (user-reloadable) and bit 9 (remember the choice) | the Pocket opens its browser when no game is chosen, and remembers the last one |
 | Save | `nonvolatile: true`, parameters bit 2 (filename cloned from slot 0) | each game gets its own save file, named after it |
 
-- The film stays as what plays when no game is chosen.
+- **The film opens every game.** It always ended by handing the machine
+  to the shelf; staging now packages it in front of each game, and it
+  hands to that game instead. After the hand-off the machine is the game
+  booted directly, cell for cell (tested on TEAR and HALL). About 1.6 MB
+  a game; `zeta stage --no-film` leaves it off.
 - The shelf survives as an ordinary cart, for curated collections.
+- **Built** (`zeta stage`, staged in `build/menu`); **not yet on glass.**
 - **Work:** the loader must accept a chosen file of any size and reset
   the machine cleanly on a reload; the card path must follow the
   per-game save file.
@@ -127,11 +132,24 @@ them the 43.2 MHz build dropped no frames; on the Pocket the player felt
 51.84 MHz "a lot smoother". Real play is heavier than the scripts, and
 the meter cannot see it until it has tapes.
 
-- **Exists:** the desktop replays pad tapes (`zeta sd witness --tape`).
-- **Missing:** an on-device recorder. It must be passive, write to its
-  own file, and never compete with the game's own card requests.
-- **First version:** record from power-on only. Recording from a save
-  state follows section 3.
+- **The recorder** (`pocket/zeta_tape.v`) writes each frame's pad word
+  into the Pocket's SRAM, which nothing used before. The Pocket itself
+  writes it to `Saves/zeta/common/tape.ztp` when the core exits, so the
+  recorder never touches the game's card channel. In simulation its
+  memory equals the reference encoder (`zeta/tape.py`) word for word.
+  Capacity: 16,380 changes of the pad.
+- **The desktop half.** Every visit to the card keeps a copy of the save
+  (`build/tapes/`), because a replay needs the save its session started
+  with and the card only holds the one it ended with. `zeta sd tape`
+  brings the tape home, names the game by its sum, and prints the replay
+  command. `zeta replay` runs the session on the reference machine
+  against the game file from the card, at about 30 frames a second.
+- **The gate for the whole loop:** the replay must write the same save
+  the Pocket was left with (`--expect`). Tested on the desktop with a
+  small save cart; **not yet on glass**, where the SRAM's timing and the
+  Pocket's write-on-exit are both unproven.
+- **First version:** records from power-on only, and holds the last
+  session only. Recording from a save state follows section 3.
 - **Then:** `zeta profile <tape>` costs every recorded frame on the RTL,
   and any silicon change is judged on the whole tape library.
 

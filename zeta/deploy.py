@@ -304,6 +304,49 @@ def write_zbin(cart: dict, path: Path) -> None:
     path.write_bytes(struct.pack(f"<{len(words)}I", *words))
 
 
+def read_zbin(path: Path, cards: Path | None = None) -> dict:
+    """The slot file back as a cart: what is on the card IS what ran, so
+    a tape is replayed against these bytes and not against a rebuild that
+    might differ. `cards` is a folder of card*.bin (the save the session
+    started with); None leaves the card blank."""
+    import struct
+
+    blob = Path(path).read_bytes()
+    n = len(blob) // 4
+    w = struct.unpack(f"<{n}I", blob[:4 * n])
+    i, d = spec.IMEM_WORDS, spec.DMEM_WORDS
+    cart = {"name": Path(path).stem, "imem": list(w[:i]),
+            "dmem": {a: v for a, v in enumerate(w[i:i + d]) if v},
+            "cram": {a: v for a, v in enumerate(w[i + d:]) if v},
+            "sd": card_images(cards) if cards else {}}
+    return cart
+
+
+def card_slot(name: str) -> int | None:
+    """card.bin is slot 2 (the manifest's Card), cardN.bin is slot N."""
+    stem = Path(name).stem
+    if Path(name).suffix != ".bin" or not stem.startswith("card"):
+        return None
+    tail = stem[4:]
+    return 2 if tail == "" else int(tail) if tail.isdigit() else None
+
+
+def card_images(where: Path) -> dict:
+    """{slot: words} from a card file, or from every card*.bin in a folder."""
+    import struct
+
+    where = Path(where)
+    files = [where] if where.is_file() else sorted(where.glob("card*.bin"))
+    out = {}
+    for f in files:
+        slot = card_slot(f.name) if where.is_dir() else (card_slot(f.name) or 2)
+        if slot is None:
+            continue
+        blob = f.read_bytes()
+        out[slot] = list(struct.unpack(f"<{len(blob) // 4}I", blob[:len(blob) // 4 * 4]))
+    return out
+
+
 # ---- THE POCKET'S OWN MENU (docs/PLATFORM.md, phase 1) ----------------------
 # The core loaded ONE fixed file, cart.zbin, and every game lived inside
 # it behind an in-cart launcher. A game is a file now, and the Pocket's
@@ -326,15 +369,17 @@ MENU_SLOT = {"name": "Game", "id": 1, "required": True,
              "address": "0x10000000"}
 
 
+#: where the games and the card files live on the SD
+ASSETS = "Assets/zeta/common"
 #: where the OS keeps a nonvolatile slot's file, and how big the tape is
 TAPE_FILE = "Saves/zeta/common/tape.ztp"
 TAPE_BYTES = 0x10000
 
 
 def stage_tape(out: Path) -> None:
-    """A blank tape at full size, where the OS will look for it. (A push
-    never replaces one that is already on the card: same size, and the
-    card's is newer.)"""
+    """A blank tape at full size, where the OS will look for it. A push
+    never replaces one already on the card (sdcard.push): a session
+    nobody has brought home yet may be on it."""
     p = out / TAPE_FILE
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_bytes(bytes(TAPE_BYTES))

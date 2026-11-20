@@ -70,6 +70,19 @@ def main(argv=None) -> int:
     p.add_argument("--tape", default=None, help="witness: pad-log tape")
     p.add_argument("--diff", default=None, help="witness: write marked diff PPM")
 
+    p = sub.add_parser("replay", help="a recorded session again, on the "
+                                      "reference machine")
+    p.add_argument("tape", help="a .ztp from the Pocket, or a text tape")
+    p.add_argument("game", help="what it was played on: the .zbin from the "
+                                "card (exact), or a cart by name or path")
+    p.add_argument("--card", default=None,
+                   help="the save the session started with (a card*.bin, "
+                        "or a folder of them); blank if not given")
+    p.add_argument("--expect", default=None,
+                   help="the save the Pocket was left with: the replay "
+                        "must write the same words")
+    p.add_argument("--shot", default=None, help="write the last frame here (.ppm)")
+
     p = sub.add_parser("stage", help="a card folder: one file a game, "
                                      "chosen in the Pocket's own menu")
     p.add_argument("games", nargs="+", metavar="[TITLE=]CART",
@@ -146,6 +159,57 @@ def main(argv=None) -> int:
               f"object-list entries here")
         return 0
 
+    if args.cmd == "replay":
+        import struct
+        import time
+        from . import cabinet, carts, deploy, tape as ztape
+        if args.game.endswith(".zbin"):
+            cart = deploy.read_zbin(Path(args.game))
+        else:
+            cart = cabinet.load_cart(carts.resolve(args.game))
+        if args.card:
+            cart["sd"] = deploy.card_images(Path(args.card))
+        blob = Path(args.tape).read_bytes()
+        pads = ztape.read(args.tape)
+        if blob[:4] == struct.pack("<I", ztape.MAGIC):
+            why = ztape.check(ztape.decode(blob)[0], cart)
+            if why:
+                print(f"NOT THIS GAME: {why}")
+                return 1
+        t0 = time.time()
+
+        def each(f, m):
+            if f % 600 == 599:
+                print(f"  frame {f + 1:,} of {len(pads):,} "
+                      f"({(f + 1) / (time.time() - t0):.0f} a second)", flush=True)
+        m = ztape.replay(cart, pads, each)
+        print(f"replayed {len(pads):,} frames; the machine "
+              f"{'TRAPPED' if getattr(m.vm, 'trapped', False) else 'ran clean'}")
+        for slot, img in sorted(m.vm.sd.items()):
+            print(f"  card slot {slot}: {len(img)} words  "
+                  f"{' '.join(f'{w:08x}' for w in img[:8])}")
+        if args.shot:
+            from . import gpu
+            gpu.write_ppm(m.framebuffer(), args.shot)
+            print(f"  last frame: {args.shot}")
+        if args.expect:
+            want = deploy.card_images(Path(args.expect))
+            bad = 0
+            for slot, img in sorted(want.items()):
+                got = list(m.vm.sd.get(slot, []))
+                n = max(len(got), len(img))
+                a = got + [0] * (n - len(got))
+                b = list(img) + [0] * (n - len(img))
+                diff = [i for i in range(n) if a[i] != b[i]]
+                bad += len(diff)
+                print(f"  slot {slot}: " + ("the save the Pocket wrote, word for word"
+                      if not diff else f"{len(diff)} word(s) differ, first at {diff[0]}: "
+                      f"replay {a[diff[0]]:08x}, Pocket {b[diff[0]]:08x}"))
+            print("REPLAY PASS" if not bad else "REPLAY FAIL: the desktop's session "
+                  "is not the Pocket's (a different starting save, or a divergence)")
+            return 1 if bad else 0
+        return 0
+
     if args.cmd == "stage":
         from . import carts, deploy
         games = {}
@@ -172,7 +236,7 @@ def main(argv=None) -> int:
         if args.action == "tape":       # the recorded session, brought home
             from . import cabinet, carts
             cart = cabinet.load_cart(carts.resolve(args.cart)) if args.cart else None
-            return 0 if sdcard.tape(card, Path("tapes"), cart) else 1
+            return 0 if sdcard.tape(card, cart=cart) else 1
         # witness: the newest capture, straight into the gate
         if not args.cart:
             raise SystemExit("zeta sd witness CART -- name the cart the "

@@ -195,3 +195,115 @@ def test_the_manifest_declares_the_tape_and_staging_lays_it(tmp_path):
     assert deploy.manifests(menu=True)["data.json"]["data"]["data_slots"][-1] == t
     deploy.stage_tape(tmp_path)
     assert (tmp_path / deploy.TAPE_FILE).read_bytes() == bytes(deploy.TAPE_BYTES)
+
+
+# --------------------------------------------------------------------------
+# the loop's desktop half: the game off the card, the save it started
+# with, the session again
+# --------------------------------------------------------------------------
+def _a_pocket(tmp_path, start, pads):
+    """A card as the Pocket leaves it: the `save` probe staged as a game,
+    played from a save reading `start`, its tape and its save written."""
+    from zeta import cabinet
+    card = tmp_path / "card"
+    core = tmp_path / "core"
+    cdir = core / f"Cores/{deploy.AUTHOR}.{deploy.CORENAME}"
+    cdir.mkdir(parents=True)
+    (cdir / "zeta.rbf_r").write_bytes(b"bitstream")
+    (core / "Platforms").mkdir()
+    deploy.stage_menu(card, {"SAVE": carts.path("save")}, core, film=False)
+    game = card / deploy.ASSETS / "SAVE.zbin"
+    (card / deploy.ASSETS / "card.bin").write_bytes(struct.pack("<I", start))
+    return card, game
+
+
+def _play(card, game, pads):
+    cart = deploy.read_zbin(game, card / deploy.ASSETS)
+    m = tape.replay(cart, pads)
+    (card / deploy.TAPE_FILE).write_bytes(
+        tape.encode(pads, tape.cart_sum(cart)).ljust(deploy.TAPE_BYTES, b"\0"))
+    (card / deploy.ASSETS / "card.bin").write_bytes(
+        struct.pack(f"<{len(m.vm.sd[2])}I", *m.vm.sd[2]))
+    return m
+
+
+def test_the_game_on_the_card_is_the_cart_that_was_staged(tmp_path):
+    """read_zbin undoes write_zbin: same sum (so the tape names it), same
+    machine frame for frame."""
+    import numpy as np
+    from zeta import cabinet, sdcard
+    cart = asm.assemble(carts.path("tear"))
+    z = tmp_path / "tear.zbin"
+    deploy.write_zbin(cart, z)
+    back = deploy.read_zbin(z)
+    assert tape.cart_sum(back) == tape.cart_sum(cart) == sdcard.zbin_sum(z)
+    a, b = cabinet.VirtualMachine(cart), cabinet.VirtualMachine(back)
+    for f, p in enumerate(_session()[:40]):
+        a.frame(p)
+        b.frame(p)
+        assert np.array_equal(a.framebuffer(), b.framebuffer()), f"frame {f}"
+        assert np.array_equal(a.audio(), b.audio())
+    assert a.vm.dmem == b.vm.dmem
+
+
+def test_every_visit_keeps_the_save_and_a_push_keeps_the_tape(tmp_path):
+    """A replay needs the save its session STARTED with, so each visit to
+    the card copies the save home (once per change). And a push must not
+    blank a tape nobody has brought home, though the staged blank is the
+    newer file."""
+    import os
+    import time
+    from zeta import sdcard
+    card, game = _a_pocket(tmp_path, 5, [])
+    home = tmp_path / "home"
+    first = sdcard.saves_home(card, home, "20261120-100000")
+    assert [f.name for f in first] == ["20261120-100000.card.bin"]
+    assert sdcard.saves_home(card, home, "20261120-110000") == first      # unchanged
+    _play(card, game, [0] * 150)
+    assert len(list(home.glob("*.card.bin"))) == 1
+    second = sdcard.saves_home(card, home, "20261120-120000")
+    assert second != first and second[0].read_bytes() == struct.pack("<I", 6)
+
+    recorded = (card / deploy.TAPE_FILE).read_bytes()
+    staged = tmp_path / "staged"
+    deploy.stage_tape(staged)
+    later = time.time() + 3600
+    os.utime(staged / deploy.TAPE_FILE, (later, later))
+    sdcard.TAPES, keep = home, sdcard.TAPES
+    try:
+        sdcard.push(card, staged)
+    finally:
+        sdcard.TAPES = keep
+    assert (card / deploy.TAPE_FILE).read_bytes() == recorded
+    assert sdcard.TAPE_NAME == Path(deploy.TAPE_FILE).name
+
+
+def test_the_session_again_writes_the_save_the_pocket_wrote(tmp_path, capsys):
+    """THE LOOP, on the desktop: a visit keeps the save; the game is
+    played; the tape comes home and names its game off the card; and the
+    replay -- that game's bytes, the save it started with, the pads --
+    leaves the save the Pocket was left with. From the wrong starting
+    save it does not, and says so."""
+    from zeta import cli, sdcard
+    pads = [0] * 90 + [1] * 30 + [0] * 60
+    card, game = _a_pocket(tmp_path, 5, pads)
+    home = tmp_path / "home"
+    start = sdcard.saves_home(card, home, "20261120-100000")[0]
+    _play(card, game, pads)
+    got = sdcard.tape(card, home)
+    out = capsys.readouterr().out
+    assert "the game: SAVE.zbin" in out and f"--card {start}" in out
+    end = sorted(home.glob("*.card.bin"))[-1]
+    assert end != start and f"--expect {end}" in out
+    assert cli.main(["replay", str(got), str(game), "--card", str(start),
+                     "--expect", str(end)]) == 0
+    assert "REPLAY PASS" in capsys.readouterr().out
+    wrong = tmp_path / "card.bin"
+    wrong.write_bytes(struct.pack("<I", 9))
+    assert cli.main(["replay", str(got), str(game), "--card", str(wrong),
+                     "--expect", str(end)]) == 1
+    assert "REPLAY FAIL" in capsys.readouterr().out
+    # ...and a tape is refused against a game it was not recorded on
+    other = tmp_path / "tear.zbin"
+    deploy.write_zbin(asm.assemble(carts.path("tear")), other)
+    assert cli.main(["replay", str(got), str(other)]) == 1
