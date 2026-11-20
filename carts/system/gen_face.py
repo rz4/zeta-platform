@@ -48,16 +48,23 @@ import zipfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-# the SONG BUILD (TND_SONG=1, games/tnd/gen_tnd.py): the same column from the
-# local build/song/ -- the recorded theme is third-party and never committed
-import os as _os                                         # noqa: E402
-SONGDIR = ROOT / "build" / "song" if _os.environ.get("TND_SONG") == "1" else HERE
-
 ROOT = next(p for p in Path(__file__).resolve().parents
             if (p / "zeta" / "spec.py").is_file())
 sys.path.insert(0, str(ROOT))
 from zeta import carts as _carts                         # noqa: E402
 _carts.on_path()                 # sibling generators, wherever they live
+# the SONG BUILD (TND_SONG=1, games/tnd/gen_tnd.py): the same column from the
+# local build/song/ -- the recorded theme is third-party and never committed
+import os as _os                                         # noqa: E402
+SONGDIR = ROOT / "build" / "song" if _os.environ.get("TND_SONG") == "1" else HERE
+# THE FILM BEFORE ANY GAME (docs/PLATFORM.md). The film has always ended by
+# handing the machine to the shelf; what it hands to is just a cart
+# shelved in its own segment. FACE_LAUNCH names another -- a game chosen
+# in the Pocket's menu still opens on the machine's face and its logo --
+# and FACE_OUT says where that film-and-game goes (zeta stage).
+LAUNCH = Path(_os.environ["FACE_LAUNCH"]) if _os.environ.get("FACE_LAUNCH") \
+    else SONGDIR / "shelf.zol"
+OUT = Path(_os.environ.get("FACE_OUT", SONGDIR / "face.zol"))
 
 from zeta import spec                                      # noqa: E402
 from zeta.gpu import _rot                                  # noqa: E402
@@ -532,7 +539,7 @@ def main():
 
     # the shelf rides in the film's segment, AFTER every plate, so no
     # offset the film already uses moves
-    SH_P, SH_D, SH_S = cart.shelve(SONGDIR / "shelf.zol")
+    SH_P, SH_D, SH_S = cart.shelve(LAUNCH)
     assert SH_D - SH_S > 0 and SH_P - SH_S > 0   # pre-compensated offsets
                                                  # must stay presentable
     p = cart.program()
@@ -989,7 +996,7 @@ def main():
 
     p.emit("halt")
     print(cart.report())
-    cart.write(SONGDIR / "face.zol")
+    cart.write(OUT)
 
 
 if __name__ == "__main__":

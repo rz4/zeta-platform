@@ -78,6 +78,8 @@ def main(argv=None) -> int:
     p.add_argument("--core", default="build/pocket",
                    help="a staged folder to take the core from")
     p.add_argument("--out", default="build/menu")
+    p.add_argument("--no-film", action="store_true",
+                   help="boot straight into each game, without the film")
 
     p = sub.add_parser("budget", help="the frame-budget gate: does it fit 60?")
     p.add_argument("carts", nargs="*", help="default: every suite cart")
@@ -151,7 +153,8 @@ def main(argv=None) -> int:
             title, _, ref = g.rpartition("=")
             path = carts.resolve(ref)
             games[title or path.stem] = path
-        for f in deploy.stage_menu(Path(args.out), games, Path(args.core)):
+        for f in deploy.stage_menu(Path(args.out), games, Path(args.core),
+                                   film=not args.no_film):
             print(f"  {f.name:28s} {f.stat().st_size:>10,} bytes")
         print(f"staged {len(games)} game(s) in {args.out}: "
               f"zeta sd push --staged {args.out}")

@@ -108,11 +108,12 @@ def test_staging_writes_one_file_a_game(tmp_path):
     out = tmp_path / "menu"
     root = Path(__file__).parents[1]
     made = deploy.stage_menu(out, {"TEAR": root / "games/tear/tear.zol",
-                                   "Bounce": root / "carts/examples/bounce.zol"}, core)
+                                   "Bounce": root / "carts/examples/bounce.zol"}, core,
+                             film=False)
     assert sorted(p.name for p in made) == ["Bounce.zbin", "TEAR.zbin"]
     assert (out / cdir.relative_to(core) / "zeta.rbf_r").read_bytes() == b"bitstream"
     import json
     slots = json.loads((out / cdir.relative_to(core) / "data.json").read_text())
     assert "filename" not in slots["data"]["data_slots"][0]
-    deploy.stage_menu(out, {"TEAR": root / "games/tear/tear.zol"}, core)
+    deploy.stage_menu(out, {"TEAR": root / "games/tear/tear.zol"}, core, film=False)
     assert [p.name for p in (out / "Assets/zeta/common").glob("*.zbin")] == ["TEAR.zbin"]

@@ -18,6 +18,8 @@ from __future__ import annotations
 
 import json
 import shutil
+import subprocess
+import sys
 import time
 from pathlib import Path
 
@@ -350,12 +352,39 @@ def manifests(menu: bool = False) -> dict:
     return out
 
 
-def stage_menu(out: Path, games: dict, core_from: Path) -> list[Path]:
+def with_film(cart_path: Path, work: Path) -> Path:
+    """The cart at `cart_path` behind the boot film: the machine's face,
+    its logo, and then the game -- one cart, the film handing the machine
+    over exactly as it always handed it to the shelf (carts/system/
+    gen_face.py, FACE_LAUNCH). Needs the film's own source media, which
+    is third-party and local."""
+    import os
+    from . import carts
+    gen = carts.gen("face")
+    out = work / f"{Path(cart_path).stem}.film.zol"
+    env = dict(os.environ, FACE_LAUNCH=str(Path(cart_path).resolve()),
+               FACE_OUT=str(out))
+    r = subprocess.run([sys.executable, gen.name], cwd=gen.parent, env=env,
+                       capture_output=True, text=True)
+    if r.returncode or not out.is_file():
+        raise SystemExit(f"the film would not take {cart_path}: "
+                         f"{(r.stderr or r.stdout).strip()[-300:]}")
+    return out
+
+
+def stage_menu(out: Path, games: dict, core_from: Path,
+               film: bool = True) -> list[Path]:
     """A card folder with one file a game. `games` is {title: cart path};
     the title is the name the Pocket's browser shows. The core -- its
     bitstream and images -- is copied from `core_from`, an existing staged
-    folder, so a fit is never re-run to change what is on the card."""
+    folder, so a fit is never re-run to change what is on the card.
+
+    With `film` (the default) every game opens on the boot film and its
+    logo: the console's face is not lost by choosing the game in the
+    Pocket's menu instead of on the shelf."""
+    import tempfile
     from . import cabinet
+    work = Path(tempfile.mkdtemp(prefix="zeta-stage-"))
     coredir = f"Cores/{AUTHOR}.{CORENAME}"
     if not (core_from / coredir / "zeta.rbf_r").is_file():
         raise SystemExit(f"{core_from} holds no staged core ({coredir}/zeta.rbf_r)")
@@ -370,7 +399,7 @@ def stage_menu(out: Path, games: dict, core_from: Path) -> list[Path]:
     stage_tape(out)
     written, card = [], {}
     for title, path in games.items():
-        cart = cabinet.load_cart(path)
+        cart = cabinet.load_cart(with_film(path, work) if film else path)
         write_zbin(cart, assets / f"{title}.zbin")
         written.append(assets / f"{title}.zbin")
         for slot, img in cart.get("sd", {}).items():

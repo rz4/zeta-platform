@@ -267,3 +267,34 @@ def test_the_column_carries_the_games_card():
         m.frame(0)
     assert [m.vm.dmem[save], m.vm.dmem[save + 1]] == [5, 3], "the card was not read"
     assert m.vm.dmem[spec.DL_BASE] == 44, "the title did not say BEST S"
+
+
+FILM_SOURCE = ROOT / "assets" / "ps1low-poly-grey-alien.zip"
+
+
+@pytest.mark.skipif(not FILM_SOURCE.exists(),
+                    reason="the film's source media is third-party and local")
+@pytest.mark.parametrize("game", ["tear", "hall"])
+def test_the_film_opens_any_game(game, tmp_path):
+    """A game chosen in the Pocket's menu still opens on the machine's face:
+    the film with THAT game shelved in it, handing over as it always handed
+    to the shelf. After the hand-off the machine is the game booted
+    directly -- picture, sound, and every cell but the launch's own."""
+    from zeta import deploy
+    cart = cabinet.load_cart(deploy.with_film(carts.path(game), tmp_path))
+    m = cabinet.VirtualMachine(cart)
+    m.vm.frame_no = FILM_LAUNCH - 1
+    for _ in range(1 + 4):                       # the film's four launch frames
+        m.frame(0)
+    direct = cabinet.VirtualMachine(cabinet.load_cart(carts.path(game)))
+    direct.vm.frame_no = m.vm.frame_no
+    for f in range(60):
+        m.frame(0)
+        direct.frame(0)
+        assert np.array_equal(m.framebuffer(), direct.framebuffer()), (
+            f"{game} behind the film diverges {f} frames after the hand-off")
+        assert np.array_equal(m.audio(), direct.audio()), f"audio diverges at {f}"
+    skip = {spec.SEG_BASE, spec.OVL_SRC, spec.OVL_LEN}
+    diff = [a for a in range(spec.DMEM_WORDS)
+            if a not in skip and m.vm.dmem[a] != direct.vm.dmem[a]]
+    assert not diff, f"cells differ after the film: {diff[:8]}"
