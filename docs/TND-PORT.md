@@ -373,7 +373,7 @@ the witness of the Pocket's RGB565 camera.
                  title reads that Start as held, not fresh. Start on the
                  very first frame still begins the fight at once.
 
-## P14 -- the card: LANDED IN SIMULATION, glass pending
+## P14 -- the card: LANDED, witnessed on the Pocket
 
 What survives the power: two words in card slot 2 (the Pocket's card.bin).
 The best rank ever reached (0 none yet, 1..7 for D..SSS) and the runs
@@ -411,9 +411,11 @@ once; a foreign card says nothing; the HUD's promise holds at its forced
 worst), tests/test_forge.py (adoption, collision), tests/test_shelf.py
 (the column carries the card).
 
-**Glass pending:** whether the Pocket persists card.bin across a power
-cycle is carts/save.zol's question (staged in build/savetest), and it has
-not been asked on glass yet.
+**WITNESSED ON THE POCKET (2026-11-20, the stack core):** a run played,
+the machine switched off and on, and the title said BEST and the rank.
+The Pocket keeps card.bin across a power cycle. (The card's file had to
+be two words long first: it held one blank word from August, and a push
+never replaces a card*.bin, so it was replaced by hand.)
 
 ## The frame, measured (2026-11-19)
 
