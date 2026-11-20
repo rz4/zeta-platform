@@ -858,25 +858,48 @@ AR = {k: cart.var("ar_" + k) for k in ("x", "z", "ox", "oz")}
 AR_SQ, AR_LANE, AR_REACH = (int(v * ONE) for v in (11 - 0.4, 11 - 3.2 - 0.7, 54 - 14))
 
 
+L_KIA = p.label("kia")
+KP = {k: cart.var("kp_" + k) for k in ("p", "o")}    # where x (z next), where ox
+
+
 def keep_in_arena(xc, zc, ox, oz):
     """a step that leaves the street keeps whichever axis of it stays on
     -- the archive's own SLIDE (tear.py, the open-world clamp: the whole
     step, else x alone, else z alone, else none), so a wall is a wall you
-    can run along rather than glue"""
-    ok = p.label("inarena")
-    p.load(xc).store(AR["x"]).load(zc).store(AR["z"])
-    p.emit(f"call {L_ARENA}", f"jz {ok}_x", f"jmp {ok}")
+    can run along rather than glue. (One subroutine through two pointers:
+    every pair here sits x then z, ox then oz.)"""
+    assert int(zc) == int(xc) + 1 and int(oz) == int(ox) + 1
+    p.push(int(xc)).store(KP["p"]).push(int(ox)).store(KP["o"])
+    p.emit(f"call {L_KIA}")
+
+
+def _kia_sub():
+    def get(ptr, k):
+        p.load(KP[ptr])
+        if k:
+            p.push(k).emit("add")
+        p.emit("loadi")
+
+    def put_from(src, k):                              # *(p + k) = *(o + k)
+        get("o", k)
+        p.load(KP["p"])
+        if k:
+            p.push(k).emit("add")
+        p.emit("storei")
+    ok = p.label("kia")
+    p.mark(L_KIA)
+    get("p", 0); p.store(AR["x"]); get("p", 1); p.store(AR["z"])
+    p.emit(f"call {L_ARENA}", f"jz {ok}_x", "ret")
     p.mark(f"{ok}_x")                                # x alone
-    p.load(xc).store(AR["x"]).load(oz).store(AR["z"])
+    get("p", 0); p.store(AR["x"]); get("o", 1); p.store(AR["z"])
     p.emit(f"call {L_ARENA}", f"jz {ok}_z")
-    p.load(oz).store(zc).emit(f"jmp {ok}")
+    put_from("o", 1); p.emit("ret")
     p.mark(f"{ok}_z")                                # z alone
-    p.load(ox).store(AR["x"]).load(zc).store(AR["z"])
+    get("o", 0); p.store(AR["x"]); get("p", 1); p.store(AR["z"])
     p.emit(f"call {L_ARENA}", f"jz {ok}_n")
-    p.load(ox).store(xc).emit(f"jmp {ok}")
+    put_from("o", 0); p.emit("ret")
     p.mark(f"{ok}_n")                                # neither
-    p.load(ox).store(xc).load(oz).store(zc)
-    p.mark(ok)
+    put_from("o", 0); put_from("o", 1); p.emit("ret")
 WALK = int(0.032 * ONE)                          # the archive's walk pace
 CAMD = 3                                         # camera distance, units
 L = {k: p.label(k) for k in ("free", "noa", "jab", "walk", "idle",
@@ -1516,19 +1539,37 @@ SHOVE2 = int(0.9 ** 2 * ONE)
 SH = {k: cart.var("sh_" + k) for k in ("dx", "dz")}
 
 
+L_SHV = p.label("shv")
+SV = {k: cart.var("sv_" + k) for k in ("a", "b", "wa", "wb")}
+
+
 def shove(ax, az, bx, bz, ma, mb):
-    skip = p.label("shove")
-    wa = int(round(ONE / 8 * mb / (ma + mb)))         # the lighter one moves more
-    wb = int(round(ONE / 8 * ma / (ma + mb)))
-    p.load(bx).load(ax).emit("sub").store(SH["dx"])
-    p.load(bz).load(az).emit("sub").store(SH["dz"])
+    """(through pointers: a's x then z, b's x then z)"""
+    assert int(az) == int(ax) + 1 and int(bz) == int(bx) + 1
+    p.push(int(ax)).store(SV["a"]).push(int(bx)).store(SV["b"])
+    p.push(int(round(ONE / 8 * mb / (ma + mb)))).store(SV["wa"])  # the lighter
+    p.push(int(round(ONE / 8 * ma / (ma + mb)))).store(SV["wb"])  # moves more
+    p.emit(f"call {L_SHV}")
+
+
+def _shv_sub():
+    def at(ptr, k):
+        p.load(SV[ptr])
+        if k:
+            p.push(k).emit("add")
+    sk = p.label("shv")
+    p.mark(L_SHV)
+    for k, d in ((0, "dx"), (1, "dz")):
+        at("b", k); p.emit("loadi"); at("a", k); p.emit("loadi", "sub"); p.store(SH[d])
     p.load(SH["dx"]).load(SH["dx"]).emit("mulq")
     p.load(SH["dz"]).load(SH["dz"]).emit("mulq", "add")
-    p.push(SHOVE2).emit("lt", f"jz {skip}")
-    for cell, dcell, w, sgn in ((ax, "dx", wa, "sub"), (az, "dz", wa, "sub"),
-                                (bx, "dx", wb, "add"), (bz, "dz", wb, "add")):
-        p.load(cell).load(SH[dcell]).push(w).emit("mulq", sgn).store(cell)
-    p.mark(skip)
+    p.push(SHOVE2).emit("lt", f"jz {sk}")
+    for ptr, w, sgn in (("a", "wa", "sub"), ("b", "wb", "add")):
+        for k, d in ((0, "dx"), (1, "dz")):
+            at(ptr, k); p.emit("loadi").load(SH[d]).load(SV[w]).emit("mulq", sgn)
+            at(ptr, k); p.emit("storei")
+    p.mark(sk)
+    p.emit("ret")
 
 
 def if_standing(ds, body):
@@ -2462,6 +2503,9 @@ p.load(TX["x"]).load(TX["sc"]).push(4).emit("mul", "add").store(TX["x"])
 p.addi(TX["k"], -1).emit(f"jmp {tl_}")
 p.mark(f"{tl_}_e")
 p.emit("ret")
+
+_kia_sub()
+_shv_sub()
 
 # SINE: ( a -- sin a ), Q16.16, from the quarter wave. sin(a) for a in
 # 256..511 is sin(512 - a); the lower half-turn negates the upper.
