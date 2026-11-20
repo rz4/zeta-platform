@@ -9,11 +9,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from zeta import asm, gpu, spec, vm
 
-CART = Path(__file__).parents[1] / "carts/cube.zol"
+CART = Path(__file__).parents[1] / "carts/witness/cube.zol"
 
 # THE ALCHEMICAL PALETTE (boot 61), which is what gen_cube.py emits.
 # These constants used to be an older set -- 0xEE5544 and friends --
-# because carts/cube.zol on disk had never been regenerated after the
+# because carts/witness/cube.zol on disk had never been regenerated after the
 # palette amendment, and the tests were written against the STALE CART
 # rather than its generator. Nothing regenerates carts as a gate, so the
 # drift was invisible until an unrelated change forced a rebuild.

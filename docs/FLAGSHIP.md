@@ -1,6 +1,6 @@
 # FLAGSHIP — TEAR, assessed
 
-An assessment of TEAR (`carts/tear.zol`) as the candidate flagship
+An assessment of TEAR (`games/tear/tear.zol`) as the candidate flagship
 first-party title, against the project's own charge: "thirty-nine
 carts, zero with a goal, a fail state and a player loop." Written
 2026-11-18, from the code, the tests, the July 2026 archive, and the
@@ -8,7 +8,7 @@ spec (`zeta-sdk/docs/ZETA0.md` §7, `AXES.md`).
 
 ## a. What TEAR is today
 
-`carts/tear.zol` is 611 lines of pure ZOL, no generator script. It is
+`games/tear/tear.zol` is 611 lines of pure ZOL, no generator script. It is
 the only cart in the tree with a goal, a fail state and a loop — small,
 but real on all three counts.
 

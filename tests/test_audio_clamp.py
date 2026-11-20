@@ -6,7 +6,7 @@ did, so nothing legislated a clamp. Sixteen peak at 245,760, whose >>2 is
 61,440, which is not: without saturation the loudest frame flips sign,
 which is the ugliest noise an audio path can make.
 
-carts/choir.zol cannot prove this and says so. Sixteen INDEPENDENT voices
+carts/witness/choir.zol cannot prove this and says so. Sixteen INDEPENDENT voices
 rarely align -- each phase accumulator runs at its own rate, so making
 their frequencies equal does not make their phases equal, and forcing a
 mid-flight unison actually LOWERED its peak (30,420 -> 23,842). A cart is

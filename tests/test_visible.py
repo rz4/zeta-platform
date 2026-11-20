@@ -42,10 +42,10 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from zeta import cabinet, gpu, spec
+from zeta import cabinet, carts, gpu, spec
 
 ONE = 65536
-CART = Path(__file__).resolve().parents[1] / "carts" / "seen.zol"
+CART = carts.path("seen")
 
 
 def _meshes():
@@ -202,8 +202,7 @@ def test_the_witness_still_exercises_the_forwarding_hazard():
     """
     for name in ("seen", "watched"):
         m = cabinet.VirtualMachine(
-            cabinet.load_cart(Path(__file__).resolve().parents[1]
-                              / "carts" / f"{name}.zol"))
+            cabinet.load_cart(carts.path(name)))
         for _ in range(3):
             m.frame(spec.PAD_RIGHT)
         idb = np.zeros((spec.H, spec.W), np.int64)

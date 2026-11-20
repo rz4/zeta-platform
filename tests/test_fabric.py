@@ -24,9 +24,9 @@ import pytest
 
 from zeta import asm, spec, vm
 
-CARTS = Path(__file__).parent.parent / "carts"
-CART = CARTS / "fabric.zol"
-sys.path.insert(0, str(CARTS))
+from zeta import carts                                   # noqa: E402
+CART = carts.path("fabric")
+carts.on_path()
 import gen_fabric                                          # noqa: E402
 
 # DERIVED, never copied: retuning the cell size in the generator used to

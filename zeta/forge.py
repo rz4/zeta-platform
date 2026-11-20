@@ -20,7 +20,7 @@ and every limit in spec.py is checked in one place.
     p = cart.program()
     p.set(spec.CAM_Y, 24 * ONE)
     ...
-    cart.write("carts/flight.zol")
+    cart.write("carts/examples/flight.zol")
 """
 from __future__ import annotations
 
@@ -385,7 +385,7 @@ class Cart:
         # mover before handing the machine back (borrowed()). Only data()
         # with borrow= places there, and the forge cannot tell a constant
         # from a variable: what goes there is the cart's promise, and its
-        # gates' to check (carts/gen_tnd.py poisons the region to prove it).
+        # gates' to check (games/tnd/gen_tnd.py poisons the region to prove it).
         self._borrow = None
         if dl_borrow is not None:
             if dl_lease is None:
@@ -597,7 +597,7 @@ class Cart:
 
     def shelve(self, path) -> tuple[Sym, Sym, int]:
         """Place another cart's images in THIS cart's segment, ready for
-        the mover handoff (carts/gen_shelf.py has the launch protocol):
+        the mover handoff (carts/system/gen_shelf.py has the launch protocol):
         its segment first (if it has one), then its program (4096 words,
         zero-padded), then its whole initial DMEM (16384 words).
 

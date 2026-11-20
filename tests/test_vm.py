@@ -59,7 +59,7 @@ def test_pad_reaches_cell1(tmp_path):
 
 
 def test_bounce_cart_300_frames(tmp_path):
-    cart = asm.assemble(Path(__file__).parents[1] / "carts/bounce.zol")
+    cart = asm.assemble(Path(__file__).parents[1] / "carts/examples/bounce.zol")
     m = vm.VM(cart)
     xs = set()
     for f in range(300):

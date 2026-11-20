@@ -1,9 +1,13 @@
 """cli.py -- the `zeta` command, the SDK's front door.
 
-    zeta build carts/game.zol            .zol -> .zc cart
-    zeta run   carts/game.zol            play it (pygame, 60 fps)
-    zeta dump  carts/game.zol -f 120 -a 0,60,119   headless frames -> PPM
-    zeta cross carts/game.zol            virtual vs silicon, bit-exact
+    zeta build games/mine/mine.zol       .zol -> .zc cart
+    zeta run   mine                      play it (pygame, 60 fps)
+    zeta dump  mine -f 120 -a 0,60,119   headless frames -> PPM
+    zeta cross mine                      virtual vs silicon, bit-exact
+
+A cart is named by its PATH or just its NAME: zeta/carts.py knows where
+every cart lives (carts/witness, carts/probes, carts/examples,
+carts/system, games/<name>).
 
 `run` and `dump` take either .zol (assembled on the fly) or .zc.
 """
@@ -141,15 +145,16 @@ def main(argv=None) -> int:
         if not args.cart:
             raise SystemExit("zeta sd witness CART -- name the cart the "
                              "capture came from")
-        from . import cabinet, witness as wit
+        from . import cabinet, carts, witness as wit
         shot_path = sdcard.shots(card, 1)[0]
         tape = wit.read_tape(args.tape) if args.tape else None
-        return wit.witness(cabinet.load_cart(args.cart),
+        return wit.witness(cabinet.load_cart(carts.resolve(args.cart)),
                            wit.read_shot(shot_path), args.frames,
                            tape, None, args.diff,
                            capture=wit.capture_for(shot_path))
 
-    from . import cabinet
+    from . import cabinet, carts
+    args.cart = str(carts.resolve(args.cart))    # a path, or just a name
     cart = cabinet.load_cart(args.cart)
     name = Path(args.cart).stem
 

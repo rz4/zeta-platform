@@ -8,7 +8,7 @@ none, because it REPORTS proof it does not have.
 So two things are pinned here. Every claim must still be witnessed by
 its cart -- that is the table staying honest as the carts change. And a
 witness must be able to say NO -- that is the table being a gate at all
-(carts/fade.zol once passed glass with the compositor doing literally
+(carts/witness/fade.zol once passed glass with the compositor doing literally
 nothing, which is the whole reason witnesses exist).
 """
 import sys

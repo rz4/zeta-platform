@@ -22,7 +22,7 @@ import pytest
 from zeta import cabinet, spec
 
 ONE = 1 << 16
-CART = Path(__file__).parents[1] / "carts/vessel.zol"
+CART = Path(__file__).parents[1] / "games/vessel/vessel.zol"
 
 
 @pytest.fixture(scope="module")

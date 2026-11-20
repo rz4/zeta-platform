@@ -5,7 +5,7 @@
 # lock marker, the HUD -- so this drives the meter's routes (tnd_meter.pad)
 # through both machines and compares every frame, framebuffer and audio.
 #
-#   python3 tools/route_cross.py carts/tnd.zol brawl [frames]
+#   python3 tools/route_cross.py games/tnd/tnd.zol brawl [frames]
 import sys
 from pathlib import Path
 

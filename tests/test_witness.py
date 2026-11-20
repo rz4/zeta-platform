@@ -8,11 +8,11 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from zeta import cabinet, gpu, spec, witness
+from zeta import cabinet, carts, gpu, spec, witness
 
 
 def _capture(cart_name: str, frame: int) -> np.ndarray:
-    m = cabinet.VirtualMachine(cabinet.load_cart(f"carts/{cart_name}.zol"))
+    m = cabinet.VirtualMachine(cabinet.load_cart(carts.path(cart_name)))
     for _ in range(frame + 1):
         m.frame(0)
     return np.asarray(m.panel(), dtype=np.uint8).copy()
@@ -27,19 +27,19 @@ def shot():
 
 
 def test_a_true_capture_passes(shot):
-    cart = cabinet.load_cart("carts/graded.zol")
+    cart = cabinet.load_cart("carts/witness/graded.zol")
     assert witness.witness(cart, shot, 4, None, None) == 0
 
 
 def test_the_wrong_cart_fails(shot):
-    cart = cabinet.load_cart("carts/bounce.zol")
+    cart = cabinet.load_cart("carts/examples/bounce.zol")
     assert witness.witness(cart, shot, 4, None, None) == 1
 
 
 def test_one_damaged_pixel_fails(shot):
     bad = shot.copy()
     bad[17, 230] ^= 0x08                   # one bit of one channel
-    cart = cabinet.load_cart("carts/graded.zol")
+    cart = cabinet.load_cart("carts/witness/graded.zol")
     assert witness.witness(cart, bad, 4, None, None) == 1
 
 
@@ -68,7 +68,7 @@ def test_the_tape_drives_the_replay(tmp_path):
     # the tape format's own witness: the same cart, driven differently,
     # must witness differently. fabric has tank controls, so pad vs no
     # pad is two different worlds by frame 40.
-    cart = cabinet.load_cart("carts/fabric.zol")
+    cart = cabinet.load_cart("carts/witness/fabric.zol")
     m = cabinet.VirtualMachine(cart)
     for _ in range(40):
         m.frame(spec.PAD_UP if hasattr(spec, "PAD_UP") else 1)
@@ -109,7 +109,7 @@ def test_tnd_on_glass_today():
     markers up. The law's frame 348 (the fight's 347) to the pixel through
     the Pocket's camera, and not without it. When the cart's opening
     changes on purpose, this is re-captured, not re-blessed."""
-    cart = cabinet.load_cart(Path(__file__).parents[1] / "carts/tnd.zol")
+    cart = cabinet.load_cart(Path(__file__).parents[1] / "games/tnd/tnd.zol")
     shot = witness.read_shot(GLASS / "tnd-aware-348.ppm")
     start = (0, [spec.PAD_START])
     assert witness.witness(cart, shot, 349, start, 348,

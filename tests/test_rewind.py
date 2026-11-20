@@ -22,13 +22,13 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from zeta import asm, cabinet, spec  # noqa: E402
+from zeta import asm, cabinet, carts, spec  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def machine(name):
-    return cabinet.VirtualMachine(asm.assemble(ROOT / f"carts/{name}.zol"))
+    return cabinet.VirtualMachine(asm.assemble(carts.path(name)))
 
 
 def pad_at(i):
@@ -81,7 +81,7 @@ def test_the_image_round_trips(name, before, after):
     blob = m.pack()
     assert len(blob) == spec.STATE_BYTES
     first = observe(m, after, before)
-    n = cabinet.VirtualMachine(asm.assemble(ROOT / f"carts/{name}.zol"))
+    n = cabinet.VirtualMachine(asm.assemble(carts.path(name)))
     n.restore(cabinet.VirtualMachine.unpack(blob))   # a DIFFERENT machine
     assert same(first, observe(n, after, before)), \
         f"{name}: the image did not carry the state to a fresh machine"
@@ -124,7 +124,7 @@ MUTATIONS = [("phase", "voice", 20, 6),      # a wavetable voice mid-cycle
 
 @pytest.mark.parametrize("field,name,before,after", MUTATIONS)
 def test_every_field_is_load_bearing(field, name, before, after):
-    cart = asm.assemble(ROOT / f"carts/{name}.zol")
+    cart = asm.assemble(carts.path(name))
     m = cabinet.VirtualMachine(cart)
     observe(m, before, 0)
     s = m.snapshot()

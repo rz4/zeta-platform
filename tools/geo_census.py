@@ -19,7 +19,7 @@
 # covered / walked is the bounding-box walk's efficiency: the fraction of
 # the rasterizer's walk clocks that land on the triangle at all.
 #
-#   python3 tools/geo_census.py carts/tnd.zol brawl [frame ...]
+#   python3 tools/geo_census.py games/tnd/tnd.zol brawl [frame ...]
 #   python3 tools/geo_census.py build/song/tnd.zol tour 887
 
 import collections

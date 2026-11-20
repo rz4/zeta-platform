@@ -17,7 +17,10 @@ from pathlib import Path
 
 import pytest
 
-CARTS = Path(__file__).resolve().parent.parent / "carts"
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+from zeta import carts                                   # noqa: E402
+
 TIMEOUT = 180  # seconds; the SLOW set is excluded below, not raced
 
 # Generators the gate must SKIP, each with the measured reason.
@@ -53,17 +56,15 @@ EXPECTED_DRIFT = {
 # more than most: it now carries the shelf, so a TEAR change that is
 # not regenerated through gen_shelf AND gen_face ships a stale column.
 NEEDS_ASSET = {
-    "face": CARTS.parent / "assets" / "ps1low-poly-grey-alien.zip",
+    "face": ROOT / "assets" / "ps1low-poly-grey-alien.zip",
     # TND's boxer, frozen from the archive by tools/tnd_extract.py
-    "tnd": CARTS.parent / "assets" / "tnd" / "boxer.npz",
+    "tnd": ROOT / "assets" / "tnd" / "boxer.npz",
 }
 
 
 def _gens():
-    for g in sorted(CARTS.glob("gen_*.py")):
-        name = g.stem[len("gen_"):]
-        if (CARTS / f"{name}.zol").exists():
-            yield name
+    for g in carts.generators():             # every kind, and the games
+        yield g.stem[len("gen_"):]
 
 
 def _regen(name: str) -> tuple[int, bytes, bytes, str]:
@@ -73,11 +74,11 @@ def _regen(name: str) -> tuple[int, bytes, bytes, str]:
     are restored afterwards no matter what, so the gate never leaves the
     tree dirty.
     """
-    cart = CARTS / f"{name}.zol"
+    cart = carts.path(name)
     original = cart.read_bytes()
     try:
         r = subprocess.run(
-            [sys.executable, f"gen_{name}.py"], cwd=CARTS,
+            [sys.executable, f"gen_{name}.py"], cwd=cart.parent,
             capture_output=True, text=True, timeout=TIMEOUT)
         regenerated = cart.read_bytes()
         return r.returncode, original, regenerated, r.stderr[-400:]

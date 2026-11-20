@@ -38,7 +38,7 @@ cd zeta-platform
 python3.14 -m venv .venv
 .venv/bin/pip install "setuptools<81"
 .venv/bin/pip install pytest numpy pygame pillow
-./zeta-cli run carts/bounce.zol
+./zeta-cli run carts/examples/bounce.zol
 ```
 
 (The exact pinned versions the gates run under are in
@@ -47,13 +47,13 @@ pygame has no prebuilt wheel for 3.14 and compiles from source, so you
 need SDL2 development headers on Linux.)
 
 A window opens: a blue square bouncing off the walls, nudgeable with
-the arrow keys. That's `carts/bounce.zol` assembled on the fly and
+the arrow keys. That's `carts/examples/bounce.zol` assembled on the fly and
 running in the pygame cabinet at 60 fps. Useful variants:
 
 ```sh
-./zeta-cli build carts/bounce.zol          # .zol -> .zc cart file
-./zeta-cli run   carts/bounce.zol --scale 3
-./zeta-cli dump  carts/bounce.zol -f 120 -a 0,60,119   # headless -> PPM
+./zeta-cli build carts/examples/bounce.zol          # .zol -> .zc cart file
+./zeta-cli run   carts/examples/bounce.zol --scale 3
+./zeta-cli dump  carts/examples/bounce.zol -f 120 -a 0,60,119   # headless -> PPM
 ```
 
 `zeta-cli` is a thin wrapper that runs `python -m zeta.cli` inside
@@ -139,9 +139,11 @@ store 12295
 halt
 ```
 
-Save it as `carts/slide.zol` and `./zeta-cli run carts/slide.zol`.
+Save it as `games/slide/slide.zol` and `./zeta-cli run slide` (a cart is
+named by its path or just its name: `zeta/carts.py` knows where each
+kind lives).
 
-Read `carts/bounce.zol` next: it is the same shape grown to a full
+Read `carts/examples/bounce.zol` next: it is the same shape grown to a full
 game loop — velocity state, signed compares for wall reflection, pad
 bits (`UP=1 DOWN=2 LEFT=4 RIGHT=8`, then A/B/X/Y/L/R/Start/Select), and
 a two-triangle quad. One gotcha worth knowing early: `push` carries a
@@ -171,7 +173,7 @@ Hand-writing `.data` blocks for an 81-vertex ground mesh is nobody's
 idea of fun, so most real carts are *generated*. Two levels:
 
 **Plain generator scripts** (`carts/gen_*.py`) compute the data and
-write a `.zol` file — `carts/gen_cube.py` is the canonical example: it
+write a `.zol` file — `carts/witness/gen_cube.py` is the canonical example: it
 builds a checkered ground plane and a cube as mesh words, emits them as
 `.data` lines, and appends a hand-written ZOL program. The output is
 still ordinary ZOL you can read.
@@ -199,7 +201,7 @@ p.addi(x, 1)                           # emits ZOL; labels unique
 p.if_pad(spec.PAD_A, lambda: p.set(x, 0))
 p.object(n_cell, mesh, x=x, y=0, z=2 * ONE, angles=0, flags=spec.OBJ_CULL)
 p.emit("halt")
-cart.write("carts/mygame.zol")
+cart.write("games/mygame/mygame.zol")
 print(cart.report())                   # words used, words free
 ```
 

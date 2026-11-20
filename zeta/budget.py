@@ -56,12 +56,11 @@ def measure(cart_name: str, frames: int = 10, pad: int = 0) -> list[int]:
     """Clocks per frame, off the silicon's own meter."""
     sim = silicon.build()
     # A NAME or a PATH. Every other subcommand takes a path, so `budget
-    # carts/lit.zol` is the natural thing to type, and it used to build
-    # "carts/carts/lit.zol.zol" and die inside the measurement loop --
+    # carts/witness/lit.zol` is the natural thing to type, and it used to build
+    # "carts/carts/witness/lit.zol.zol" and die inside the measurement loop --
     # after the header had already printed.
-    p = Path(cart_name)
-    cart = cabinet.load_cart(p if p.suffix == ".zol"
-                             else Path(f"carts/{cart_name}.zol"))
+    from . import carts
+    cart = cabinet.load_cart(carts.resolve(cart_name))
     work = Path(tempfile.mkdtemp(prefix="zeta-budget-"))
     # write_cart_hex returns None for a cart with no CRAM segment, and
     # str(None) on the command line is a file the sim cannot open --

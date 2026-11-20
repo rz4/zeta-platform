@@ -32,7 +32,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from zeta import asm, gpu, spec, tiled
+from zeta import asm, carts, gpu, spec, tiled
 
 SUB = spec.SUB
 
@@ -162,5 +162,5 @@ def test_the_face_blend_is_the_compositor_blend(a):
 @pytest.mark.parametrize("cart", ["cube", "orbit", "fabric", "tex",
                                   "lodspan", "hall", "fade"])
 def test_real_carts_render_identically_tile_by_tile(cart):
-    path = Path(__file__).parents[1] / "carts" / f"{cart}.zol"
+    path = carts.path(cart)
     assert tiled.compare(asm.assemble(path), frames=2) == [0, 0]

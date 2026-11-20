@@ -25,9 +25,9 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from zeta import cabinet, gpu, spec
+from zeta import cabinet, carts, gpu, spec
 
-CART = Path(__file__).resolve().parents[1] / "carts" / "pagemax.zol"
+CART = carts.path("pagemax")
 
 
 def _loaded(frames=40):

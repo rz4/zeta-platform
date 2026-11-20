@@ -14,7 +14,7 @@ properties matter more than the list itself.
   nothing gates. New feature, new line, the day it is written -- and
   the line is cheap, which is the whole point.
 
-  EVERY CART MUST WITNESS ITS OWN CLAIM. carts/fade.zol once passed
+  EVERY CART MUST WITNESS ITS OWN CLAIM. carts/witness/fade.zol once passed
   glass with the compositor doing literally nothing: its fade sat at
   alpha 0 on exactly the frames the gate compares. A gate that cannot
   fail is not a gate, and a coverage table whose carts do not exercise
@@ -736,7 +736,8 @@ CLAIMS: list[Claim] = [
 # the run
 # ---------------------------------------------------------------------------
 def _cart_path(name: str) -> Path:
-    return ROOT / "carts" / f"{name}.zol"
+    from . import carts
+    return carts.path(name)
 
 
 def check_witnesses() -> list[str]:

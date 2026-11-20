@@ -3,7 +3,7 @@
 # cross, PRESS START, over the frozen street -- rendered by the archive
 # itself, offline, at the panel's own 320x288 and without the CRT filter,
 # and frozen to a file the cart turns into a backdrop plate
-# (carts/gen_tnd.py). Its menu offers START alone: the port has no LOAD or
+# (games/tnd/gen_tnd.py). Its menu offers START alone: the port has no LOAD or
 # OPTIONS, and a title must not promise what the game cannot do.
 #
 # Runs UNDER THE ARCHIVE's import path, in its own process, like

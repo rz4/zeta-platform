@@ -5,14 +5,14 @@
 # run on the Zeta -- and none of it needs to: the alien thesis is that
 # expensive things are BAKED EXACTLY and played back. So the archive's
 # own posing functions are called here, offline, and their output is
-# frozen to a file the forge quantises (carts/gen_tnd.py).
+# frozen to a file the forge quantises (games/tnd/gen_tnd.py).
 #
 # Runs UNDER THE ARCHIVE's import path, in its own process, because both
 # trees name their package `zeta`. Reads the archive by path and writes
 # the gitignored assets/tnd/ -- the boxer is third-party PS1-style art
 # (tear-charkit/data/boxer_ps1_rigged.glb), so the source and this
 # intermediate stay out of git, and the baked cart carries the result,
-# exactly as carts/face.zol carries the Grey.
+# exactly as carts/system/face.zol carries the Grey.
 #
 #   python3 tools/tnd_extract.py [path/to/archive/TND]
 

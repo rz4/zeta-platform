@@ -1,6 +1,6 @@
 # THE TND RECORD, BAKED: "Set It Off" cut into the archive's own song
 # structure (archive TND song_structure.py) at this machine's recording
-# rate, for the song build of carts/gen_tnd.py (TND_SONG=1).
+# rate, for the song build of games/tnd/gen_tnd.py (TND_SONG=1).
 #
 # THE RATE is the wave page times the frame rate -- 256 samples a frame,
 # 15,360 Hz (zeta/bakepcm.py) -- so every section here is a whole number
@@ -19,7 +19,7 @@
 #
 # Third-party media: the source stays outside this repo and the bake
 # lands in the gitignored assets/tnd/song.npz. Only a local cart carries
-# it (carts/gen_tnd.py, TND_SONG).
+# it (games/tnd/gen_tnd.py, TND_SONG).
 #
 #   python3 tools/tnd_song.py [path/to/Set It Off.mp3]
 

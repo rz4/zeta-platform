@@ -1,5 +1,5 @@
 """The fight, pinned: the AI beats an idle player; an aggressive player
-beats the AI; rounds reset. Cells match carts/tear.zol's .const map."""
+beats the AI; rounds reset. Cells match games/tear/tear.zol's .const map."""
 import sys
 from pathlib import Path
 
@@ -7,7 +7,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from zeta import asm, spec, vm
 
-CART = Path(__file__).parents[1] / "carts/tear.zol"
+CART = Path(__file__).parents[1] / "games/tear/tear.zol"
 PX, EX, PH, EH, KO, WIN = 16, 17, 18, 19, 24, 25
 
 

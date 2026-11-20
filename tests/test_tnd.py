@@ -13,7 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from zeta import cabinet, spec  # noqa: E402
 
-CART = Path(__file__).parents[1] / "carts/tnd.zol"
+CART = Path(__file__).parents[1] / "games/tnd/tnd.zol"
 
 
 def _fight_vm():

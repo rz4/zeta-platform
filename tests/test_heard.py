@@ -23,7 +23,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from zeta import audio, cabinet, spec
+from zeta import audio, cabinet, carts, spec
 
 N = spec.SAMPLES_PER_FRAME
 
@@ -107,8 +107,7 @@ def test_the_cart_reads_it_TWO_frames_later():
     cross alike, and the law holds these two frames to say so.
     """
     m = cabinet.VirtualMachine(
-        cabinet.load_cart(Path(__file__).resolve().parents[1]
-                          / "carts" / "heard.zol"))
+        cabinet.load_cart(carts.path("heard")))
     seen, produced = [], []
     for _ in range(12):
         m.frame(0)

@@ -8,7 +8,7 @@ import numpy as np, pygame
 from zeta import cabinet, spec
 
 PX, EFL, KO, WIN = 16, 23, 24, 25
-m = cabinet.VirtualMachine(cabinet.load_cart("carts/tear.zol"))
+m = cabinet.VirtualMachine(cabinet.load_cart("games/tear/tear.zol"))
 want = {"stance": None, "hit": None, "ko": None}
 for f in range(3000):
     m.frame(spec.PAD_RIGHT | spec.PAD_A)

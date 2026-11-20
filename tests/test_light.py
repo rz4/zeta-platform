@@ -26,9 +26,9 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from zeta import cabinet, gpu, spec
+from zeta import cabinet, carts, gpu, spec
 
-CART = Path(__file__).resolve().parents[1] / "carts" / "shaded.zol"
+CART = carts.path("shaded")
 
 
 def _dm():

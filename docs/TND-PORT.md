@@ -25,7 +25,7 @@ The full measured inventory (sizes, file:line references, what is
 essential versus optional) was taken 2026-11-19 and its numbers are used
 below.
 
-## P1 — the fighter: LANDED (carts/tnd.zol)
+## P1 — the fighter: LANDED (games/tnd/tnd.zol)
 
 The boxer — 737 faces, 459 vertices, 67-joint skinning in the archive —
 standing, walking and jabbing on the Zeta, crossed bit-equal on silicon.
@@ -379,7 +379,7 @@ What survives the power: two words in card slot 2 (the Pocket's card.bin).
 The best rank ever reached (0 none yet, 1..7 for D..SSS) and the runs
 that ended.
 
-- **Read** once, a second after the machine starts. carts/gen_save.py's
+- **Read** once, a second after the machine starts. carts/probes/gen_save.py's
   first version read at frame 1 and got zero every time.
 - **Owed, then written.** A rank past the card's best is the new best the
   moment it is reached, so a run quit at SSS still reached SSS. A death is

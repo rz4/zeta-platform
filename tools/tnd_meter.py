@@ -4,12 +4,12 @@
 # measured"); neither is a gate. The budget gate (zeta budget) measures
 # ten idle frames; a free-camera game needs ROUTES.
 #
-#   python3 tools/tnd_meter.py silicon carts/tnd.zol brawl
+#   python3 tools/tnd_meter.py silicon games/tnd/tnd.zol brawl
 #       per frame: CLK and the meter's stages (zeta_top.v, roadmap 15):
 #       clr / walk / idle (rasteriser STARVED: the sequencer is the
 #       bottleneck) / stall / seq / blkd (sequencer BLOCKED: the
 #       rasteriser is). Prints peak, median, frames over the ceiling.
-#   python3 tools/tnd_meter.py walk carts/tnd.zol tour 890
+#   python3 tools/tnd_meter.py walk games/tnd/tnd.zol tour 890
 #       the rasteriser's WALK -- every pixel of every triangle's bounding
 #       box, one clock each for a flat face -- attributed to objects, by
 #       re-rendering that frame through the law's own _fill. Within 3% of

@@ -482,7 +482,7 @@ triangle.
   whether it rode in the queue or was read off the sequencer's counter.
 - **What waits is the floor.** It is the first mesh in the list, so every
   band offers its triangles while the rasterizer is still clearing.
-- **`carts/pickfloor.zol`** is pick.zol with the crosshair started on the
+- **`carts/witness/pickfloor.zol`** is pick.zol with the crosshair started on the
   floor at (160, 250). It crosses bit-equal, and Q3 fails it at frame 1 by
   420 pixels. It is a suite claim now, so it is a standing gate.
 
@@ -563,7 +563,7 @@ cut's mutants were where the hole showed:
 - **The suite never reached the top of the clipper's range.** nearclip's
   tiles are 2 units wide, so every crossing it makes is small arithmetic.
   The wide end of the old serial datapath was just as unwitnessed.
-- **`carts/bigclip.zol` closes that.** It is the same checker with tiles
+- **`carts/witness/bigclip.zol` closes that.** It is the same checker with tiles
   6,000 units wide, so adjacent vertices differ by more than 2^27 in view
   space, and the tiles cross all five planes at once. It is a suite claim
   now, so it is a standing gate.

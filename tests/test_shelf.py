@@ -11,7 +11,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from zeta import cabinet, spec  # noqa: E402
+from zeta import cabinet, carts, spec  # noqa: E402
 
 ROOT = Path(__file__).parents[1]
 PRESS = 10                      # A lands on this frame
@@ -19,7 +19,7 @@ HANDOFF = PRESS + 5             # 4 DMA frames + the OVL frame
 
 
 def _launch():
-    m = cabinet.VirtualMachine(cabinet.load_cart(ROOT / "carts/shelf.zol"))
+    m = cabinet.VirtualMachine(cabinet.load_cart(ROOT / "carts/system/shelf.zol"))
     for f in range(HANDOFF):
         m.frame(spec.PAD_A if f == PRESS else 0)
     return m
@@ -29,7 +29,7 @@ def test_the_cross_across_the_launch():
     """240 frames of fighting after the handoff, both machines driven
     by the same pads: every framebuffer and every sample identical."""
     shelf = _launch()
-    direct = cabinet.VirtualMachine(cabinet.load_cart(ROOT / "carts/tear.zol"))
+    direct = cabinet.VirtualMachine(cabinet.load_cart(ROOT / "games/tear/tear.zol"))
     direct.vm.frame_no = HANDOFF
     for f in range(240):
         pad = spec.PAD_RIGHT | (spec.PAD_A if f % 9 == 0 else 0) \
@@ -45,7 +45,7 @@ def test_the_cross_across_the_launch():
 def test_the_menu_stands_until_the_press():
     """No press, no launch: the shelf idles on its menu forever, and a
     HELD A from power-on is not a press."""
-    m = cabinet.VirtualMachine(cabinet.load_cart(ROOT / "carts/shelf.zol"))
+    m = cabinet.VirtualMachine(cabinet.load_cart(ROOT / "carts/system/shelf.zol"))
     for f in range(60):
         m.frame(spec.PAD_A)            # held from frame 0: never fresh
     assert m.vm.imem is not None
@@ -53,7 +53,7 @@ def test_the_menu_stands_until_the_press():
     # at DL_BASE and the launch cell never armed)
     assert m.vm.dmem[spec.DL_BASE] > 0
     la = [a for a in range(16, 48)]    # the launch var is a low cell;
-    m2 = cabinet.VirtualMachine(cabinet.load_cart(ROOT / "carts/shelf.zol"))
+    m2 = cabinet.VirtualMachine(cabinet.load_cart(ROOT / "carts/system/shelf.zol"))
     m2.frame(0)
     m2.frame(spec.PAD_A)               # up then down: THIS is a press
     assert any(m2.vm.dmem[a] != m.vm.dmem[a] for a in la), \
@@ -128,10 +128,10 @@ def test_the_hall_launches_relocated():
     shelf's offsets, its DMEM image carries the baked base, and 120
     frames after the handoff it is bit-equal to a direct boot -- the
     relocation witness."""
-    m = cabinet.VirtualMachine(cabinet.load_cart(ROOT / "carts/shelf.zol"))
+    m = cabinet.VirtualMachine(cabinet.load_cart(ROOT / "carts/system/shelf.zol"))
     for f in range(HANDOFF):
         m.frame(spec.PAD_B if f == PRESS else 0)
-    direct = cabinet.VirtualMachine(cabinet.load_cart(ROOT / "carts/hall.zol"))
+    direct = cabinet.VirtualMachine(cabinet.load_cart(ROOT / "games/hall/hall.zol"))
     direct.vm.frame_no = HANDOFF
     saw_backdrop = False
     for f in range(120):
@@ -163,7 +163,7 @@ def test_the_silicon_crosses_the_launch(name, btn):
     witness: remove the add from either machine and this names the
     frame."""
     from zeta import silicon
-    cart = cabinet.load_cart(ROOT / "carts/shelf.zol")
+    cart = cabinet.load_cart(ROOT / "carts/system/shelf.zol")
     v = cabinet.VirtualMachine(cart)
     s = silicon.SiliconMachine(cart)
     press = getattr(spec, btn)
@@ -178,14 +178,14 @@ def test_the_silicon_crosses_the_launch(name, btn):
 
 
 # ---- THE COLUMN: power-on film -> the shelf -> a game ----------------------
-FILM_LAUNCH = 660               # carts/gen_face.py: T_LAUNCH = T_END + 60
+FILM_LAUNCH = 660               # carts/system/gen_face.py: T_LAUNCH = T_END + 60
 
 
 def _film_to_shelf():
     """The film, fast-forwarded to its hold (its own 660 frames are gated
     by the face claim and the regen gate), through the four launch
     frames. The machine returned is one frame from the shelf's first."""
-    m = cabinet.VirtualMachine(cabinet.load_cart(ROOT / "carts/face.zol"))
+    m = cabinet.VirtualMachine(cabinet.load_cart(ROOT / "carts/system/face.zol"))
     m.vm.frame_no = FILM_LAUNCH - 1
     for _ in range(1 + 4):
         m.frame(0)
@@ -198,7 +198,7 @@ def test_the_film_hands_off_to_the_shelf():
     directly."""
     m = _film_to_shelf()
     assert m.vm.dmem[spec.SEG_BASE] > 0, "the film never armed a window"
-    direct = cabinet.VirtualMachine(cabinet.load_cart(ROOT / "carts/shelf.zol"))
+    direct = cabinet.VirtualMachine(cabinet.load_cart(ROOT / "carts/system/shelf.zol"))
     direct.vm.frame_no = m.vm.frame_no
     for f in range(30):
         m.frame(0)
@@ -218,7 +218,7 @@ def test_the_column(game, btn):
     m = _film_to_shelf()
     for f in range(HANDOFF):
         m.frame(getattr(spec, btn) if f == PRESS else 0)
-    direct = cabinet.VirtualMachine(cabinet.load_cart(ROOT / f"carts/{game}.zol"))
+    direct = cabinet.VirtualMachine(cabinet.load_cart(carts.path(game)))
     direct.vm.frame_no = m.vm.frame_no
     for f in range(90):
         m.frame(0)
@@ -251,7 +251,7 @@ def test_the_column_carries_the_games_card():
     slot (the forge adopts a shelved cart's slots), and the game launched
     through film and shelf reads what the card holds -- a best of S and
     three runs -- once its own film has played and its title stands."""
-    cart = cabinet.load_cart(ROOT / "carts/face.zol")
+    cart = cabinet.load_cart(ROOT / "carts/system/face.zol")
     assert [int(k) for k in cart["sd"]] == [2], "the column lost TND's slot"
     cart["sd"] = {"2": [5, 3]}
     m = cabinet.VirtualMachine(cart)
@@ -261,7 +261,7 @@ def test_the_column_carries_the_games_card():
     for f in range(HANDOFF):
         m.frame(spec.PAD_X if f == PRESS else 0)
     save = next(int(line.rsplit(" at ", 1)[1])
-                for line in (ROOT / "carts/tnd.zol").read_text().splitlines()
+                for line in (ROOT / "games/tnd/tnd.zol").read_text().splitlines()
                 if line.startswith("; save: "))
     for f in range(440):                    # TND's film, then its title
         m.frame(0)

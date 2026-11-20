@@ -7,7 +7,7 @@
 # a failed flow, or a bitstream that did not move (a report that did
 # not run is ALIEN.md's oldest bug).
 #
-# Usage: python3 infra/fit_ci.py [cart.zol]      (default carts/tear.zol)
+# Usage: python3 infra/fit_ci.py [cart.zol]      (default games/tear/tear.zol)
 
 import re
 import subprocess
@@ -20,7 +20,7 @@ sys.path.insert(0, str(ROOT))
 
 from zeta import cabinet, deploy, silicon  # noqa: E402
 
-cart_path = sys.argv[1] if len(sys.argv) > 1 else "carts/tear.zol"
+cart_path = sys.argv[1] if len(sys.argv) > 1 else "games/tear/tear.zol"
 cart = cabinet.load_cart(str(ROOT / cart_path))
 
 # the inputs Quartus reads: the baked fallback cart and the law's numbers

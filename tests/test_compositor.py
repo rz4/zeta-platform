@@ -10,7 +10,7 @@ That position is why the two gates disagree ON PURPOSE, and the
 disagreement was settled before a line was written: cross compares
 painted FRAMEBUFFERS and is correctly blind to all of this; glass
 compares the SCANNED STREAM and sees it. These tests pin the law; glass
-on carts/fade.zol pins the silicon against it (and fails when the
+on carts/witness/fade.zol pins the silicon against it (and fails when the
 silicon's alpha is mutated by one shift).
 """
 import numpy as np

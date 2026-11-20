@@ -11,7 +11,7 @@ from zeta import asm, deploy, spec
 
 
 def test_zbin_layout(tmp_path):
-    cart = asm.assemble(Path(__file__).parents[1] / "carts/tear.zol")
+    cart = asm.assemble(Path(__file__).parents[1] / "games/tear/tear.zol")
     out = tmp_path / "cart.zbin"
     deploy.write_zbin(cart, out)
     data = out.read_bytes()
