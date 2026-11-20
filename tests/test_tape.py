@@ -187,6 +187,25 @@ def test_the_tape_comes_home_from_the_card(tmp_path, capsys):
     assert sdcard.tape(card, tmp_path / "tapes") is None
 
 
+def test_a_tape_the_pocket_rotated_comes_home_straight(tmp_path, capsys):
+    """Build 106 on glass: the file is the recorder's image rotated by one
+    word, the magic last. The pull undoes it; a straight image is left
+    alone; and what is neither is still refused."""
+    from zeta import sdcard
+    pads = _session()
+    image = tape.encode(pads, 0x1234).ljust(deploy.TAPE_BYTES, b"\0")
+    rotated = image[4:] + image[:4]
+    assert tape.from_card(rotated) == image and tape.from_card(image) == image
+    card = tmp_path / "card"
+    f = card / deploy.TAPE_FILE
+    f.parent.mkdir(parents=True)
+    f.write_bytes(rotated)
+    got = sdcard.tape(card, tmp_path / "tapes")
+    assert got is not None and tape.read(got) == pads
+    junk = bytes(range(256)) * (deploy.TAPE_BYTES // 256)
+    assert tape.from_card(junk) == junk
+
+
 def test_the_manifest_declares_the_tape_and_staging_lays_it(tmp_path):
     slots = deploy.manifests()["data.json"]["data"]["data_slots"]
     t = [s for s in slots if s["name"] == "Tape"][0]

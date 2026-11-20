@@ -94,13 +94,17 @@ def tape(card: Path, out_dir: Path | None = None, cart=None) -> Path | None:
     if not src.is_file():
         print(f"no tape on the card ({deploy.TAPE_FILE})")
         return None
-    blob = src.read_bytes()
+    blob = ztape.from_card(src.read_bytes())
     try:
         head, pads = ztape.decode(blob)
     except ValueError as e:
         print(f"the card's tape is blank or not a tape: {e}")
         return None
-    stamp = time.strftime("%Y%m%d-%H%M%S", time.localtime(src.stat().st_mtime))
+    # named by THIS desk's clock, like the saves beside it: the file's own
+    # time is the Pocket's, which on first glass was a day behind, and a
+    # tape must sort after the save its session started with
+    stamp = time.strftime("%Y%m%d-%H%M%S")
+    wrote = time.strftime("%Y-%m-%d %H:%M", time.localtime(src.stat().st_mtime))
     before = sorted(out_dir.glob("*.card.bin"))          # the save it started with
     after = saves_home(card, out_dir, stamp)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -110,7 +114,7 @@ def tape(card: Path, out_dir: Path | None = None, cart=None) -> Path | None:
     secs = len(pads) / 60
     print(f"  {dst}: {len(pads):,} frames ({int(secs // 60)}m{secs % 60:04.1f}s), "
           f"{head['runs']:,} runs, build {head['build']}, "
-          f"cart sum {head['cart_sum']:#010x}")
+          f"cart sum {head['cart_sum']:#010x} (the Pocket wrote it {wrote}, by its clock)")
     if head["runs"] >= ztape.WORDS - ztape.HEADER_WORDS - 1:
         print("  THE TAPE IS FULL: the session ran on after it")
     if cart is not None:

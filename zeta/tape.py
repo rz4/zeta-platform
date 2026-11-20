@@ -80,6 +80,26 @@ def encode(pads, cart_sum_: int = 0, build: int | None = None) -> bytes:
     return struct.pack(f"<{len(words)}I", *words)
 
 
+def from_card(blob: bytes) -> bytes:
+    """The file the Pocket wrote, as the image the recorder held.
+
+    BUILD 106 WRITES THE IMAGE ROTATED BY ONE WORD (first seen on glass,
+    2026-11-20): file word i is tape word i + 1, and the magic is the
+    file's LAST word. core_top fetches each word a read ahead, on the
+    reading of io_bridge_peripheral.v that a device's data is sampled
+    before its read strobe; on the Pocket every read returned the word
+    its own strobe fetched. Why is not established. It is a rotation --
+    nothing is lost -- so it is undone here, and a core that writes the
+    image straight passes through untouched."""
+    n = len(blob) // 4
+    if n < HEADER_WORDS + 1:
+        return blob
+    first, last = (struct.unpack("<I", blob[o:o + 4])[0] for o in (0, 4 * (n - 1)))
+    if first != MAGIC and last == MAGIC:
+        return blob[4 * (n - 1):4 * n] + blob[:4 * (n - 1)]
+    return blob
+
+
 def decode(blob: bytes) -> tuple[dict, list[int]]:
     """-> ({'build', 'cart_sum', 'runs'}, pad words, one a frame)."""
     n = len(blob) // 4
