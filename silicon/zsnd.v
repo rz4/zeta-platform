@@ -309,14 +309,27 @@ module zsnd (
   // 22 bits: sixteen channels at +/-15,360 reach +/-245,760, which needs
   // 19 signed. Written wide on purpose -- a sum sized to its addends is
   // the same trap as a product sized to its operands.
-  wire signed [21:0] mix = {{6{av[0][15]}}, av[0]}  + {{6{av[1][15]}}, av[1]}
-                         + {{6{av[2][15]}}, av[2]}  + {{6{av[3][15]}}, av[3]}
-                         + {{6{av[4][15]}}, av[4]}  + {{6{av[5][15]}}, av[5]}
-                         + {{6{av[6][15]}}, av[6]}  + {{6{av[7][15]}}, av[7]}
-                         + {{6{av[8][15]}}, av[8]}  + {{6{av[9][15]}}, av[9]}
-                         + {{6{av[10][15]}}, av[10]} + {{6{av[11][15]}}, av[11]}
-                         + {{6{av[12][15]}}, av[12]} + {{6{av[13][15]}}, av[13]}
-                         + {{6{av[14][15]}}, av[14]} + {{6{av[15][15]}}, av[15]};
+  // THE SUM IN TWO BEATS (frontier B5). At 51.84 MHz the page read, the
+  // byte select, the volume's four adds, a sixteen-way sum and the clamp
+  // ran 1.63 ns over into `sample` (798 paths). The four-voice partial
+  // sums are registered EVERY clock; the tick's edge therefore captures
+  // exactly the contributions the old single beat summed -- an event the
+  // clock before a tick included -- and `sample` takes their sum one clock
+  // later. On glass nothing can tell: the bus crosses to the audio clock
+  // through synchronisers, a thousand clocks before it is next read.
+  reg signed [21:0] mixp [0:3];
+  always @(posedge clk) begin
+    mixp[0] <= {{6{av[0][15]}}, av[0]}   + {{6{av[1][15]}}, av[1]}
+             + {{6{av[2][15]}}, av[2]}   + {{6{av[3][15]}}, av[3]};
+    mixp[1] <= {{6{av[4][15]}}, av[4]}   + {{6{av[5][15]}}, av[5]}
+             + {{6{av[6][15]}}, av[6]}   + {{6{av[7][15]}}, av[7]};
+    mixp[2] <= {{6{av[8][15]}}, av[8]}   + {{6{av[9][15]}}, av[9]}
+             + {{6{av[10][15]}}, av[10]} + {{6{av[11][15]}}, av[11]};
+    mixp[3] <= {{6{av[12][15]}}, av[12]} + {{6{av[13][15]}}, av[13]}
+             + {{6{av[14][15]}}, av[14]} + {{6{av[15][15]}}, av[15]};
+  end
+  reg tick_d;                        // the clock after an accepted tick
+  wire signed [21:0] mix = mixp[0] + mixp[1] + mixp[2] + mixp[3];
   wire signed [19:0] mix_s = mix[21:2];          // >> 2, as it always was
   wire signed [15:0] mix_c =
       (mix_s < -20'sd32768) ? -16'sd32768 :
@@ -331,7 +344,10 @@ module zsnd (
       duty[0] <= 0; duty[1] <= 0;
       lfsr <= 15'd1;
       sample <= 0;
+      tick_d <= 1'b0;
     end else begin
+      tick_d <= 1'b0;
+      if (tick_d) sample <= mix_c;  // >> 2 then saturate (spec.AU_CLAMP)
       if (reg_we) begin
         if (reg_idx[0]) begin
           vol[reg_idx[4:1]] <= reg_data[3:0];
@@ -366,7 +382,7 @@ module zsnd (
         for (i = AU_TONE_CHANNELS; i < AU_CHANNELS; i = i + 1)
           ph[i] <= pn[i];
         lfsr <= lnext;
-        sample <= mix_c;            // >> 2 then saturate (spec.AU_CLAMP)
+        tick_d <= 1'b1;             // the partial sums are being captured NOW
       end
     end
   end

@@ -223,6 +223,8 @@ int main(int argc, char** argv) {
             long eg = 1000;
             while (dut->snd_busy && eg-- > 0) tick();
             dut->snd_tick = 1; tick(); dut->snd_tick = 0;
+            tick();                 // the mixer sums in two beats (B5): the
+                                    // sample lands one clock after its tick
             unsigned v = dut->snd_sample & 0xFFFF;
             abuf[2 * s] = v & 0xFF;
             abuf[2 * s + 1] = (v >> 8) & 0xFF;
