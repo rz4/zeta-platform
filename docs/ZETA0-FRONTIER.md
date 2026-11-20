@@ -811,3 +811,45 @@ on the 51.84 MHz core with the save intact. The player's report: it
   pads, and a player's fight is not. The meter is owed a route recorded
   from real play (the pad-log tape, `zeta sd witness --tape`), and until
   it has one, "no frames over the ceiling" describes the routes only.
+
+## 16. Past 51.84 MHz: where the clock stops today (measured, deferred)
+
+Two timing-only fits of the unchanged RTL, to find the next wall
+(`exp/div7-timing`, `exp/div8-timing`; nothing merged, nothing on glass).
+
+| | clocks a pixel | frame, clocks | worst slow-corner setup | result |
+|---|---:|---:|---:|---|
+| 51.84 MHz (main) | 6 | 864,000 | +0.901 ns | closes |
+| 60.48 MHz | 7 | 1,008,000 | −1.477 ns | fails |
+| 69.12 MHz | 8 | 1,152,000 | −3.020 ns | fails |
+
+Both fit in the same logic (16,977 and 16,974 ALMs, 92%), and the fast
+corners pass with more than 2 ns to spare. The slow corners are the wall.
+
+**What stands between here and 60.48 MHz** — three families:
+
+| Worst | Paths | From → to | What it is |
+|---:|---:|---|---|
+| −1.477 ns | about 800 | program data memory → the sequencer's `nlev`, `fcached` | a block-RAM read used the same clock it arrives, through the level and fit logic |
+| −1.134 ns | 32 | `cram0_dq`, `cram1_dq` pins → the burst reader's `r_data` | **the frame memory's own access time** |
+| −1.088 ns | 16 | texture memory → `s2_col` | a block-RAM read into the texel's colour |
+
+- The first and third are the kind §15 closed: register the read, pay a
+  beat. The sequencer's is on the geometry pass, so the beat is paid per
+  vertex and per object.
+- **The second is not logic.** The PSRAM is constrained at 9.0 ns from
+  its clock to valid data. At 60.48 MHz that leaves 7.5 ns of a 16.5 ns
+  period for the board, the pin and the route. Closing it needs the
+  capture moved (a phase-shifted clock, or a fast input register and a
+  re-timed burst), and that is a change only glass can witness.
+
+At 69.12 MHz the rasteriser's own arithmetic joins them (`gg_sel` → `gm`,
+`cacc` → `rr0`, `eacc` → `px`), and the glass's line buffer. That is a
+redesign of the pixel pipeline, not a round of registers.
+
+**Disposition: deferred, not rejected.** 60.48 MHz is one round of
+registers and one change to the frame memory's capture away, for a sixth
+more clocks a frame. Nothing measured asks for them yet: TND's heaviest
+scripted frame uses 58% of today's frame. The first tapes of real play
+(§15's finding) decide whether this is worth its glass risk. 69.12 MHz
+is rejected for this pipeline.
