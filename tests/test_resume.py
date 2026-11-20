@@ -128,3 +128,20 @@ def test_a_kept_wave_page_reaches_the_silicon():
     assert _resume("voice", 20, 8, both=stop) is None
     assert _resume("voice", 20, 8, both=stop,
                    mutate=_zero(_WAV, spec.STATE_BYTES)) is not None
+
+
+def test_a_run_on_the_silicon_leaves_nothing_behind(tmp_path, monkeypatch):
+    """Every run writes its cart as hex, and nothing used to remove it:
+    3 GB of leftovers filled a tmpfs quota the first time a real session
+    was profiled. A machine that is closed, and a costed window, take
+    their folders with them."""
+    import tempfile
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
+    cart = cabinet.load_cart(carts.path("tex"))
+    s = silicon.SiliconMachine(cart)
+    s.frame(0)
+    assert any(tmp_path.iterdir())
+    s.close()
+    profile.cost(cart, [0, 0])
+    left = [p.name for p in tmp_path.iterdir() if not p.name.startswith("zeta-sdk-")]
+    assert not left, left

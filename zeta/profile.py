@@ -22,8 +22,7 @@ from __future__ import annotations
 
 import multiprocessing
 import os
-import tempfile
-from pathlib import Path
+import shutil
 
 from . import budget, cabinet, silicon
 
@@ -64,15 +63,16 @@ def _spans(cart, pads, window):
 def cost(cart: dict, pads, state: bytes | None = None, first: int = 0) -> list[dict]:
     """These pads on the silicon, from power-on or from a state image:
     one row a frame -- {'frame', 'clk', and the meter's stages}."""
-    work = Path(tempfile.mkdtemp(prefix="zeta-profile-"))
+    work = silicon.scratch("zeta-profile-")
     with open(work / "meter.txt", "wb") as err:
         s = silicon.SiliconMachine(cart, state=state, env={"ZETA_CLK": "1"}, stderr=err)
         for p in pads:
             s.frame(p)
         s.close()
-        s.proc.wait()
+    meter = (work / "meter.txt").read_text()
+    shutil.rmtree(work, ignore_errors=True)     # a worker never reaches atexit
     rows = []
-    for ln in (work / "meter.txt").read_text().splitlines():
+    for ln in meter.splitlines():
         if not ln.startswith("CLK "):
             continue
         kv = dict(x.split("=") for x in ln.split()[2:])

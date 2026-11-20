@@ -102,7 +102,7 @@ def pad(route, f):
 
 def on_silicon(path, route):
     sim = silicon.build()
-    work = Path(tempfile.mkdtemp(prefix="tnd-meter-"))
+    work = silicon.scratch("tnd-meter-")
     hexes = [p for p in silicon.write_cart_hex(cabinet.load_cart(path), work) if p]
     proc = subprocess.Popen([str(sim), *map(str, hexes)], stdin=subprocess.PIPE,
                             stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,

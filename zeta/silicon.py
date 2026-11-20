@@ -10,6 +10,7 @@ Three jobs, all downstream of spec.py:
 """
 from __future__ import annotations
 
+import atexit
 import hashlib
 import os
 import shutil
@@ -369,6 +370,20 @@ def tape_sim() -> Path:
     return sim
 
 
+def scratch(prefix: str) -> Path:
+    """A work folder that does not outlive the process that made it.
+
+    Every run on the silicon writes its cart as hex first -- tens of
+    megabytes for a game with a segment -- and for months nothing removed
+    them: 513 folders and 3 GB of a 7.8 GB tmpfs, found when a profile of
+    one real session filled the user's quota and took the shell down with
+    it. Long-lived callers (SiliconMachine, profile.cost) also remove
+    theirs as soon as they are done: a pool's workers never reach atexit."""
+    p = Path(tempfile.mkdtemp(prefix=prefix))
+    atexit.register(shutil.rmtree, p, True)
+    return p
+
+
 class SiliconMachine:
     """The Verilated core, one frame per .frame() call, per the contract."""
 
@@ -379,7 +394,7 @@ class SiliconMachine:
         first, for its CRAM segment and its card -- pass the card as the
         session had left it (cart["sd"] = machine.vm.sd)."""
         sim = build()
-        work = Path(tempfile.mkdtemp(prefix="zeta-cart-"))
+        work = self._work = scratch("zeta-cart-")
         ip, dp, cp = write_cart_hex(cart, work)
         env = dict(os.environ, **(env or {}))
         if state is not None:
@@ -421,6 +436,11 @@ class SiliconMachine:
         if self.proc.poll() is None:
             self.proc.stdin.close()
             self.proc.terminate()
+        try:
+            self.proc.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            self.proc.kill()
+        shutil.rmtree(self._work, ignore_errors=True)
 
     def __del__(self):
         try:

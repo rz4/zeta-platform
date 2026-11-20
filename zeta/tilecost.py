@@ -127,7 +127,7 @@ def silicon_clocks(cart: dict, frames: int, pads) -> list[int]:
     from . import silicon
 
     sim = silicon.build()
-    work = Path(tempfile.mkdtemp(prefix="zeta-clk-"))
+    work = silicon.scratch("zeta-clk-")
     ip, dp, cp = silicon.write_cart_hex(cart, work)
     env = dict(os.environ, ZETA_CLK="1")
     err = open(work / "clk.log", "w+")

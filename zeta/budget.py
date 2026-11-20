@@ -61,7 +61,7 @@ def measure(cart_name: str, frames: int = 10, pad: int = 0) -> list[int]:
     # after the header had already printed.
     from . import carts
     cart = cabinet.load_cart(carts.resolve(cart_name))
-    work = Path(tempfile.mkdtemp(prefix="zeta-budget-"))
+    work = silicon.scratch("zeta-budget-")
     # write_cart_hex returns None for a cart with no CRAM segment, and
     # str(None) on the command line is a file the sim cannot open --
     # which produced no meter rows and, until the line below was fixed,

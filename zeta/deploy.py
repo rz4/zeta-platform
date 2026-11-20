@@ -429,7 +429,8 @@ def stage_menu(out: Path, games: dict, core_from: Path,
     Pocket's menu instead of on the shelf."""
     import tempfile
     from . import cabinet
-    work = Path(tempfile.mkdtemp(prefix="zeta-stage-"))
+    from . import silicon
+    work = silicon.scratch("zeta-stage-")
     coredir = f"Cores/{AUTHOR}.{CORENAME}"
     if not (core_from / coredir / "zeta.rbf_r").is_file():
         raise SystemExit(f"{core_from} holds no staged core ({coredir}/zeta.rbf_r)")

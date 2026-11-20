@@ -362,7 +362,7 @@ def glass_check(cart: dict) -> int:
 
     from . import cabinet, gpu, silicon, spec
     sim = silicon.build_glass()
-    work = Path(tempfile.mkdtemp(prefix="zeta-glass-"))
+    work = silicon.scratch("zeta-glass-")
     ip, dp, cp = silicon.write_cart_hex(cart, work)
     r = subprocess.run([str(sim), str(ip), str(dp)] + ([str(cp)] if cp else []),
                        capture_output=True, cwd=work)
