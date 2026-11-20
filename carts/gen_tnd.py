@@ -1026,7 +1026,6 @@ L_VIS = p.label("vis")
 L_ARENA = p.label("arena")
 L_COPY, L_WPT, L_D2, L_DMIND = (p.label(k) for k in ("copy", "wpt", "d2", "dmind"))
 L_TEXT = p.label("text")
-CP = {k: cart.var("cp_" + k) for k in ("src", "dst", "n")}
 W = {k: cart.var("w_" + k) for k in ("k", "bx", "bz", "c", "s", "x", "y", "z", "oy",
                                      "qx", "qy", "qz", "dc", "dg", "d2", "head",
                                      "dmg", "stop")}
@@ -1198,6 +1197,11 @@ from zeta.forge import Sym                                   # noqa: E402
 _tx_keys = ("str", "x", "y", "sc", "rgb", "n", "gp", "w", "k", "r", "x0", "y0",
             "x1", "y1", "dl", "j")
 TX = {k: Sym(int(list(FK.values())[i]), "tx_" + k, 1) for i, k in enumerate(_tx_keys)}
+# ...and COPY's three parameters take FK's last cells, which the text engine
+# leaves alone: COPY runs in the retry, the wave and the minds -- all before
+# the objects are posed (P12's camera state is what that bought)
+CP = {k: Sym(int(list(FK.values())[16 + i]), "cp_" + k, 1)
+      for i, k in enumerate(("src", "dst", "n"))}
 TRI_CELLS = cart.data(Table([int(TX[c]) for c in (     # the forge's two triangles
     "x0", "y0", "x1", "y0", "x0", "y1", "rgb", "x1", "y0", "x1", "y1", "x0", "y1",
     "rgb")]), "tri_cells")
@@ -1399,6 +1403,47 @@ FENCE_RATE, FENCE_FR = int(0.044 * PACE * ONE), int(0.72 * ONE)
 METEOR_IN, METEOR_OUT, METEOR_RMIN2 = int(0.055 * ONE), int(0.022 * ONE), int(1.6 * 1.6 * ONE)
 DODGE_V, DODGE_F = int(0.15 * ONE), 12
 L_BRG, L_NEAR = p.label("brg"), p.label("near")
+VPS, VPC = cart.var("vis_ps"), cart.var("vis_pc")   # the camera's pitch, sin / cos
+# ---- P12: THE CAMERA OPERATOR (tear.py _cam, _target_cam) -------------------
+# The follow stays the base -- its yaw an eighth of the arc behind his,
+# three back, at the archive's height. Over it, in the archive's priority:
+#   JUGGLE   a body aloft (the lock's, or the one he follows up): the
+#            over-the-shoulder shot pulled back and raised with its height,
+#            gazing between his chin and its
+#   AIM      planted on the lock: over the right shoulder at its chin
+#   ALIGN    the haymaker connects: the same shot at who it hit, for the
+#            hitstop and 16 frames -- the money shot
+# blended in and out by a smoothstepped weight; then, on top, the CHARGE
+# shot (R held while B charges: tight on the shoulder, eased in over the
+# 26-frame charge) and the PUNCH overhead (the tank, a strike button held
+# choosing its aim: back and up, looking down at the compass). Every shot
+# is an eye and a point to look at, solved to yaw and pitch by bisection.
+CAM_W = {k: cart.var("cam_" + k) for k in ("sp", "kind", "who", "hal", "halt", "ch",
+                                           "chh", "pu", "sh", "cv")}
+CAM_W["d"] = cart.data(Table([3 * ONE]), "cam_d3")     # the follow's distance, eased
+# THE ACTION SHOT (tear.py _action_cam, _follow_cam, _prowl_cam): the tank's
+# follow stays as it has played -- three back, square, pitched 20 -- while
+# DEVIL TRIGGER's follow comes in to 2.6 and leans onto the right shoulder
+# (RE5's over-the-shoulder), BOXING pulls out to 4.0 and FENCING to 5.4,
+# both facing the cross (or the target). Distance and lean ease (0.07).
+# The PROWLER blends to its own low, close panther's-eye shot toward the
+# target -- lower and tighter with speed, boring in within 10 units -- in
+# at 0.024 a frame and out at 0.028, or CUT straight to it if he already
+# faces the target.
+TANK_D, DT_D, BOX_D, FENCE_D = 3.0, 2.6, 4.0, 5.4
+DT_SH, BOX_SH, DIST_EASE = -0.5, -0.12, 0.07
+PROWL_D, PROWL_UP, PROWL_PITCH = 4.3, 2.5, 0.34
+PROWL_SURGE, PROWL_CROUCH, PROWL_FLAT = 1.0, 0.45, 0.12
+STALK_RANGE, STALK_PULL, STALK_DROP = 10.0, 1.9, 0.75
+CARVE_IN, CARVE_OUT, SNAP_CONE = 0.024, 0.028, 0.6
+L_GAZE, L_YAW = p.label("gaze"), p.label("yaw")
+L_SHOT, L_BLEND = p.label("shot"), p.label("blend")
+AIM_DIST, AIM_UP, AIM_SH = 2.1, 2.35, -0.48
+JUG_FLOOR, JUG_BACK, JUG_RISE, JUG_LOOK = 0.6, 0.55, 0.38, 0.55
+CHIN = 1.55                                  # his chin, theirs (near enough)
+CH_DIST, CH_SH, CH_UP, CH_FULL, CH_EASE = 1.6, -0.72, 2.32, 26, 0.13
+PU_DIST, PU_UP, PU_PITCH, PU_EASE = 3.6, 2.55, 0.20, 0.30
+ALIGN_LINGER = 16
 
 
 # ---- P9: THE AIR (tear.py _locomotion_tail, _air_follow, _resolve_hits) -----
@@ -2384,21 +2429,274 @@ p.mark(nf_)
 # parked up to 2.8 degrees off on one side only. Inside 8 units it snaps.
 snap_l = p.label("snap")
 T = cart.var("cam_d")
-p.load(YAW).load(CY).emit("sub").push(512).emit("add")
+# P12: the follow's yaw is his -- or, boxing, the latched cross; or, locked,
+# the bearing to the target (tear.py _action_cam's base_yaw)
+by_ = p.label("byaw")
+p.load(YAW).store(W["oy"])
+p.load(F["sty"]).push(2).emit("eq", f"jz {by_}_t")
+p.load(F["latch"]).store(W["oy"])
+p.mark(f"{by_}_t")
+p.load(F["tgt"]).emit(f"jz {by_}")
+p.load(F["tgt"]).push(1).emit("sub").store(F["brg"]).emit(f"call {L_BRG}")
+p.load(F["brg"]).store(W["oy"])
+p.mark(by_)
+p.load(W["oy"]).load(CY).emit("sub").push(512).emit("add")
 p.push(1023).emit("and").push(512).emit("sub").store(T)   # d in -512..511
 p.load(T).emit("shr 3", "dup", f"jz {snap_l}")
 p.load(CY).emit("add").push(1023).emit("and").store(CY)
 p.emit(f"jmp {snap_l}_d")
 p.mark(snap_l)
-p.emit("drop").load(YAW).store(CY)                          # within 8: snap
+p.emit("drop").load(W["oy"]).store(CY)                      # within 8: snap
 p.mark(f"{snap_l}_d")
-# ...and stands CAMD behind him along ITS yaw, not his
-sin_of(p, cell=CY)
-p.push(CAMD).emit("mul").load(PX).emit("add").store(spec.CAM_X)
-sin_of(p, 256, cell=CY)
-p.push(CAMD).emit("mul").load(PZ).emit("swap", "sub").store(spec.CAM_Z)
+# ...and stands its eased distance behind him along ITS yaw, leaning by
+# its eased shoulder (P12: the mode's -- the tank 3 and square, as before)
+CWd = CAM_W
+md_ = p.label("camd")
+p.push(int(TANK_D * ONE)).store(W["dmg"]).push(0).store(W["stop"])
+p.load(F["sty"]).push(2).emit("eq", f"jz {md_}_dt")
+p.push(int(BOX_D * ONE)).store(W["dmg"]).push(int(BOX_SH * ONE)).store(W["stop"])
+p.load(F["tgt"]).emit(f"jz {md_}_e")
+p.push(int(FENCE_D * ONE)).store(W["dmg"]).emit(f"jmp {md_}_e")
+p.mark(f"{md_}_dt")
+held(spec.PAD_L)
+p.emit(f"jz {md_}_e")
+p.push(int(DT_D * ONE)).store(W["dmg"]).push(int(DT_SH * ONE)).store(W["stop"])
+p.mark(f"{md_}_e")
+for cell, want in ((CWd["d"], W["dmg"]), (CWd["sh"], W["stop"])):
+    p.load(want).load(cell).emit("sub").push(int(DIST_EASE * ONE)).emit("mulq")
+    p.load(cell).emit("add").store(cell)
+for reg, me, plus, fsgn in ((spec.CAM_X, PX, 0, 1), (spec.CAM_Z, PZ, 256, -1)):
+    sin_of(p, plus, cell=CY)
+    p.load(CWd["d"]).emit("mulq")
+    if fsgn < 0:
+        p.push(0).emit("swap", "sub")
+    p.load(me).emit("add")
+    sin_of(p, plus + 256, cell=CY)                 # left = forward(yaw + 256)
+    p.load(CWd["sh"]).emit("mulq")
+    if fsgn > 0:
+        p.push(0).emit("swap", "sub")
+    p.emit("add").store(reg)
 p.load(CY).store(spec.CAM_YAW)
 p.load(F["py"]).push(int(2.15 * ONE)).emit("add").store(spec.CAM_Y)   # (P9: up with him)
+
+# ---- P12: THE OPERATOR -- the special shots over the follow -----------------
+CW = CAM_W
+p.load(CAM_W["sh"]).push(10).emit("mul", "shr 16").push(20).emit("add").store(spec.CAM_PITCH)
+
+
+def shot(face_cell, dist_ops, up_ops, sh):
+    """eye = him - forward(face) * dist + left(face) * sh, up at py + up:
+    into w_x, w_y, w_z (dist and up are op tuples leaving Q16) -- through
+    L_SHOT (face w_oy, dist w_head, up w_dmg, lean w_d2): IMEM is full"""
+    p.emit(*dist_ops).store(W["head"])
+    p.emit(*up_ops).store(W["dmg"])
+    p.push(int(sh * ONE)).store(W["d2"])
+    if face_cell != W["oy"]:
+        p.load(face_cell).store(W["oy"])
+    p.emit(f"call {L_SHOT}")
+
+
+def blend(wcell):
+    """the camera registers toward (w_x, w_y, w_z, f_brg yaw, w_dg pitch) by
+    smoothstep(weight) -- through L_BLEND (the weight in w_k)"""
+    p.load(wcell).store(W["k"]).emit(f"call {L_BLEND}")
+
+
+def slot_of(cell):
+    """push the address base of demon slot [cell] (a slot index)"""
+    p.push(int(DS)).load(cell).push(NF).emit("mul", "add")
+
+
+# THE PROWLER'S SHOT: locked in the run, blended (or cut) to it
+pw_ = p.label("prowlcam")
+p.push(0).store(W["head"])
+p.load(F["sty"]).push(1).emit("eq", f"jz {pw_}_w")
+p.load(F["tgt"]).emit(f"jz {pw_}_w")
+p.push(ONE).store(W["head"])
+p.mark(f"{pw_}_w")
+p.load(W["head"]).emit(f"jz {pw_}_out")
+p.push(int(0.05 * ONE)).load(CAM_W["cv"]).emit("lt", f"jz {pw_}_cut", f"jmp {pw_}_in")
+p.mark(f"{pw_}_cut")                              # facing it already: a cut
+p.load(F["tgt"]).push(1).emit("sub").store(F["brg"]).emit(f"call {L_BRG}")
+p.load(YAW).load(F["brg"]).emit("sub").push(512).emit("add").push(1023).emit("and")
+p.push(512).emit("sub", "dup").push(0).emit("lt", f"jz {pw_}_ab")
+p.push(0).emit("swap", "sub")
+p.mark(f"{pw_}_ab")
+p.push(int(SNAP_CONE * 1024 / (2 * np.pi))).emit("lt", f"jz {pw_}_in")
+p.set(CAM_W["cv"], ONE)
+p.mark(f"{pw_}_in")
+p.load(CAM_W["cv"]).push(int(CARVE_IN * ONE)).emit("add", "dup").push(ONE).emit("swap", "lt", f"jz {pw_}_i1")
+p.emit("drop").push(ONE)
+p.mark(f"{pw_}_i1")
+p.store(CAM_W["cv"]).emit(f"jmp {pw_}_s")
+p.mark(f"{pw_}_out")
+p.load(CAM_W["cv"]).push(int(CARVE_OUT * ONE)).emit("sub", "dup").push(0).emit("lt", f"jz {pw_}_o1")
+p.emit("drop").push(0)
+p.mark(f"{pw_}_o1")
+p.store(CAM_W["cv"])
+p.mark(f"{pw_}_s")
+p.load(CAM_W["cv"]).emit(f"jz {pw_}_x")
+p.load(F["tgt"]).emit(f"jz {pw_}_x")
+p.load(F["tgt"]).push(1).emit("sub").store(F["brg"]).emit(f"call {L_BRG}")
+p.load(F["brg"]).store(W["oy"])                   # (dx, dz in w_qx, w_qz)
+p.load(F["spd"]).push(PK_INVTOP).emit("mulq", "dup").push(ONE).emit("swap", "lt", f"jz {pw_}_f")
+p.emit("drop").push(ONE)
+p.mark(f"{pw_}_f")
+p.store(W["c"])                                   # fast, 0..1
+# the range, for the bore-in: 1/sqrt by Newton, as GAZE does
+p.load(W["qx"]).emit("dup", "mulq").load(W["qz"]).emit("dup", "mulq", "add").store(W["d2"])
+p.push(int(0.08 * ONE)).store(W["s"])
+for _ in range(9):
+    p.load(W["s"]).emit("dup", "mulq").load(W["d2"]).emit("mulq", "shr 1")
+    p.push(int(1.5 * ONE)).emit("swap", "sub").load(W["s"]).emit("mulq").store(W["s"])
+p.load(W["d2"]).load(W["s"]).emit("mulq")         # range
+p.push(int(ONE / STALK_RANGE)).emit("mulq").push(ONE).emit("swap", "sub", "dup").push(0)
+p.emit("lt", f"jz {pw_}_cl")                       # close = 1 - range/10, >= 0
+p.emit("drop").push(0)
+p.mark(f"{pw_}_cl")
+p.store(W["stop"])
+# eye: back (4.3 - fast - 1.9 close) along the bearing, up (2.5 - .45 fast
+# - .75 close), pitched (0.34 - 0.12 fast) rad down, looking along it
+shot(W["oy"], (f"push {int(PROWL_D * ONE)}", f"load {int(W['c'])}", f"push {int(PROWL_SURGE * ONE)}",
+               "mulq", "sub", f"load {int(W['stop'])}", f"push {int(STALK_PULL * ONE)}", "mulq", "sub"),
+     (f"push {int(PROWL_UP * ONE)}", f"load {int(W['c'])}", f"push {int(PROWL_CROUCH * ONE)}",
+      "mulq", "sub", f"load {int(W['stop'])}", f"push {int(STALK_DROP * ONE)}", "mulq", "sub"), 0.0)
+p.load(W["oy"]).store(F["brg"])
+p.push(int(PROWL_PITCH * 1024 / (2 * np.pi))).load(W["c"])
+p.push(int(PROWL_FLAT * 1024 / (2 * np.pi) * ONE)).emit("mulq", "shr 16", "sub").store(W["dg"])
+blend(CAM_W["cv"])
+p.mark(f"{pw_}_x")
+
+
+op = p.label("op")
+# which special shot wants the frame (the archive's priority)
+p.set(W["head"], 0)                               # (kind)
+p.load(CW["hal"]).emit(f"jz {op}_h")
+p.addi(CW["hal"], -1)
+p.mark(f"{op}_h")
+p.load(F["tgt"]).emit(f"jz {op}_j2")              # JUGGLE: the lock aloft...
+p.load(F["tgt"]).push(1).emit("sub").store(W["dmg"])
+slot_of(W["dmg"]); p.push(DF["py"]).emit("add", "loadi")
+p.push(int(JUG_FLOOR * ONE)).emit("swap", "lt", f"jz {op}_j2")
+p.set(W["head"], 1).emit(f"jmp {op}_k")
+p.mark(f"{op}_j2")
+p.load(F["acmb"]).emit(f"jz {op}_a")              # ...or the body he follows up
+p.load(F["foe"]).push(0).emit("lt", f"jz {op}_j3", f"jmp {op}_a")
+p.mark(f"{op}_j3")
+p.load(F["foe"]).store(W["dmg"])
+slot_of(W["dmg"]); p.push(DF["py"]).emit("add", "loadi")
+p.push(int(JUG_FLOOR * ONE)).emit("swap", "lt", f"jz {op}_a")
+p.set(W["head"], 1).emit(f"jmp {op}_k")
+p.mark(f"{op}_a")
+p.load(F["tgt"]).emit(f"jz {op}_al")              # AIM: planted on the lock
+p.load(F["plc"]).push(PLANT_HOLD).emit("eq", f"jz {op}_al")
+p.load(F["tgt"]).push(1).emit("sub").store(W["dmg"])
+p.set(W["head"], 2).emit(f"jmp {op}_k")
+p.mark(f"{op}_al")
+p.load(CW["hal"]).emit(f"jz {op}_k")              # ALIGN: the haymaker's money shot
+p.load(CW["halt"]).store(W["dmg"])
+p.set(W["head"], 2)
+p.mark(f"{op}_k")
+p.load(W["head"]).emit(f"jz {op}_out")
+p.load(W["head"]).store(CW["kind"]).load(W["dmg"]).store(CW["who"])
+p.load(CW["sp"]).push(int(0.2 * ONE)).emit("add", "dup").push(ONE).emit("swap", "lt", f"jz {op}_in")
+p.emit("drop").push(ONE)
+p.mark(f"{op}_in")
+p.store(CW["sp"]).emit(f"jmp {op}_s")
+p.mark(f"{op}_out")
+p.load(CW["sp"]).push(int(0.12 * ONE)).emit("sub", "dup").push(0).emit("lt", f"jz {op}_o")
+p.emit("drop").push(0)
+p.mark(f"{op}_o")
+p.store(CW["sp"])
+p.mark(f"{op}_s")
+p.load(CW["sp"]).emit(f"jz {op}_ch")
+p.load(CW["kind"]).emit(f"jz {op}_ch")
+# the shot: face the body, back off and rise with its height (juggle), look
+# between his chin and its (juggle) or at its (aim)
+p.load(CW["who"]).store(F["brg"]).emit(f"call {L_BRG}")
+p.load(F["brg"]).store(W["oy"])                   # (the face, kept)
+p.push(0).store(W["stop"])                        # lift above the floor
+p.load(CW["kind"]).push(1).emit("eq", f"jz {op}_lf")
+slot_of(CW["who"]); p.push(DF["py"]).emit("add", "loadi")
+p.push(int(JUG_FLOOR * ONE)).emit("sub", "dup").push(0).emit("lt", f"jz {op}_l0")
+p.emit("drop").push(0)
+p.mark(f"{op}_l0")
+p.store(W["stop"])
+p.mark(f"{op}_lf")
+shot(W["oy"], (f"load {int(W['stop'])}", f"push {int(JUG_BACK * ONE)}", "mulq",
+               f"push {int(AIM_DIST * ONE)}", "add"),
+     (f"load {int(W['stop'])}", f"push {int(JUG_RISE * ONE)}", "mulq",
+      f"push {int(AIM_UP * ONE)}", "add"), AIM_SH)
+# the subject: its chin, or (juggle) 0.55 of the way there from his
+for out, f_, me in ((W["bx"], "x", PX), (W["bz"], "z", PZ)):
+    slot_of(CW["who"]); p.push(DF[f_]).emit("add", "loadi").store(out)
+slot_of(CW["who"]); p.push(DF["py"]).emit("add", "loadi").push(int(CHIN * ONE)).emit("add")
+p.store(W["c"])
+p.load(CW["kind"]).push(1).emit("eq", f"jz {op}_g")
+for out, me in ((W["bx"], PX), (W["bz"], PZ), (W["c"], None)):
+    p.load(out)
+    if me is None:
+        p.load(F["py"]).push(int(CHIN * ONE)).emit("add")
+    else:
+        p.load(me)
+    p.emit("dup").store(W["s"]).emit("sub").push(int(JUG_LOOK * ONE)).emit("mulq")
+    p.load(W["s"]).emit("add").store(out)
+p.mark(f"{op}_g")
+p.emit(f"call {L_GAZE}")
+blend(CW["sp"])
+# THE CHARGE: R held while B charges -- in tight on the shoulder
+p.mark(f"{op}_ch")
+held(spec.PAD_R)
+p.emit(f"jz {op}_c0")
+held(spec.PAD_B)
+p.emit(f"jz {op}_c0")
+p.addi(CW["chh"], 1).emit(f"jmp {op}_c1")
+p.mark(f"{op}_c0")
+p.set(CW["chh"], 0)
+p.mark(f"{op}_c1")
+p.load(CW["chh"]).push(int(ONE / CH_FULL)).emit("mul", "dup").push(ONE).emit("swap", "lt", f"jz {op}_c2")
+p.emit("drop").push(ONE)
+p.mark(f"{op}_c2")
+p.load(CW["ch"]).emit("sub").push(int(CH_EASE * ONE)).emit("mulq").load(CW["ch"]).emit("add")
+p.store(CW["ch"])
+p.push(64).load(CW["ch"]).emit("lt", f"jz {op}_pu")      # (a weight worth drawing)
+p.load(YAW).store(W["oy"])
+p.load(F["tgt"]).emit(f"jz {op}_cy")
+p.load(F["tgt"]).push(1).emit("sub").store(F["brg"]).emit(f"call {L_BRG}")
+p.load(F["brg"]).store(W["oy"])
+p.mark(f"{op}_cy")
+shot(W["oy"], (f"push {int(CH_DIST * ONE)}",), (f"push {int(CH_UP * ONE)}",), CH_SH)
+p.load(W["oy"]).store(F["brg"]).push(23).store(W["dg"])   # (no lock: a slight dip)
+p.load(F["tgt"]).emit(f"jz {op}_cb")
+p.load(F["tgt"]).push(1).emit("sub").store(W["dmg"])
+for out, f_ in ((W["bx"], "x"), (W["bz"], "z")):
+    slot_of(W["dmg"]); p.push(DF[f_]).emit("add", "loadi").store(out)
+slot_of(W["dmg"]); p.push(DF["py"]).emit("add", "loadi").push(int(CHIN * ONE)).emit("add")
+p.store(W["c"])
+p.emit(f"call {L_GAZE}")
+p.mark(f"{op}_cb")
+blend(CW["ch"])
+# THE PUNCH OVERHEAD: the tank, a strike button held choosing its aim
+p.mark(f"{op}_pu")
+p.push(0).store(W["head"])
+p.load(F["sty"]).emit(f"jz {op}_p1", f"jmp {op}_p3")
+p.mark(f"{op}_p1")
+p.load(ANIM).push(2).emit("eq", f"jz {op}_p2", f"jmp {op}_p3")
+p.mark(f"{op}_p2")
+p.load(F["plc"]).push(PLANT_HOLD).emit("eq", f"jz {op}_p4", f"jmp {op}_p3")
+p.mark(f"{op}_p4")
+held(spec.PAD_X | spec.PAD_Y | spec.PAD_B)
+p.emit(f"jz {op}_p3")
+p.push(ONE).store(W["head"])
+p.mark(f"{op}_p3")
+p.load(W["head"]).load(CW["pu"]).emit("sub").push(int(PU_EASE * ONE)).emit("mulq")
+p.load(CW["pu"]).emit("add").store(CW["pu"])
+p.push(64).load(CW["pu"]).emit("lt", f"jz {op}_e")
+shot(YAW, (f"push {int(PU_DIST * ONE)}",), (f"push {int(PU_UP * ONE)}",), 0.0)
+p.load(YAW).store(F["brg"])
+p.push(int(round(PU_PITCH * 1024 / (2 * np.pi)))).store(W["dg"])
+blend(CW["pu"])
+p.mark(f"{op}_e")
 # THE SHAKE: a landed blow jolts the lens side to side for its hitstop
 sk = p.label("shake")
 p.load(F["shake"]).emit(f"jz {sk}")
@@ -2408,6 +2706,10 @@ p.load(spec.CAM_X).push(J).emit("add").store(spec.CAM_X).emit(f"jmp {sk}")
 p.mark(f"{sk}_l")
 p.load(spec.CAM_X).push(J).emit("sub").store(spec.CAM_X)
 p.mark(sk)
+sin_of(p, cell=spec.CAM_PITCH)                    # P12: the cull's pitch
+p.store(VPS)
+sin_of(p, 256, cell=spec.CAM_PITCH)
+p.store(VPC)
 
 # ---- P3: the demons' minds -- slow to walk, slow to turn, slow to commit ----
 # tear.py:3235-3290, in integers. They turn toward you at a BOUNDED rate
@@ -2604,6 +2906,7 @@ for k, c in enumerate((spec.CAM_X, spec.CAM_Y, spec.CAM_Z, spec.CAM_YAW, spec.CA
     q.load(ir(k)).store(c)
 q.set(spec.CAM_ROLL, 0).set(spec.BG_SRC, 0)
 q.load(ir(3)).store(CY)                                   # (the cull reads it)
+q.load(ir(5)).store(VPS).load(ir(6)).store(VPC)
 q.load(I_T).push(INTRO_RW).emit("mul").push(int(ROWS) + INTRO_RW).emit("add")
 q.store(spec.DMA_SRC)                                     # ...and the next row
 q.set(spec.DMA_DST, I_ROW).set(spec.DMA_LEN, INTRO_RW).set(spec.DMA_GO, 1)
@@ -2647,12 +2950,15 @@ p = Tee(p_main, q)                   # ...and from here, the shared frame
 # never listed. The test is in view space, through the camera's own yaw
 # and its FIXED pitch, so it is exact for a sphere; the side planes are
 # taken at 40 degrees where the screen's edge is 32, for margin.
-VIS = {k: cart.var("vis_" + k) for k in ("cx", "cy", "cz", "r", "rx", "rz", "xc", "zc")}
+# (VIS shares the demon minds' scratch: the minds have run before the
+# objects are listed, and nothing else touches either -- 8 words for P12)
+VIS = {k: Sym(int(list(DTEMP.values())[i]), "vis_" + k, 1)
+       for i, k in enumerate(("cx", "cy", "cz", "r", "rx", "rz", "xc", "zc"))}
 PCOS, PSIN = (int(round(f(20 * 2 * np.pi / 1024) * ONE)) for f in (np.cos, np.sin))
 SCOS, SSIN = int(round(np.cos(np.radians(40)) * ONE)), int(round(np.sin(np.radians(40)) * ONE))
-sin_of(p, 256, cell=CY)
+sin_of(p, 256, cell=spec.CAM_YAW)                    # (P12: the camera's own yaw)
 p.store(VIS["rx"])                                    # right = (cos, sin)
-sin_of(p, cell=CY)
+sin_of(p, cell=spec.CAM_YAW)
 p.store(VIS["rz"])
 
 # ---- the object list --------------------------------------------------------
@@ -3380,13 +3686,11 @@ for g, intro_vis in ((p_main, False), (q, True)):   # (the intro: its real pitch
     g.load(VIS["cz"]).load(VIS["rz"]).emit("mulq", "add").store(VIS["xc"])
     g.load(VIS["cz"]).load(VIS["rx"]).emit("mulq")          # zc = d . forward
     g.load(VIS["cx"]).load(VIS["rz"]).emit("mulq", "sub").store(VIS["zc"])
-    if intro_vis:                    # vy = (cy - 2.15) + 2.15 - CAM_Y; the row's pitch
-        g.push(0).load(VIS["cy"]).push(int(2.15 * ONE)).emit("add").load(spec.CAM_Y)
-        g.emit("sub", "sub").load(ir(5)).emit("mulq")
-        g.load(VIS["zc"]).load(ir(6)).emit("mulq", "add").store(VIS["zc"])
-    else:
-        g.push(0).load(VIS["cy"]).emit("sub").push(PSIN).emit("mulq")   # -vy sin
-        g.load(VIS["zc"]).push(PCOS).emit("mulq", "add").store(VIS["zc"])
+    # vy = (cy - 2.15) + 2.15 - CAM_Y, at the camera's own pitch (P12: the
+    # game's camera pitches now too; the intro writes its row's)
+    g.push(0).load(VIS["cy"]).push(int(2.15 * ONE)).emit("add").load(spec.CAM_Y)
+    g.emit("sub", "sub").load(VPS).emit("mulq")
+    g.load(VIS["zc"]).load(VPC).emit("mulq", "add").store(VIS["zc"])
     g.load(VIS["zc"]).load(VIS["r"]).emit("add").push(0)
     g.emit("lt", f"jz {no_l}_b")                             # zc + r < 0: behind
     g.emit(f"jmp {no_l}")
@@ -3596,6 +3900,11 @@ p.mark(f"{la}_r")
 p.load(cur("hs")).push(AIR_HANG).emit("lt", f"jz {lw}")
 p.set(cur("hs"), AIR_HANG)
 p.mark(lw)
+ha_ = p.label("halign")                          # P12: the haymaker's money shot
+p.load(F["mv"]).push(MOVE["special"]).emit("eq", f"jz {ha_}")
+p.load(W["stop"]).push(ALIGN_LINGER).emit("add").store(CAM_W["hal"])
+p.load(F["dmi"]).push(1).emit("sub").store(CAM_W["halt"])
+p.mark(ha_)
 uw = p.label("uwin")                             # P9: the REAR launcher opens the
 p.load(F["mv"]).push(MOVE["rear_uppercut"]).emit("eq", f"jz {uw}")   # jump-cancel
 p.set(F["uwin"], UWIN_F)
@@ -3866,6 +4175,7 @@ p.mark(L_BRG)
 for c, f, me in (("qx", "x", PX), ("qz", "z", PZ)):
     p.push(int(DS) + DF[f]).load(F["brg"]).push(NF).emit("mul", "add", "loadi")
     p.load(me).emit("sub").store(W[c])
+p.mark(L_YAW)                                    # (YAW: from w_qx, w_qz as they are)
 p.set(F["brg"], 0)
 p.push(0).load(W["qz"]).emit("lt", f"jz {bg_}_0")      # behind: start half round
 p.set(F["brg"], 512)
@@ -3882,6 +4192,67 @@ for step in (256, 128, 64, 32, 16, 8, 4, 2, 1):
     p.addi(F["brg"], -step)
     p.mark(nx)
 p.load(F["brg"]).push(1023).emit("and").store(F["brg"])
+p.emit("ret")
+
+# GAZE: from the eye (w_x, w_y, w_z) at the point (w_bx, w_c, w_bz): its yaw
+# into f_brg, its pitch (down positive) into w_dg -- the yaw by YAW's
+# bisection, the range by Newton (1/sqrt, no divide), the pitch by another
+# bisection on the sign of (-dy cos p - h sin p)
+gz_ = p.label("gz")
+p.mark(L_GAZE)
+p.load(W["bx"]).load(W["x"]).emit("sub").store(W["qx"])
+p.load(W["bz"]).load(W["z"]).emit("sub").store(W["qz"])
+p.emit(f"call {L_YAW}")
+p.load(W["qx"]).emit("dup", "mulq").load(W["qz"]).emit("dup", "mulq", "add").store(W["d2"])
+p.push(int(0.08 * ONE)).store(W["s"])            # r0: converges for ranges < ~21
+for _ in range(9):
+    p.load(W["s"]).emit("dup", "mulq").load(W["d2"]).emit("mulq", "shr 1")
+    p.push(int(1.5 * ONE)).emit("swap", "sub").load(W["s"]).emit("mulq").store(W["s"])
+p.load(W["d2"]).load(W["s"]).emit("mulq").store(W["s"])   # h
+p.load(W["c"]).load(W["y"]).emit("sub").store(W["d2"])     # dy
+p.set(W["dg"], 0)
+for step in (128, 64, 32, 16, 8, 4, 2, 1):
+    nx = p.label("gp")
+    sin_of(p, 256, cell=W["dg"])
+    p.load(W["d2"]).emit("mulq").push(0).emit("swap", "sub")   # -dy cos p
+    sin_of(p, cell=W["dg"])
+    p.load(W["s"]).emit("mulq", "sub")                         # - h sin p
+    p.push(0).emit("swap", "lt", f"jz {nx}_d")
+    p.load(W["dg"]).push(step).emit("add").push(1023).emit("and").store(W["dg"])
+    p.emit(f"jmp {nx}")
+    p.mark(f"{nx}_d")
+    p.load(W["dg"]).push(step).emit("sub").push(1023).emit("and").store(W["dg"])
+    p.mark(nx)
+p.emit("ret")
+
+# SHOT: the eye him - forward(w_oy) * w_head + left(w_oy) * w_d2, at py +
+# w_dmg, into w_x, w_y, w_z (P12's shots share it: IMEM is full)
+p.mark(L_SHOT)
+for out, me, plus, fsgn in ((W["x"], PX, 0, 1), (W["z"], PZ, 256, -1)):
+    sin_of(p, plus, cell=W["oy"])
+    p.load(W["head"]).emit("mulq")
+    if fsgn < 0:
+        p.push(0).emit("swap", "sub")
+    p.load(me).emit("add")
+    sin_of(p, plus + 256, cell=W["oy"])              # left = forward(face + 256)
+    p.load(W["d2"]).emit("mulq")
+    if fsgn > 0:
+        p.push(0).emit("swap", "sub")
+    p.emit("add").store(out)
+p.load(F["py"]).load(W["dmg"]).emit("add").store(W["y"])
+p.emit("ret")
+
+# BLEND: the camera registers toward (w_x, w_y, w_z, f_brg, w_dg) by
+# smoothstep(w_k) -- position straight, the angles the short way round
+p.mark(L_BLEND)
+p.load(W["k"]).emit("dup", "mulq").push(3 * ONE).load(W["k"]).emit("dup", "add", "sub", "mulq")
+p.store(W["k"])
+for reg, src in ((spec.CAM_X, W["x"]), (spec.CAM_Y, W["y"]), (spec.CAM_Z, W["z"])):
+    p.load(src).load(reg).emit("sub").load(W["k"]).emit("mulq").load(reg).emit("add").store(reg)
+for reg, src in ((spec.CAM_YAW, F["brg"]), (spec.CAM_PITCH, W["dg"])):
+    p.load(src).load(reg).emit("sub").push(512).emit("add").push(1023)
+    p.emit("and").push(512).emit("sub").load(W["k"]).emit("mulq").load(reg)
+    p.emit("add").push(1023).emit("and").store(reg)
 p.emit("ret")
 
 # NEAR: f_foe = the nearest live demon, or -1 (tear.py _nearest_enemy)

@@ -896,3 +896,66 @@ def test_locked_styles_flip_pay_fence_and_meteor():
         m.frame(R | L | LF | A)
     assert _cell(m, "f_evf") > 0 and _cell(m, "f_evk") == 6, "no dodge to the left"
     assert _cell(m, "f_py") == 0, "the dodge jumped"
+
+
+def test_the_operator_takes_its_shots():
+    """The camera operator (tear.py _target_cam): planted on the lock, the
+    over-the-shoulder AIM shot faces the target; R with B charging moves in
+    tight on the shoulder; the juggle pulls back and up with the body; and
+    the haymaker's connect holds the ALIGN shot on who it hit."""
+    R, B = spec.PAD_R, spec.PAD_B
+    m = _fight_vm()
+    m.frame(0)
+    for f in range(30):
+        m.frame(0)
+    for f in range(20):
+        m.frame(R)
+    aim = _cell(m, "yaw")
+    assert abs(((m.vm.dmem[spec.CAM_YAW] - aim + 512) % 1024) - 512) <= 16, \
+        "the aim shot does not look where he is planted (the shoulder: a few degrees)"
+    assert _s32(m.vm.dmem[spec.CAM_Y]) / 65536 > 2.3, "the aim shot is not on the shoulder"
+    for f in range(40):
+        m.frame(R | B)
+    assert abs(_s32(m.vm.dmem[spec.CAM_Y]) / 65536 - 2.32) < 0.05, "no charge shot"
+    m = _fight_vm()
+    ys, hal = [], 0
+    for f in range(460):
+        p = spec.PAD_LEFT if 300 <= f < 308 else 0
+        if 322 <= f < 325:
+            p |= spec.PAD_A | spec.PAD_X
+        if 358 <= f < 366:
+            p |= spec.PAD_A
+        if 372 <= f < 440 and (f - 372) % 14 < 8:
+            p |= spec.PAD_X
+        m.frame(p)
+        ys.append(_s32(m.vm.dmem[spec.CAM_Y]) / 65536 - _s32(_cell(m, "f_py")) / 65536)
+    assert max(ys) > 4, "the juggle shot did not rise with the body"
+    m = _fight_vm()
+    for f in range(400):
+        m.frame((spec.PAD_LEFT if 300 <= f < 308 else 0)
+                | (spec.PAD_Y if 330 <= f < 338 else 0))
+        hal = max(hal, _cell(m, "cam_hal"))
+    assert hal > 16, "the haymaker's connect took no align shot"
+
+
+def test_the_action_shot_frames_each_mode():
+    """tear.py _action_cam: the tank's follow stays three back and square;
+    Devil Trigger's comes in to 2.6 and leans on the right shoulder; boxing
+    pulls out to 4.0, fencing to 5.4 facing the target; locked in the run,
+    the PROWLER's own low shot takes over."""
+    L, R, U, D = spec.PAD_L, spec.PAD_R, spec.PAD_UP, spec.PAD_DOWN
+    for sched, dist, lean in ((lambda f: 0, 3.0, 0.0), (lambda f: L | U, 2.6, -0.5),
+                              (lambda f: L | D if f < 5 else L, 4.0, -0.12),
+                              (lambda f: R | L | D if f < 5 else R | L, 5.4, -0.12)):
+        m = _fight_vm()
+        m.frame(0)
+        for f in range(80):
+            m.frame(sched(f))
+        assert abs(_s32(_cell(m, "cam_d3")) / 65536 - dist) < 0.05, f"follow at {dist}"
+        assert abs(_s32(_cell(m, "cam_sh")) / 65536 - lean) < 0.03, f"lean {lean}"
+    m = _fight_vm()
+    m.frame(0)
+    for f in range(60):
+        m.frame(R | L | U)
+    assert _cell(m, "cam_cv") == 65536, "the prowler's shot did not take over"
+    assert _s32(m.vm.dmem[spec.CAM_Y]) / 65536 < 2.5, "the prowler's eye is not low"
