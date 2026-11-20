@@ -30,7 +30,7 @@ def _jab_vs_still():
     a = _fight_vm()
     b = _fight_vm()
     for f in range(36):
-        a.frame(spec.PAD_A if f == 30 else 0)
+        a.frame(spec.PAD_X if f == 30 else 0)
         b.frame(0)
     return a, b
 
@@ -70,8 +70,8 @@ def test_both_machines_play_the_fighter():
     s.frame(spec.PAD_START)
     for f in range(90):
         pad = (spec.PAD_UP if 15 <= f < 45 else 0) \
-            | (spec.PAD_A if f == 50 else 0) \
-            | (spec.PAD_RIGHT if f >= 70 else 0)
+            | (spec.PAD_X if f == 50 else 0) \
+            | (spec.PAD_LEFT if f >= 70 else 0)
         v.frame(pad)
         s.frame(pad)
         assert np.array_equal(v.framebuffer(), s.framebuffer()), \
@@ -168,7 +168,7 @@ def test_bodies_do_not_pass_through_him():
     every body apart."""
     m = _fight_vm()
     for f in range(500):
-        m.frame(spec.PAD_UP | (spec.PAD_RIGHT if f < 40 else 0))
+        m.frame(spec.PAD_UP | (spec.PAD_LEFT if f < 40 else 0))
         px, pz = _player(m)
         for i, w in enumerate(_wave(m)):
             r = np.hypot(w["x"] / 65536 - px, w["z"] / 65536 - pz)
@@ -182,7 +182,7 @@ def test_the_street_holds_him():
     walks him through it. He SLIDES along the end to the wall.)"""
     m = _fight_vm()
     for f in range(1700):
-        m.frame(spec.PAD_UP | (spec.PAD_RIGHT if 1400 <= f < 1420 else 0))
+        m.frame(spec.PAD_UP | (spec.PAD_LEFT if 1400 <= f < 1420 else 0))
         px, pz = _player(m)
         inside = max(abs(px), abs(pz)) <= 10.6 + 1e-3 \
             or (abs(px) <= 7.1 + 1e-3 and abs(pz) <= 40 + 1e-3) \
@@ -201,7 +201,7 @@ def test_what_the_camera_cannot_see_is_not_sent():
     m = _fight_vm()
     counts = set()
     for f in range(90):
-        m.frame(spec.PAD_RIGHT)
+        m.frame(spec.PAD_LEFT)
         n = m.vm.dmem[spec.OL_BASE]
         assert n < 59, f"frame {f}: all {n} objects listed -- nothing culled"
         counts.add(n)
@@ -234,9 +234,9 @@ def test_the_string_alternates_and_cashes_out_a_hook():
     archive's alternation starting from the jab hand -- and the third tap
     of a string (taps within 22 frames) is a hook off the next hand. Taps
     during a swing are buffered and thrown when it ends."""
-    _, moves = _launches(lambda f: spec.PAD_A if f in (10, 25, 40) else 0, 120)
+    _, moves = _launches(lambda f: spec.PAD_X if f in (10, 25, 40) else 0, 120)
     assert moves == [1, 0, 2], f"cross, jab, lead hook expected: {moves}"
-    _, apart = _launches(lambda f: spec.PAD_A if f in (10, 60, 110) else 0, 160)
+    _, apart = _launches(lambda f: spec.PAD_X if f in (10, 60, 110) else 0, 160)
     assert apart == [1, 0, 1], f"taps 50 apart are not a string: {apart}"
 
 
@@ -245,8 +245,8 @@ def test_his_blows_land():
     falls -- damage, a stun, and down."""
     m = _fight_vm()
     for f in range(560):
-        m.frame((spec.PAD_RIGHT if 300 <= f < 308 else 0)
-                | (spec.PAD_A if f >= 320 and f % 9 == 0 else 0))
+        m.frame((spec.PAD_LEFT if 300 <= f < 308 else 0)
+                | (spec.PAD_X if f >= 320 and f % 9 == 0 else 0))
     w = _wave(m)[0]
     assert w["hp"] <= 0 and w["st"] >= 3, f"the brute stands: {w['hp']} hp, st {w['st']}"
 
@@ -314,8 +314,8 @@ def test_a_blow_is_heard():
     m = _fight_vm()
     base, levels = _sym("demons"), []
     for f in range(400):
-        m.frame((spec.PAD_RIGHT if 300 <= f < 308 else 0)
-                | (spec.PAD_A if f >= 320 and f % 9 == 0 else 0))
+        m.frame((spec.PAD_LEFT if 300 <= f < 308 else 0)
+                | (spec.PAD_X if f >= 320 and f % 9 == 0 else 0))
         levels.append(blow_level(m))
         if m.vm.dmem[base + FIELDS.index("hp")] < 70:
             break
@@ -333,7 +333,7 @@ def test_the_grammar_taps_on_release_and_reads_chords():
     frame held (a long press is one blow, not none); B is the special; two buttons down within 3 frames are a
     CHORD, read once, and neither of them taps -- carve+jump is the rear
     uppercut and NOT a jab, shoot+special the lead uppercut."""
-    A, B, X, Y = spec.PAD_A, spec.PAD_B, spec.PAD_X, spec.PAD_Y
+    A, B, X, Y = spec.PAD_X, spec.PAD_Y, spec.PAD_A, spec.PAD_B
     assert _launches(lambda f: A if 10 <= f < 13 else 0, 60)[1] == [1]
     # a thumb's press -- held well past 9 frames -- is still ONE blow,
     # thrown at its fourth frame (the press that did nothing on glass)
@@ -352,8 +352,8 @@ def test_the_uppercut_launches():
     m = _fight_vm()
     peak, landed = 0.0, False
     for f in range(480):
-        m.frame((spec.PAD_RIGHT if 300 <= f < 308 else 0)
-                | ((spec.PAD_A | spec.PAD_X) if 322 <= f < 325 else 0))
+        m.frame((spec.PAD_LEFT if 300 <= f < 308 else 0)
+                | ((spec.PAD_X | spec.PAD_A) if 322 <= f < 325 else 0))
         w = _wave(m)[0]
         peak = max(peak, w["py"] / 65536)
         if peak > 5 and w["py"] == 0:
@@ -368,7 +368,7 @@ def test_the_cancel_lattice():
     (combat.py): a jab cuts the cross's recovery the frame the tap lands;
     the special cuts a hook's; nothing cuts the special -- a tap in its
     recovery simply expires in the buffer."""
-    A, B = spec.PAD_A, spec.PAD_B
+    A, B = spec.PAD_X, spec.PAD_Y
     cut = _launches(lambda f: A if f in (10, 24) else 0, 80)[1]
     assert cut == [1, 0]
     m, _ = _launches(lambda f: A if f in (10, 24) else 0, 26)
@@ -386,8 +386,8 @@ def test_style_climbs_with_variety_and_draws_its_rank():
     as composed display-list glyphs, in C's colour."""
     m = _fight_vm()
     for f in range(483):
-        m.frame((spec.PAD_RIGHT if 300 <= f < 308 else 0)
-                | (spec.PAD_A if f >= 320 and f % 9 == 0 else 0))
+        m.frame((spec.PAD_LEFT if 300 <= f < 308 else 0)
+                | (spec.PAD_X if f >= 320 and f % 9 == 0 else 0))
     assert _cell(m, "s_rank") == 1, f"rank {_cell(m, 's_rank')} after the beating"
     assert _cell(m, "s_combo") >= 5
     n = m.vm.dmem[spec.DL_BASE]
@@ -470,7 +470,7 @@ def test_the_title_is_the_archives_and_start_begins():
     """After the intro, TND waits on its title -- the archive's own start
     screen, baked to a backdrop plate, nothing else drawn; Start (or A)
     begins the fight the next frame, and an A held through the cut is no
-    jab."""
+    jump (A is the jump since 2026-11-20)."""
     m = cabinet.VirtualMachine(cabinet.load_cart(CART))
     _through_the_intro(m)
     for f in range(60):
@@ -481,8 +481,9 @@ def test_the_title_is_the_archives_and_start_begins():
     assert m.vm.dmem[spec.BG_SRC] == 0, "Start/A did not leave the title"
     assert m.vm.dmem[spec.OL_BASE] > 0, "no street after the title"
     for f in range(20):
-        m.frame(0)                                  # ...and released
-        assert _cell(m, "anim") != 2, "the A that left the title threw a jab"
+        m.frame(spec.PAD_A if f < 6 else 0)         # ...held on, then released
+        assert _cell(m, "anim") != 2, "the A that left the title threw a punch"
+        assert _cell(m, "f_py") == 0, "the A that left the title jumped"
 
 
 def _image(cart, at, n):
@@ -533,7 +534,7 @@ def test_the_borrowed_front_is_never_read():
     lo, n = _const("BORROW_FRONT"), _const("BORROW_FRONT_N")
     rng = np.random.default_rng(7)
     pads = [0] * (_const("INTRO_LEN") + 40) + [spec.PAD_START] + [0] * 30 + \
-        [spec.PAD_A if f % 14 < 8 else 0 for f in range(160)]
+        [spec.PAD_X if f % 14 < 8 else 0 for f in range(160)]
     for f, pad in enumerate(pads):
         if f == 2:
             b.vm.dmem[lo:lo + n] = [int(v) for v in rng.integers(0, 1 << 32, n)]
@@ -611,7 +612,7 @@ def test_the_dpad_aims_the_strike_and_holds_the_steering():
     freezes (the D-pad is choosing the aim); the strike launches facing a
     quarter turn LEFT of the steering; when it is done the body faces its
     steering again. The camera follows the steering throughout."""
-    L, A = spec.PAD_LEFT, spec.PAD_A
+    L, A = spec.PAD_RIGHT, spec.PAD_X
     m = _fight_vm()
     seen = {}
     for f in range(60):
@@ -663,12 +664,12 @@ def test_the_small_sounds():
     m = _fight_vm()
     whiff = []
     for f in range(40):
-        m.frame(spec.PAD_A if f == 10 else 0)
+        m.frame(spec.PAD_X if f == 10 else 0)
         whiff.append(vol(m, 11) > 0)
     assert any(whiff), "a jab at the air made no whiff"
     m = _fight_vm()
     for f in range(345):
-        m.frame((spec.PAD_RIGHT if 300 <= f < 308 else 0) | (spec.PAD_A if f == 322 else 0))
+        m.frame((spec.PAD_LEFT if 300 <= f < 308 else 0) | (spec.PAD_X if f == 322 else 0))
         if f > 322:
             assert vol(m, 11) == 0, "a jab that landed whiffed"
     assert _wave(m)[0]["hp"] < 70, "fixture: the jab must land"
@@ -681,3 +682,217 @@ def test_the_small_sounds():
         m.frame(0)
         sting.append(vol(m, 13) > 0)
     assert sting[:20] == [False] * 20 and sum(sting) == 9, sting
+
+
+def test_the_gun_fires_on_release_and_charges():
+    """Y is the gun (combat.resolve): a thumb's tap fires the shot on
+    release, a hold of 26 frames or more the CHARGED shot -- 7 and 26
+    damage, x1.35 to the head, from across the street (reach 13 / 16) --
+    along his facing, never turned to the pad, with a recoil kick; X+Y
+    is the shot too. Holding is the charge, so nothing fires early."""
+    for hold, mv, dmg in ((8, 7, 7), (30, 8, 26)):
+        m = _fight_vm()
+        for f in range(30):
+            m.frame(0)
+        hp0 = sum(d["hp"] for d in _wave(m))
+        for f in range(hold):
+            m.frame(spec.PAD_B | (spec.PAD_LEFT if f > 2 else 0))
+            assert _cell(m, "anim") != 2, "the shot fired while Y was held"
+        seen = set()
+        for f in range(50):
+            m.frame(0)
+            if _cell(m, "anim") == 2:
+                seen.add(_cell(m, "f_mv"))
+                assert _cell(m, "head") == _cell(m, "yaw"), "the shot turned to the pad"
+        assert seen == {mv}, f"a {hold}-frame Y threw {seen}, not move {mv}"
+        lost = hp0 - sum(d["hp"] for d in _wave(m))
+        assert lost in (dmg, int(dmg * 1.35)), f"the shot did {lost}, not {dmg}"
+    m = _fight_vm()
+    for f in range(30):
+        m.frame(0)
+    for f in range(10):
+        m.frame(spec.PAD_A | spec.PAD_B)
+    for f in range(10):
+        m.frame(0)
+    assert _cell(m, "f_mv") == 7, "X+Y is the shot"
+
+
+def test_the_jump_rises_light_and_falls_heavy():
+    """X is the jump (tear.py JUMP_V0 0.186, rise 0.010, fall 0.024): an
+    instant edge to a ~1.73-unit peak, a long climb and a short drop."""
+    m = _fight_vm()
+    for f in range(10):
+        m.frame(0)
+    hs, f_peak = [], None
+    for f in range(60):
+        m.frame(spec.PAD_A if f < 10 else 0)
+        hs.append(_s32(_cell(m, "f_py")) / 65536)
+    peak = max(hs)
+    up = hs.index(peak)
+    down = next(i for i in range(up, 60) if hs[i] == 0) - up
+    assert 1.6 < peak < 1.8, f"the jump peaked at {peak:.2f}"
+    assert up > down, f"the climb ({up}) should outlast the drop ({down})"
+    assert hs[-1] == 0, "he never landed"
+
+
+def test_the_air_combo_follows_strings_and_spikes():
+    """The rear uppercut opens the jump-cancel; X then follows the body up,
+    every air hit keeps it aloft and tops the follow up, and the special
+    from the air spikes it down -- all on thumb-length presses."""
+    m = _fight_vm()
+
+    def pad(f):
+        p = spec.PAD_LEFT if 300 <= f < 308 else 0
+        if 322 <= f < 325:
+            p |= spec.PAD_X | spec.PAD_A
+        if 358 <= f < 366:
+            p |= spec.PAD_A
+        if 372 <= f < 452 and (f - 372) % 14 < 8:
+            p |= spec.PAD_X
+        if 462 <= f < 470:
+            p |= spec.PAD_Y
+        return p
+    top, lowest_combo, spiked = 0.0, 1e9, False
+    for f in range(560):
+        m.frame(pad(f))
+        w = _wave(m)[0]
+        if f == 366:
+            assert _cell(m, "f_acmb") > 0, "the jump-cancel did not follow"
+        if 380 <= f < 460:
+            top = max(top, _s32(_cell(m, "f_py")) / 65536)
+            lowest_combo = min(lowest_combo, _cell(m, "f_acmb"))
+        if w["vy"] <= -int(0.6 * 65536):
+            spiked = True
+    assert top > 5, f"he rose only {top:.2f} with it"
+    assert lowest_combo > 0, "the follow lapsed mid-string"
+    assert spiked, "the aerial special did not spike it"
+    assert _s32(_cell(m, "f_py")) == 0, "he never came down"
+
+
+def test_parkour_runs_turns_wide_quick_turns_and_threads():
+    """L+Up is PARKOUR (tear.py _parkour): the speed ramps logistically to
+    0.13, Down is a quick turn whose speed Up carries into the new heading
+    (a link in the chain), and running fast past the wave PAYS style
+    without a punch thrown."""
+    L, U, D = spec.PAD_L, spec.PAD_UP, spec.PAD_DOWN
+    m = _fight_vm()
+    m.frame(0)
+    sp, paid = [], 0
+    for f in range(150):
+        m.frame(L | U | (spec.PAD_LEFT if 60 <= f < 80 else 0))   # through the wave
+        sp.append(_s32(_cell(m, "f_spd")) / 65536)
+        paid = max(paid, _cell(m, "s_pts"))
+    assert _cell(m, "f_sty") == 1, "L+Up did not enter parkour"
+    assert sp[5] < 0.06 and 0.12 < sp[-1] <= 0.13, f"the ramp: {sp[5]:.3f} .. {sp[-1]:.3f}"
+    assert paid > 0, "threading the wave paid nothing"
+    y0, c0 = _cell(m, "yaw"), _cell(m, "f_chain")
+    m.frame(L | D)
+    assert (_cell(m, "yaw") - y0) % 1024 == 512, "Down did not turn him about"
+    m.frame(L | U)
+    assert _s32(_cell(m, "f_spd")) / 65536 > 0.1, "the quick turn lost the speed"
+    assert _cell(m, "f_chain") == c0 + 1, "the quick turn was not a link"
+
+
+def test_boxing_steps_on_the_latched_cross():
+    """L+Down is BOXING (tear.py _boxing): left and right STEP across the
+    cross latched at entry -- he never turns -- at the heavy boxing pace."""
+    L, D, LF = spec.PAD_L, spec.PAD_DOWN, spec.PAD_LEFT
+    m = _fight_vm()
+    m.frame(0)
+    for f in range(40):
+        m.frame(L | D if f < 5 else L | LF)
+    assert _cell(m, "f_sty") == 2 and _cell(m, "yaw") == 0, "boxing turned him"
+    vx = _s32(_cell(m, "f_vx")) / 65536
+    assert -0.08 < vx < -0.06, f"the left step runs at {vx:.3f} (left is -x)"
+
+
+def test_a_second_a_in_the_air_flips():
+    """A jump, then A again in the air: a forward tuck from the run (20
+    frames), a cartwheel to the side from the boxing stance (24) -- once a
+    jump, re-armed by the landing."""
+    L, U, D, LF, A = (spec.PAD_L, spec.PAD_UP, spec.PAD_DOWN, spec.PAD_LEFT,
+                      spec.PAD_A)
+    for pre, flip, kind, n in ((L | U, L | U | A, 0, 20), (L | D, L | LF | A, 2, 24)):
+        m = _fight_vm()
+        m.frame(0)
+        frames = 0
+        for f in range(80):
+            p = pre | (A if 20 <= f < 24 else 0)
+            if 30 <= f < 34:
+                p = flip
+            m.frame(p)
+            if _cell(m, "f_evf"):
+                frames += 1
+                assert _cell(m, "f_evk") == kind
+        assert n - 2 <= frames <= n, f"a flip of {frames} frames, not {n}"
+        assert _cell(m, "f_py") == 0 and _cell(m, "f_flipu") == 0, "not landed and re-armed"
+
+
+def test_r_locks_plants_cycles_and_aims_the_gun():
+    """R locks the nearest living demon; held still 6 frames he PLANTS,
+    squared up to it; a right flick moves the lock by bearing and a left
+    one brings it back; and a shot, locked, hits the target from range."""
+    R, RT, LF, B = spec.PAD_R, spec.PAD_RIGHT, spec.PAD_LEFT, spec.PAD_B
+    m = _fight_vm()
+    m.frame(0)
+    for f in range(30):
+        m.frame(0)
+    wave = _wave(m)
+    d2 = [(w["x"] / 65536) ** 2 + (w["z"] / 65536) ** 2 for w in wave]
+    m.frame(R)
+    first = _cell(m, "f_tgt")
+    assert first == d2.index(min(d2)) + 1, "R did not lock the nearest"
+    for f in range(8):
+        m.frame(R)
+    w = wave[first - 1]
+    want = int(round(np.arctan2(-w["x"] / 65536, w["z"] / 65536) * 1024 / (2 * np.pi))) & 1023
+    assert abs(((_cell(m, "yaw") - want + 512) % 1024) - 512) <= 2, "the plant does not face it"
+    m.frame(R | RT)
+    m.frame(R)
+    assert _cell(m, "f_tgt") != first, "a right flick kept the lock"
+    m.frame(R | LF)
+    m.frame(R)
+    assert _cell(m, "f_tgt") == first, "a left flick did not bring it back"
+    hp0 = wave[first - 1]["hp"]
+    for f in range(8):
+        m.frame(R | B)
+    for f in range(30):
+        m.frame(R)
+    assert _wave(m)[first - 1]["hp"] < hp0, "the locked shot missed its target"
+
+
+def test_locked_styles_flip_pay_fence_and_meteor():
+    """Locked, Down in the run is FENCING and Up in the stance the PROWLER,
+    each flip a link that pays; fencing re-latches its cross onto the
+    target; Up with a direction from the stance runs METEOR at full speed
+    round it; and jump with a direction in the stance is a DODGE."""
+    L, R, U, D, LF, A = (spec.PAD_L, spec.PAD_R, spec.PAD_UP, spec.PAD_DOWN,
+                         spec.PAD_LEFT, spec.PAD_A)
+    m = _fight_vm()
+    m.frame(0)
+    for f in range(20):
+        m.frame(0)
+    for f in range(10):
+        m.frame(R | L | D)
+    assert _cell(m, "f_sty") == 2
+    latch0 = _cell(m, "f_latch")
+    for f in range(20):
+        m.frame(R | L | LF)
+    assert _cell(m, "f_latch") != latch0, "fencing's cross did not follow the target"
+    pts, chain = _cell(m, "s_pts"), _cell(m, "f_chain")
+    yaws = []
+    for f in range(60):
+        m.frame(R | L | U | LF)
+        yaws.append(_cell(m, "yaw"))
+    assert _cell(m, "f_met") == 1, "Up with a direction did not run METEOR"
+    assert _cell(m, "f_chain") == chain + 1 and _cell(m, "s_pts") > pts, "the flip did not pay"
+    assert _s32(_cell(m, "f_spd")) / 65536 > 0.12, "the meteor is not at speed"
+    assert len(set(yaws[-20:])) > 10, "the meteor is not circling"
+    m = _fight_vm()
+    m.frame(0)
+    for f in range(10):
+        m.frame(R | L | D)
+    for f in range(4):
+        m.frame(R | L | LF | A)
+    assert _cell(m, "f_evf") > 0 and _cell(m, "f_evk") == 6, "no dodge to the left"
+    assert _cell(m, "f_py") == 0, "the dodge jumped"

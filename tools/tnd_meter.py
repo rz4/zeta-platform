@@ -52,24 +52,24 @@ def pad(route, f):
         if f < 340:
             return 0
         if f < 426:
-            return spec.PAD_RIGHT
-        return spec.PAD_A if f % 20 == 0 else 0
+            return spec.PAD_LEFT
+        return spec.PAD_X if f % 20 == 0 else 0
     if route == "tour":
-        for end, p in ((500, spec.PAD_UP), (543, spec.PAD_RIGHT),
-                       (700, spec.PAD_UP), (720, spec.PAD_LEFT),
+        for end, p in ((500, spec.PAD_UP), (543, spec.PAD_LEFT),
+                       (700, spec.PAD_UP), (720, spec.PAD_RIGHT),
                        (820, spec.PAD_UP)):
             if f < end:
                 return p
-        return spec.PAD_RIGHT
+        return spec.PAD_LEFT
     if f < 20:
         return 0
     if f < 52:
-        return spec.PAD_RIGHT
+        return spec.PAD_LEFT
     if f < 150:
         return spec.PAD_UP
     if f < 200:
-        return spec.PAD_LEFT | spec.PAD_UP
-    return spec.PAD_A if f % 20 == 0 else 0
+        return spec.PAD_RIGHT | spec.PAD_UP
+    return spec.PAD_X if f % 20 == 0 else 0
 
 
 def on_silicon(path, route):

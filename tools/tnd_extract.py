@@ -53,10 +53,28 @@ seqs = {}
 # cart storage, and a sway this slow does not show it. Strikes stay 60.
 seqs["idle"] = [frozen(bm.idle_mesh(f / 60.0)) for f in range(0, 120, 2)]
 seqs["walk"] = [frozen(bm.walk_mesh(f / 32.0, "fwd")) for f in range(0, 32, 2)]
+# THE AIR: boxer_mesh.air_mesh is a function of vz alone (the load at
+# takeoff, full extension at the apex, the capped brace falling), so seven
+# samples over its range -- vz = 0.16 down to -0.16 -- are the whole clip;
+# the cart picks by its vz
+seqs["air"] = [frozen(bm.air_mesh(0.16 - k * 0.16 / 3)) for k in range(7)]
+# THE MOVEMENT LAYER (tear.py _action_move): the parkour sprint and the
+# boxing step-drag, one stride each at 16 poses (the cart steps the phase by
+# its speed); the flips -- tuck, backflip, and the cartwheel both sides share
+# -- and the fencing slips, over their own frames at 60 Hz. (The flip's SPIN
+# is the renderer's in the archive, and the cart's here: these are shapes.)
+seqs["run"] = [frozen(bm.run_mesh(f / 16.0)) for f in range(16)]
+for d in ("fwd", "back", "left", "right"):
+    seqs["kite_" + d] = [frozen(bm.boxing_kite_mesh(f / 16.0, d)) for f in range(16)]
+for name, kind, n in (("flip_fwd", "fwd", 20), ("flip_back", "back", 20),
+                      ("flip_cart", "left", 24)):
+    seqs[name] = [frozen(bm.flip_mesh(f / (n - 1), kind)) for f in range(n)]
+for d in ("fwd", "back", "left", "right"):
+    seqs["dodge_" + d] = [frozen(bm.dodge_mesh(f / 11.0, d)) for f in range(12)]
 # the swings, at the game's own timing: the clip stretched over the move's
 # startup + active + recovery, as tear.py draws it (t = frame / (total-1))
 for mv in ("jab", "cross", "lead_hook", "rear_hook", "special",
-           "lead_uppercut", "rear_uppercut"):
+           "lead_uppercut", "rear_uppercut", "gun", "gun_charged"):
     n = TOTAL[mv]
     seqs[mv] = [frozen(bm.move_mesh(mv, f / (n - 1))) for f in range(n)]
 out = {"F": F, "C": C}
@@ -204,7 +222,8 @@ def fists(sk, m):
 player = rig.fighter(rig.Build(body=(38, 52, 96), trim=(255, 214, 92),
                                skin=(226, 178, 140)))   # tear.py's player
 PM = (combat.JAB, combat.CROSS, combat.LEAD_HOOK, combat.REAR_HOOK,
-      combat.SPECIAL, combat.LEAD_UPPERCUT, combat.REAR_UPPERCUT)
+      combat.SPECIAL, combat.LEAD_UPPERCUT, combat.REAR_UPPERCUT,
+      combat.GUN, combat.GUN_CHARGED)
 out["p_moves"] = np.array([move_row(m) for m in PM], float)
 for m in PM:
     out["p_fist_" + m.name] = fists(player, m)
