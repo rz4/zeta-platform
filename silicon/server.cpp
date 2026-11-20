@@ -94,7 +94,12 @@ int main(int argc, char** argv) {
         // zseq's states each clock of the frame was spent in, sampled here
         // in the harness -- no RTL counter, so nothing in the bitstream
         static const bool seqhist = getenv("ZETA_SEQHIST") != nullptr;
-        static unsigned long hist[128], hold[16];
+        static unsigned long hist[128], hold[16], top[64], gw[8], band[64][4];
+        static unsigned long bh[16][128];
+        if (seqhist) for (int i = 0; i < 16; i++) for (int j = 0; j < 128; j++) bh[i][j] = 0;
+        if (seqhist) for (int i = 0; i < 64; i++) for (int j = 0; j < 4; j++) band[i][j] = 0;
+        if (seqhist) for (int i = 0; i < 64; i++) top[i] = 0;
+        if (seqhist) for (int i = 0; i < 8; i++) gw[i] = 0;
         if (seqhist) for (int i = 0; i < 128; i++) hist[i] = 0;
         if (seqhist) for (int i = 0; i < 16; i++) hold[i] = 0;
         while (!dut->frame_done && guard-- > 0) {
@@ -107,6 +112,30 @@ int main(int argc, char** argv) {
                 unsigned g = dut->rootp->zeta_sim__DOT__u_top__DOT__u_gpu__DOT__st & 7;
                 if (q == 5) hold[g]++;
                 if (q == 40) hold[8 + g]++;
+                // THE FRAME'S OWN STATE, and inside the paint (I_GW = 6)
+                // WHAT THE BAND IS WAITING ON, first cause wins:
+                //   0 the sequencer   1 the rasterizer clearing
+                //   2 walking         3 flushing   4 triangles still queued
+                //   5 the write FIFO draining to PSRAM (fb_widle low)
+                //   6 nothing (the band-end handshake itself)
+                unsigned t = dut->rootp->zeta_sim__DOT__u_top__DOT__st & 63;
+                top[t]++;
+                if (t == 6) {
+                    auto *r = dut->rootp;
+                    bool sd = r->zeta_sim__DOT__u_top__DOT__seq_ran || r->zeta_sim__DOT__u_top__DOT__seq_done;
+                    bool qe = true;   // (no queue on this branch)
+                    int c = !sd ? 0 : g == 1 ? 1 : g == 3 ? 2 : g == 4 ? 3
+                          : !qe ? 4 : !r->zeta_sim__DOT__u_top__DOT__fb_widle ? 5 : 6;
+                    gw[c]++;
+                    // PER BAND: its clocks, the sequencer's share (not yet
+                    // done), the rasterizer's walk, the sequencer's holds
+                    unsigned b = r->zeta_sim__DOT__u_top__DOT__tpass & 63;
+                    band[b][0]++;
+                    bh[b & 15][q]++;
+                    if (!sd) band[b][1]++;
+                    if (g == 3) band[b][2]++;
+                    if (q == 5 || q == 40) band[b][3]++;
+                }
             }
         }
         if (seqhist) {
@@ -117,8 +146,23 @@ int main(int argc, char** argv) {
             fprintf(stderr, "HOLD dle");
             for (int i = 0; i < 8; i++) fprintf(stderr, " %lu", hold[i]);
             fprintf(stderr, " fe");
+            
             for (int i = 0; i < 8; i++) fprintf(stderr, " %lu", hold[8 + i]);
             fprintf(stderr, "\n");
+            for (int b = 0; b < 16; b++) {
+                bool any = false;
+                for (int i = 0; i < 128; i++) any |= bh[b][i] != 0;
+                if (!any) continue;
+                fprintf(stderr, "BH %d", b);
+                for (int i = 0; i < 128; i++) if (bh[b][i]) fprintf(stderr, " %d:%lu", i, bh[b][i]);
+                fprintf(stderr, "\n");
+            }
+            fprintf(stderr, "TOP");
+            for (int i = 0; i < 64; i++) if (top[i]) fprintf(stderr, " %d:%lu", i, top[i]);
+            for (int b = 0; b < 64; b++) if (band[b][0])
+                fprintf(stderr, " | B%d %lu %lu %lu %lu", b, band[b][0], band[b][1], band[b][2], band[b][3]);
+            fprintf(stderr, " | GW seq %lu clr %lu walk %lu flush %lu queued %lu fifo %lu none %lu\n",
+                    gw[0], gw[1], gw[2], gw[3], gw[4], gw[5], gw[6]);
         }
         if (guard <= 0) { fprintf(stderr, "frame wedged\n"); return 3; }
         if (meter) {
