@@ -50,14 +50,14 @@ module cram_fb (
     input  wire        swp_en,          // the write-window probe's knob
     input  wire [3:0]  swp_k,           // (see zeta_top.v)
     input  wire        ld_we,           // boot: one segment WORD (32b),
-    input  wire [21:0] ld_addr,         // half-addr of its low half
+    input  wire [22:0] ld_addr,         // half-addr of its low half
     input  wire [31:0] ld_data,
     output wire        ld_busy,
     input  wire        dma_go,          // mover/pump: burst read
     input  wire        dma_chip1,       // 0: chip0 (the mover's proven
                                         // home); 1: ride the BACK chip
                                         // (the pump: never meets scanout)
-    input  wire [21:0] dma_addr,
+    input  wire [22:0] dma_addr,
     input  wire [7:0]  dma_len,
     output wire        fb_front,        // which chip scanout owns
     output wire        dma_ack,         // the burst was accepted
@@ -75,6 +75,7 @@ module cram_fb (
     output wire        c0_dq_oe,
     input  wire [15:0] c0_dq_i,
     output wire c0_clk_en, c0_adv_n, c0_cre, c0_ce_n, c0_we_n, c0_oe_n,
+    output wire c0_ce1_n,               // the second die (build 105)
     output wire c0_ub_n, c0_lb_n,
     input  wire        c1_wait,
     output wire [5:0]  c1_a,
@@ -82,6 +83,7 @@ module cram_fb (
     output wire        c1_dq_oe,
     input  wire [15:0] c1_dq_i,
     output wire c1_clk_en, c1_adv_n, c1_cre, c1_ce_n, c1_we_n, c1_oe_n,
+    output wire c1_ce1_n,
     output wire c1_ub_n, c1_lb_n
 );
   reg front;                         // buffer being scanned; ~front painted
@@ -99,16 +101,19 @@ module cram_fb (
   // the same absence, and they all end here. Costs 1/64 of CRAM. The
   // divide-by-63 is the 2^6-1 reciprocal series with three correction
   // rungs, verified exhaustively over the whole 22-bit space.
-  function automatic [21:0] tr(input [21:0] l);
-    reg [20:0] w;
-    reg [15:0] q;
+  // (build 105: 23 bits, for the second die -- the same three-rung
+  // series with a 17-bit quotient, exact wherever the physical address
+  // exists, i.e. logical < 126 * 2^16; verified exhaustively.)
+  function automatic [22:0] tr(input [22:0] l);
+    reg [21:0] w;
+    reg [16:0] q;
     reg [8:0]  r;
     begin
-      w = l[21:1];                   // /126 = /2, then /63
-      q = {1'b0, w[20:6]} + {7'd0, w[20:12]} + {13'd0, w[20:18]};
+      w = l[22:1];                   // /126 = /2, then /63
+      q = {1'b0, w[21:6]} + {7'd0, w[21:12]} + {13'd0, w[21:18]};
       r = w[8:0] - {q[2:0], 6'd0} + q[8:0];   // W - 63q, exact mod 512
-      q = q + ((r >= 9'd189) ? 16'd3 : (r >= 9'd126) ? 16'd2 :
-               (r >= 9'd63)  ? 16'd1 : 16'd0);
+      q = q + ((r >= 9'd189) ? 17'd3 : (r >= 9'd126) ? 17'd2 :
+               (r >= 9'd63)  ? 17'd1 : 17'd0);
       tr = l + {5'd0, q, 1'b0};      // +2 halves per skipped tail word
     end
   endfunction
@@ -158,8 +163,8 @@ module cram_fb (
 
   // engine-side signals, routed to whichever chip owns the role
   reg         wgo, lgo;
-  reg  [21:0] laddr;
-  reg  [21:0] w_taddr;               // the paint run's translated start,
+  reg  [22:0] laddr;
+  reg  [22:0] w_taddr;               // the paint run's translated start,
                                      // latched with wgo (head is frozen
                                      // until the burst takes it)
   reg  [7:0]  llen;
@@ -203,7 +208,7 @@ module cram_fb (
   // flush of build 36 capped the drain near 8 MB/s and the bridge can
   // burst past that.
   reg        seg_wr;
-  reg [21:0] seg_addr;
+  reg [22:0] seg_addr;
   reg [7:0]  seg_len;
   reg [31:0] cb0c0 [0:63];             // bank 0, chip0's copy (BRAM)
   reg [31:0] cb0c1 [0:63];             // bank 0, chip1's copy
@@ -217,15 +222,15 @@ module cram_fb (
                                      // pointer's head start lands in
                                      // the dead tail -- the scribble
                                      // law's geometric cure)
-  reg [21:0] fbase;                    // half-addr of its word 0
+  reg [22:0] fbase;                    // half-addr of its word 0
   reg [7:0]  cqt;                      // quiet clocks since last word
   reg        pendv;                    // side latch: discontiguous word
-  reg [21:0] penda;
+  reg [22:0] penda;
   reg [31:0] pendd;
   reg        xarm;                     // a rotated bank awaits its flush
   reg        xbank;
   reg [6:0]  xlen;                     // words in the flushing bank
-  reg [21:0] xbase;
+  reg [22:0] xbase;
   reg [7:0]  crd0, crd1;               // per-chip HALF stream index
   reg        xd0, xd1;                 // per-chip done latches
   assign     fb_front = front;
@@ -240,7 +245,7 @@ module cram_fb (
   // lost request is a frame that never finishes.
   reg        dma_pend;
   reg        dma_c1_l;
-  reg [21:0] dma_addr_l;
+  reg [22:0] dma_addr_l;
   reg [7:0]  dma_len_l;
   wire       tgt_c    = dma_c1_l ? front : 1'b0;
   wire       tgt_idle = tgt_c ? idle1 : idle0;
@@ -265,8 +270,8 @@ module cram_fb (
   // 4 LABs over): the seg accepts and the paint issue are mutually
   // exclusive by the arbitration itself -- wgo's issue term carries
   // !acc_ld && !acc_dma -- so one operand mux serves all three
-  wire [21:0] seg_tr = tr(acc_ld ? xbase :
-                          acc_dma ? dma_addr_l : {5'd0, h_addr});
+  wire [22:0] seg_tr = tr(acc_ld ? xbase :
+                          acc_dma ? dma_addr_l : {6'd0, h_addr});
   assign ld_busy  = ld_we || pendv || (fcnt == 7'd63);
   assign dma_ack  = acc_dma && !wgo;
   assign dma_step = seg_busy && !seg_wr && (seg_c ? rstep1 : rstep0);
@@ -278,8 +283,8 @@ module cram_fb (
   wire go1   = seg1 ? seg_go : (front ? lgo : wgo);
   wire wr0   = seg0 ? seg_wr : front;
   wire wr1   = seg1 ? seg_wr : !front;
-  wire [21:0] adr0 = seg0 ? seg_addr : (front ? w_taddr : laddr);
-  wire [21:0] adr1 = seg1 ? seg_addr : (front ? laddr : w_taddr);
+  wire [22:0] adr0 = seg0 ? seg_addr : (front ? w_taddr : laddr);
+  wire [22:0] adr1 = seg1 ? seg_addr : (front ? laddr : w_taddr);
   wire [7:0]  len0 = seg0 ? seg_len : llen;
   wire [7:0]  len1 = seg1 ? seg_len : llen;
   wire [15:0] dat0 = seg0 ? (crd0[0] ? cq0[31:16] : cq0[15:0])
@@ -308,7 +313,7 @@ module cram_fb (
   // fill writes: one word per pulse into both chip-copies of the bank
   wire        ldpush = ld_we && !pendv &&
                       (fcnt == 7'd0 || (fcnt != 7'd63 &&
-                       ld_addr == fbase + {14'd0, fcnt, 1'b0}));
+                       ld_addr == fbase + {15'd0, fcnt, 1'b0}));
   wire [5:0]  fwa   = (fcnt == 7'd0) ? 6'd0 : fcnt[5:0];
   wire        pmove = !xarm && !(seg_busy && seg_both) && pendv &&
                       fcnt == 7'd0;    // side latch into a fresh bank
@@ -391,7 +396,7 @@ module cram_fb (
     .r_step(rstep0), .r_data(rdat0), .idle(idle0), .done(done0),
     .c_wait(c0_wait), .c_a(c0_a), .c_dq_o(c0_dq_o), .c_dq_oe(c0_dq_oe), .c_dq_i(c0_dq_i),
     .c_clk_en(c0_clk_en), .c_adv_n(c0_adv_n), .c_cre(c0_cre),
-    .c_ce_n(c0_ce_n), .c_we_n(c0_we_n), .c_oe_n(c0_oe_n),
+    .c_ce_n(c0_ce_n), .c_ce1_n(c0_ce1_n), .c_we_n(c0_we_n), .c_oe_n(c0_oe_n),
     .c_ub_n(c0_ub_n), .c_lb_n(c0_lb_n));
 
   cram_burst u_c1 (
@@ -403,7 +408,7 @@ module cram_fb (
     .r_step(rstep1), .r_data(rdat1), .idle(idle1), .done(done1),
     .c_wait(c1_wait), .c_a(c1_a), .c_dq_o(c1_dq_o), .c_dq_oe(c1_dq_oe), .c_dq_i(c1_dq_i),
     .c_clk_en(c1_clk_en), .c_adv_n(c1_adv_n), .c_cre(c1_cre),
-    .c_ce_n(c1_ce_n), .c_we_n(c1_we_n), .c_oe_n(c1_oe_n),
+    .c_ce_n(c1_ce_n), .c_ce1_n(c1_ce1_n), .c_we_n(c1_we_n), .c_oe_n(c1_oe_n),
     .c_ub_n(c1_ub_n), .c_lb_n(c1_lb_n));
 
   // ---- write engine: pop runs into bursts -------------------------------
@@ -442,9 +447,9 @@ module cram_fb (
   reg [1:0]  lseg;
   reg [8:0]  lfx;
   // the line server's one translator: operand muxed by the fetch leg
-  wire [21:0] l_log = {5'd0, lbase} + (lseg == 2'd1 ? 22'd128 :
-                                       lseg == 2'd2 ? 22'd256 : 22'd0);
-  wire [21:0] l_tr  = tr(l_log);
+  wire [22:0] l_log = {6'd0, lbase} + (lseg == 2'd1 ? 23'd128 :
+                                       lseg == 2'd2 ? 23'd256 : 23'd0);
+  wire [22:0] l_tr  = tr(l_log);
   reg        lln0;                   // parity of the line being filled
   reg        lbusy;
   reg        ldone;                  // latched r_done (survives S_RCV)

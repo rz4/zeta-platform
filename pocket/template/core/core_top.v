@@ -551,7 +551,7 @@ wire [1:0]  cl_kind;      // 0 IMEM, 1 DMEM, 2 CRAM segment
 // cart, so a probe cart baked in can READ those counters. That is the
 // measurement nine hardware rounds could never take.
 wire        cart_ready_eff = SLOT_LOAD ? cart_ready : 1'b1;
-wire [21:0] cl_addr;      // 22 bits since the CRAM segment: this
+wire [22:0] cl_addr;      // 23 bits since the second dies (build 105); this
 wire [31:0] cl_data;
 wire        cl_busy;      // a segment word is still going into CRAM      // wire truncating silently was boot 16's black
                           // screen -- core_top is the one layer the sims
@@ -589,12 +589,12 @@ zeta_glass #(.EXT_CE(1)) u_zeta (
     .c0_a(cram0_a), .c0_dq_o(cram0_dq_o), .c0_dq_oe(cram0_oe),
     .c0_dq_i(cram0_dq),
     .c0_clk_en(c0_clk_en), .c0_adv_n(cram0_adv_n), .c0_cre(cram0_cre),
-    .c0_ce_n(cram0_ce0_n), .c0_we_n(cram0_we_n), .c0_oe_n(cram0_oe_n),
+    .c0_ce_n(cram0_ce0_n), .c0_ce1_n(cram0_ce1_n), .c0_we_n(cram0_we_n), .c0_oe_n(cram0_oe_n),
     .c0_ub_n(cram0_ub_n), .c0_lb_n(cram0_lb_n),
     .c1_a(cram1_a), .c1_dq_o(cram1_dq_o), .c1_dq_oe(cram1_oe),
     .c1_dq_i(cram1_dq),
     .c1_clk_en(c1_clk_en), .c1_adv_n(cram1_adv_n), .c1_cre(cram1_cre),
-    .c1_ce_n(cram1_ce0_n), .c1_we_n(cram1_we_n), .c1_oe_n(cram1_oe_n),
+    .c1_ce_n(cram1_ce0_n), .c1_ce1_n(cram1_ce1_n), .c1_we_n(cram1_we_n), .c1_oe_n(cram1_oe_n),
     .c1_ub_n(cram1_ub_n), .c1_lb_n(cram1_lb_n),
     // the card, through card_apf.v: the one path in this console that
     // the cross cannot prove, because machine 1 has no SD
@@ -644,8 +644,7 @@ wire _cram_clken_unused = c0_clk_en & c1_clk_en;
 /* verilator lint_on UNUSEDSIGNAL */
 assign cram0_dq = cram0_oe ? cram0_dq_o : 16'hZZZZ;
 assign cram1_dq = cram1_oe ? cram1_dq_o : 16'hZZZZ;
-assign cram0_ce1_n = 1'b1;         // second die unused
-assign cram1_ce1_n = 1'b1;
+// (the second dies: driven by cram_burst since build 105)
 
 wire signed [15:0] zeta_snd;
 

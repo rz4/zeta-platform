@@ -124,7 +124,7 @@ def stream(path, seconds=None, start=0.0, gain=1.0) -> list[int]:
 
 def report(words: list[int]) -> str:
     frames = len(words) // spec.WAV_WORDS
-    ceil = (spec.CRAM_WORDS - spec.CRAM_CART_BASE // 2)
+    ceil = spec.CRAM_WORDS
     return (f"{len(words):,} words = {frames:,} frames = "
             f"{frames / spec.FPS:.1f} s at {PCM_HZ:,} Hz 8-bit mono "
             f"({100 * len(words) / ceil:.0f}% of the CRAM segment)")

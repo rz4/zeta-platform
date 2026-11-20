@@ -34,7 +34,10 @@ def display_rgb(rgb24: int) -> tuple[int, int, int]:
     return tuple(out)
 
 # ---- memories & budgets --------------------------------------------------
-IMEM_WORDS = 4096               # instructions per cart
+IMEM_WORDS = 8192               # instructions per cart. Doubled in build
+                                # 105: TND's fight filled 4,080 of 4,096
+                                # with the movement layer still to come
+                                # (16 more M10K of the 17 the fit left)
 DMEM_WORDS = 16384              # 32-bit words of game state -- the
                                 # capacity amendment: 4x the mesh and
                                 # state room (BRAM is the currency the
@@ -432,7 +435,7 @@ FOG_RGB, FOG_NEAR, FOG_SHIFT = 12272, 12273, 12274
 # nobody can resolve. The trick every late-generation console lived on,
 # and the machine can do it itself rather than making each cart do it.
 LOD_FLAT = 12275
-OVL_MAX = 4096                  # a whole program in one frame if wanted
+OVL_MAX = IMEM_WORDS            # a whole program in one frame if wanted
 
 # ---- the backdrop: rooms the machine could never draw live ---------------
 # If BG_SRC is nonzero, the frame does not clear to CLEAR_RGB: it clears
@@ -459,7 +462,16 @@ CRAM_CART_BASE = 131040         # the segment's home in CRAM, above both
                                 # scribble law, boots 51-54) lands in
                                 # the dead row tail the restride
                                 # already skips. Geometry as armor.
-CRAM_WORDS = 1 << 21            # 2M cart words addressable, 8 MB
+# THE SEGMENT'S CEILING, honestly (build 105). Each Pocket CRAM chip is two
+# 64 Mbit dies; until build 105 only die 0 was enabled, an 8 MB window
+# whose address bound (1 << 21 words) also counted the row tails the
+# restride never uses (cram_fb.v) and so promised ~32k words that did not
+# exist. Now both dies answer -- bit 22 of the half address picks one --
+# and the bound is the LOGICAL space that physically exists, less the
+# framebuffers below the segment:
+#     (126 * 2^16 logical halves - CRAM_CART_BASE) / 2 = 4,063,248 words
+# The segment is mirrored on both chips, so this is the whole cart.
+CRAM_WORDS = (126 * (1 << 16) - CRAM_CART_BASE) // 2
 # CRAM is 16 bits wide, so each 32-bit cart word occupies two CRAM cells:
 # segment word i is at CRAM_CART_BASE + 2i (low half) and +2i+1 (high).
 
@@ -1180,7 +1192,7 @@ LOADER_SIG2 = 11700             # a MIRROR of the signature, written into
                                 # delivers intact -- so the loader's
                                 # testimony survives even if the top of
                                 # memory does not
-LOADER_BUILD = 104              # bumped per bitstream: word +7 of the
+LOADER_BUILD = 105              # bumped per bitstream: word +7 of the
                                 # signature, so a cart can say WHICH core
                                 # it is running on.
                                 # (101 = vertex C registered in zseq;

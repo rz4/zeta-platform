@@ -225,3 +225,64 @@ def test_the_second_request_on_silicon(tmp_path):
         s.frame(0)
         assert np.array_equal(v.framebuffer(), s.framebuffer()), \
             f"the second request differs between the machines at frame {f}"
+
+
+# ---- the second die (build 105) ----------------------------------------------
+# Words far enough into the segment live PHYSICALLY on each chip's second
+# die (half address bit 22 set, past the restride). One cart moves a run
+# from die 0 and a run from die 1 every frame and paints both: the law
+# draws what the cart says; the silicon -- whose chip models now include
+# die 1, which refuses a burst before its own BCR is programmed -- must
+# draw the same, or the controller did not configure or select the die.
+def _die_cart(tmp_path):
+    lo, hi = 100, 2_050_000
+    lg = spec.CRAM_CART_BASE + 2 * hi
+    assert lg + 2 * (lg // 126) >= 1 << 22, "not on die 1"     # (restrided)
+    assert hi + 8 <= spec.CRAM_WORDS
+    D = 9000
+    body = []
+    for k, (src, dst) in enumerate(((lo, D), (hi, D + 8))):
+        cells = ((spec.DMA_SRC, spec.DMA_DST, spec.DMA_LEN, spec.DMA_GO),
+                 (spec.DMA2_SRC, spec.DMA2_DST, spec.DMA2_LEN, spec.DMA2_GO))[k]
+        body += [f"push {src}", f"store {cells[0]}", f"push {dst}", f"store {cells[1]}",
+                 "push 8", f"store {cells[2]}", "push 1", f"store {cells[3]}"]
+    body += ["push 2", "store 12288"]
+    for t, base in enumerate((D, D + 8)):
+        for k in range(6):
+            body += [f"load {base + k}", f"store {12289 + 7 * t + k}"]
+        body += [f"load {base + 6}", f"store {12289 + 7 * t + 6}"]
+    body += ["halt",
+             f".cram {lo} " + " ".join(map(str, (20, 30, 150, 40, 60, 200, 0x00C0F0, 0))),
+             f".cram {hi} " + " ".join(map(str, (170, 50, 300, 60, 220, 260, 0xF0A000, 0))),
+             # a trailing word: the boot path flushes a segment's LAST
+             # partial bank only after 255 quiet cycles, and a cart that
+             # reads its final words on frame 0 can beat it (pre-existing,
+             # die-independent -- this witness is about the die)
+             f".cram {hi + 10_000} 7",
+             ""]
+    p = tmp_path / "die.zol"
+    p.write_text("\n".join(body))
+    return cabinet.load_cart(p)
+
+
+def test_the_second_die_law(tmp_path):
+    m = cabinet.VirtualMachine(_die_cart(tmp_path))
+    m.frame(0)
+    m.frame(0)
+    fb = m.framebuffer()
+    c = fb[:, :, 0].astype(int) << 16 | fb[:, :, 1].astype(int) << 8 | fb[:, :, 2]
+    assert (c == 0xF7A500).sum() > 1000, "the die-1 triangle did not draw"
+    assert (c == 0x00C6F7).sum() > 1000, "the die-0 triangle did not draw"
+
+
+@pytest.mark.skipif(shutil.which("verilator") is None,
+                    reason="verilator not installed")
+def test_the_second_die_on_silicon(tmp_path):
+    from zeta import silicon
+    cart = _die_cart(tmp_path)
+    v, s = cabinet.VirtualMachine(cart), silicon.SiliconMachine(cart)
+    for f in range(3):
+        v.frame(0)
+        s.frame(0)
+        assert np.array_equal(v.framebuffer(), s.framebuffer()), \
+            f"die 1 reads differently on silicon at frame {f}"

@@ -5,7 +5,8 @@
 // bridge writes in the clk_74a domain. This module claims the 128 KB
 // window at 0x10000000 THAT data.json DECLARES -- and nothing else --
 // crosses each word into the console clock domain, and replays it on
-// zeta_top's boot port: words 0..4095 -> IMEM, 4096..20479 -> DMEM,
+// zeta_top's boot port: words 0..IMEM_WORDS-1 -> IMEM, then DMEM_WORDS of
+// DMEM, then the CRAM segment --
 // exactly the cart.zbin layout zeta deploy writes.
 //
 // Two hardware truths are built in, each paid for on glass:
@@ -103,29 +104,31 @@ module cart_loader #(
                                       // real hardware at all
     output reg         boot_we,
     output reg   [1:0] boot_kind,     // 0 IMEM, 1 DMEM, 2 CRAM segment
-    output reg  [21:0] boot_addr,
+    output reg  [22:0] boot_addr,
     output reg  [31:0] boot_data,
     output reg         cart_ready
 );
   `include "params.vh"
 
   wire in_hi  = (bridge_addr[31:28] == 4'h1) &&      // 0x10000000: ours
-                (bridge_addr[27:24] == 4'd0);          // 16 MB of window
+                (bridge_addr[27:25] == 3'd0);          // 32 MB of window
+                                                       // (build 105: the
+                                                       // second dies)
   wire in_lo  = (bridge_addr[31:17] == 15'd0);       // 0x00000000: NOT
   wire hit    = bridge_wr && in_hi;
   wire lo_hit = bridge_wr && in_lo;
 
   // the cart is IMEM, then DMEM, then however many words of CRAM segment
   // the game carries -- so the window is now 16 MB, not 128 KB
-  wire [21:0] widx  = bridge_addr[23:2];
-  wire [21:0] dsub  = widx - IMEM_WORDS[21:0];
-  wire [21:0] csub  = widx - (IMEM_WORDS[21:0] + DMEM_WORDS[21:0]);
-  wire [1:0]  wkind = (widx < IMEM_WORDS[21:0])                  ? 2'd0 :
-                      (widx < IMEM_WORDS[21:0] + DMEM_WORDS[21:0]) ? 2'd1
+  wire [22:0] widx  = bridge_addr[24:2];
+  wire [22:0] dsub  = widx - IMEM_WORDS[22:0];
+  wire [22:0] csub  = widx - (IMEM_WORDS[22:0] + DMEM_WORDS[22:0]);
+  wire [1:0]  wkind = (widx < IMEM_WORDS[22:0])                  ? 2'd0 :
+                      (widx < IMEM_WORDS[22:0] + DMEM_WORDS[22:0]) ? 2'd1
                                                                    : 2'd2;
-  wire [21:0] waddr = (wkind == 2'd0) ? widx :
+  wire [22:0] waddr = (wkind == 2'd0) ? widx :
                       (wkind == 2'd1) ? dsub : csub;
-  wire        w_dlo = (wkind == 2'd1) && (dsub < 22'd4096);
+  wire        w_dlo = (wkind == 2'd1) && (dsub < 23'd4096);
   wire        w_zer = (bridge_wr_data == 32'd0);     // zeros ANYWHERE
 
   function [11:0] gray(input [11:0] b); gray = b ^ (b >> 1); endfunction
@@ -134,7 +137,7 @@ module cart_loader #(
   // 2048 deep since build 37: the segment drain tops out near 8.6 MB/s
   // (the mirror writes both chips), and 512 words of skid was a thin
   // margin against the bridge's bursts once carts carry megabyte tails
-  reg [55:0] fifo [0:2047];            // {kind[1:0], addr[21:0], data}
+  reg [56:0] fifo [0:2047];            // {kind[1:0], addr[22:0], data}
   reg [11:0] wptr;                     // binary, one spare bit for wrap
   reg [11:0] wgray;
   reg [15:0] n_hi, n_dlo, n_zero, n_lo, last_lo;    // saturating
@@ -225,7 +228,7 @@ module cart_loader #(
                                              // while the console is still
                                              // in reset -- see below
       boot_kind <= 2'd1;
-      boot_addr <= {8'd0, (sigi[3] ? LOADER_SIG2[13:0] : LOADER_SIG[13:0])
+      boot_addr <= {9'd0, (sigi[3] ? LOADER_SIG2[13:0] : LOADER_SIG[13:0])
                           + {11'd0, sigi[2:0]}};
       case (sigi[2:0])
         3'd0:    boot_data <= 32'h5A455441;       // 'ZETA'

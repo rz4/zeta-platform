@@ -23,7 +23,7 @@ module zvm (
     output wire [31:0] ext_rdata,
     // IMEM boot port
     input  wire        prog_we,
-    input  wire [11:0] prog_addr,
+    input  wire [12:0] prog_addr,    // (8,192 words: build 105)
     input  wire [31:0] prog_wdata
 );
   `include "params.vh"
@@ -76,18 +76,18 @@ module zvm (
   wire [12:0] rtgt = rstack[rsp - 1'b1];
   // vm.py checks 0 <= pc < IMEM_WORDS after every step: running off the end
   // of IMEM this instruction is a trap (its effects still apply, as there)
-  wire pc_over = (pc[11:0] == IMEM_WORDS - 1) &&
+  wire pc_over = (pc == IMEM_WORDS[12:0] - 13'd1) &&
                  !(op == OP_HALT || op == OP_JMP || jz_taken ||
                    op == OP_CALL || ret_taken);
   wire [12:0] pc_seq = pc + 1'b1;
 
   // synchronous read addresses, presented combinationally, latched each edge
-  wire [11:0] fetch_addr = (vst == V_EXEC && op == OP_JMP) ? imm[11:0] :
-                           (vst == V_EXEC && op == OP_CALL) ? imm[11:0] :
-                           (vst == V_EXEC && jz_taken)     ? imm[11:0] :
-                           (vst == V_EXEC && ret_taken)    ? rtgt[11:0] :
-                           (vst == V_EXEC)                 ? pc_seq[11:0] :
-                                                             pc[11:0];
+  wire [12:0] fetch_addr = (vst == V_EXEC && op == OP_JMP) ? imm[12:0] :
+                           (vst == V_EXEC && op == OP_CALL) ? imm[12:0] :
+                           (vst == V_EXEC && jz_taken)     ? imm[12:0] :
+                           (vst == V_EXEC && ret_taken)    ? rtgt :
+                           (vst == V_EXEC)                 ? pc_seq :
+                                                             pc;
   wire [13:0] dread_addr = (op == OP_LOADI) ? tos[13:0] : imm[13:0];
 
   // This VM retires ONE INSTRUCTION PER CYCLE (vst sits in V_EXEC), so a

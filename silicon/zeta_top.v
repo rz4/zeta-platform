@@ -24,7 +24,7 @@ module zeta_top (
     input  wire  [1:0] boot_kind,    // 0 IMEM, 1 DMEM, 2 CRAM segment
     input  wire        boot_done,   // the whole cart has arrived:
                                     // partial seg banks may flush
-    input  wire [21:0] boot_addr,
+    input  wire [22:0] boot_addr,
     input  wire [31:0] boot_data,
     output reg         frame_done,   // 1-cycle pulse
     output wire        trapped,
@@ -68,6 +68,7 @@ module zeta_top (
     output wire        c0_dq_oe,
     input  wire [15:0] c0_dq_i,
     output wire c0_clk_en, c0_adv_n, c0_cre, c0_ce_n, c0_we_n, c0_oe_n,
+    output wire c0_ce1_n,              // the second die (build 105)
     output wire c0_ub_n, c0_lb_n,
     input  wire        c1_wait,
     output wire [5:0]  c1_a,
@@ -75,6 +76,7 @@ module zeta_top (
     output wire        c1_dq_oe,
     input  wire [15:0] c1_dq_i,
     output wire c1_clk_en, c1_adv_n, c1_cre, c1_ce_n, c1_we_n, c1_oe_n,
+    output wire c1_ce1_n,
     output wire c1_ub_n, c1_lb_n
 ,
     // GRADING (spec.GRADE_SRC): the video head's curve, written a level
@@ -330,7 +332,7 @@ module zeta_top (
   // written wide enough on purpose: 9 bits holds (TROWS-1)*TH = 144, and
   // 22 bits holds (TROWS-1)*2*BAND_WORDS = 92,160 half-addresses.
   wire [8:0]  tile_y0   = {3'd0, tpass} * TH[8:0];
-  wire [21:0] band_half = {16'd0, tpass} * (2 * BAND_WORDS);
+  wire [22:0] band_half = {17'd0, tpass} * (2 * BAND_WORDS);
   reg        blit_on;                // this frame clears to the image
   reg        b_run;                  // pump active
   reg        b_infl;                 // a burst is in flight
@@ -350,7 +352,8 @@ module zeta_top (
   wire       skid_room = (sk_n <= 8'd64);
   wire       blit_we_w = (sk_n != 8'd0);
   wire       blit_take;
-  reg [21:0] dma_addr;               // CRAM half-word cursor
+  reg [22:0] dma_addr;               // CRAM half-word cursor (23 bits:
+                                     // two dies a chip, build 105)
   reg [13:0] dma_dst;                // DMEM word cursor
   reg [31:0] dma_left;               // cart words still to move
   reg [7:0]  dma_len;
@@ -390,10 +393,10 @@ module zeta_top (
   // cost ~6 clocks per word and capped delivery near 8 MB/s; the
   // bridge can burst past that.
   reg         bc_we;
-  reg  [21:0] bc_addr;
+  reg  [22:0] bc_addr;
   reg  [31:0] bc_data;
   wire        boot_cram_we   = bc_we;
-  wire [21:0] boot_cram_addr = CRAM_CART_BASE[21:0] + {bc_addr[20:0], 1'b0};
+  wire [22:0] boot_cram_addr = CRAM_CART_BASE[22:0] + {bc_addr[21:0], 1'b0};
   wire [31:0] boot_cram_data = bc_data;
   wire        boot_cram_busy;
   assign      boot_busy = boot_cram || bc_we || boot_cram_busy;
@@ -505,7 +508,7 @@ module zeta_top (
     // IMEM's write port: the boot loader, or an overlay riding the
     // mover's own burst into program space instead of data space
     .prog_we((boot_we && !boot_kind) || (dma_we && dma_imem)),
-    .prog_addr(dma_imem ? dma_dst[11:0] : boot_addr[11:0]),
+    .prog_addr(dma_imem ? dma_dst[12:0] : boot_addr[12:0]),
     .prog_wdata(dma_imem ? dma_word : boot_data));
 
   zseq u_seq (
@@ -599,11 +602,11 @@ module zeta_top (
     .c0_wait(c0_wait), .c1_wait(c1_wait),
     .c0_a(c0_a), .c0_dq_o(c0_dq_o), .c0_dq_oe(c0_dq_oe), .c0_dq_i(c0_dq_i),
     .c0_clk_en(c0_clk_en), .c0_adv_n(c0_adv_n), .c0_cre(c0_cre),
-    .c0_ce_n(c0_ce_n), .c0_we_n(c0_we_n), .c0_oe_n(c0_oe_n),
+    .c0_ce_n(c0_ce_n), .c0_ce1_n(c0_ce1_n), .c0_we_n(c0_we_n), .c0_oe_n(c0_oe_n),
     .c0_ub_n(c0_ub_n), .c0_lb_n(c0_lb_n),
     .c1_a(c1_a), .c1_dq_o(c1_dq_o), .c1_dq_oe(c1_dq_oe), .c1_dq_i(c1_dq_i),
     .c1_clk_en(c1_clk_en), .c1_adv_n(c1_adv_n), .c1_cre(c1_cre),
-    .c1_ce_n(c1_ce_n), .c1_we_n(c1_we_n), .c1_oe_n(c1_oe_n),
+    .c1_ce_n(c1_ce_n), .c1_ce1_n(c1_ce1_n), .c1_we_n(c1_we_n), .c1_oe_n(c1_oe_n),
     .c1_ub_n(c1_ub_n), .c1_lb_n(c1_lb_n));
   assign px_rgb = {px_q[14:10], px_q[14:12],     // 555 -> 888 replication,
                    px_q[9:5],   px_q[9:7],       // exactly display_rgb()
@@ -686,7 +689,7 @@ module zeta_top (
         if (dma_ack)  b_infl <= 1'b1;
         if (dma_done && b_infl) begin
           b_infl   <= 1'b0;
-          dma_addr <= dma_addr + 22'd128;
+          dma_addr <= dma_addr + 23'd128;
           b_left   <= b_left - 18'd64;
         end
         if (b_left == 18'd0 && sk_n == 8'd0) b_run <= 1'b0;
@@ -788,7 +791,7 @@ module zeta_top (
         if (d_go == 0) st <= dma_two ? I_OVL : I_D2;   // request was
         else if (!req_ok) st <= dma_two ? I_OVL : I_D2; // usable (spec)
         else begin
-          dma_addr <= CRAM_CART_BASE[21:0] + {eff_dma[20:0], 1'b0};
+          dma_addr <= CRAM_CART_BASE[22:0] + {eff_dma[21:0], 1'b0};
           dma_dst  <= d_dst[13:0];
           dma_left <= d_len;
           dma_hi   <= 1'b0;
@@ -826,7 +829,7 @@ module zeta_top (
                  eff_ovl + o_len > CRAM_WORDS[31:0] ||
                  o_dst + o_len > IMEM_WORDS[31:0]) st <= I_OCLR;
         else begin
-          dma_addr <= CRAM_CART_BASE[21:0] + {eff_ovl[20:0], 1'b0};
+          dma_addr <= CRAM_CART_BASE[22:0] + {eff_ovl[21:0], 1'b0};
           dma_dst  <= o_dst[13:0];
           dma_left <= o_len;
           dma_hi   <= 1'b0;
@@ -987,7 +990,7 @@ module zeta_top (
           // one band's slice of the backdrop, at its own offset: the
           // pump streams row-major, so band p starts p*BAND_WORDS in
           b_left   <= BAND_WORDS[17:0];
-          dma_addr <= CRAM_CART_BASE[21:0] + {eff_bg[20:0], 1'b0} + band_half;
+          dma_addr <= CRAM_CART_BASE[22:0] + {eff_bg[21:0], 1'b0} + band_half;
         end
         st <= I_GW;
       end

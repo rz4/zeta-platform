@@ -1,5 +1,5 @@
 // tb_loader.cpp -- prove the bridge -> cart path before it exists in a
-// bitstream: two free-running clocks at the real 74.25/43.2 ratio, 20480
+// bitstream: two free-running clocks at the real 74.25/43.2 ratio, 24576
 // bridge writes of a known pattern (SPI-paced at the head and tail,
 // physical-maximum bursts through the middle -- boot 17's lesson), a
 // volley of FOREIGN low-window writes that must be ignored (boot 18's
@@ -12,8 +12,8 @@
 #include "verilated.h"
 
 static Vcart_loader* dut;
-static unsigned imem[4096], dmem[16384];
-static bool seen_i[4096], seen_d[16384];
+static unsigned imem[8192], dmem[16384];
+static bool seen_i[8192], seen_d[16384];
 static long boots = 0, early_boots = 0;
 
 // SIG, SIG2 and LOADER_BUILD come from spec.py via -CFLAGS: this proof
@@ -68,7 +68,7 @@ int main(int argc, char** argv) {
     dut->dataslot_allcomplete = 1;
     for (int i = 0; i < 8000; i++) step();        // long silence first
 
-    for (unsigned w = 0; w < 20480; w++) {
+    for (unsigned w = 0; w < 24576; w++) {
         // the firmware's own housekeeping, mid-burst: zeros aimed at the
         // low window, at exactly the bridge offsets that used to decode
         // into DMEM 0..63. Fired AFTER those words were legitimately
@@ -104,17 +104,17 @@ int main(int argc, char** argv) {
     for (int i = 0; i < 40000 && !dut->cart_ready; i++) step();
 
     long miss = 0, bad = 0;
-    for (unsigned w = 0; w < 20480; w++) {
-        unsigned d = w - 4096;
-        if (w >= 4096 && d >= SIG && d < SIG + 8) continue;   // signed over
-        if (w >= 4096 && d >= SIG2 && d < SIG2 + 8) continue;
-        bool seen = (w < 4096) ? seen_i[w] : seen_d[d];
-        unsigned got = (w < 4096) ? imem[w] : dmem[d];
+    for (unsigned w = 0; w < 24576; w++) {
+        unsigned d = w - 8192;
+        if (w >= 8192 && d >= SIG && d < SIG + 8) continue;   // signed over
+        if (w >= 8192 && d >= SIG2 && d < SIG2 + 8) continue;
+        bool seen = (w < 8192) ? seen_i[w] : seen_d[d];
+        unsigned got = (w < 8192) ? imem[w] : dmem[d];
         if (!seen) miss++;
         else if (got != 0xA5000000u + w * 3u) bad++;
     }
     // the signature: what the loader says the bridge did to it
-    const unsigned want[8] = {0x5A455441u, 20480u, 20480u, 0u,
+    const unsigned want[8] = {0x5A455441u, 24576u, 24576u, 0u,
                               FOREIGN_N, 0u,        // no re-arm yet
                               0xFFFFFFFFu,          // elapsed: any nonzero
                               LOADER_BUILD};
@@ -137,9 +137,9 @@ int main(int argc, char** argv) {
             sigbad++;
         }
     }
-    if (miss || bad || sigbad || boots != 20496 || !dut->cart_ready ||
-        early_boots != 20496) {
-        printf("LOADER FAIL: boots=%ld (want 20496) miss=%ld bad=%ld "
+    if (miss || bad || sigbad || boots != 24592 || !dut->cart_ready ||
+        early_boots != 24592) {
+        printf("LOADER FAIL: boots=%ld (want 24592) miss=%ld bad=%ld "
                "sig=%ld ready=%d early=%ld\n",
                boots, miss, bad, sigbad, (int)dut->cart_ready, early_boots);
         return 1;
@@ -160,7 +160,7 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    printf("LOADER PASS: 20480 bridge words -> 4096 IMEM + 16384 DMEM, "
+    printf("LOADER PASS: 24576 bridge words -> 8192 IMEM + 16384 DMEM, "
            "every word intact across the clock crossing; %u foreign "
            "low-window writes ignored; delivery signed at %u; "
            "cart_ready withheld through an early allcomplete, and a late "

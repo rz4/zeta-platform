@@ -48,7 +48,8 @@ module cram_burst #(
     // span interface
     input  wire        go,           // pulse: start a span (needs idle)
     input  wire        wr,           // 1 = write span, 0 = read span
-    input  wire [21:0] addr,         // half address, row offset < 126
+    input  wire [22:0] addr,         // half address, row offset < 126;
+                                     // bit 22 picks the DIE (build 105)
     input  wire [7:0]  len,          // READS: halves, 1..255
     input  wire        w_end,        // WRITES: current word is the last
     output reg         w_step,       // write: word captured (registered)
@@ -69,7 +70,10 @@ module cram_burst #(
     output reg         c_clk_en,     // chip clock runs while enabled
     output reg         c_adv_n,
     output reg         c_cre,
-    output reg         c_ce_n,
+    output reg         c_ce_n,       // die 0's chip enable
+    output reg         c_ce1_n,      // die 1's (build 105: the second
+                                     // 64 Mbit die of each chip, idle
+                                     // until the segment outgrew 8 MB)
     output reg         c_we_n,
     output reg         c_oe_n,
     output reg         c_ub_n,
@@ -118,17 +122,25 @@ module cram_burst #(
   // per-row sub-bursts over the row's 126 usable halves; at the row end
   // the cursor hops the 2-half tail the chip cannot deliver. Clients see
   // one linear stream at the translated address.
-  reg [21:0] r_cur;
+  // THE SECOND DIE (build 105). Each Pocket CRAM package is two 64 Mbit
+  // dies behind one bus, told apart only by their chip enables. Each die
+  // has its own BCR, so reset programs both, die 0 first; every burst then
+  // opens on the die its address names (bit 22) and closes both enables.
+  // A burst never spans the dies: sub-bursts live inside one 128-half row
+  // and 2^22 is a row boundary. Both enables are REGISTERED, set together:
+  // a combinational die select would race the enable on the same edge.
+  reg        cfg_die;                // which die reset is programming
+  reg [22:0] r_cur;
   reg [7:0]  r_rem;
   wire [7:0] row_left = 8'd126 - {1'b0, r_cur[6:0]};
   wire [7:0] sub_len  = (r_rem < row_left) ? r_rem : row_left;
   wire       sub_hop  = (({1'b0, r_cur[6:0]} + sub_len) == 8'd126);
-  reg [14:0] w_row;                  // write side: the row being written
+  reg [15:0] w_row;                  // write side: the row being written
   reg        w_more;                 // row-forced end; the span continues
   reg [3:0]  wk_ct;                  // probe: cycles since the anchor
   reg        wanch;                  // the WAIT anchor fired this burst
   wire [3:0] k_use = swp_en ? swp_k : 4'd2;   // the measured constant
-  wire [14:0] w_nrow = w_row + 15'd1;
+  wire [15:0] w_nrow = w_row + 16'd1;
   reg        wait_r;                 // registered WAIT: high = the coming
                                      // cycle transfers no data
 
@@ -169,8 +181,8 @@ module cram_burst #(
       end
     end
     if (!rst_n) begin
-      st <= S_RST; cfg_done <= 1'b0; cfg_wait <= 8'd200;
-      c_ce_n <= 1'b1; c_adv_n <= 1'b1; c_cre <= 1'b0; c_we_n <= 1'b1;
+      st <= S_RST; cfg_done <= 1'b0; cfg_wait <= 8'd200; cfg_die <= 1'b0;
+      c_ce_n <= 1'b1; c_ce1_n <= 1'b1; c_adv_n <= 1'b1; c_cre <= 1'b0; c_we_n <= 1'b1;
       c_oe_n <= 1'b1; c_ub_n <= 1'b0; c_lb_n <= 1'b0;
       c_dq_oe <= 1'b0; c_clk_en <= 1'b0;
     end else case (st)
@@ -180,7 +192,8 @@ module cram_burst #(
           c_cre <= 1'b1;              // CRE-high ASYNC write of the BCR:
           c_a <= 6'b001000;           // A[19:18]=10 selects the BCR;
           c_dq_o <= BCR; c_dq_oe <= 1'b1;   // value on DQ (low addr bits)
-          c_ce_n <= 1'b0; c_adv_n <= 1'b0; c_we_n <= 1'b0;
+          c_ce_n <= cfg_die; c_ce1_n <= !cfg_die;   // this die only
+          c_adv_n <= 1'b0; c_we_n <= 1'b0;
           cfg_wait <= 8'd6;           // ~140 ns write pulse, generous
           st <= S_CFG1;
         end
@@ -188,25 +201,29 @@ module cram_burst #(
         c_adv_n <= 1'b1;
         if (cfg_wait != 0) cfg_wait <= cfg_wait - 1'b1;
         else begin
-          c_ce_n <= 1'b1; c_we_n <= 1'b1; c_cre <= 1'b0; c_dq_oe <= 1'b0;
+          c_ce_n <= 1'b1; c_ce1_n <= 1'b1;
+          c_we_n <= 1'b1; c_cre <= 1'b0; c_dq_oe <= 1'b0;
           cfg_wait <= 8'd6;
           st <= S_CFG2;
         end
       end
       S_CFG2:
         if (cfg_wait != 0) cfg_wait <= cfg_wait - 1'b1;
-        else begin cfg_done <= 1'b1; c_clk_en <= 1'b1; st <= S_IDLE; end
+        else if (!cfg_die) begin      // die 1's BCR next, the same way
+          cfg_die <= 1'b1; cfg_wait <= 8'd6; st <= S_RST;
+        end else begin cfg_done <= 1'b1; c_clk_en <= 1'b1; st <= S_IDLE; end
       S_IDLE:
         if (go) begin
           span_wr <= wr;
           if (wr) begin               // writes: sub-spans bounded at the
             left <= 8'd126 - {1'b0, addr[6:0]};   // row's usable end; the
-            w_row <= addr[21:7];      // stream reopens past the tail
+            w_row <= addr[22:7];      // stream reopens past the tail
             w_more <= 1'b0;           // (S_WNEXT) if the client continues
             c_a <= addr[21:16];
             c_dq_o <= addr[15:0];
             c_dq_oe <= 1'b1;
-            c_ce_n <= 1'b0; c_adv_n <= 1'b0;
+            c_ce_n <= addr[22]; c_ce1_n <= !addr[22];
+            c_adv_n <= 1'b0;
             c_we_n <= 1'b0;
             c_oe_n <= 1'b1;
             // the scribble law (pageprobe, boots 51-54): the write
@@ -235,9 +252,10 @@ module cram_burst #(
         c_a <= r_cur[21:16];          // to the row's usable end, and hop
         c_dq_o <= r_cur[15:0];        // the tail the chip cannot serve
         rskip <= 2'd2;
-        r_cur <= r_cur + {14'd0, sub_len} + (sub_hop ? 22'd2 : 22'd0);
+        r_cur <= r_cur + {15'd0, sub_len} + (sub_hop ? 23'd2 : 23'd0);
         c_dq_oe <= 1'b1;
-        c_ce_n <= 1'b0; c_adv_n <= 1'b0;
+        c_ce_n <= r_cur[22]; c_ce1_n <= !r_cur[22];
+        c_adv_n <= 1'b0;
         c_we_n <= 1'b1;
         c_oe_n <= 1'b1;
         c_ub_n <= 1'b0;
@@ -345,7 +363,8 @@ module cram_burst #(
         c_a <= w_nrow[14:9];
         c_dq_o <= {w_nrow[8:0], 7'd0};
         c_dq_oe <= 1'b1;
-        c_ce_n <= 1'b0; c_adv_n <= 1'b0;
+        c_ce_n <= w_nrow[15]; c_ce1_n <= !w_nrow[15];
+        c_adv_n <= 1'b0;
         c_we_n <= 1'b0;
         c_oe_n <= 1'b1;
         c_ub_n <= 1'b1;
@@ -363,7 +382,7 @@ module cram_burst #(
         c_lb_n <= 1'b1;               // cycles (UB/LB gate writes per
         if (latc != 0) latc <= latc - 1'b1;   // word) with CE, WE and the
         else begin                    // final data word held through the
-          c_ce_n <= 1'b1;             // chip's commit pipeline --
+          c_ce_n <= 1'b1; c_ce1_n <= 1'b1;   // chip's commit pipeline --
           c_we_n <= 1'b1;             // releasing early latched a
           c_oe_n <= 1'b1;             // FLOATING bus: the rainbow
           c_dq_oe <= 1'b0;            // wireframe of the second boot

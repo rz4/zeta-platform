@@ -9,7 +9,7 @@ module cram_pair_tb (
     output wire        cfg_done,
     input  wire        go,
     input  wire        wr,
-    input  wire [21:0] addr,
+    input  wire [22:0] addr,
     input  wire [7:0]  len,
     input  wire        w_end,
     output wire        w_step,
@@ -25,7 +25,7 @@ module cram_pair_tb (
   wire [15:0] dq_o, dq_chip;
   wire        dq_oe, chip_drive;
   wire        adv_n, cre, ce_n, we_n, oe_n, ub_n, lb_n, clk_en;
-  wire        wt;
+  wire        wt, ce1_n;
 
   cram_burst u_ctl (
     .clk(clk), .rst_n(rst_n), .cfg_done(cfg_done),
@@ -37,7 +37,7 @@ module cram_pair_tb (
     .c_wait(wt),
     .c_a(a), .c_dq_o(dq_o), .c_dq_oe(dq_oe), .c_dq_i(dq_chip),
     .c_clk_en(clk_en), .c_adv_n(adv_n), .c_cre(cre),
-    .c_ce_n(ce_n), .c_we_n(we_n), .c_oe_n(oe_n),
+    .c_ce_n(ce_n), .c_ce1_n(ce1_n), .c_we_n(we_n), .c_oe_n(oe_n),
     .c_ub_n(ub_n), .c_lb_n(lb_n));
 
   cram_sync_chip u_chip (
@@ -50,7 +50,7 @@ module cram_pair_tb (
     .violation(violation), .vcode(vcode));
 
   /* verilator lint_off UNUSEDSIGNAL */
-  wire _u = &{1'b0, ub_n, lb_n, clk_en, chip_drive};
+  wire _u = &{1'b0, ub_n, lb_n, clk_en, chip_drive, ce1_n};
   /* verilator lint_on UNUSEDSIGNAL */
 
 endmodule

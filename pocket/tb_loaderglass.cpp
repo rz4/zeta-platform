@@ -119,7 +119,7 @@ int main(int argc, char** argv) {
     // the segment as it truly sits in CRAM, against the streamed truth
     {
         auto tr = [](unsigned l) { return l + 2 * (l / 126); };
-        const unsigned SEGW = 20480;        // kind-2 words start here
+        const unsigned SEGW = 24576;        // kind-2 words start here
         const unsigned BASE = 131040;       // logical half-addr of word 0
         long segbad = 0;
         for (size_t i = 0; SEGW + i < words.size(); i++) {

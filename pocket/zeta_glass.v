@@ -30,7 +30,7 @@ module zeta_glass #(parameter DIV = 5, parameter EXT_CE = 0) (
     input  wire        boot_we,
     input  wire  [1:0] boot_kind,
     input  wire        boot_done,
-    input  wire [21:0] boot_addr,
+    input  wire [22:0] boot_addr,
     input  wire [31:0] boot_data,
     // the pixel stream, valid on ce_pix
     output wire        ce_pix,
@@ -51,6 +51,7 @@ module zeta_glass #(parameter DIV = 5, parameter EXT_CE = 0) (
     output wire        c0_dq_oe,
     input  wire [15:0] c0_dq_i,
     output wire c0_clk_en, c0_adv_n, c0_cre, c0_ce_n, c0_we_n, c0_oe_n,
+    output wire c0_ce1_n,              // the second die (build 105)
     output wire c0_ub_n, c0_lb_n,
     input  wire        c1_wait,
     output wire [5:0]  c1_a,
@@ -58,6 +59,7 @@ module zeta_glass #(parameter DIV = 5, parameter EXT_CE = 0) (
     output wire        c1_dq_oe,
     input  wire [15:0] c1_dq_i,
     output wire c1_clk_en, c1_adv_n, c1_cre, c1_ce_n, c1_we_n, c1_oe_n,
+    output wire c1_ce1_n,
     output wire c1_ub_n, c1_lb_n,
     // the card port, passed through to whoever owns the device: a
     // behavioral model in the sims, an APF adapter on the Pocket
@@ -228,11 +230,11 @@ module zeta_glass #(parameter DIV = 5, parameter EXT_CE = 0) (
     .c0_wait(c0_wait), .c1_wait(c1_wait),
     .c0_a(c0_a), .c0_dq_o(c0_dq_o), .c0_dq_oe(c0_dq_oe), .c0_dq_i(c0_dq_i),
     .c0_clk_en(c0_clk_en), .c0_adv_n(c0_adv_n), .c0_cre(c0_cre),
-    .c0_ce_n(c0_ce_n), .c0_we_n(c0_we_n), .c0_oe_n(c0_oe_n),
+    .c0_ce_n(c0_ce_n), .c0_ce1_n(c0_ce1_n), .c0_we_n(c0_we_n), .c0_oe_n(c0_oe_n),
     .c0_ub_n(c0_ub_n), .c0_lb_n(c0_lb_n),
     .c1_a(c1_a), .c1_dq_o(c1_dq_o), .c1_dq_oe(c1_dq_oe), .c1_dq_i(c1_dq_i),
     .c1_clk_en(c1_clk_en), .c1_adv_n(c1_adv_n), .c1_cre(c1_cre),
-    .c1_ce_n(c1_ce_n), .c1_we_n(c1_we_n), .c1_oe_n(c1_oe_n),
+    .c1_ce_n(c1_ce_n), .c1_ce1_n(c1_ce1_n), .c1_we_n(c1_we_n), .c1_oe_n(c1_oe_n),
     .c1_ub_n(c1_ub_n), .c1_lb_n(c1_lb_n));
 
   always @(posedge clk) begin
