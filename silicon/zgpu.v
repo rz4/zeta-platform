@@ -576,6 +576,16 @@ module zgpu (
   reg        s1_add;
   reg        s2_v, s2_blend;
   reg [16:0] s2_za;
+  // THE COLOUR'S LAST REGISTER (frontier B5). At 51.84 MHz the blend --
+  // a subtract, the mode select, tmul's five adds, the sum and the clamp
+  // -- ran 0.39 ns over into the tile's colour memory. The colour to
+  // write takes a register and lands a clock later. Safe for the reason
+  // stage 2 already was: a triangle writes each pixel once, the next one
+  // spends a dozen clocks on its box before it reads anything, and the
+  // flush cannot start for three clocks after the last commit.
+  reg        s3_v;
+  reg [16:0] s3_za;
+  reg [14:0] s3_c;
   reg [15:0] s2_z;
   reg [14:0] s2_col, s2_dst;
   reg [4:0]  s2_alpha;
@@ -763,8 +773,11 @@ module zgpu (
         zmem[s2_za]  <= s2_z;
         idmem[s2_za] <= s2_clr ? 8'd0 : s2_oid;   // the clear owns nobody
       end
-      cmem[s2_za] <= s2_blend ? bl_out : s2_col;
     end
+    s3_v  <= s2_v;
+    s3_za <= s2_za;
+    s3_c  <= s2_blend ? bl_out : s2_col;
+    if (s3_v) cmem[s3_za] <= s3_c;
     // reading the OLD band while the clear writes the new one behind it,
     // plus one standalone pass for the last band of the frame
     // ADDRESS AND DATA MUST BE SAMPLED FROM THE SAME CYCLE. cq lands one

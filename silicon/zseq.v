@@ -358,8 +358,19 @@ module zseq (
   reg signed [15:0] rs, rc;
   wire signed [31:0] ra = (rpair == 2'd1) ? vy : vx;
   wire signed [31:0] rb = (rpair == 2'd0) ? vy : vz;
-  wire signed [47:0] rot_a = ra * rc - rb * rs;
-  wire signed [47:0] rot_b = ra * rs + rb * rc;
+  // THE PRODUCTS, REGISTERED (frontier B5). At 51.84 MHz the pair select,
+  // four 32x16 multiplies and the 48-bit sum ran 0.60 ns over into vz
+  // (719 paths). The products take a register and each rotation two
+  // beats: the first only multiplies (rph low), the second sums and
+  // moves on. Six clocks a vertex, of a frame that has gained 144,000.
+  reg signed [47:0] rp_ac, rp_bs, rp_as, rp_bc;
+  reg               rph;
+  always @(posedge clk) begin
+    rp_ac <= ra * rc;  rp_bs <= rb * rs;
+    rp_as <= ra * rs;  rp_bc <= rb * rc;
+  end
+  wire signed [47:0] rot_a = rp_ac - rp_bs;
+  wire signed [47:0] rot_b = rp_as + rp_bc;
 
   // ---- divider: q = |n|<<8 / z, z >= ZNEAR; GUARD keeps q under 2^13 ------
   // Classic restoring shift-left form: the divisor stays put, the
@@ -787,6 +798,7 @@ module zseq (
     vc_we <= 1'b0;
     fb_we <= 1'b0;
     if (!rst_n) begin           // (m_act/m_blk are assigned below the case)
+      rph <= 1'b0;
       st <= S_IDLE;
       cl_on <= 1'b0; cl_xf <= 1'b0; cl_prj <= 1'b0;
     end
@@ -1008,41 +1020,59 @@ module zseq (
         end
       end
       S_RR: begin                     // roll: (x,y)
-        vx <= rot_a[45:14]; vy <= rot_b[45:14];
-        rs <= s_p; rc <= c_p; rpair <= 2'd1;
-        st <= S_RP;
+        rph <= !rph;                  // beat one: the products only
+        if (rph) begin
+          vx <= rot_a[45:14]; vy <= rot_b[45:14];
+          rs <= s_p; rc <= c_p; rpair <= 2'd1;
+          st <= S_RP;
+        end
       end
       S_RP: begin                     // pitch: (y,z)
-        vy <= rot_a[45:14]; vz <= rot_b[45:14];
-        rs <= s_o; rc <= c_o; rpair <= 2'd2;
-        st <= S_R1;
+        rph <= !rph;                  // beat one: the products only
+        if (rph) begin
+          vy <= rot_a[45:14]; vz <= rot_b[45:14];
+          rs <= s_o; rc <= c_o; rpair <= 2'd2;
+          st <= S_R1;
+        end
       end
       S_R1: begin                     // yaw: (x,z)
-        vx <= rot_a[45:14]; vz <= rot_b[45:14];
-        rs <= s_c; rc <= c_c;
-        st <= S_ADD;
+        rph <= !rph;                  // beat one: the products only
+        if (rph) begin
+          vx <= rot_a[45:14]; vz <= rot_b[45:14];
+          rs <= s_c; rc <= c_c;
+          st <= S_ADD;
+        end
       end
       S_ADD: begin
         vx <= vx + dxr; vy <= vy + dyr; vz <= vz + dzr;
         st <= S_R2;
       end
       S_R2: begin                     // camera yaw, then camera pitch
-        vx <= rot_a[45:14]; vz <= rot_b[45:14];
-        rs <= s_cp; rc <= c_cp; rpair <= 2'd1;
-        st <= S_R2B;
+        rph <= !rph;                  // beat one: the products only
+        if (rph) begin
+          vx <= rot_a[45:14]; vz <= rot_b[45:14];
+          rs <= s_cp; rc <= c_cp; rpair <= 2'd1;
+          st <= S_R2B;
+        end
       end
       S_R2B: begin                    // ...and finally the BANK, about
-        vy <= rot_a[45:14];           // the view axis, which is what makes
-        vz <= rot_b[45:14];           // it a bank: rolling any earlier
-        rs <= s_cr; rc <= c_cr;       // would tilt the axis the pitch then
-        rpair <= 2'd0;                // turns about
-        st <= S_R2C;
+        rph <= !rph;                  // beat one: the products only
+        if (rph) begin
+          vy <= rot_a[45:14];           // the view axis, which is what makes
+          vz <= rot_b[45:14];           // it a bank: rolling any earlier
+          rs <= s_cr; rc <= c_cr;       // would tilt the axis the pitch then
+          rpair <= 2'd0;                // turns about
+          st <= S_R2C;
+        end
       end
       S_R2C: begin
-        vx <= rot_a[45:14]; vy <= rot_b[45:14];
-        // the clipper borrows this chain to recover VIEW space, which the
-        // projection below is about to throw away
-        st <= cl_xf ? S_CLST : S_NEAR;
+        rph <= !rph;                  // beat one: the products only
+        if (rph) begin
+          vx <= rot_a[45:14]; vy <= rot_b[45:14];
+          // the clipper borrows this chain to recover VIEW space, which the
+          // projection below is about to throw away
+          st <= cl_xf ? S_CLST : S_NEAR;
+        end
       end
       S_NEAR:
         if (vz < ZNEAR) begin vinv_near <= 1'b1; st <= S_VINV; end
