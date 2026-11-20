@@ -1192,9 +1192,13 @@ LOADER_SIG2 = 11700             # a MIRROR of the signature, written into
                                 # delivers intact -- so the loader's
                                 # testimony survives even if the top of
                                 # memory does not
-LOADER_BUILD = 105              # bumped per bitstream: word +7 of the
+LOADER_BUILD = 106              # bumped per bitstream: word +7 of the
                                 # signature, so a cart can say WHICH core
                                 # it is running on.
+                                # (106 = the recorder, zeta_tape.v, and
+                                #  the SRAM's first use; the audio event
+                                #  list as two MLABs. A tape carries this
+                                #  number: zeta/tape.py check())
                                 # (101 = vertex C registered in zseq;
                                 #  102 = SEG_BASE, the segment window)
                                 #   AND IT HAPPENED AGAIN: 93 shipped on
