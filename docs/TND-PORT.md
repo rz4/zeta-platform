@@ -274,9 +274,10 @@ Still to come in P6: the best score saved to the card. Deeper than a law
 amendment: on the Pocket the card is one data slot served from Assets,
 which every sd push rewrites -- a save needs the Pocket's own save slots
 (and likely the card bridge), and the archive never shows the score.
-GLASS QUEUE: the frame-143 capture is now a witness of the Pocket's
-RGB565 camera (the cart has moved on); a fresh capture of the current
-build is wanted.
+On glass again, 2026-11-19 (core 0.103.0, the build at fbe5bf4): Start
+and nothing, the wave in, the aware markers up -- the law's frame 348 to
+the pixel (tests/glass/tnd-aware-348.ppm). The frame-143 capture stays as
+the witness of the Pocket's RGB565 camera.
 
 ## The frame, measured (2026-11-19)
 

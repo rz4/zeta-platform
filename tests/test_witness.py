@@ -101,3 +101,17 @@ def test_the_pockets_camera_is_rgb565():
     shot = witness.read_shot(GLASS / "tnd-wave-143.ppm")
     assert (witness.pocket_capture(law) == shot).all(), "the camera model drifted"
     assert not (law == shot).all(), "the witness cannot tell 555 from 565"
+
+
+def test_tnd_on_glass_today():
+    """Captured with Menu+Start on 2026-11-19 from the build at fbe5bf4
+    (core 0.103.0): Start, then nothing -- the wave arrived, the aware
+    markers up. The law's frame 348 (the fight's 347) to the pixel through
+    the Pocket's camera, and not without it. When the cart's opening
+    changes on purpose, this is re-captured, not re-blessed."""
+    cart = cabinet.load_cart(Path(__file__).parents[1] / "carts/tnd.zol")
+    shot = witness.read_shot(GLASS / "tnd-aware-348.ppm")
+    start = (0, [spec.PAD_START])
+    assert witness.witness(cart, shot, 349, start, 348,
+                           capture=witness.pocket_capture) == 0
+    assert witness.witness(cart, shot, 349, start, 348) == 1
