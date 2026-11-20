@@ -50,6 +50,13 @@ OMIT = set(filter(None, os.environ.get("TND_OMIT", "").split(",")))
 # build/song/, and the column there (gen_shelf, gen_face with the same
 # flag) is what the card carries. The committed carts stay synth.
 SONG = os.environ.get("TND_SONG") == "1"
+# THE STRESS HOOK (frontier C1): TND_STRESS=n draws n extra demons -- each
+# a RENDER-ONLY clone of demon 0, 1, 2, 0, ... in its pose, standing a
+# stride beside it. It measures what the machine does when TND's own
+# combat scene grows: the object list holds 64 and the frame's vertex
+# cache 2,048, and the fight already lists 50 and projects 2,049. A local
+# build like TND_OMIT's, never a committed cart.
+STRESS = int(os.environ.get("TND_STRESS", "0"))
 SONG_CH = range(4, 11)          # the record's voices (the synth theme's, freed)
 SONG_VOL = 15                   # each voice's level at full bus (x bus / 256)
 OUT = Path(os.environ.get("TND_OUT", HERE.parent / "build" / "song" / "tnd.zol"
@@ -3187,8 +3194,18 @@ for d in range(3 if "demons" not in OMIT else 0):     # the demons, last
     for c, cam in (("x", spec.CAM_X), ("z", spec.CAM_Z)):
         p.load(dslot(d, c)).load(cam).emit("sub", "dup", "mulq")
     p.emit("add").push(LENS2).emit("swap", "lt", f"jz {gone}")   # 1.3^2 < d^2: draw
+    def draw_demon(d=d):
+        p.emit(f"call {L_FK}")
+        for k in range(STRESS):                  # C1: the clones, beside it
+            if k % 3 != d:
+                continue
+            side = (1 + k // 3) * (1 if (k // 3) % 2 == 0 else -1)
+            p.load(dslot(d, "x")).push(int(side * 1.4 * ONE)).emit("add").store(FK["x"])
+            p.load(dslot(d, "z")).push(int(0.9 * (1 + k // 3) * ONE)).emit("add").store(FK["z"])
+            p.set(FK["aw"], 0)                   # (no marker: one more object)
+            p.emit(f"call {L_FK}")
     if_visible((f"load {dslot(d, 'x')}",), 1.0, (f"load {dslot(d, 'z')}",), 1.6,
-               lambda: p.emit(f"call {L_FK}"))
+               draw_demon)
     p.mark(gone)
 p.load(NOBJ).store(spec.OL_BASE)
 
