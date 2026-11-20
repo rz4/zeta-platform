@@ -796,47 +796,6 @@ set_global_assignment -name VERILOG_FILE ../../pocket/card_apf.v
 set_global_assignment -name VERILOG_FILE ../../silicon/cram_burst.v
 set_global_assignment -name VERILOG_FILE ../../silicon/cram_fb.v
 
-# THE FRAME MEMORY'S READ DATA IS CAPTURED AT THE PIN. The path from a
-# cram*_dq pin to cram_burst's r_data is the one path in the design whose
-# budget is fixed by a part (9 ns from its clock to valid data), and it
-# was left to wherever the fitter could put sixteen registers. In a full
-# device that was far away: the recorder's fit (about 200 ALMs more)
-# failed on it alone, by 0.184 ns, and it is one of the three families
-# between here and 60.48 MHz (docs/ZETA0-FRONTIER.md 16, 17). In the pin's
-# own register the delay is short and the same in every fit.
-set_instance_assignment -name FAST_INPUT_REGISTER ON -to cram0_dq[0]
-set_instance_assignment -name FAST_INPUT_REGISTER ON -to cram0_dq[1]
-set_instance_assignment -name FAST_INPUT_REGISTER ON -to cram0_dq[2]
-set_instance_assignment -name FAST_INPUT_REGISTER ON -to cram0_dq[3]
-set_instance_assignment -name FAST_INPUT_REGISTER ON -to cram0_dq[4]
-set_instance_assignment -name FAST_INPUT_REGISTER ON -to cram0_dq[5]
-set_instance_assignment -name FAST_INPUT_REGISTER ON -to cram0_dq[6]
-set_instance_assignment -name FAST_INPUT_REGISTER ON -to cram0_dq[7]
-set_instance_assignment -name FAST_INPUT_REGISTER ON -to cram0_dq[8]
-set_instance_assignment -name FAST_INPUT_REGISTER ON -to cram0_dq[9]
-set_instance_assignment -name FAST_INPUT_REGISTER ON -to cram0_dq[10]
-set_instance_assignment -name FAST_INPUT_REGISTER ON -to cram0_dq[11]
-set_instance_assignment -name FAST_INPUT_REGISTER ON -to cram0_dq[12]
-set_instance_assignment -name FAST_INPUT_REGISTER ON -to cram0_dq[13]
-set_instance_assignment -name FAST_INPUT_REGISTER ON -to cram0_dq[14]
-set_instance_assignment -name FAST_INPUT_REGISTER ON -to cram0_dq[15]
-set_instance_assignment -name FAST_INPUT_REGISTER ON -to cram1_dq[0]
-set_instance_assignment -name FAST_INPUT_REGISTER ON -to cram1_dq[1]
-set_instance_assignment -name FAST_INPUT_REGISTER ON -to cram1_dq[2]
-set_instance_assignment -name FAST_INPUT_REGISTER ON -to cram1_dq[3]
-set_instance_assignment -name FAST_INPUT_REGISTER ON -to cram1_dq[4]
-set_instance_assignment -name FAST_INPUT_REGISTER ON -to cram1_dq[5]
-set_instance_assignment -name FAST_INPUT_REGISTER ON -to cram1_dq[6]
-set_instance_assignment -name FAST_INPUT_REGISTER ON -to cram1_dq[7]
-set_instance_assignment -name FAST_INPUT_REGISTER ON -to cram1_dq[8]
-set_instance_assignment -name FAST_INPUT_REGISTER ON -to cram1_dq[9]
-set_instance_assignment -name FAST_INPUT_REGISTER ON -to cram1_dq[10]
-set_instance_assignment -name FAST_INPUT_REGISTER ON -to cram1_dq[11]
-set_instance_assignment -name FAST_INPUT_REGISTER ON -to cram1_dq[12]
-set_instance_assignment -name FAST_INPUT_REGISTER ON -to cram1_dq[13]
-set_instance_assignment -name FAST_INPUT_REGISTER ON -to cram1_dq[14]
-set_instance_assignment -name FAST_INPUT_REGISTER ON -to cram1_dq[15]
-
 set_global_assignment -name SEED 7
 set_global_assignment -name NUM_PARALLEL_PROCESSORS 4
 
