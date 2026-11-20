@@ -56,7 +56,15 @@ module zsnd (
   // walks a pointer through it as the samples go by. Sub-frame envelopes
   // with the frame contract untouched: 800 samples, sample-exact, and
   // identical on the law forever.
-  (* ramstyle = "MLAB" *) reg [31:0] evm [0:2*AU_EV_MAX];
+  // TWO MEMORIES, ONE READ PORT EACH. As one array read at 1+2p and 2+2p
+  // in the same clock, the list was never a memory: Quartus built it from
+  // about 2,500 registers and two wide multiplexers (the map report lists
+  // evm~N as registers). An event's two words are read together and
+  // written apart, so each gets its own MLAB: word 1+2k is evm0[k], word
+  // 2+2k is evm1[k]. The count (word 0) was only ever a register.
+  (* ramstyle = "MLAB, no_rw_check" *) reg [31:0] evm0 [0:AU_EV_MAX-1];
+  (* ramstyle = "MLAB, no_rw_check" *) reg [31:0] evm1 [0:AU_EV_MAX-1];
+  wire [7:0] ev_k = ev_a - 8'd1;
   reg [6:0]  ev_n;                  // events this frame, 0..AU_EV_MAX
   reg [6:0]  ev_cnt;                // the count, staged until the list is in
   reg [6:0]  ev_p;                  // how many have fired
@@ -75,13 +83,14 @@ module zsnd (
   // A list is either entirely present or entirely absent; there is no
   // instant at which a half-written timeline is playable.
   always @(posedge clk) if (ev_we) begin
-    evm[ev_a] <= ev_d;
+    if (ev_a != 8'd0 && !ev_k[0]) evm0[ev_k[6:1]] <= ev_d;
+    if (ev_a != 8'd0 &&  ev_k[0]) evm1[ev_k[6:1]] <= ev_d;
     if (ev_a == 8'd0)
       ev_cnt <= (ev_d > AU_EV_MAX) ? AU_EV_MAX[6:0] : ev_d[6:0];
     ev_n <= (ev_a == 2 * AU_EV_MAX) ? ev_cnt : 7'd0;
   end
-  wire [31:0] ev_w0 = evm[1 + 2*ev_p[5:0]];
-  wire [31:0] ev_w1 = evm[2 + 2*ev_p[5:0]];
+  wire [31:0] ev_w0 = evm0[ev_p[5:0]];
+  wire [31:0] ev_w1 = evm1[ev_p[5:0]];
   wire        ev_due = (ev_p < ev_n) && (ev_w0[9:0] <= ev_s);
   wire [3:0]  ev_ch  = ev_w0[AU_EV_CH_SHIFT+3:AU_EV_CH_SHIFT];
   wire        ev_ctl = ev_w0[14];
