@@ -343,6 +343,28 @@ def loader_check() -> int:
     return r.returncode
 
 
+def tape_sim() -> Path:
+    """Verilate the recorder's proof (pocket/tb_tape.cpp) and return it."""
+    pocket = ROOT / "pocket"
+    build()                      # zeta_tape.v includes params.vh
+    blob = (pocket / "zeta_tape.v").read_text()
+    blob += (pocket / "tb_tape.cpp").read_text()
+    blob += (SIL / "gen" / "params.vh").read_text()
+    tag = hashlib.sha256(blob.encode()).hexdigest()[:12]
+    out = Path(tempfile.gettempdir()) / f"zeta-sdk-tape-{tag}"
+    sim = out / "sim"
+    if not sim.exists():
+        cmd = ["verilator", "--cc", "--exe", "--build", "-O2", "-Wno-lint",
+               "--top-module", "zeta_tape", "-Mdir", str(out), "-o", "sim",
+               "-I" + str(SIL / "gen"), "-CFLAGS", "-O2",
+               str(pocket / "zeta_tape.v"), str(pocket / "tb_tape.cpp")]
+        r = subprocess.run(cmd, capture_output=True, text=True)
+        if not sim.exists():
+            print(r.stderr[-1500:])
+            raise SystemExit("tape testbench build failed")
+    return sim
+
+
 class SiliconMachine:
     """The Verilated core, one frame per .frame() call, per the contract."""
 

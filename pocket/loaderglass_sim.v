@@ -75,6 +75,7 @@ module loaderglass_sim (
     .boot_done(cart_ready),
     .ce_pix(ce_pix), .rgb(rgb), .hs(hs), .vs(vs), .de(de),
     .snd_strobe(), .snd_sample(), .trapped(trapped),
+    .pad_stb(), .pad_word(),
     .boot_busy(cl_busy),
     .c0_wait(wt0), .c1_wait(wt1),
     .c0_a(a0), .c0_dq_o(dqo0), .c0_dq_oe(oe0), .c0_dq_i(dqi0),

@@ -284,12 +284,16 @@ assign port_tran_sd_dir = 1'b0;     // SD is input and not used
 
 // dram_* pins are driven by zeta_sdram_phy below -- no tie-off here.
 
-assign sram_a = 'h0;
-assign sram_dq = {16{1'bZ}};
-assign sram_oe_n  = 1;
-assign sram_we_n  = 1;
-assign sram_ub_n  = 1;
-assign sram_lb_n  = 1;
+// THE SRAM: the tape (zeta_tape.v, below). Both byte lanes, always.
+wire [16:0] tape_sram_a;
+wire [15:0] tape_sram_do;
+wire        tape_sram_doe, tape_sram_oe_n, tape_sram_we_n;
+assign sram_a = tape_sram_a;
+assign sram_dq = tape_sram_doe ? tape_sram_do : {16{1'bZ}};
+assign sram_oe_n  = tape_sram_oe_n;
+assign sram_we_n  = tape_sram_we_n;
+assign sram_ub_n  = 0;
+assign sram_lb_n  = 0;
 
 assign dbg_tx = 1'bZ;
 assign aux_scl = 1'bZ;
@@ -308,6 +312,12 @@ always @(*) begin
         // example
         // bridge_rd_data <= example_device_data;
         bridge_rd_data <= 0;
+    end
+    32'h3xxxxxxx: begin
+        // THE TAPE: the word fetched a read AGO (see tape_rd below);
+        // word 0 is the magic and needs no fetch
+        bridge_rd_data <= (bridge_addr[15:2] == 14'd0) ? 32'h5A545030
+                                                       : tape_rd_data;
     end
     32'h2xxxxxxx: begin
         // THE SAVE: APF reads the words back out of card_apf's buffer.
@@ -571,6 +581,44 @@ wire [15:0] cram0_dq_o, cram1_dq_o;
 wire        cram0_oe,   cram1_oe;
 wire        c0_clk_en,  c1_clk_en;
 
+// ---- THE TAPE (pocket/zeta_tape.v): the session's pad words, recorded
+// into the SRAM and read out by the OS as a nonvolatile slot at
+// 0x30000000 when the core exits (data.json, slot 3).
+//
+// THE BRIDGE DOES NOT WAIT. io_bridge_peripheral samples a device's read
+// data four of its clocks after the address lands, and only THEN raises
+// bridge_rd -- so a memory that needs a dozen console clocks to answer
+// cannot answer the address it is shown. The OS reads a slot in order,
+// though, so each read strobe fetches the NEXT word: by the time the
+// bridge asks for it (an SPI word later, microseconds) it is waiting.
+// Word 0 is the magic, a constant, and starts the chain. The first read
+// also freezes the recorder: a tape that grew under the reader would be
+// read with a frame missing from its middle.
+wire        tape_pad_stb;
+wire [15:0] tape_pad_word;
+wire [31:0] tape_rd_data;
+reg         tape_rd_req = 1'b0;
+reg  [13:0] tape_rd_addr = 14'd0;
+reg         tape_freeze = 1'b0;
+always @(posedge clk_74a) begin
+    if (bridge_rd && bridge_addr[31:28] == 4'h3) begin
+        tape_rd_addr <= bridge_addr[15:2] + 14'd1;
+        tape_rd_req  <= ~tape_rd_req;
+        tape_freeze  <= 1'b1;
+    end
+end
+zeta_tape #(.LOG_WORDS(14)) u_tape (
+    .clk(clk_zeta), .run(cart_ready_eff),
+    .boot_we(cl_we), .boot_kind(cl_kind),
+    .boot_addr(cl_addr), .boot_data(cl_data),
+    .pad_stb(tape_pad_stb), .pad_word(tape_pad_word),
+    .freeze(tape_freeze),
+    .rd_req(tape_rd_req), .rd_addr(tape_rd_addr),
+    .rd_data(tape_rd_data), .rd_ack(),
+    .sram_a(tape_sram_a), .sram_do(tape_sram_do), .sram_doe(tape_sram_doe),
+    .sram_di(sram_dq),
+    .sram_oe_n(tape_sram_oe_n), .sram_we_n(tape_sram_we_n));
+
 zeta_glass #(.EXT_CE(1)) u_zeta (
     // the machine wakes with the PLL; the CONSOLE waits for a complete
     // cart. Split so CRAM and its boot path are alive while the segment
@@ -585,6 +633,7 @@ zeta_glass #(.EXT_CE(1)) u_zeta (
     .hs(zeta_hs), .vs(zeta_vs), .de(zeta_de),
     .snd_strobe(), .snd_sample(zeta_snd),
     .trapped(),
+    .pad_stb(tape_pad_stb), .pad_word(tape_pad_word),
     .c0_wait(cram0_wait), .c1_wait(cram1_wait),
     .c0_a(cram0_a), .c0_dq_o(cram0_dq_o), .c0_dq_oe(cram0_oe),
     .c0_dq_i(cram0_dq),

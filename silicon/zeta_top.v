@@ -28,6 +28,10 @@ module zeta_top (
     input  wire [31:0] boot_data,
     output reg         frame_done,   // 1-cycle pulse
     output wire        trapped,
+    // THE TAPE'S TAP (pocket/zeta_tape.v): the pad word of this frame, at
+    // the instant it is written to REG_PAD -- what a replay must feed back
+    output wire        pad_stb,
+    output wire [15:0] pad_word,
     output reg         busy,
     output wire        boot_busy,      // hold the loader: a segment word
                                        // is still going into CRAM
@@ -142,6 +146,8 @@ module zeta_top (
   reg [13:0] au_addr;
   reg [31:0] frame_no;
   reg [15:0] pad_l;
+  assign pad_stb  = (st == I_WP);
+  assign pad_word = pad_l;
 
   wire        vm_running;
   wire [31:0] dl_data;

@@ -63,6 +63,7 @@ module zeta_sim #(
     .boot_we(boot_we), .boot_kind(boot_kind), .boot_done(1'b1),
     .boot_addr(boot_addr), .boot_data(boot_data),
     .frame_done(frame_done), .trapped(trapped), .busy(busy),
+    .pad_stb(), .pad_word(),
     .boot_busy(boot_busy),
     .snd_tick(snd_tick), .snd_sample(snd_sample), .snd_busy(snd_busy),
     .sd_req(sd_req), .sd_save(sd_save), .sd_sw_we(), .sd_sw_a(),

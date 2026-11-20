@@ -122,7 +122,8 @@ from zeta import spec  # noqa: E402
 SIL = ROOT / "silicon"
 srcs = [SIL / f for f in ("zvm.v", "zgpu.v", "zseq.v", "zsnd.v",
                           "zeta_top.v")]
-srcs += [ROOT / "pocket/zeta_glass.v", ROOT / "silicon/gen/params.vh",
+srcs += [ROOT / "pocket/zeta_glass.v", ROOT / "pocket/zeta_tape.v",
+         ROOT / "silicon/gen/params.vh",
          template / "core/core_top.v", template / "ap_core.qsf"]
 h = hashlib.sha256()
 for p in sorted(srcs):

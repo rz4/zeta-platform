@@ -58,7 +58,7 @@ def main(argv=None) -> int:
                    help="write the closest frame with differing pixels marked")
 
     p = sub.add_parser("sd", help="the card ferry: push the build, pull shots")
-    p.add_argument("action", choices=("push", "shots", "witness"))
+    p.add_argument("action", choices=("push", "shots", "witness", "tape"))
     p.add_argument("cart", nargs="?", default=None,
                    help="witness only: the cart the capture came from")
     p.add_argument("--card", default=None, help="card mountpoint (default: find it)")
@@ -166,6 +166,10 @@ def main(argv=None) -> int:
         if args.action == "shots":
             sdcard.shots(card, args.n)
             return 0
+        if args.action == "tape":       # the recorded session, brought home
+            from . import cabinet, carts
+            cart = cabinet.load_cart(carts.resolve(args.cart)) if args.cart else None
+            return 0 if sdcard.tape(card, Path("tapes"), cart) else 1
         # witness: the newest capture, straight into the gate
         if not args.cart:
             raise SystemExit("zeta sd witness CART -- name the cart the "

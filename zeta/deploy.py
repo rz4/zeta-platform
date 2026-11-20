@@ -77,7 +77,17 @@ MANIFESTS = {
         # flight, so it does not matter whether APF also preloads this
         # slot at boot -- unasked-for words are ignored by construction.
         {"name": "Card", "id": 2, "required": False, "parameters": "0x0",
-         "filename": "card.bin", "address": "0x20000000"}]}},
+         "filename": "card.bin", "address": "0x20000000"},
+        # THE TAPE (zeta/tape.py, pocket/zeta_tape.v): the session's pad
+        # words. NONVOLATILE, so the OS itself reads the recorder's memory
+        # at 0x30000000 and writes the file when the core exits -- the
+        # recorder never asks for the card, which the game owns. The OS
+        # also WRITES the old file at us on the way in; nothing claims
+        # those writes. Staged blank at its full size (TAPE_FILE below),
+        # because a save slot keeps the size it was loaded with.
+        {"name": "Tape", "id": 3, "required": False, "parameters": "0x0",
+         "nonvolatile": True, "filename": "tape.ztp",
+         "address": "0x30000000", "size_maximum": "0x10000"}]}},
     # input/interact/variants: the minimal forms, byte-shape-matched to the
     # zeta3 core that actually booted on a real Pocket (archive/zeta3/dist)
     "input.json": {"input": {"magic": "APF_VER_1", "controllers": []}},
@@ -314,6 +324,20 @@ MENU_SLOT = {"name": "Game", "id": 1, "required": True,
              "address": "0x10000000"}
 
 
+#: where the OS keeps a nonvolatile slot's file, and how big the tape is
+TAPE_FILE = "Saves/zeta/common/tape.ztp"
+TAPE_BYTES = 0x10000
+
+
+def stage_tape(out: Path) -> None:
+    """A blank tape at full size, where the OS will look for it. (A push
+    never replaces one that is already on the card: same size, and the
+    card's is newer.)"""
+    p = out / TAPE_FILE
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_bytes(bytes(TAPE_BYTES))
+
+
 def manifests(menu: bool = False) -> dict:
     """The core's definition files; with `menu`, the game is chosen in the
     Pocket's browser instead of being the fixed cart.zbin."""
@@ -343,6 +367,7 @@ def stage_menu(out: Path, games: dict, core_from: Path) -> list[Path]:
     assets.mkdir(parents=True, exist_ok=True)
     for old in assets.glob("*.zbin"):            # what is staged IS the shelf
         old.unlink()
+    stage_tape(out)
     written, card = [], {}
     for title, path in games.items():
         cart = cabinet.load_cart(path)
@@ -384,6 +409,7 @@ def run(cart: dict, cart_name: str, out: Path | None = None) -> int:
         print(f"card slot {slot} -> Assets/zeta/common/{name} "
               f"({len(img)} words)")
 
+    stage_tape(out)
     # 2. the SD tree, byte-shape-matched to the zeta3 core that booted
     coredir = out / f"Cores/{AUTHOR}.{CORENAME}"
     coredir.mkdir(parents=True, exist_ok=True)
@@ -409,7 +435,8 @@ def run(cart: dict, cart_name: str, out: Path | None = None) -> int:
     rbf = template / "output_files/ap_core.rbf"
     sources = [SIL / f for f in ("zvm.v", "zgpu.v", "zseq.v", "zsnd.v",
                                  "zeta_top.v")]
-    sources += [ROOT / "pocket/zeta_glass.v", ROOT / "silicon/gen/params.vh",
+    sources += [ROOT / "pocket/zeta_glass.v", ROOT / "pocket/zeta_tape.v",
+                ROOT / "silicon/gen/params.vh",
                 template / "core/core_top.v", template / "ap_core.qsf"]
     # BY CONTENT, NOT BY CLOCK. The first version compared mtimes, and
     # `silicon/gen/params.vh` is REGENERATED from spec.py on every build --

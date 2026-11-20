@@ -42,8 +42,9 @@ MAGIC = 0x5A545030              # 'ZTP0'
 HEADER_WORDS = 4
 RUN_MAX = 0xFFFF
 PAD_MASK = 0xFFFF
-#: the recorder's memory: the Pocket's SRAM, 128K x 16 bits
-WORDS = (1 << 17) * 16 // 32
+#: the recorder's tape: 64 KiB of the Pocket's 256 KiB SRAM
+#: (pocket/zeta_tape.v LOG_WORDS) -- 16,380 runs
+WORDS = 1 << 14
 
 
 def cart_sum(cart: dict) -> int:

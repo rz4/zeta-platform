@@ -46,6 +46,8 @@ module zeta_glass #(parameter DIV = 6, parameter EXT_CE = 0) (
     output reg         snd_strobe,
     output wire signed [15:0] snd_sample,
     output wire        trapped,
+    output wire        pad_stb,       // the tape's tap (zeta_tape.v)
+    output wire [15:0] pad_word,
     output wire        boot_busy,
     // the CRAM chip pair (through to real pads, or sim chip models)
     input  wire        c0_wait,
@@ -232,6 +234,7 @@ module zeta_glass #(parameter DIV = 6, parameter EXT_CE = 0) (
     .boot_addr(boot_addr), .boot_data(boot_data),
     .boot_busy(boot_busy),
     .frame_done(frame_done), .trapped(trapped), .busy(busy),
+    .pad_stb(pad_stb), .pad_word(pad_word),
     .snd_tick(snd_strobe), .snd_sample(snd_sample), .snd_busy(),
     .sd_req(sd_req), .sd_save(sd_save), .sd_sw_we(sd_sw_we),
     .sd_sw_a(sd_sw_a), .sd_sw_d(sd_sw_d),

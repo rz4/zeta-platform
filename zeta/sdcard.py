@@ -50,6 +50,37 @@ def find_card(explicit: str | None = None) -> Path:
            if seen else "") + " -- mount the card or pass --card PATH")
 
 
+def tape(card: Path, out_dir: Path, cart=None) -> Path | None:
+    """Bring the recorded session home: the tape the OS wrote when the
+    core last exited, copied to out_dir under the time it was written,
+    and described. `cart` (a loaded cart) is checked against its header."""
+    import time
+    from . import deploy, tape as ztape
+    src = card / deploy.TAPE_FILE
+    if not src.is_file():
+        print(f"no tape on the card ({deploy.TAPE_FILE})")
+        return None
+    blob = src.read_bytes()
+    try:
+        head, pads = ztape.decode(blob)
+    except ValueError as e:
+        print(f"the card's tape is blank or not a tape: {e}")
+        return None
+    stamp = time.strftime("%Y%m%d-%H%M%S", time.localtime(src.stat().st_mtime))
+    out_dir.mkdir(parents=True, exist_ok=True)
+    dst = out_dir / f"{stamp}.ztp"
+    used = 4 * (ztape.HEADER_WORDS + head["runs"] + 1)
+    dst.write_bytes(blob[:used])                     # the session, not the blank after it
+    secs = len(pads) / 60
+    print(f"  {dst}: {len(pads):,} frames ({int(secs // 60)}m{secs % 60:04.1f}s), "
+          f"{head['runs']:,} runs, build {head['build']}, "
+          f"cart sum {head['cart_sum']:#010x}")
+    if cart is not None:
+        why = ztape.check(head, cart)
+        print(f"  {'DOES NOT MATCH: ' + why if why else 'matches the cart given'}")
+    return dst
+
+
 def push(card: Path, staged: Path = STAGED) -> int:
     """Copy the staged SD layout onto the card, newest wins, and say
     exactly what moved. `zeta deploy` must have staged first."""
