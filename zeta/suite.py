@@ -612,6 +612,18 @@ CLAIMS: list[Claim] = [
           "switching the clipper off changes almost nothing -- this cart "
           "is not standing where the ground vanishes, so it witnesses a "
           "clipper that could be absent"),
+    # THE CLIPPER'S RANGE. nearclip's tiles are 2 units wide, so every
+    # crossing it makes is small arithmetic; the clipper is sized for a
+    # 33-bit difference times a 50-bit distance and NOTHING reached the
+    # top of it -- frontier B3's mutants (the multiply's high partial
+    # products dropped) passed every cart until this one.
+    Claim("bigclip", "THE CLIPPER AT THE TOP OF ITS RANGE: tiles thousands "
+                     "of units wide, differences past 2^27",
+          lambda o: o.clip_px > 5000,
+          "switching the clipper off changes almost nothing -- the huge "
+          "floor is not crossing the planes, so the wide end of the "
+          "crossing's multiply and divide is unwitnessed again",
+          frames=40),
     # THE GAME, and the line that would have caught the defect it found:
     # a backdrop AND more than one mesh, which no other cart in this table
     # combines. hall proves the backdrop with ONE object, which is exactly
