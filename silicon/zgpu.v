@@ -386,7 +386,13 @@ module zgpu (
       (boxing == 4'd9) ? f0y : (boxing == 4'd8) ? f0x :
       (boxing == 4'd7) ? f1y : (boxing == 4'd6) ? f1x :
       (boxing == 4'd5) ? f2y : f2x;
-  wire signed [63:0] emP = emA * emB;
+  // THE OPERANDS, REGISTERED (frontier B5). At 51.84 MHz the phase select,
+  // the operand muxes and the 37x37 multiply together ran 1.53 ns over
+  // (574 paths, boxing -> emac2). The muxes now feed registers and the
+  // multiply reads them a beat later; the schedule had a beat to give --
+  // the last one only subtracted -- so the seed takes the same seven.
+  reg signed [36:0] emA_r, emB_r;
+  wire signed [63:0] emP = emA_r * emB_r;
   // the steps: shifts of the same differences, sign-extended to the
   // accumulator's exact width
   wire signed [63:0] edx0 = {{23{d01y[36]}}, d01y, {SUB{1'b0}}};
@@ -993,16 +999,18 @@ module zgpu (
           if (box_empty) st <= S_WAIT;
         end else if (boxing >= 4'd3) begin   // the edge seed, one product a
           boxing <= (boxing == 4'd3) ? 4'd2 : boxing - 4'd1;
+          emA_r <= emA; emB_r <= emB;        // the NEXT beat's operands
           case (boxing)                      // phase through one multiplier
-            4'd9: emac  <= emP;                        // d01x*f0y
-            4'd8: emac2 <= emP;                        // d01y*f0x
-            4'd7: begin eseed[0] <= emac - emac2; emac <= emP; end
-            4'd6: emac2 <= emP;
-            4'd5: begin eseed[1] <= emac - emac2; emac <= emP; end
-            4'd4: emac2 <= emP;
-            default: eseed[2] <= emac - emac2;         // boxing == 3
+            4'd8: emac  <= emP;                        // d01x*f0y
+            4'd7: emac2 <= emP;                        // d01y*f0x
+            4'd6: begin eseed[0] <= emac - emac2; emac <= emP; end
+            4'd5: emac2 <= emP;
+            4'd4: begin eseed[1] <= emac - emac2; emac <= emP; end
+            4'd3: emac2 <= emP;
+            default: ;                                 // boxing == 9: operands only
           endcase
         end else if (boxing == 4'd2) begin   // plane products (depth and
+          eseed[2] <= emac - emac2;          // (...and the third seed's sum)
           boxing <= 4'd1;                    // colors), off the registered
           zpx0 <= zdx * fzx;                 // cursor
           zpy0 <= zdy * fzy_m;               // fzy, unpackable (HOLD FIX)

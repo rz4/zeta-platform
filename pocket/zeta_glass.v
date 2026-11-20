@@ -162,10 +162,24 @@ module zeta_glass #(parameter DIV = 6, parameter EXT_CE = 0) (
   wire [1:0] co_k = co_hit[3] ? 2'd3 : co_hit[2] ? 2'd2 :
                     co_hit[1] ? 2'd1 : 2'd0;
   wire       co_on = |co_hit;
-  wire [4:0] cr = blend5(px_rgb[23:19], co_rgb[co_k][23:19], co_a[co_k]);
-  wire [4:0] cg = blend5(px_rgb[15:11], co_rgb[co_k][15:11], co_a[co_k]);
-  wire [4:0] cb = blend5(px_rgb[7:3],   co_rgb[co_k][7:3],   co_a[co_k]);
-  wire [23:0] px_out = co_on
+  // THE WINNER, REGISTERED (frontier B5). At 51.84 MHz the four hit
+  // compares, the priority select and the lerp's five adds ran 1.62 ns
+  // over into rgb. Everything they read holds for the whole dot (DIV
+  // clocks) and rgb samples on the NEXT ce_pix, so the winning
+  // rectangle's colour and alpha can take a register here: settled by the
+  // dot's second clock, sampled at its sixth.
+  reg        co_on_r;
+  reg [14:0] co_c_r;
+  reg [4:0]  co_a_r;
+  always @(posedge clk) begin
+    co_on_r <= co_on;
+    co_c_r  <= {co_rgb[co_k][23:19], co_rgb[co_k][15:11], co_rgb[co_k][7:3]};
+    co_a_r  <= co_a[co_k];
+  end
+  wire [4:0] cr = blend5(px_rgb[23:19], co_c_r[14:10], co_a_r);
+  wire [4:0] cg = blend5(px_rgb[15:11], co_c_r[9:5],   co_a_r);
+  wire [4:0] cb = blend5(px_rgb[7:3],   co_c_r[4:0],   co_a_r);
+  wire [23:0] px_out = co_on_r
       ? {cr, cr[4:2], cg, cg[4:2], cb, cb[4:2]} : px_rgb;
 
   // ---- GRADING (spec.GRADE_SRC), the last thing before the glass -------
