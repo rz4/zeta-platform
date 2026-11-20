@@ -136,7 +136,44 @@ module zgpu (
   reg               zarm;
   wire signed [25:0] fzy_m = fzy & {26{zarm}};
   reg signed [25:0] fcx [0:2], fcy [0:2];   // r, g, b color gradients
-  reg [8:0]  px, py, lx, hx, hy;    // walk cursor and clamped box (pixels)
+  reg [8:0]  px, py, lx, hx, hy;    // walk cursor and clamped box (pixels);
+                                    // lx: THIS row's anchor (see the walk)
+  // ---- THE SPAN WALK (frontier B1) ---------------------------------------
+  // The box walk stepped every pixel of every row from the box's left edge
+  // to its right, and the census (tools/geo_census.py) put the cost: at
+  // the TND brawl's peak frame 366,232 walked pixels for 162,834 covered
+  // -- the walk landed on its triangle 0.44 of the time. A triangle is
+  // CONVEX, so a row's coverage is one interval; the walk now visits that
+  // interval and little else:
+  //   START  each row begins at the ANCHOR, the previous row's first
+  //          covered pixel (the box corner on the first row)
+  //   SEEKL  covered there, and covered to its left: step left, drawing
+  //          nothing, until the left neighbour is not -- then draw
+  //   SEEKR  not covered there: step right; the first covered pixel
+  //          draws at once (everything left of it was not covered)
+  //   DRAW   left to right; the first uncovered pixel ENDS THE ROW
+  // EXACT BY CONSTRUCTION: every pixel is still visited by stepping the
+  // same accumulators by the same adds (a left step is the right step's
+  // inverse, and int64 wrap commutes), each covered pixel commits exactly
+  // once, left to right, rows top to bottom -- the order the law and the
+  // span-level rule (OBJ_LODSPAN: the level from a row's FIRST covered
+  // pixel) both read. Seek steps run no texture ladder at all.
+  // An UNCOVERED anchor does not say which way the row's coverage lies --
+  // a sliver leaning left, or the narrowing rows above a bottom vertex,
+  // can sit wholly LEFT of the last row's left end -- but each failing
+  // edge does: its function improves in the direction its x step points,
+  // given the triangle's orientation (the sign of e0 + e1 + e2, which is
+  // constant: twice the area). Failing edges that disagree, or one that
+  // no x step can fix, mean the row holds nothing.
+  //   SEEKLU  not covered, coverage to the left: step left until covered,
+  //           then SEEKL on to the interval's left end
+  // A degenerate triangle (zero area) keeps its anchor at the box's left
+  // edge: every row seeks right from there.
+  localparam [2:0] W_START = 3'd0, W_SEEKL = 3'd1, W_SEEKR = 3'd2, W_DRAW = 3'd3,
+                   W_SEEKLU = 3'd4;
+  reg [2:0]  wph;                   // the walk's phase in this row
+  reg        ori_p, ori_n;          // orientation: positive, negative area
+  reg [8:0]  bxl;                   // the box's left edge (seeks stop there)
   // FOUR BITS, and the width is deliberate: the sequence now runs 10 down
   // to 0 and a count a parameter drives never gets its width by luck
   // (the localparam [5:0] that wedged a frame in silence, build 90).
@@ -284,7 +321,6 @@ module zgpu (
                                                        u5[4:3]});
   // an uncovered pixel writes nothing, so it owes no texel: it pays beat
   // 0, then leaves -- roughly half of any bounding box, skipped
-  wire tdone = !ttex || (tph == 4'd1 && !cov_r) || (tph == 4'd12);
 
   // edge functions at the PIXEL CENTER ((p << SUB) + HALF): 37-bit exact
   // differences, 64-bit wrapping products -- numpy int64's own domain
@@ -352,6 +388,44 @@ module zgpu (
   wire signed [63:0] edy2 = {{23{d20x[36]}}, d20x, {SUB{1'b0}}};
   wire covered = ((eacc[0] >= 0) && (eacc[1] >= 0) && (eacc[2] >= 0)) ||
                  ((eacc[0] <= 0) && (eacc[1] <= 0) && (eacc[2] <= 0));
+  // frontier B1: the LEFT neighbour's coverage, one step back (x - 1 adds
+  // +edx), so a seek never has to step out and back again
+  wire signed [63:0] eL0 = eacc[0] + edx0;
+  wire signed [63:0] eL1 = eacc[1] + edx1;
+  wire signed [63:0] eL2 = eacc[2] + edx2;
+  wire covered_l = ((eL0 >= 0) && (eL1 >= 0) && (eL2 >= 0)) ||
+                   ((eL0 <= 0) && (eL1 <= 0) && (eL2 <= 0));
+  wire seek_left = (wph == W_START || wph == W_SEEKL || wph == W_SEEKLU)
+                   && covered_l && (px > bxl);
+  wire commit    = covered && !seek_left;   // (SEEKR / DRAW: covered commits)
+  // at an uncovered pixel, which way each failing edge wants: right if its
+  // value grows stepping right (a right step adds -edx: edx's sign is d_y's)
+  wire f0 = ori_p ? (eacc[0] < 0) : (eacc[0] > 0);
+  wire f1 = ori_p ? (eacc[1] < 0) : (eacc[1] > 0);
+  wire f2 = ori_p ? (eacc[2] < 0) : (eacc[2] > 0);
+  wire r0 = ori_p ? (d01y < 0) : (d01y > 0);
+  wire r1 = ori_p ? (d12y < 0) : (d12y > 0);
+  wire r2 = ori_p ? (d20y < 0) : (d20y > 0);
+  wire l0 = ori_p ? (d01y > 0) : (d01y < 0);
+  wire l1 = ori_p ? (d12y > 0) : (d12y < 0);
+  wire l2 = ori_p ? (d20y > 0) : (d20y < 0);
+  wire want_r = (f0 && r0) || (f1 && r1) || (f2 && r2);
+  wire want_l = (f0 && l0) || (f1 && l1) || (f2 && l2);
+  wire stuck  = (f0 && !r0 && !l0) || (f1 && !r1 && !l1) || (f2 && !r2 && !l2);
+  wire degen  = !ori_p && !ori_n;
+  wire dir_r  = degen || (want_r && !want_l && !stuck);
+  wire dir_l  = !degen && want_l && !want_r && !stuck;
+  // (frontier B1: a pixel the walk does not COMMIT owes no ladder at all;
+  // the span walk's seeks pass over pixels without committing them)
+  wire tdone = !ttex || !commit || (tph == 4'd1 && !cov_r) || (tph == 4'd12);
+  // the next row starts from the anchor -- or, when this very pixel is the
+  // row's first AND its last, from here
+  wire use_cur = commit && (wph != W_DRAW) && !degen;
+  wire signed [63:0] rb0 = use_cur ? eacc[0] : erow[0];
+  wire signed [63:0] rb1 = use_cur ? eacc[1] : erow[1];
+  wire signed [63:0] rb2 = use_cur ? eacc[2] : erow[2];
+  wire signed [45:0] rbz = use_cur ? zacc : zrow;
+  wire [8:0]         rbx = use_cur ? px : lx;
 
   assign m_st = st;
   assign flush_busy = (st == S_FLUSH);
@@ -605,7 +679,7 @@ module zgpu (
                                     // {slot, texel}, driven by zeta_top
   always @(posedge clk) if (!stall) begin
     s1_clr <= rst_n && (st == S_CLR) && cadv;
-    s1_v   <= rst_n && (st == S_WALK) && (boxing == 0) && covered
+    s1_v   <= rst_n && (st == S_WALK) && (boxing == 0) && commit
                     && tdone;
     s1_a   <= (st == S_CLR) ? (clr + tile_base) : walk_addr;
     s1_za  <= (st == S_CLR) ? clr : zwalk;
@@ -901,6 +975,7 @@ module zgpu (
         if (boxing == 4'd10) begin    // box from the just-latched vertices
           boxing <= 4'd9;
           px <= lox[8:0]; py <= loy[8:0]; lx <= lox[8:0]; tph <= 4'd0;
+          bxl <= lox[8:0]; wph <= W_START;
           lod_dirty <= 1'b1;          // a new triangle owes a level
           hx <= hix[8:0]; hy <= hiy[8:0];
           if (box_empty) st <= S_WAIT;
@@ -929,6 +1004,8 @@ module zgpu (
           for (i = 0; i < 3; i = i + 1) begin
             eacc[i] <= eseed[i]; erow[i] <= eseed[i];
           end
+          ori_p <= (eseed[0] + eseed[1] + eseed[2]) > 0;   // the area's sign
+          ori_n <= (eseed[0] + eseed[1] + eseed[2]) < 0;
           zacc <= {fz0, 8'd0} + {{2{zpx0[43]}}, zpx0}
                               + {{2{zpy0[43]}}, zpy0};
           zrow <= {fz0, 8'd0} + {{2{zpx0[43]}}, zpx0}
@@ -968,21 +1045,48 @@ module zgpu (
                                         // 11: the level, gm now complete
                                         // (12 is the commit beat itself)
           endcase
-        end else if (px == hx) begin
-          px <= lx; tph <= 4'd0;
+        end else if ((commit && px == hx) ||
+                     (!covered && (wph == W_DRAW ||
+                       ((wph == W_SEEKR || (wph == W_START && dir_r)) && px == hx) ||
+                       ((wph == W_SEEKLU || (wph == W_START && dir_l)) && px == bxl) ||
+                       (wph == W_START && !dir_r && !dir_l)))) begin
+          // THE ROW ENDS: its last pixel drew; its coverage ran out (the
+          // early exit); a seek reached the box's edge finding nothing; or
+          // its failing edges say it holds nothing. The next row starts at
+          // the anchor, one row down.
+          px <= rbx; tph <= 4'd0; wph <= W_START;
+          if (use_cur) lx <= px;
           lod_dirty <= 1'b1;          // ...and so does every new row
-          zrow <= zrow + {{16{fzy[25]}}, fzy, 4'd0};
-          zacc <= zrow + {{16{fzy[25]}}, fzy, 4'd0};
-          erow[0] <= erow[0] + edy0;  eacc[0] <= erow[0] + edy0;
-          erow[1] <= erow[1] + edy1;  eacc[1] <= erow[1] + edy1;
-          erow[2] <= erow[2] + edy2;  eacc[2] <= erow[2] + edy2;
+          zrow <= rbz + {{16{fzy[25]}}, fzy, 4'd0};
+          zacc <= rbz + {{16{fzy[25]}}, fzy, 4'd0};
+          erow[0] <= rb0 + edy0;  eacc[0] <= rb0 + edy0;
+          erow[1] <= rb1 + edy1;  eacc[1] <= rb1 + edy1;
+          erow[2] <= rb2 + edy2;  eacc[2] <= rb2 + edy2;
           for (i = 0; i < 3; i = i + 1) begin
-            crow[i] <= crow[i] + {{16{fcy[i][25]}}, fcy[i], 4'd0};
-            cacc[i] <= crow[i] + {{16{fcy[i][25]}}, fcy[i], 4'd0};
+            crow[i] <= (use_cur ? cacc[i] : crow[i]) + {{16{fcy[i][25]}}, fcy[i], 4'd0};
+            cacc[i] <= (use_cur ? cacc[i] : crow[i]) + {{16{fcy[i][25]}}, fcy[i], 4'd0};
           end
           if (py == hy) st <= S_WAIT;
           else py <= py + 1'b1;
-        end else begin
+        end else if (seek_left || (!covered &&
+                     (wph == W_SEEKLU || (wph == W_START && dir_l)))) begin
+          // one step back, drawing nothing: SEEKL over the interval to its
+          // left end, or SEEKLU over the uncovered gap to its right end
+          px <= px - 1'b1; tph <= 4'd0; wph <= covered ? W_SEEKL : W_SEEKLU;
+          zacc <= zacc - {{16{fzx[25]}}, fzx, 4'd0};
+          eacc[0] <= eacc[0] + edx0;
+          eacc[1] <= eacc[1] + edx1;
+          eacc[2] <= eacc[2] + edx2;
+          for (i = 0; i < 3; i = i + 1)
+            cacc[i] <= cacc[i] - {{16{fcx[i][25]}}, fcx[i], 4'd0};
+        end else begin                 // one step right (SEEKR, or DRAW)
+          if (use_cur) begin           // this row's first pixel: the anchor
+            lx <= px;
+            erow[0] <= eacc[0]; erow[1] <= eacc[1]; erow[2] <= eacc[2];
+            zrow <= zacc;
+            for (i = 0; i < 3; i = i + 1) crow[i] <= cacc[i];
+          end
+          wph <= commit ? W_DRAW : W_SEEKR;
           px <= px + 1'b1; tph <= 4'd0;
           zacc <= zacc + {{16{fzx[25]}}, fzx, 4'd0};
           eacc[0] <= eacc[0] - edx0;
