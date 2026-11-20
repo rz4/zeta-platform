@@ -86,7 +86,13 @@ Analogue's slot rules allow it (data.json, read 2026-11-20):
   booted directly, cell for cell (tested on TEAR and HALL). About 1.6 MB
   a game; `zeta stage --no-film` leaves it off.
 - The shelf survives as an ordinary cart, for curated collections.
-- **Built** (`zeta stage`, staged in `build/menu`); **not yet on glass.**
+- **WITNESSED ON THE POCKET (2026-11-20, build 106).** The Pocket's own
+  browser lists the games; choosing one plays the film to its logo and
+  then the game; loading another from the core's menu boots clean. The
+  reload is a full restart of the core (parameter bits 0 and 8), so it
+  asked nothing new of the loader.
+- **Still to do:** a save file per game (today all games share
+  `card.bin`), and the film cannot be skipped.
 - **Work:** the loader must accept a chosen file of any size and reset
   the machine cleanly on a reload; the card path must follow the
   per-game save file.
@@ -127,10 +133,13 @@ is enough to reconstruct a session exactly.
 | The developer | a bug report that reproduces every time |
 | The hardware designer | costs measured on real play |
 
-**Why it is urgent.** The frame meter has only two scripted routes. On
+**Why it was urgent.** The frame meter had only two scripted routes. On
 them the 43.2 MHz build dropped no frames; on the Pocket the player felt
-51.84 MHz "a lot smoother". Real play is heavier than the scripts, and
-the meter cannot see it until it has tapes.
+51.84 MHz "a lot smoother", and the guess was that real play is heavier
+than the scripts. The first tape (docs/ZETA0-FRONTIER.md, 18) says
+otherwise: real play peaked at 61% of the frame against the script's
+58%, with no frame near a ceiling at either clock. The report is real
+and still unexplained; the guess was wrong, and only a tape could say so.
 
 - **The recorder** (`pocket/zeta_tape.v`) writes each frame's pad word
   into the Pocket's SRAM, which nothing used before. The Pocket itself
@@ -145,9 +154,17 @@ the meter cannot see it until it has tapes.
   command. `zeta replay` runs the session on the reference machine
   against the game file from the card, at about 30 frames a second.
 - **The gate for the whole loop:** the replay must write the same save
-  the Pocket was left with (`--expect`). Tested on the desktop with a
-  small save cart; **not yet on glass**, where the SRAM's timing and the
-  Pocket's write-on-exit are both unproven.
+  the Pocket was left with (`--expect`).
+- **WITNESSED ON THE POCKET (2026-11-20, build 106).** The first tape:
+  3 m 33 s of TEAR NOT DEMON, 12,776 frames in 1,397 runs, carrying the
+  sum of the film-and-TND file it was played on. The SRAM holds at the
+  recorder's slow timing and the Pocket writes the file on exit.
+  - *One flaw:* the file is the recorder's image rotated by one word
+    (the magic last). Lossless, and undone on the pull
+    (`tape.from_card`); the mechanism is not established, and the next
+    bitstream should fetch the addressed word instead of the next.
+  - *The Pocket's clock was a day behind*, so tapes are named by the
+    desk's clock.
 - **First version:** records from power-on only, and holds the last
   session only. Recording from a save state follows section 3.
 - **`zeta profile <tape> <game>`** costs every recorded frame on the

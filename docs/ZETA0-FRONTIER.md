@@ -811,6 +811,9 @@ on the 51.84 MHz core with the save intact. The player's report: it
   pads, and a player's fight is not. The meter is owed a route recorded
   from real play (the pad-log tape, `zeta sd witness --tape`), and until
   it has one, "no frames over the ceiling" describes the routes only.
+- **(Later the same day: it got one, and this inference did not hold.
+  See §18. Real play peaked 5% above the brawl route, nowhere near
+  either clock's ceiling.)**
 
 ## 16. Past 51.84 MHz: where the clock stops today (measured, deferred)
 
@@ -907,10 +910,70 @@ its own MLAB (`evm0`, `evm1`).
 - `zseq` spread into the room (placed 6,627 → 7,156 with 680
   recoverable), so the design gave back 466 placed ALMs where `zsnd`
   alone gave 1,235.
-- **Owed:** glass. TND drives events every frame, so its sound is the
-  witness.
+- **WITNESSED ON THE POCKET (2026-11-20, build 106):** TND's sound is
+  right, by ear, with the event list in its two memories. Build 106 is
+  B9 plus the recorder: 17,212 ALMs placed (headline 16,968), worst
+  slow-corner setup +0.795 ns.
 
 **Still in block RAM for no reason:** the sixteen wave tables are 2,048
 bits each and sit in sixteen M10K blocks (of 308, all used). One merged
 table would need four. That is a serial mixer, and it is the next place
 to look when block RAM is what is short.
+
+## 18. The first tape of real play, costed (2026-11-20)
+
+§15 ended on a debt: the meter had only scripted routes, the player had
+felt 51.84 MHz "a lot smoother" where the routes showed no frame over the
+ceiling at 43.2 MHz, and so "real play reaches heavier frames than either
+route does". The recorder (build 106) paid the debt the same day. The
+conclusion did not survive it.
+
+**The session:** 3 m 33 s of TEAR NOT DEMON on the Pocket, launched from
+the Pocket's menu, the film in front. 12,776 frames, 1,397 changes of the
+pad. Replayed on the law from the save it started with, it leaves the
+save the Pocket was left with and ends where the player quit, on the
+title. (The save did not change in this session, so that gate was weak;
+see PLATFORM.md.)
+
+**Costed** on the RTL's own meter, every frame, in 54 parallel windows
+each started from the law's state (`zeta profile`, 17 m 42 s; about two
+hours serially):
+
+| | scripted brawl | real play |
+|---|---:|---:|
+| frames | 521 | 12,776 |
+| peak, clocks | 499,077 | **524,813** |
+| peak, share of the frame | 58% | **61%** |
+| median | 48% | 44% |
+| frames over the 90% ceiling | 0 | **0** |
+| frames over the frame | 0 | **0** |
+
+- Real play's heaviest frame is 5% heavier than the script's. Its middle
+  is lighter. 13 frames of 12,776 pass 500,000 clocks.
+- The heaviest frames are geometry-bound, as brawl's are: in the fifty
+  heaviest the rasteriser idles 165k clocks waiting on the sequencer and
+  walks 170k.
+- The film peaks at 48% of the frame.
+
+**So the meter was right, and §15's inference was wrong.** No frame of
+this session would have crossed the 43.2 MHz ceiling either (648,000;
+none passes 525,000 here, and the counts at 43.2 MHz run about 11k
+lower). The object list caps a fight at four demons, so the scripted
+brawl was already near the worst a fight can be.
+
+**"Smoother" is therefore unexplained.** It was a real report and it is
+not dropped frames. What differed between the two cores on glass, besides
+the clock's headroom, is everything §15 changed to close timing: the
+dot-clock divider (five core clocks a pixel to six), the PLL plan, the
+compositor's registered winner, and the audio's mix timing. None of
+those is known to change pacing. The honest test is on hardware, varying
+one thing: the 43.2 MHz core is kept (`build/pocket-stack-43.rbf_r`),
+and the same cart can be played on both.
+
+**What this session does not cover:** it is one session of three and a
+half minutes. It is a floor on what play can cost, not a ceiling.
+
+**The tape is not in the repo.** It was recorded on the song build,
+whose theme is third-party and local; its cart sum names a file CI
+cannot rebuild. The tape library that judges silicon changes must be
+recorded on the committed cart.
