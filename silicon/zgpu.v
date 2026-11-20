@@ -177,7 +177,8 @@ module zgpu (
   // FOUR BITS, and the width is deliberate: the sequence now runs 10 down
   // to 0 and a count a parameter drives never gets its width by luck
   // (the localparam [5:0] that wedged a frame in silence, build 90).
-  reg [3:0]  boxing;                // 10: box, 9..4: edge seed, 2,1: planes
+  reg [3:0]  boxing;                // 11: the extents, 10: box, 9..4: edge
+                                    // seed, 2,1: planes
   integer i;
 
   function signed [35:0] min3(input signed [35:0] a, b, c);
@@ -193,8 +194,16 @@ module zgpu (
   wire signed [35:0] mxx = max3(v[0], v[2], v[4]) >>> SUB;
   wire signed [35:0] mny = min3(v[1], v[3], v[5]) >>> SUB;
   wire signed [35:0] mxy = max3(v[1], v[3], v[5]) >>> SUB;
-  wire signed [35:0] lox = (mnx < 0) ? 36'sd0 : mnx;
-  wire signed [35:0] hix = (mxx > ZW - 1) ? ZW - 1 : mxx;
+  // THE EXTENTS, REGISTERED (frontier B5). At 51.84 MHz the worst path on
+  // the die ran from the just-latched vertices through min3/max3, the
+  // clamp, and the empty-box compare into the state register: 1.76 ns
+  // over 19.29. Two compares and a decision are a cycle; four are not. So
+  // the first beat (boxing 11) only takes the extents, and the box and its
+  // verdict are made a beat later from these -- one clock a triangle, the
+  // law unchanged.
+  reg signed [35:0] bmnx, bmxx, bmny, bmxy;
+  wire signed [35:0] lox = (bmnx < 0) ? 36'sd0 : bmnx;
+  wire signed [35:0] hix = (bmxx > ZW - 1) ? ZW - 1 : bmxx;
   // THE TILE (roadmap 15, step 1): the box is clamped to the BAND of
   // rows this pass owns, so the depth plane only has to exist for that
   // band -- which is where 61% of this device's block memory was going.
@@ -209,8 +218,8 @@ module zgpu (
   //  triangle vertex-Y inputs, and shadowing them would compile)
   wire signed [35:0] band_lo = {27'd0, tile_y0};
   wire signed [35:0] band_hi = band_lo + TH - 1;
-  wire signed [35:0] loy = (mny < band_lo) ? band_lo : mny;
-  wire signed [35:0] hiy = (mxy > band_hi) ? band_hi : mxy;
+  wire signed [35:0] loy = (bmny < band_lo) ? band_lo : bmny;
+  wire signed [35:0] hiy = (bmxy > band_hi) ? band_hi : bmxy;
   wire box_empty = (lox > hix) || (loy > hiy);
 
   // depth plane: z at the walk start point, then exact incremental
@@ -967,12 +976,15 @@ module zgpu (
           fcx[2] <= tcxb; fcy[2] <= tcyb;
           fz0 <= tz0; fzx <= tzx; fzy <= tzy;
           zarm <= 1'b1;                      // see THE HOLD FIX
-          boxing <= 4'd10;
+          boxing <= 4'd11;
           st <= S_WALK;
         end
       end
       default: if (!stall) begin      // S_WALK
-        if (boxing == 4'd10) begin    // box from the just-latched vertices
+        if (boxing == 4'd11) begin    // the extents of the just-latched
+          boxing <= 4'd10;            // vertices, and nothing else
+          bmnx <= mnx; bmxx <= mxx; bmny <= mny; bmxy <= mxy;
+        end else if (boxing == 4'd10) begin   // the box, from the extents
           boxing <= 4'd9;
           px <= lox[8:0]; py <= loy[8:0]; lx <= lox[8:0]; tph <= 4'd0;
           bxl <= lox[8:0]; wph <= W_START;
