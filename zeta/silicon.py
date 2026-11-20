@@ -11,6 +11,7 @@ Three jobs, all downstream of spec.py:
 from __future__ import annotations
 
 import hashlib
+import os
 import shutil
 import struct
 import subprocess
@@ -200,7 +201,10 @@ def build() -> Path:
     cmd = ["verilator", "--cc", "--exe", "--build", "-O2", "-Wno-lint",
            "--top-module", "zeta_sim", "-Mdir", str(out), "-o", "sim",
            "-I" + str(gen),
-           "-CFLAGS", f"-DZW={spec.W} -DZH={spec.H} -O2",
+           "-CFLAGS", f"-DZW={spec.W} -DZH={spec.H} -O2 "
+                      f"-DZ_IMEM={spec.IMEM_WORDS} -DZ_DMEM={spec.DMEM_WORDS} "
+                      f"-DZ_TEX={spec.TEX_PAGES * spec.TEX_STRIDE} "
+                      f"-DZ_AUD={spec.AUD_BASE}",
            str(SIL / "zeta_sim.v"), str(SIL / "cram_sync_chip.v"),
            str(SIL / "card_model.v"),
            *[str(SIL / f) for f in RTL], str(SIL / "server.cpp")]
@@ -368,13 +372,23 @@ def tape_sim() -> Path:
 class SiliconMachine:
     """The Verilated core, one frame per .frame() call, per the contract."""
 
-    def __init__(self, cart: dict):
+    def __init__(self, cart: dict, state: bytes | None = None,
+                 env: dict | None = None, stderr=None):
+        """`state` is a ZSS0 image (cabinet.VirtualMachine.pack): the
+        silicon begins there instead of at power-on. The cart still boots
+        first, for its CRAM segment and its card -- pass the card as the
+        session had left it (cart["sd"] = machine.vm.sd)."""
         sim = build()
         work = Path(tempfile.mkdtemp(prefix="zeta-cart-"))
         ip, dp, cp = write_cart_hex(cart, work)
+        env = dict(os.environ, **(env or {}))
+        if state is not None:
+            (work / "state.zss").write_bytes(state)
+            env["ZETA_STATE"] = str(work / "state.zss")
         self.proc = subprocess.Popen(
             [str(sim), str(ip), str(dp)] + ([str(cp)] if cp else []),
-            stdin=subprocess.PIPE, stdout=subprocess.PIPE, cwd=work)
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=stderr,
+            cwd=work, env=env)
         self._fb = np.zeros((spec.H, spec.W, 3), np.uint8)
         self._audio = np.zeros(spec.SAMPLES_PER_FRAME, np.int16)
 

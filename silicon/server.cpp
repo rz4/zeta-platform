@@ -51,6 +51,57 @@ static void boot(const char* path, int kind) {
     fclose(f);
 }
 
+// ---- START FROM A STATE (spec.STATE_*, the ZSS0 image) -------------------
+// The machine's whole state between two frames is legislated, so the
+// silicon can begin at frame N of a session without living through the N
+// before it: boot the cart (for its CRAM segment and its card), then set
+// every legislated field where the RTL keeps it. A tape is then costed in
+// windows, in parallel, each from the law's own snapshot -- and the cross
+// that follows a load is the proof that the legislated state is ALL of
+// the state (tests/test_rewind.py, the silicon half). The same fields, by
+// the same names, are what the Pocket's save-state hand-over must reach.
+#define ZSND(x) dut->rootp->zeta_sim__DOT__u_top__DOT__u_snd__DOT__##x
+#define ZWCH(i) ZSND(wch__BRA__##i##__KET____DOT__mem)
+static void load_state(const char* path) {
+    FILE* f = fopen(path, "rb");
+    if (!f) { fprintf(stderr, "no state %s\n", path); exit(6); }
+    static unsigned char b[1 << 20];
+    size_t n = fread(b, 1, sizeof b, f);
+    fclose(f);
+    auto u32 = [&](size_t o) { return (uint32_t)b[o] | (uint32_t)b[o+1] << 8
+                                    | (uint32_t)b[o+2] << 16 | (uint32_t)b[o+3] << 24; };
+    const size_t want = 4 * (9 + Z_IMEM + Z_DMEM + 16 + 32) + 2 * Z_TEX + 16 * 256;
+    if (n != want || u32(0) != 0x5A535330) {
+        fprintf(stderr, "not a state image (%zu bytes, want %zu)\n", n, want); exit(6);
+    }
+    auto* r = dut->rootp;
+    size_t o = 8;
+    r->zeta_sim__DOT__u_top__DOT__frame_no = u32(o); o += 4;
+    dut->trapped = u32(o) & 1; o += 4;
+    ZSND(lfsr) = u32(o) & 0x7FFF; o += 4;
+    r->zeta_sim__DOT__u_top__DOT__n_copy = u32(o) & 0xFF; o += 12;   // copied; staged
+    r->zeta_sim__DOT__u_top__DOT__c_lat = u32(o) & 0xFF; o += 4;     // and counted are
+    for (int i = 0; i < Z_IMEM; i++, o += 4)                         // the card model's
+        r->zeta_sim__DOT__u_top__DOT__u_vm__DOT__imem[i] = u32(o);
+    for (int i = 0; i < Z_DMEM; i++, o += 4)
+        r->zeta_sim__DOT__u_top__DOT__u_vm__DOT__dmem[i] = u32(o);
+    for (int c = 0; c < 16; c++, o += 4) ZSND(ph)[c] = u32(o) & 0xFFFFFF;
+    // THE HEARD RING. heard[0] is what the next frame's program reads: the
+    // silicon wrote it into DMEM during the frame just ended, where the law
+    // writes it at the top of the next. heard[1] is the bank the frame
+    // just ended filled, which the next frame's readback collects.
+    for (int c = 0; c < 16; c++, o += 4)
+        r->zeta_sim__DOT__u_top__DOT__u_vm__DOT__dmem[Z_AUD + c] = u32(o);
+    for (int c = 0; c < 16; c++, o += 4)
+        ZSND(amem)[((ZSND(abank) ? 0 : 1) << 4) | c] = u32(o) & 0xFFFFFF;
+    for (int i = 0; i < Z_TEX; i++, o += 2)
+        r->zeta_sim__DOT__u_top__DOT__u_gpu__DOT__tmem[i] = (b[o] | b[o+1] << 8) & 0x7FFF;
+#define ZW1(i) for (int w = 0; w < 64; w++) ZWCH(i)[w] = u32(o + 256 * i + 4 * w);
+    ZW1(0) ZW1(1) ZW1(2) ZW1(3) ZW1(4) ZW1(5) ZW1(6) ZW1(7)
+    ZW1(8) ZW1(9) ZW1(10) ZW1(11) ZW1(12) ZW1(13) ZW1(14) ZW1(15)
+    dut->eval();
+}
+
 int main(int argc, char** argv) {
     Verilated::commandArgs(argc, argv);
     if (argc < 3) { fprintf(stderr, "usage: sim imem.hex dmem.hex\n"); return 2; }
@@ -68,6 +119,7 @@ int main(int argc, char** argv) {
     if (argc > 3) boot(argv[3], 2);      // the CRAM segment
     dut->core_en = 1;                    // cart complete: run
     for (int i = 0; i < 8; i++) tick();
+    if (const char* sp = getenv("ZETA_STATE")) load_state(sp);
 #ifdef ZDBGMEM
     // peeks take LOGICAL half addresses; the restride translation
     // (cram_fb.v's law) maps them to where the fabric really put them

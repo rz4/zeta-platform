@@ -83,6 +83,16 @@ def main(argv=None) -> int:
                         "must write the same words")
     p.add_argument("--shot", default=None, help="write the last frame here (.ppm)")
 
+    p = sub.add_parser("profile", help="what a recorded session cost, frame "
+                                       "by frame, on the silicon meter")
+    p.add_argument("tape", help="a .ztp from the Pocket, or a text tape")
+    p.add_argument("game", help="the .zbin from the card, or a cart by name or path")
+    p.add_argument("--card", default=None, help="the save the session started with")
+    p.add_argument("--window", type=int, default=240,
+                   help="frames a window (each starts from the law's state)")
+    p.add_argument("-j", "--jobs", type=int, default=None)
+    p.add_argument("--csv", default=None, help="write every frame's row here")
+
     p = sub.add_parser("stage", help="a card folder: one file a game, "
                                      "chosen in the Pocket's own menu")
     p.add_argument("games", nargs="+", metavar="[TITLE=]CART",
@@ -208,6 +218,30 @@ def main(argv=None) -> int:
             print("REPLAY PASS" if not bad else "REPLAY FAIL: the desktop's session "
                   "is not the Pocket's (a different starting save, or a divergence)")
             return 1 if bad else 0
+        return 0
+
+    if args.cmd == "profile":
+        import time
+        from . import cabinet, carts, deploy, profile, tape as ztape
+        if args.game.endswith(".zbin"):
+            cart = deploy.read_zbin(Path(args.game))
+        else:
+            cart = cabinet.load_cart(carts.resolve(args.game))
+        if args.card:
+            cart["sd"] = deploy.card_images(Path(args.card))
+        pads = ztape.read(args.tape)
+        t0 = time.time()
+        rows = profile.profile(
+            cart, pads, args.window, args.jobs,
+            say=lambda i, n: print(f"  window {i} of {n} ({time.time() - t0:.0f} s)",
+                                   flush=True))
+        print(profile.report(rows))
+        if args.csv:
+            keys = ["frame", "clk", *profile.STAGES]
+            Path(args.csv).write_text("\n".join(
+                [",".join(keys)] + [",".join(str(r.get(k, "")) for k in keys)
+                                    for r in rows]) + "\n")
+            print(f"  every frame: {args.csv}")
         return 0
 
     if args.cmd == "stage":

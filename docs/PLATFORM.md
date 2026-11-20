@@ -150,8 +150,19 @@ the meter cannot see it until it has tapes.
   Pocket's write-on-exit are both unproven.
 - **First version:** records from power-on only, and holds the last
   session only. Recording from a save state follows section 3.
-- **Then:** `zeta profile <tape>` costs every recorded frame on the RTL,
-  and any silicon change is judged on the whole tape library.
+- **`zeta profile <tape> <game>`** costs every recorded frame on the
+  RTL's own meter. The simulated hardware runs TND at about two frames a
+  second, so it does not start from power-on: the reference machine
+  replays the tape and hands over a state image every few seconds, and
+  each window runs on the hardware from its image, all cores at once.
+  TND's 521-frame brawl route takes 69 s this way (about 5 minutes
+  serially) and gives the same peak to 0.03%.
+- **Why that is sound:** started from the law's state image, the
+  simulated hardware continues bit-equal to the law in picture and sound
+  on 13 carts, and blanking any one field of the image breaks it
+  (`tests/test_resume.py`). The same fields are what the Pocket's
+  save-state hand-over (section 3) must reach.
+- **Then:** any silicon change is judged on the whole tape library.
 
 ### 5. One toolkit
 
