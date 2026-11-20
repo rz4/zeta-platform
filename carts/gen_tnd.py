@@ -95,10 +95,10 @@ def pose_span(V, S):
     return (half_words(V, S, halves[0])[2:] + half_words(V, S, halves[1]))
 
 
-# THE HUD'S PROMISE: at most 64 display-list triangles, ever -- the rank
-# (SSS: 30) and the combo (X99: 28) together, or RETRY (34) alone -- so the
-# list's other 1,344 words hold content.
-DL_LEASE = 64
+# THE HUD'S PROMISE: at most 80 display-list triangles, ever -- the rank
+# (SSS: 30), the combo (X99: 28) and the wordmark (TND: 18) together, or
+# RETRY (34) alone -- so the list's other 1,232 words hold content.
+DL_LEASE = 80
 cart = Cart("tnd", dl_lease=DL_LEASE)
 
 # ---- the body: two meshes, back to back, holding the first idle pose ----
@@ -989,7 +989,7 @@ S_RGB = cart.data(Table(list(RANK_RGB)), "s_rgb")
 # HUD changes. Two words a glyph; a string is its length and its glyphs.
 # (The width is stored as itself, 1..3, so an all-zero rectangle is none.)
 from zeta.forge import glyph_rects                          # noqa: E402
-FONT_CH = "DCBASRETYX0123456789"
+FONT_CH = "DCBASRETYXN0123456789"
 _fw = []
 for c in FONT_CH:
     rs = glyph_rects(c)
@@ -1007,6 +1007,10 @@ def glyphs(text):
 
 STR_RANK = [cart.data(Table(glyphs(r)), "str_" + r) for r in RANKS]
 STR_RETRY = cart.data(Table(glyphs("RETRY")), "str_retry")
+# the wordmark, top left under the gauge: T and D in bone, the N in blood
+# (the archive draws its N demonic -- horned, ember-tipped -- in blood)
+WORDMARK = [(cart.data(Table(glyphs(c)), "str_wm_" + c), x, col)
+            for c, x, col in (("T", 9, 0xD8CFC1), ("N", 17, 0xD63A36), ("D", 25, 0xD8CFC1))]
 S_STRS = cart.data(Table([int(x) for x in STR_RANK]), "str_ranks")
 S_LEN = cart.data(Table([len(r) for r in RANKS]), "rank_len")
 GW = 4 * 3                                     # a glyph and its gap, x3
@@ -1773,6 +1777,10 @@ p.push(310).push(GW).push(int(S_LEN)).load(SY["rank"]).emit("add", "loadi", "mul
 p.store(TX["x"])
 p.set(TX["y"], 10).set(TX["sc"], 3)
 p.emit(f"call {L_TEXT}")
+for sym_, x_, col_ in WORDMARK:
+    for k, v in (("str", int(sym_)), ("x", x_), ("y", 18), ("sc", 2), ("rgb", col_)):
+        p.set(TX[k], v)
+    p.emit(f"call {L_TEXT}")
 p.load(SY["g"]).push(255).emit("and", f"jz {hk}_out")       # the combo
 # X and the combo, as the archive writes it (X5, X12): the digits are
 # glyphs from index 10 of the font; no leading zero
