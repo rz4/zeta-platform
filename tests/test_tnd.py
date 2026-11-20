@@ -1013,3 +1013,92 @@ def test_a_blow_taken_flashes_and_a_lunge_is_heard():
         prev = wt
     assert flashed > 0, "a blow taken did not flash"
     assert heard > 0, "a lunge was not heard"
+
+
+# ---- P14: the card -- what survives the power ------------------------------------
+def _card_vm(words):
+    """A machine whose card already holds `words` in TND's slot."""
+    cart = cabinet.load_cart(CART)
+    cart["sd"] = {2: list(words)}
+    return cabinet.VirtualMachine(cart)
+
+
+def test_the_card_is_written_when_a_run_ends():
+    """Untouched, the wave beats him down. The first blow opened the fight
+    at rank D, so the card is owed a best of 1; the death is owed a run.
+    Both are on the card a few frames later (the law's own latency)."""
+    m = _fight_vm()
+    assert m.vm.sd.get(2, [0, 0])[:2] == [0, 0], "the card was not blank"
+    for f in range(900):
+        m.frame(0)
+    assert _cell(m, "f_dead") > 0
+    assert m.vm.sd[2][:2] == [1, 1], f"the card holds {m.vm.sd[2][:2]}"
+    assert m.vm.dmem[_sym("save_f")] == 1, "something is still owed"
+
+
+def test_the_title_shows_the_cards_best_and_a_lesser_run_keeps_it():
+    """A card that remembers S and three runs. The title (after the film)
+    says BEST and S -- 34 + 10 triangles. A run beaten down at D leaves
+    the best alone and counts the run; the title's words do not follow
+    him into the fight."""
+    m = _card_vm([5, 3])
+    for f in range(430):                    # the film, then the title
+        m.frame(0)
+    assert _cell(m, "mode") == 0
+    assert [m.vm.dmem[_sym("save") + i] for i in (0, 1)] == [5, 3], "the card was not read"
+    assert m.vm.dmem[spec.DL_BASE] == 44, f"the title drew {m.vm.dmem[spec.DL_BASE]} triangles"
+    m.frame(spec.PAD_A)                     # a fresh press: the fight
+    assert _cell(m, "mode") == 1
+    assert m.vm.dmem[spec.DL_BASE] == 0, "BEST followed him into the fight"
+    for f in range(900):
+        m.frame(0)
+    assert _cell(m, "f_dead") > 0
+    assert m.vm.sd[2][:2] == [5, 4], f"the card holds {m.vm.sd[2][:2]}"
+
+
+def test_a_better_rank_is_owed_the_moment_it_is_reached():
+    """The best is the best rank REACHED, not the rank at the death: the
+    card has it while he is still standing."""
+    m = _card_vm([1, 0])
+    m.frame(spec.PAD_START)
+    for f in range(70):                     # past frame 60: the read lands
+        m.frame(0)
+    assert m.vm.dmem[_sym("save")] == 1
+    m.vm.dmem[_sym("f_fight")] = 1          # mid-fight, and suddenly an A
+    m.vm.dmem[_sym("s_pts")] = 16 * 320
+    for f in range(8):
+        m.frame(0)
+    assert _cell(m, "f_dead") == 0
+    assert m.vm.sd[2][0] == 4, f"the card's best is {m.vm.sd[2][0]}, not A"
+
+
+def test_a_card_this_cart_never_wrote_says_nothing():
+    """A word outside 1..7 is not a rank: the title stays silent rather
+    than read a string off the end of the table."""
+    m = _card_vm([99, 7])
+    for f in range(430):
+        m.frame(0)
+    assert _cell(m, "mode") == 0
+    assert m.vm.dmem[spec.DL_BASE] == 0, "the title drew a rank that is not one"
+
+
+def test_the_huds_promise_is_kept():
+    """The display list's lease (78 triangles) is proved from the font in
+    gen_tnd.py; this holds the cart to it at run time: through the
+    beating that draws the rank and the combo, then with the worst the
+    HUD can say forced on it -- SSS and a combo of 55."""
+    m = _fight_vm()
+    worst = 0
+    for f in range(483):
+        m.frame((spec.PAD_LEFT if 300 <= f < 308 else 0)
+                | (spec.PAD_X if f >= 320 and f % 9 == 0 else 0))
+        worst = max(worst, m.vm.dmem[spec.DL_BASE])
+    assert worst > 0, "the route never drew the HUD"
+    m.vm.dmem[_sym("s_pts")] = 16 * 5000
+    m.vm.dmem[_sym("s_combo")] = 55
+    m.vm.dmem[_sym("s_idle")] = 0
+    m.frame(0)
+    assert _cell(m, "s_rank") == 6
+    n = m.vm.dmem[spec.DL_BASE]
+    assert n == 78, f"SSS, X55 and TND came to {n} triangles"
+    assert max(worst, n) <= 78

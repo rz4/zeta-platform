@@ -373,6 +373,48 @@ the witness of the Pocket's RGB565 camera.
                  title reads that Start as held, not fresh. Start on the
                  very first frame still begins the fight at once.
 
+## P14 -- the card: LANDED IN SIMULATION, glass pending
+
+What survives the power: two words in card slot 2 (the Pocket's card.bin).
+The best rank ever reached (0 none yet, 1..7 for D..SSS) and the runs
+that ended.
+
+- **Read** once, a second after the machine starts. carts/gen_save.py's
+  first version read at frame 1 and got zero every time.
+- **Owed, then written.** A rank past the card's best is the new best the
+  moment it is reached, so a run quit at SSS still reached SSS. A death is
+  a run. Either marks the pair as owed, and it goes out when the card is
+  free. One transfer in flight is the law's own rule.
+- **Shown.** The title says BEST and the rank, in the rank's colour, over
+  the prompt. A word outside 1..7 is not a rank, and the title stays
+  silent. Its position (124, 246) is a first guess, to calibrate.
+
+Three things had to give to make room:
+
+- **DMEM had no word left**, and the save needs eight. The HUD's promise
+  was 80 display-list triangles on a hand count of 76. The font says the
+  true worst is 78 (X55 is 30 triangles, not 28), so the promise is 78
+  now, PROVED by an assert from the font, and the 14 words go to the
+  borrowed front.
+- **The save's three cells sit at the top of the display list's tail**
+  (forge `Cart.tail_top`), so adding them early moves nothing else in a
+  pool that fills first-fit.
+- **The shelf refused any cart that used the card.** Slots are absolute
+  (SLOT_BASE is not law yet), so the real hazard is two shelved carts
+  naming the same slot. The forge now adopts a shelved cart's slot images
+  and refuses only that collision. The column (film → shelf → TND)
+  carries slot 2.
+
+Gates: tests/test_tnd.py (the card is written when a run ends; the title
+shows the card's best and a lesser run keeps it; a better rank is owed at
+once; a foreign card says nothing; the HUD's promise holds at its forced
+worst), tests/test_forge.py (adoption, collision), tests/test_shelf.py
+(the column carries the card).
+
+**Glass pending:** whether the Pocket persists card.bin across a power
+cycle is carts/save.zol's question (staged in build/savetest), and it has
+not been asked on glass yet.
+
 ## The frame, measured (2026-11-19)
 
 Three demons on the P2 street measured **858,900 clocks** at the worst

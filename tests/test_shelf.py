@@ -244,3 +244,26 @@ def test_the_column(game, btn):
                    if a not in allowed and m.vm.dmem[a] != direct.vm.dmem[a]]
             assert not bad, (f"{game}: the column delivered a different "
                              f"world -- {len(bad)} cells, first {bad[:8]}")
+
+
+def test_the_column_carries_the_games_card():
+    """TND's save rides the column. The film's own card image is TND's
+    slot (the forge adopts a shelved cart's slots), and the game launched
+    through film and shelf reads what the card holds -- a best of S and
+    three runs -- once its own film has played and its title stands."""
+    cart = cabinet.load_cart(ROOT / "carts/face.zol")
+    assert [int(k) for k in cart["sd"]] == [2], "the column lost TND's slot"
+    cart["sd"] = {"2": [5, 3]}
+    m = cabinet.VirtualMachine(cart)
+    m.vm.frame_no = FILM_LAUNCH - 1
+    for _ in range(1 + 4):
+        m.frame(0)
+    for f in range(HANDOFF):
+        m.frame(spec.PAD_X if f == PRESS else 0)
+    save = next(int(line.rsplit(" at ", 1)[1])
+                for line in (ROOT / "carts/tnd.zol").read_text().splitlines()
+                if line.startswith("; save: "))
+    for f in range(440):                    # TND's film, then its title
+        m.frame(0)
+    assert [m.vm.dmem[save], m.vm.dmem[save + 1]] == [5, 3], "the card was not read"
+    assert m.vm.dmem[spec.DL_BASE] == 44, "the title did not say BEST S"
