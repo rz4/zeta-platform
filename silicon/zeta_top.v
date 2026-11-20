@@ -306,26 +306,30 @@ module zeta_top (
   // it is 28 MLABs, 32 deep for the same price -- and M10K is 308 of 308,
   // so it MUST say MLAB (verify in the map report).
   localparam TQ_W = 546;
+`ifndef TQ_LG
+`define TQ_LG 5
+`endif
+  localparam TQ_LG = `TQ_LG;          // log2 of the depth (5: one MLAB deep)
   wire [TQ_W-1:0] tq_in;
-  (* ramstyle = "MLAB, no_rw_check" *) reg [TQ_W-1:0] tq_mem [0:31];
+  (* ramstyle = "MLAB, no_rw_check" *) reg [TQ_W-1:0] tq_mem [0:(1 << TQ_LG) - 1];
   reg  [TQ_W-1:0] tq_out;             // the head, held for zgpu
-  reg  [5:0]  tq_wp, tq_rp;           // one wrap bit each
+  reg  [TQ_LG:0] tq_wp, tq_rp;        // one wrap bit each
   reg         tq_go;                  // zgpu's tri_go
-  wire [5:0]  tq_n     = tq_wp - tq_rp;
+  wire [TQ_LG:0] tq_n  = tq_wp - tq_rp;
   wire        tq_empty = (tq_wp == tq_rp);
   // zseq sees ready at t and writes at t+1: keep one slot in hand, so a
   // write already in flight can never land on a full queue
-  wire        tq_rdy   = (tq_n < 6'd31);
+  wire        tq_rdy   = (tq_n < (1 << TQ_LG) - 1);
   wire        gpu_rdy_w;
   wire        tq_pop   = gpu_rdy_w && !tq_empty && !tq_go;
   always @(posedge clk) begin
-    if (tri_go) tq_mem[tq_wp[4:0]] <= tq_in;
-    if (tq_pop) tq_out <= tq_mem[tq_rp[4:0]];
+    if (tri_go) tq_mem[tq_wp[TQ_LG-1:0]] <= tq_in;
+    if (tq_pop) tq_out <= tq_mem[tq_rp[TQ_LG-1:0]];
     if (!core_rst_n || st == I_GK) begin   // every band starts empty
-      tq_wp <= 6'd0; tq_rp <= 6'd0; tq_go <= 1'b0;
+      tq_wp <= 0; tq_rp <= 0; tq_go <= 1'b0;
     end else begin
-      if (tri_go) tq_wp <= tq_wp + 6'd1;
-      if (tq_pop) tq_rp <= tq_rp + 6'd1;
+      if (tri_go) tq_wp <= tq_wp + 1'b1;
+      if (tq_pop) tq_rp <= tq_rp + 1'b1;
       tq_go <= tq_pop;
     end
   end
