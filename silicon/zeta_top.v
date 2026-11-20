@@ -284,6 +284,72 @@ module zeta_top (
   reg        watch_en;
   reg [16:0] watch_addr;
   reg [15:0] tri_ctr, cur_tri;
+  // ---- THE TRIANGLE QUEUE (frontier B2) ----------------------------------
+  // zseq handed zgpu one triangle at a time through a one-deep register,
+  // so each waited on the other: with B1 in, the sequencer's state
+  // histogram against the rasterizer's state (ZETA_SEQHIST) showed the
+  // sequencer finishing ONE triangle and then sitting out every band's
+  // clear -- 97,538 clocks of the TND brawl's frame 466, 94,468 of frame
+  // 226 -- and the two taking turns for the rest (213k of holding against
+  // 246k of starving at 226). A queue lets the sequencer work THROUGH the
+  // clear and the long walks, and the rasterizer drain it through the
+  // clipper's long thinks.
+  //
+  // NOTHING THE LAW READS CHANGES: the same triangles, in the same order,
+  // each with everything zgpu latches at tri_go (and the pick register's
+  // id, cur_tri, captured at the sequencer's own tri_go as it always was).
+  // The rasterizer sees the handshake it saw before -- rdy observed, go
+  // one clock later -- from the queue's head instead of zseq.
+  //
+  // 546 BITS AN ENTRY, COUNTED (216 vertices, 51 + 156 colour, 68 depth,
+  // 16 id, 39 flags): as flip-flops a 2-deep queue is ~550 ALMs. As MLAB
+  // it is 28 MLABs, 32 deep for the same price -- and M10K is 308 of 308,
+  // so it MUST say MLAB (verify in the map report).
+  localparam TQ_W = 546;
+  wire [TQ_W-1:0] tq_in;
+  (* ramstyle = "MLAB, no_rw_check" *) reg [TQ_W-1:0] tq_mem [0:31];
+  reg  [TQ_W-1:0] tq_out;             // the head, held for zgpu
+  reg  [5:0]  tq_wp, tq_rp;           // one wrap bit each
+  reg         tq_go;                  // zgpu's tri_go
+  wire [5:0]  tq_n     = tq_wp - tq_rp;
+  wire        tq_empty = (tq_wp == tq_rp);
+  // zseq sees ready at t and writes at t+1: keep one slot in hand, so a
+  // write already in flight can never land on a full queue
+  wire        tq_rdy   = (tq_n < 6'd31);
+  wire        gpu_rdy_w;
+  wire        tq_pop   = gpu_rdy_w && !tq_empty && !tq_go;
+  always @(posedge clk) begin
+    if (tri_go) tq_mem[tq_wp[4:0]] <= tq_in;
+    if (tq_pop) tq_out <= tq_mem[tq_rp[4:0]];
+    if (!core_rst_n || st == I_GK) begin   // every band starts empty
+      tq_wp <= 6'd0; tq_rp <= 6'd0; tq_go <= 1'b0;
+    end else begin
+      if (tri_go) tq_wp <= tq_wp + 6'd1;
+      if (tq_pop) tq_rp <= tq_rp + 6'd1;
+      tq_go <= tq_pop;
+    end
+  end
+  // the band is painted when the rasterizer is idle AND nothing is queued
+  // or in flight toward it
+  assign gpu_rdy = gpu_rdy_w && tq_empty && !tq_go && !tri_go;
+  wire signed [35:0] qx0, qy0, qx1, qy1, qx2, qy2;
+  wire [50:0] qc0;
+  wire signed [25:0] qcxr, qcyr, qcxg, qcyg, qcxb, qcyb;
+  wire [15:0] qz0;
+  wire signed [25:0] qzx, qzy;
+  wire [15:0] q_tri;
+  wire        q_tex, q_tinton, q_otint, q_span, q_blend, q_add;
+  wire [14:0] q_tint;
+  wire [7:0]  q_oid;
+  wire [4:0]  q_alpha, q_page;
+  assign tq_in = {tx0, ty0, tx1, ty1, tx2, ty2, tc0,
+                  tcxr, tcyr, tcxg, tcyg, tcxb, tcyb, tz0, tzx, tzy,
+                  cur_tri, t_tex, t_tint, t_tinton, t_otint, t_span,
+                  t_blend, t_add, t_oid, t_alpha, t_page};
+  assign {qx0, qy0, qx1, qy1, qx2, qy2, qc0,
+          qcxr, qcyr, qcxg, qcyg, qcxb, qcyb, qz0, qzx, qzy,
+          q_tri, q_tex, q_tint, q_tinton, q_otint, q_span,
+          q_blend, q_add, q_oid, q_alpha, q_page} = tq_out;
   reg [31:0] pick_id;
   reg [15:0] pick_z;
   reg        pick_sh;
@@ -518,7 +584,7 @@ module zeta_top (
     .tile_y0(tile_y0), .first_pass(tpass == 6'd0),
     .rd_addr(seq_addr), .rd_data(dl_data),
     .lod_flat((f_lod[31] || f_lod > 32'hFFFF) ? 16'd0 : f_lod[15:0]),
-    .tri_rdy(gpu_rdy), .tri_go(tri_go), .seq_item(seq_item), .seq_skip(seq_skip),
+    .tri_rdy(tq_rdy), .tri_go(tri_go), .seq_item(seq_item), .seq_skip(seq_skip),
     .seq_skip_n(seq_skip_n),
     .t_tex(t_tex), .t_tint(t_tint), .t_tinton(t_tinton), .t_otint(t_otint), .t_span(t_span),
     .t_blend(t_blend), .t_add(t_add), .t_oid(t_oid),
@@ -530,21 +596,21 @@ module zeta_top (
 
   zgpu u_gpu (
     .clk(clk), .rst_n(core_rst_n),
-    .start(st == I_GK), .tile_y0(tile_y0), .rdy(gpu_rdy), .stall(fb_stall),
+    .start(st == I_GK), .tile_y0(tile_y0), .rdy(gpu_rdy_w), .stall(fb_stall),
     .flush_go(gpu_flush_go), .flush_busy(gpu_flush_busy),
     .first_band(tpass == 6'd0),
     .m_st(gpu_m_st),
     .blit_mode(blit_on), .blit_we(blit_we_w),
     .blit_word(sk_q), .blit_take(blit_take),
-    .tri_go(tri_go),
-    .tx0(tx0), .ty0(ty0), .tx1(tx1), .ty1(ty1), .tx2(tx2), .ty2(ty2),
-    .tc0(tc0), .tcxr(tcxr), .tcyr(tcyr), .tcxg(tcxg), .tcyg(tcyg),
-    .tcxb(tcxb), .tcyb(tcyb), .tz0(tz0), .tzx(tzx), .tzy(tzy),
+    .tri_go(tq_go),                      // from the queue's head (B2)
+    .tx0(qx0), .ty0(qy0), .tx1(qx1), .ty1(qy1), .tx2(qx2), .ty2(qy2),
+    .tc0(qc0), .tcxr(qcxr), .tcyr(qcyr), .tcxg(qcxg), .tcyg(qcyg),
+    .tcxb(qcxb), .tcyb(qcyb), .tz0(qz0), .tzx(qzx), .tzy(qzy),
     .fb_we(gfb_we), .fb_waddr(gfb_a), .fb_wdata(gfb_d),
-    .tri_id(cur_tri), .t_tex(t_tex), .t_tint(t_tint), .t_tinton(t_tinton), .t_otint(t_otint), .t_span(t_span),
+    .tri_id(q_tri), .t_tex(q_tex), .t_tint(q_tint), .t_tinton(q_tinton), .t_otint(q_otint), .t_span(q_span),
     .vis_a(visi[5:0]), .vis_q(vis_q),
-    .t_blend(t_blend), .t_add(t_add), .t_oid(t_oid),
-    .t_alpha(t_alpha), .t_page(t_page),
+    .t_blend(q_blend), .t_add(q_add), .t_oid(q_oid),
+    .t_alpha(q_alpha), .t_page(q_page),
     .fog_rgb({f_rgb[23:19], f_rgb[15:11], f_rgb[7:3]}),
     .edge_rgb({e_rgb[23:19], e_rgb[15:11], e_rgb[7:3]}),
     .fog_near(f_near[15:0]),
