@@ -1053,6 +1053,8 @@ cart.boot(spec.FOG_SHIFT, 10)                   # full at 15 + 32 = 47 (archive 
 
 p = cart.program()
 L_SINE, L_ROT, L_FK = p.label("sine"), p.label("rot"), p.label("fk")
+L_RSQRT = p.label("rsqrt")
+L_TELE = p.label("tele")
 L_VIS = p.label("vis")
 L_ARENA = p.label("arena")
 L_COPY, L_WPT, L_D2, L_DMIND = (p.label(k) for k in ("copy", "wpt", "d2", "dmind"))
@@ -1381,6 +1383,12 @@ KICK_HI, KICK_DROP = hz(135), (hz(135) - hz(30)) // 4
 # cashes out as a hook off the next hand. A tap during a swing is BUFFERED
 # for 10 frames and thrown the moment the swing ends. A tap is read on
 # RELEASE, as the archive reads it -- see THE GRAMMAR below.
+# the small sounds' time cells (99: quiet), declared here because the fight
+# rings them long before the sounds themselves are placed (P15's landing)
+SG_T = {k: cart.data(Table([99]), "sg_" + k) for k in ("wt", "st", "gt", "nt")}
+LAND_SHAKE = 5                  # P15: frames of shake a touchdown is worth
+CLEAR2 = int(0.65 ** 2 * ONE)   # tear.py JUMP_CLEARANCE: a flip clears a head
+BARGE_KEEP = int(0.15 * ONE)    # tear.py _collide: 85% of the run is lost
 F = {k: cart.var("f_" + k) for k in
      ("hs", "stop", "vx", "vz", "con", "ltap", "c3", "alt", "buf", "bmv",
       "mv", "dead", "shake", "act", "fx", "fy", "fz", "pc", "ps", "fight",
@@ -2343,6 +2351,16 @@ p.load(F["py"]).load(F["pvy"]).emit("add").store(F["py"])
 p.push(0).load(F["py"]).emit("lt", f"jz {av}_land", f"jmp {av}_e")
 p.mark(f"{av}_land")
 p.set(F["py"], 0).set(F["pvy"], 0).set(F["flipu"], 0)   # (a landing re-arms the flip)
+# P15: THE LANDING, FELT (tear.py 2757: "a dead touchdown reads as cartoony
+# no matter how the arc above it is shaped"). The frame shakes and the
+# ground answers -- the step's own thud, since a sound of its own is 24
+# words of a DMEM with 6. (The archive scales both by the fall's speed and
+# dips the camera; one strength here.)
+ld_ = p.label("land")
+p.load(F["shake"]).push(LAND_SHAKE).emit("lt", f"jz {ld_}")
+p.set(F["shake"], LAND_SHAKE)
+p.mark(ld_)
+p.set(SG_T["st"], 0)
 p.mark(f"{av}_e")
 # ---- P10: THREADING pays (tear.py _parkour_style) ---------------------------
 th = p.label("thread")
@@ -2648,12 +2666,8 @@ p.load(F["spd"]).push(PK_INVTOP).emit("mulq", "dup").push(ONE).emit("swap", "lt"
 p.emit("drop").push(ONE)
 p.mark(f"{pw_}_f")
 p.store(W["c"])                                   # fast, 0..1
-# the range, for the bore-in: 1/sqrt by Newton, as GAZE does
-p.load(W["qx"]).emit("dup", "mulq").load(W["qz"]).emit("dup", "mulq", "add").store(W["d2"])
-p.push(int(0.08 * ONE)).store(W["s"])
-for _ in range(9):
-    p.load(W["s"]).emit("dup", "mulq").load(W["d2"]).emit("mulq", "shr 1")
-    p.push(int(1.5 * ONE)).emit("swap", "sub").load(W["s"]).emit("mulq").store(W["s"])
+# the range, for the bore-in: 1/sqrt by Newton, as GAZE does (and with it)
+p.emit(f"call {L_RSQRT}")
 p.load(W["d2"]).load(W["s"]).emit("mulq")         # range
 p.push(int(ONE / STALK_RANGE)).emit("mulq").push(ONE).emit("swap", "sub", "dup").push(0)
 p.emit("lt", f"jz {pw_}_cl")                       # close = 1 - range/10, >= 0
@@ -2889,8 +2903,9 @@ def _shv_sub():
         for k, d in ((0, "dx"), (1, "dz")):
             at(ptr, k); p.emit("loadi").load(SH[d]).load(SV[w]).emit("mulq", sgn)
             at(ptr, k); p.emit("storei")
+    p.push(1).emit("ret")           # P15: ...and says so (1: they touched)
     p.mark(sk)
-    p.emit("ret")
+    p.push(0).emit("ret")
 
 
 def if_standing(ds, body):
@@ -2903,13 +2918,28 @@ def if_standing(ds, body):
     p.mark(skip)
 
 
+def barge(i):
+    """Him against demon i. P15, both from tear.py _collide:
+    CLEARED OVER, NOT BLOCKED BY -- more than 0.65 apart in height (a
+    flip's peak, a launched body) and there is no push at all, which is
+    what lets a flip clear a head; and YOU STOP AGAINST A BODY -- a touch
+    costs 85% of the run, so nobody slides along a demon at speed. (The
+    run only: a strike's lunge is an impulse that has to arrive.)"""
+    over = p.label("over")
+    p.load(F["py"]).load(dslot(i, "py")).emit("sub", "dup", "mulq")
+    p.push(CLEAR2).emit("lt", f"jz {over}")
+    shove(dslot(i, "x"), dslot(i, "z"), PX, PZ, DMASS[i], 1.0)
+    p.emit(f"jz {over}")
+    p.load(F["spd"]).push(BARGE_KEEP).emit("mulq").store(F["spd"])
+    p.mark(over)
+
+
 for i in range(3):
     for j in range(i + 1, 3):
-        if_standing((i, j), lambda i=i, j=j: shove(
+        if_standing((i, j), lambda i=i, j=j: (shove(
             dslot(i, "x"), dslot(i, "z"), dslot(j, "x"), dslot(j, "z"),
-            DMASS[i], DMASS[j]))
-    if_standing((i,), lambda i=i: shove(dslot(i, "x"), dslot(i, "z"), PX, PZ,
-                                        DMASS[i], 1.0))
+            DMASS[i], DMASS[j]), p.emit("drop")))
+    if_standing((i,), lambda i=i: barge(i))
 # (THE CAMERA HAS NO BODY, measured: shoving demons out of a 1.5 circle
 # round the lens pushed them sideways INTO the shot, and the tour route
 # went from 1 frame over the ceiling to 20.)
@@ -2922,6 +2952,12 @@ keep_in_arena(PX, PZ, AR["ox"], AR["oz"])          # a shove cannot either
 # green and blue cut to a third -- a cast, not a strobe.
 FLASH = spec.OBJ_CULL | spec.OBJ_OTINT | (31 << 27) | (10 << 22) | (10 << 17)
 FLASH_FOR = 8                  # while more than this much stun is left
+# P15: THE TELEGRAPH (tear.py 4503, _WINDUP / _DANGER). The marker over a
+# demon's head says what its body is about to do: AMBER through a swing's
+# startup, RED while the fist is live -- the same marker the gold AWARE and
+# the red lock already use, tinted, so it costs no mesh and no object.
+# (OTINT can only darken: gold x (31, 19, 9) is the amber.)
+AMBER = spec.OBJ_CULL | spec.OBJ_OTINT | (31 << 27) | (19 << 22) | (9 << 17)
 LENS2 = int(1.3 ** 2 * ONE)
 
 
@@ -3243,6 +3279,7 @@ for d in range(3 if "demons" not in OMIT else 0):     # the demons, last
     p.load(F["tgt"]).push(d + 1).emit("eq", f"jz {tm_}")
     p.set(FK["aw"], 2)
     p.mark(tm_)
+    p.set(W["k"], dslot(d, "x")).emit(f"call {L_TELE}")   # P15: its swing, told
     flash_flags(dslot(d, "hs"), FK["flags"])
     gone = p.label("gone")
     p.load(dslot(d, "st")).push(4).emit("eq", f"jz {gone}_n", f"jmp {gone}")
@@ -3792,7 +3829,7 @@ SND_STEP = cart.data(Table(seq([hz(9)] * 9, _sv)), "snd_step")
 SND_GUN = cart.data(Table(seq([hz(260 - 26 * k) for k in range(9)],
                               (15, 13, 10, 7, 5, 3, 2, 1, 0))), "snd_gun")
 SG = {k: cart.var("sg_" + k) for k in ("gr", "last", "d", "t", "n")}
-SG.update({k: cart.data(Table([99]), "sg_" + k) for k in ("wt", "st", "gt", "nt")})  # (quiet)
+SG.update(SG_T)                                     # (their time cells: declared with F)
 # a player's descriptor: its time cell, its table, its length, its voice
 PLAYD = {name: cart.data(Table([int(SG[tc]), int(tab), 9, spec.AU_BASE + 2 * ch,
                                 PG_NOISE << 8]), "play_" + name)
@@ -4383,17 +4420,21 @@ p.set(F["brg"], 0)
 p.push(0).load(W["qz"]).emit("lt", f"jz {bg_}_0")      # behind: start half round
 p.set(F["brg"], 512)
 p.mark(f"{bg_}_0")
-for step in (256, 128, 64, 32, 16, 8, 4, 2, 1):
-    nx = p.label("bs")
-    sin_of(p, cell=F["brg"])                     # cross = (-sin) dz - cos dx
-    p.load(W["qz"]).emit("mulq").push(0).emit("swap", "sub")
-    sin_of(p, 256, cell=F["brg"])
-    p.load(W["qx"]).emit("mulq", "sub")
-    p.push(0).emit("swap", "lt", f"jz {nx}_d")   # it lies to the left: up
-    p.addi(F["brg"], step).emit(f"jmp {nx}")
-    p.mark(f"{nx}_d")
-    p.addi(F["brg"], -step)
-    p.mark(nx)
+p.push(256)                                      # (the step rides the stack)
+p.mark(f"{bg_}_t")
+sin_of(p, cell=F["brg"])                         # cross = (-sin) dz - cos dx
+p.load(W["qz"]).emit("mulq").push(0).emit("swap", "sub")
+sin_of(p, 256, cell=F["brg"])
+p.load(W["qx"]).emit("mulq", "sub")
+p.push(0).emit("swap", "lt", f"jz {bg_}_d")      # it lies to the left: up
+p.emit("dup").load(F["brg"]).emit("add", f"jmp {bg_}_s")
+p.mark(f"{bg_}_d")
+p.load(F["brg"]).emit("over", "sub")
+p.mark(f"{bg_}_s")
+p.store(F["brg"])
+p.emit("shr 1", "dup", f"jz {bg_}_x", f"jmp {bg_}_t")
+p.mark(f"{bg_}_x")
+p.emit("drop")
 p.load(F["brg"]).push(1023).emit("and").store(F["brg"])
 p.emit("ret")
 
@@ -4406,27 +4447,42 @@ p.mark(L_GAZE)
 p.load(W["bx"]).load(W["x"]).emit("sub").store(W["qx"])
 p.load(W["bz"]).load(W["z"]).emit("sub").store(W["qz"])
 p.emit(f"call {L_YAW}")
-p.load(W["qx"]).emit("dup", "mulq").load(W["qz"]).emit("dup", "mulq", "add").store(W["d2"])
-p.push(int(0.08 * ONE)).store(W["s"])            # r0: converges for ranges < ~21
-for _ in range(9):
-    p.load(W["s"]).emit("dup", "mulq").load(W["d2"]).emit("mulq", "shr 1")
-    p.push(int(1.5 * ONE)).emit("swap", "sub").load(W["s"]).emit("mulq").store(W["s"])
+p.emit(f"call {L_RSQRT}")
 p.load(W["d2"]).load(W["s"]).emit("mulq").store(W["s"])   # h
 p.load(W["c"]).load(W["y"]).emit("sub").store(W["d2"])     # dy
 p.set(W["dg"], 0)
-for step in (128, 64, 32, 16, 8, 4, 2, 1):
-    nx = p.label("gp")
-    sin_of(p, 256, cell=W["dg"])
-    p.load(W["d2"]).emit("mulq").push(0).emit("swap", "sub")   # -dy cos p
-    sin_of(p, cell=W["dg"])
-    p.load(W["s"]).emit("mulq", "sub")                         # - h sin p
-    p.push(0).emit("swap", "lt", f"jz {nx}_d")
-    p.load(W["dg"]).push(step).emit("add").push(1023).emit("and").store(W["dg"])
-    p.emit(f"jmp {nx}")
-    p.mark(f"{nx}_d")
-    p.load(W["dg"]).push(step).emit("sub").push(1023).emit("and").store(W["dg"])
-    p.mark(nx)
-p.emit("ret")
+# (THE STEP RIDES THE STACK: this search was eight copies of its body, and
+# YAW's nine of its own -- 380 words of a program with 41 left. One body
+# each now, halving the step it carries until it is spent.)
+p.push(128)
+p.mark(f"{gz_}_t")
+sin_of(p, 256, cell=W["dg"])
+p.load(W["d2"]).emit("mulq").push(0).emit("swap", "sub")   # -dy cos p
+sin_of(p, cell=W["dg"])
+p.load(W["s"]).emit("mulq", "sub")                         # - h sin p
+p.push(0).emit("swap", "lt", f"jz {gz_}_d")
+p.emit("dup").load(W["dg"]).emit("add", f"jmp {gz_}_s")
+p.mark(f"{gz_}_d")
+p.load(W["dg"]).emit("over", "sub")
+p.mark(f"{gz_}_s")
+p.push(1023).emit("and").store(W["dg"])
+p.emit("shr 1", "dup", f"jz {gz_}_x", f"jmp {gz_}_t")
+p.mark(f"{gz_}_x")
+p.emit("drop", "ret")
+
+# RSQRT: w_s = 1/sqrt(w_qx^2 + w_qz^2) by Newton, the square left in w_d2 --
+# no divide on this machine. r0 = 0.08 converges for ranges under ~21.
+# GAZE and the prowl's bore-in each carried the nine steps unrolled.
+p.mark(L_RSQRT)
+p.load(W["qx"]).emit("dup", "mulq").load(W["qz"]).emit("dup", "mulq", "add").store(W["d2"])
+p.push(int(0.08 * ONE)).store(W["s"])
+p.push(9)
+p.mark(f"{gz_}_n")
+p.load(W["s"]).emit("dup", "mulq").load(W["d2"]).emit("mulq", "shr 1")
+p.push(int(1.5 * ONE)).emit("swap", "sub").load(W["s"]).emit("mulq").store(W["s"])
+p.push(1).emit("sub", "dup", f"jz {gz_}_nx", f"jmp {gz_}_n")
+p.mark(f"{gz_}_nx")
+p.emit("drop", "ret")
 
 # SHOT: the eye him - forward(w_oy) * w_head + left(w_oy) * w_d2, at py +
 # w_dmg, into w_x, w_y, w_z (P12's shots share it: IMEM is full)
@@ -4554,6 +4610,22 @@ p.emit("ret")
 # plus the parent's rotation of its offset (char-local, kept in dem_pt),
 # then the whole demon turns by its heading -- which, yaw being the
 # GPU's LAST rotation, is also just an add to every part's yaw.
+# TELE: the demon whose slot starts at w_k is swinging (st 1)? Then its
+# marker tells it -- fk_aw 3 through the startup, 5 while the fist is live;
+# in the recovery, whatever it was. (w_k and w_s: free once he is drawn.)
+tl_ = p.label("tele")
+p.mark(L_TELE)
+p.load(W["k"]).push(DF["st"]).emit("add", "loadi").push(1).emit("eq", f"jz {tl_}")
+p.load(W["k"]).push(DF["mt"]).emit("add", "loadi")
+p.load(W["k"]).push(DF["mv"]).emit("add", "loadi").push(NMR).emit("mul", "add").store(W["s"])
+p.load(W["k"]).push(DF["mf"]).emit("add", "loadi").store(W["k"])     # its frame
+p.load(W["k"]).load(W["s"]).push(MR["endact"]).emit("add", "loadi", "lt", f"jz {tl_}")
+p.set(FK["aw"], 5)
+p.load(W["k"]).load(W["s"]).push(MR["start"]).emit("add", "loadi", "lt", f"jz {tl_}")
+p.set(FK["aw"], 3)
+p.mark(tl_)
+p.emit("ret")
+
 top = p.label("fk_top")
 place = p.label("fk_place")
 p.mark(L_FK)
@@ -4599,9 +4671,14 @@ p.load(FK["aw"]).emit(f"jz {top}_na")                 # the aware marker
 p.object(NOBJ, AWARE_M, (f"load {int(FK['x'])}",),
          (f"load {int(FK['y'])}", f"push {AWARE_LIFT}", "add"),
          (f"load {int(FK['z'])}",), 0, spec.OBJ_CULL)     # (the lock's: tinted below)
-p.load(FK["aw"]).push(2).emit("eq", f"jz {top}_na")
-p.push32(FLASH).load(int(NOBJ)).push(1).emit("sub").push(spec.OL_STRIDE).emit("mul")
-p.push(spec.OL_BASE + 1 + 5).emit("add", "storei")         # the lock: red
+p.load(FK["aw"]).push(1).emit("eq", f"jz {top}_tn", f"jmp {top}_na")   # 1: gold, as cast
+p.mark(f"{top}_tn")
+p.push32(FLASH)                                            # the lock, or DANGER: red
+p.load(FK["aw"]).push(3).emit("eq", f"jz {top}_ts")
+p.emit("drop").push32(AMBER)                               # the windup: amber
+p.mark(f"{top}_ts")
+p.load(int(NOBJ)).push(1).emit("sub").push(spec.OL_STRIDE).emit("mul")
+p.push(spec.OL_BASE + 1 + 5).emit("add", "storei")
 p.mark(f"{top}_na")
 p.emit("ret")
 

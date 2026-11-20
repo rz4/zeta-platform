@@ -1102,3 +1102,103 @@ def test_the_huds_promise_is_kept():
     n = m.vm.dmem[spec.DL_BASE]
     assert n == 78, f"SSS, X55 and TND came to {n} triangles"
     assert max(worst, n) <= 78
+
+
+# ---- P15: the feel ------------------------------------------------------------------
+def _marker_flags(m):
+    """The flags word of every AWARE marker in this frame's object list."""
+    d, out = m.vm.dmem, []
+    aware = _sym("aware")
+    for o in range(min(d[spec.OL_BASE], spec.OL_MAX)):
+        base = spec.OL_BASE + 1 + o * spec.OL_STRIDE
+        if d[base] == aware:
+            out.append(d[base + 5])
+    return out
+
+
+def test_a_swing_is_told_amber_then_red():
+    """tear.py's _WINDUP and _DANGER: the marker over a demon is amber
+    through its swing's startup and red while the fist is live. Untouched,
+    the wave walks in and swings; both tints must be seen, the amber first,
+    and only while some demon is in those frames of a swing."""
+    amber = (31 << 27) | (19 << 22) | (9 << 17)
+    red = (31 << 27) | (10 << 22) | (10 << 17)
+    tint = lambda w: w & 0xFFFE0000
+    m = _fight_vm()
+    first = {}
+    for f in range(700):
+        m.frame(0)
+        swinging = [w for w in _wave(m) if w["st"] == 1]
+        for w in _marker_flags(m):
+            if w & spec.OBJ_OTINT:
+                assert swinging, f"frame {f}: a tinted marker and nobody swinging"
+                first.setdefault(tint(w), f)
+        if _cell(m, "f_dead"):
+            break
+    assert amber in first and red in first, f"tints seen: {[hex(t) for t in first]}"
+    assert first[amber] < first[red], "the red came before the amber"
+
+
+def test_a_landing_is_felt_and_heard():
+    """tear.py's landing impact: the frame shakes and the ground answers
+    (the step's own thud) on the frame he touches down -- and only then."""
+    m = _fight_vm()
+    for f in range(5):
+        m.frame(0)
+    assert _cell(m, "f_shake") == 0 and _cell(m, "sg_st") > 9, "shaking or thudding at rest"
+    m.frame(spec.PAD_A)
+    aloft = landed = False
+    for f in range(80):
+        m.frame(0)
+        if _s32(_cell(m, "f_py")) > 0:
+            aloft = True
+            assert _cell(m, "f_shake") == 0, "the frame shook in mid-air"
+        elif aloft:
+            landed = True
+            break
+    assert aloft and landed, "he never left the ground, or never came back"
+    assert _cell(m, "f_shake") >= 4, f"a touchdown shook {_cell(m, 'f_shake')} frames"
+    assert _cell(m, "sg_st") <= 1, "no thud on the touchdown"
+
+
+def _onto_demon(m, lift):
+    """Put him 0.3 from demon 0 -- well inside a shove -- at height `lift`."""
+    w = _wave(m)[0]
+    d = m.vm.dmem
+    d[_sym("px")] = (w["x"] + int(0.3 * 65536)) & 0xFFFFFFFF
+    d[_sym("pz")] = w["z"] & 0xFFFFFFFF
+    d[_sym("f_py")] = int(lift * 65536)
+    return w
+
+
+def test_a_flip_clears_a_head_and_a_touch_stops_a_run():
+    """tear.py _collide, both halves. On the ground beside a demon he is
+    shoved clear and loses 85% of his run; 1.2 up -- past JUMP_CLEARANCE --
+    there is no push at all, and the run is his to keep."""
+    L, U = spec.PAD_L, spec.PAD_UP
+
+    def running():
+        m = _fight_vm()
+        m.frame(0)
+        for f in range(40):
+            m.frame(L | U)
+        assert _s32(_cell(m, "f_spd")) > 0.05 * 65536, "he is not running"
+        return m
+
+    low, high = running(), running()
+    spd = _s32(_cell(low, "f_spd"))
+    _onto_demon(low, 0.0)
+    _onto_demon(high, 1.2)
+    low.frame(L | U)
+    high.frame(L | U)
+    # The two machines differ ONLY in his height, so any difference in where
+    # the bodies stand is the shove: an eighth of the overlap, split by mass.
+    (lx, lz), (hx, hz) = _player(low), _player(high)
+    dl, dh = _wave(low)[0], _wave(high)[0]
+    assert abs(lx - hx) + abs(lz - hz) > 0.02, "on the ground, he was not shoved"
+    assert abs(dl["x"] - dh["x"]) + abs(dl["z"] - dh["z"]) > 0.005 * 65536, \
+        "on the ground, the demon was not shoved"
+    assert _s32(_cell(low, "f_spd")) < 0.3 * spd, "the touch cost him no speed"
+    assert _s32(_cell(high, "f_spd")) > 0.8 * spd, "clearing the head cost him his run"
+    # (overhead there is no contact at all -- which is why the run above is
+    # intact: the bleed fires exactly when the shove says the bodies touched)
