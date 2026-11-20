@@ -38,6 +38,11 @@ from zeta import spec                                        # noqa: E402
 from zeta.forge import Cart, Table, Text                     # noqa: E402
 
 HERE = Path(__file__).parent
+# the SONG BUILD (TND_SONG=1, carts/gen_tnd.py): the same column from the
+# local build/song/ -- the recorded theme is third-party and never committed
+import os as _os                                         # noqa: E402
+SONGDIR = HERE.parent / "build" / "song" if _os.environ.get("TND_SONG") == "1" else HERE
+
 cart = Cart("shelf")
 
 # NESTING. The shelf may itself run inside a window -- the boot film
@@ -51,7 +56,7 @@ cart = Cart("shelf")
 
 TEAR_P, TEAR_D, TEAR_S = cart.shelve(HERE / "tear.zol")
 HALL_P, HALL_D, HALL_S = cart.shelve(HERE / "hall.zol")
-TND_P, TND_D, TND_S = cart.shelve(HERE / "tnd.zol")
+TND_P, TND_D, TND_S = cart.shelve(SONGDIR / "tnd.zol")
 
 # ---- the menu: one merged text table, copied over the DL once -------------
 lines = [Text("ZETA", 118, 60, rgb=0xE6C010, scale=4),
@@ -159,5 +164,5 @@ p.mark(more_l)
 p.addi(L, 1)
 p.emit("halt")
 
-out = cart.write(HERE / "shelf.zol")
+out = cart.write(SONGDIR / "shelf.zol")
 print(cart.report())

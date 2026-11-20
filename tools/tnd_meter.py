@@ -20,6 +20,7 @@
 #   brawl   stand while the wave closes in, turn a full circle among
 #           them, jab
 #   tour    down an arm, back across the crossing, into a corner, spin
+#   intro   no input from power-on: the attract intro's flight (P8)
 
 import collections
 import json
@@ -35,12 +36,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from zeta import budget, cabinet, gpu, silicon, spec  # noqa: E402
 
-ROUTES = {"street": 241, "brawl": 521, "tour": 901}      # (+ the title's frame)
+ROUTES = {"street": 241, "brawl": 521, "tour": 901,     # (+ the title's frame)
+          "intro": 420}                                 # power-on, no input: P8
 
 
 def pad(route, f):
     """frame 0 presses Start (TND opens on its title); the route's frame f
     is the machine's f + 1"""
+    if route == "intro":
+        return 0                    # the title pages in the intro and it plays
     if f == 0:
         return spec.PAD_START
     f -= 1

@@ -453,11 +453,26 @@ def test_the_music_is_gated_by_rank():
 
 
 # ---- P6: the title -------------------------------------------------------------
+def _const(name):
+    for line in CART.read_text().splitlines():
+        if line.startswith(f".const {name} "):
+            return int(line.split()[2])
+    raise KeyError(name)
+
+
+def _through_the_intro(m):
+    """No input from power-on: the intro plays, then two exit frames"""
+    for f in range(_const("INTRO_LEN") + 3):
+        m.frame(0)
+
+
 def test_the_title_is_the_archives_and_start_begins():
-    """TND opens on its title -- the archive's own start screen, baked to a
-    backdrop plate, nothing else drawn -- and waits; Start (or A) begins
-    the fight the next frame, and an A held through the cut is no jab."""
+    """After the intro, TND waits on its title -- the archive's own start
+    screen, baked to a backdrop plate, nothing else drawn; Start (or A)
+    begins the fight the next frame, and an A held through the cut is no
+    jab."""
     m = cabinet.VirtualMachine(cabinet.load_cart(CART))
+    _through_the_intro(m)
     for f in range(60):
         m.frame(0)
         assert m.vm.dmem[spec.BG_SRC] > 0 and m.vm.dmem[spec.OL_BASE] == 0
@@ -468,6 +483,99 @@ def test_the_title_is_the_archives_and_start_begins():
     for f in range(20):
         m.frame(0)                                  # ...and released
         assert _cell(m, "anim") != 2, "the A that left the title threw a jab"
+
+
+def _image(cart, at, n):
+    return [cart["cram"].get(str(at + i), 0) for i in range(n)]
+
+
+def test_the_intro_plays_and_hands_back():
+    """Power-on with no input: the title pages in the intro (a second
+    program), which flies the frozen street under its words for INTRO_LEN
+    frames and hands back -- the game's own program, the borrowed regions
+    exactly as the cart boots them, the camera cells the fight never
+    rewrites, and the title."""
+    cart = cabinet.load_cart(CART)
+    m = cabinet.VirtualMachine(cart)
+    boot = list(m.vm.dmem)
+    intro = _image(cart, _const("INTRO_PROG"), spec.OVL_MAX)
+    m.frame(0)
+    m.frame(0)
+    assert list(m.vm.imem) == intro, "the title did not page in the intro"
+    seen = set()
+    for f in range(2, _const("INTRO_LEN") + 3):
+        m.frame(0)
+        n = m.vm.dmem[spec.DL_BASE]
+        assert n <= spec.DL_MAX
+        if n:
+            seen.add(f // 100)
+        if f in (100, 200, 330):
+            assert m.vm.dmem[spec.OL_BASE] > 20, "the street is not drawn under the words"
+            assert n > 80, f"frame {f}: the intro's words are missing ({n} triangles)"
+    assert list(m.vm.imem[:len(cart["imem"])]) == list(cart["imem"]), \
+        "the intro did not hand back the game's program"
+    for name in ("BORROW_FRONT", "BORROW_END"):
+        a, k = _const(name), _const(name + "_N")
+        assert m.vm.dmem[a:a + k] == boot[a:a + k], f"{name} was not put back"
+    for c in (spec.CAM_Y, spec.CAM_PITCH, spec.CAM_ROLL):
+        assert m.vm.dmem[c] == boot[c], f"camera cell {c} was not put back"
+    m.frame(0)
+    assert m.vm.dmem[spec.BG_SRC] > 0, "no title after the intro"
+
+
+def test_the_borrowed_front_is_never_read():
+    """The front is the fight's constants, drawn over by the intro's words
+    and put back by the mover. Poison it the moment the intro starts: if
+    anything -- the intro, or the game after it -- read it, the pictures
+    or the sound would differ. They may not, for a frame."""
+    cart = cabinet.load_cart(CART)
+    a, b = cabinet.VirtualMachine(cart), cabinet.VirtualMachine(cart)
+    lo, n = _const("BORROW_FRONT"), _const("BORROW_FRONT_N")
+    rng = np.random.default_rng(7)
+    pads = [0] * (_const("INTRO_LEN") + 40) + [spec.PAD_START] + [0] * 30 + \
+        [spec.PAD_A if f % 14 < 8 else 0 for f in range(160)]
+    for f, pad in enumerate(pads):
+        if f == 2:
+            b.vm.dmem[lo:lo + n] = [int(v) for v in rng.integers(0, 1 << 32, n)]
+        a.frame(pad)
+        b.frame(pad)
+        assert np.array_equal(a.panel(), b.panel()), f"frame {f}: the picture read the front"
+        assert np.array_equal(a.audio(), b.audio()), f"frame {f}: the sound read the front"
+
+
+@pytest.mark.skipif(shutil.which("verilator") is None,
+                    reason="verilator not installed")
+def test_both_machines_play_the_intro_and_hand_back():
+    """The title pages in the intro, the intro flies and draws its words,
+    Start skips it, and the two exit frames put back the borrowed regions
+    and page the game in: overlays both ways and three restores, bit-equal
+    on silicon, in forty frames."""
+    from zeta import silicon
+    cart = cabinet.load_cart(CART)
+    v, s = cabinet.VirtualMachine(cart), silicon.SiliconMachine(cart)
+    for f in range(40):
+        pad = spec.PAD_START if 28 <= f < 34 else 0
+        v.frame(pad)
+        s.frame(pad)
+        assert np.array_equal(v.framebuffer(), s.framebuffer()), \
+            f"the intro diverges at frame {f}"
+    assert v.vm.dmem[spec.BG_SRC] > 0, "the cross never reached the title"
+
+
+def test_start_skips_the_intro_and_is_not_a_fresh_press():
+    """A thumb on Start mid-intro: two exit frames, then the title -- and
+    the same held press does not begin the fight; a new one does."""
+    m = cabinet.VirtualMachine(cabinet.load_cart(CART))
+    for f in range(100):
+        m.frame(0)
+    for f in range(20):                              # a human-length hold
+        m.frame(spec.PAD_START)
+    assert m.vm.dmem[spec.BG_SRC] > 0, "Start did not skip to the title"
+    assert _cell(m, "mode") == 0, "the skipping Start began the fight"
+    m.frame(0)
+    m.frame(spec.PAD_START)
+    m.frame(0)
+    assert _cell(m, "mode") == 1, "a fresh Start on the title did not begin"
 
 
 def test_the_hud_writes_the_combo_from_packed_glyphs():

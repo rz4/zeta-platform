@@ -284,6 +284,95 @@ and nothing, the wave in, the aware markers up -- the law's frame 348 to
 the pixel (tests/glass/tnd-aware-348.ppm). The frame-143 capture stays as
 the witness of the Pocket's RGB565 camera.
 
+## P7 -- the record: LANDED, LOCAL ONLY (TND_SONG=1)
+
+    the record   "Set It Off" through the archive's SONG STRUCTURE
+                 (song_structure.py), not the synth theme: the music walks
+                 the record's sections one at a time toward the climax --
+                 intro, lift, drive, chorus, verse, surge, climax -- with
+                 rank only the CAP on how far it may go, so a fast climb
+                 still hears the whole arc. A fall from S or above drops
+                 into the BREAKDOWN, a refrain held until a rank is won
+                 back; tumbling to D lands on the MOBIUS REPRISE, the
+                 record's end run into its start. A forward step waits
+                 out the current section's phrase (its own bar count), a
+                 setback cuts on the next beat, the reprise on the bar --
+                 the archive's grids, counted in stream samples. The bus
+                 eases in and falls to nothing when he is down; the rank
+                 stinger rides it.
+    the cut      tools/tnd_song.py: the archive's section windows at
+                 15,360 Hz (the page times the frame rate), each start on
+                 its downbeat grid, each loop the archive's bar count
+                 rounded to whole frames, each seam folded as _fold_seam
+                 does. The reprise tail sits just before the intro, so
+                 the reprise is not a copy: it is the section that starts
+                 at the tail. 8,457 frames, 541,248 words.
+    the stream   a 64-word page a frame into the wave bank's page 1 (the
+                 chug's: only the synth theme walked it), sounded by seven
+                 voices in unison -- the channel count is the volume --
+                 each walking the page exactly once a frame by two
+                 increments split at one sample (bakepcm.inc_law).
+                 Sample-aligned to the bake: 0.99 correlation in place,
+                 0.17 a frame either side.
+    the mover    the page needs a move EVERY frame and so does the pose:
+                 sharing one request dropped 167 poses in 900 frames of
+                 punching. Build 104 adds the second request (spec.DMA2_*).
+    the room     the column's CRAM had 468k words free; the record needs
+                 541k. The song build stores each distinct pose once -- 44
+                 of 313 are exact repeats -- through a pose-to-slot index:
+                 130k back, 41.8k to spare.
+    the rights   the record is third-party, so this build is LOCAL: it
+                 bakes from the gitignored assets/tnd/song.npz into the
+                 gitignored build/song/ (gen_tnd, gen_shelf and gen_face
+                 under TND_SONG=1), and that column is what the card
+                 carries. The committed carts keep the synth theme.
+
+## P8 -- the attract intro: LANDED
+
+    the flight   tear.py _intro_cam over the FROZEN arena: low across the
+                 crosswalk, up past the demons, a crane for the skyline,
+                 down behind the fighter as the title lands -- the
+                 archive's eight keys, smoothstepped, its handheld sway,
+                 the gaze solved in closed form for this machine's yaw
+                 (atan2(-dx, dz)) and pitch (positive looks down).
+    the words    THE EVE OF THE APOCALYPSE (the place line, BANCROFT AND
+                 SHATTUCK, is cut by request: the subtext stands alone),
+                 TEAR THROUGH THE NIGHT, then TEAR / NOT DEMON slammed in
+                 with its cold and warm ghosts and a white flash. Bars
+                 slide in, the frame fades up from black, a veil breathes.
+                 Not drawn: the archive's drop shadows (they would double
+                 every string's triangles) and its skip hint (the title
+                 that follows says PRESS START). The display list has no
+                 alpha, so a fade is a colour walked down to black over
+                 the dark street.
+    a program    the game's IMEM is full, so the intro is a SECOND
+                 program the overlay mover pages in: its own frame code,
+                 then -- emitted into both by one generator (a Tee over
+                 the forge's Program), so they cannot drift -- the
+                 street, the fighter, the demons, the music and the
+                 sounds. The music runs straight through the handover. Its
+                 visibility test reads the frame's real pitch and height.
+    the data     everything that moves is one 16-word ROW a frame, baked
+                 and fetched a frame ahead by the mover.
+    the borrow   its words need 146 display-list triangles against the
+                 fight's promise of 80, and the tail past the promise is
+                 full. So the cart holds back two BORROWED reserves of the
+                 tail (forge Cart dl_borrow) filled with constants only the
+                 fight reads -- move tables, the spawn, the style tables,
+                 the HUD's strings: the intro draws over the front, parks
+                 its font, strings and row in the end, and its two exit
+                 frames put both back from the cart (with the camera cells
+                 the fight never rewrites) before paging the game in.
+                 Gated: the regions come back exactly as the cart boots
+                 them, and poisoning the front mid-intro changes no
+                 picture and no sample of the intro, the title or the
+                 fight after.
+    the handover the title's timer boots at the attract threshold, so the
+                 title's first frame pages the intro in, and 25 idle
+                 seconds replay it. Start skips it in two frames, and the
+                 title reads that Start as held, not fresh. Start on the
+                 very first frame still begins the fight at once.
+
 ## The frame, measured (2026-11-19)
 
 Three demons on the P2 street measured **858,900 clocks** at the worst
@@ -427,8 +516,9 @@ compositor's four free rectangles, or a different font.
         the shelf.
 
 Deliberately after the game ships: the parkour/meteor/flip movement
-modes, the air-combo layer, the gun, the attract intro and the
-cutscene, and the recorded music (only with the rights settled).
+modes, the air-combo layer and the gun. The cutscene is dropped. The
+attract intro landed (P8); the recorded music landed as a local build
+(P7).
 
 ## Where it diverges from the archive, on purpose
 

@@ -48,6 +48,11 @@ import zipfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+# the SONG BUILD (TND_SONG=1, carts/gen_tnd.py): the same column from the
+# local build/song/ -- the recorded theme is third-party and never committed
+import os as _os                                         # noqa: E402
+SONGDIR = HERE.parent / "build" / "song" if _os.environ.get("TND_SONG") == "1" else HERE
+
 sys.path.insert(0, str(HERE.parent))
 
 from zeta import spec                                      # noqa: E402
@@ -523,7 +528,7 @@ def main():
 
     # the shelf rides in the film's segment, AFTER every plate, so no
     # offset the film already uses moves
-    SH_P, SH_D, SH_S = cart.shelve(HERE / "shelf.zol")
+    SH_P, SH_D, SH_S = cart.shelve(SONGDIR / "shelf.zol")
     assert SH_D - SH_S > 0 and SH_P - SH_S > 0   # pre-compensated offsets
                                                  # must stay presentable
     p = cart.program()
@@ -980,7 +985,7 @@ def main():
 
     p.emit("halt")
     print(cart.report())
-    cart.write(HERE / "face.zol")
+    cart.write(SONGDIR / "face.zol")
 
 
 if __name__ == "__main__":

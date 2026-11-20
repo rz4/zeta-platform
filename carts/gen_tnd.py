@@ -34,7 +34,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from zeta import spec                                        # noqa: E402
+from zeta import bakepcm, spec                               # noqa: E402
 from zeta.forge import ONE, Cart, Mesh, Plate, Table, Text                # noqa: E402
 
 HERE = Path(__file__).parent
@@ -43,7 +43,18 @@ HERE = Path(__file__).parent
 # one part at a time (the street measured 94.8% before any demon).
 import os                                                    # noqa: E402
 OMIT = set(filter(None, os.environ.get("TND_OMIT", "").split(",")))
-OUT = Path(os.environ.get("TND_OUT", HERE / "tnd.zol"))
+# THE SONG BUILD: TND_SONG=1 plays the archive's RECORDED theme through
+# its song structure instead of the synth theme (P7 below). The record is
+# third-party, so this build is LOCAL: it bakes from the gitignored
+# assets/tnd/song.npz (tools/tnd_song.py) and writes to the gitignored
+# build/song/, and the column there (gen_shelf, gen_face with the same
+# flag) is what the card carries. The committed carts stay synth.
+SONG = os.environ.get("TND_SONG") == "1"
+SONG_CH = range(4, 11)          # the record's voices (the synth theme's, freed)
+SONG_VOL = 15                   # each voice's level at full bus (x bus / 256)
+OUT = Path(os.environ.get("TND_OUT", HERE.parent / "build" / "song" / "tnd.zol"
+                          if SONG else HERE / "tnd.zol"))
+OUT.parent.mkdir(parents=True, exist_ok=True)
 BAKE = HERE.parent / "assets" / "tnd" / "boxer.npz"
 CUT = 1.009                     # the one hip-height cut that fits both
 FLIP = True                     # winding, after the left-handed mirror
@@ -99,7 +110,147 @@ def pose_span(V, S):
 # (SSS: 30), the combo (X99: 28) and the wordmark (TND: 18) together, or
 # RETRY (34) alone -- so the list's other 1,232 words hold content.
 DL_LEASE = 80
-cart = Cart("tnd", dl_lease=DL_LEASE)
+
+# ---- P8's sizes, which the cart needs before anything is placed -------------
+# THE ATTRACT INTRO (P8, below) is a SECOND PROGRAM, paged in by the overlay
+# mover, and its text needs more display list than the fight promises: the
+# opening line alone is 146 triangles. So the cart holds back two BORROWED
+# reserves of the leased tail (forge.Cart dl_borrow) and fills them with
+# constants only the fight reads: the intro draws over the front, parks its
+# own font, strings and per-frame row in the end, and its last two frames
+# put both back from the cart with the mover.
+from zeta.forge import glyph_rects                          # noqa: E402
+INTRO_LEN = 415                  # tear.py INTRO_LEN: then the title
+INTRO_BEAT1 = "THE EVE OF THE APOCALYPSE"
+INTRO_BEAT2 = "TEAR THROUGH THE NIGHT"
+INTRO_STRS = (INTRO_BEAT1, INTRO_BEAT2, "TEAR", "NOT DEMON")
+INTRO_FONT_CH = "".join(sorted(set("".join(INTRO_STRS)) - {" "})) + " "
+
+
+def _rects(text):
+    return sum(len(glyph_rects(c)) for c in text)
+
+
+INTRO_TRIS = 2 * max(_rects(INTRO_BEAT1), _rects(INTRO_BEAT2),
+                     3 * _rects("TEAR") + _rects("NOT DEMON"))   # (+2 ghosts)
+INTRO_RW = 16                    # a frame's row: camera, colours, rects
+INTRO_CELLS = 4                  # ...and the intro's own cells after it
+FONT_CH = "DCBASRETYXN0123456789"
+assert len(INTRO_FONT_CH) <= len(FONT_CH)
+B_FRONT = spec.DL_STRIDE * (INTRO_TRIS - DL_LEASE)
+B_END = 2 * len(FONT_CH) + sum(len(t) + 1 for t in INTRO_STRS) + INTRO_RW + INTRO_CELLS
+cart = Cart("tnd", dl_lease=DL_LEASE, dl_borrow=(B_FRONT, B_END))
+
+
+def font_words(chars):
+    """A glyph is its rectangles PACKED -- see the HUD's words, P6."""
+    out = []
+    for c in chars:
+        rs = glyph_rects(c)
+        assert len(rs) <= 6, c
+        packed = [x | y << 2 | w << 5 | (h - 1) << 7 for x, y, w, h in rs]   # w >= 1: 0 is none
+        packed += [0] * (6 - len(packed))
+        out += [packed[0] | packed[1] << 10 | packed[2] << 20,
+                packed[3] | packed[4] << 10 | packed[5] << 20]
+    return out
+
+
+FONT = cart.data(Table(font_words(FONT_CH)), "font", borrow="end")
+
+# ---- P8's data: the flight, the words, the images (its program is below) ----
+INTRO_KEYS = ((0, 13.0, -11.0, 0.55, 1.0, -1.0, 1.2), (95, 9.0, -2.0, 1.05, 1.5, 0.5, 1.4),
+              (150, 6.5, 6.5, 1.70, 0.0, 0.0, 1.4), (205, -2.0, 8.5, 2.40, 0.0, 0.0, 1.5),
+              (255, -6.0, 10.5, 4.60, 0.0, 0.0, 1.0), (300, 0.5, 12.5, 7.00, 0.0, 0.0, 0.6),
+              (345, 0.3, 7.0, 3.40, 0.0, 0.0, 1.6), (380, 0.2, 4.4, 2.30, 0.0, 0.0, 1.6))
+BONE, ASH_DIM, BLOOD = (216, 207, 193), (140, 133, 124), (214, 58, 54)
+GHOST_C, GHOST_W, FLASH_RGB = (90, 40, 200), (255, 140, 60), (236, 232, 240)
+VEIL, BAR = (5, 4, 8), (4, 3, 6)
+ATTRACT = 1500                       # tear.py ATTRACT_IDLE: the intro replays
+
+
+def intro_row(t):
+    """tear.py _intro_cam and _intro, frame t, as one row of words"""
+    k = INTRO_KEYS
+    if t <= k[0][0]:
+        v = k[0][1:]
+    elif t >= k[-1][0]:
+        v = k[-1][1:]
+    else:
+        a, b = next((a, b) for a, b in zip(k, k[1:]) if a[0] <= t <= b[0])
+        u = (t - a[0]) / (b[0] - a[0])
+        u = u * u * (3 - 2 * u)
+        v = [x + (y - x) * u for x, y in zip(a[1:], b[1:])]
+    cx, cy, cz, lx, ly, lz = v
+    cx += np.sin(t * 0.05) * 0.06                # the handheld breath
+    cz += np.sin(t * 0.037 + 1.0) * 0.04
+    cam, look = (-cy, cz, cx), (-ly, lz, lx)     # archive -> zeta axes
+    dx, dy, dz = (b - a for a, b in zip(cam, look))
+    turn = 1024 / (2 * np.pi)
+    yaw = int(round(np.arctan2(-dx, dz) * turn)) & 1023
+    pit = int(round(np.arctan2(-dy, np.hypot(dx, dz)) * turn)) & 1023
+    q16 = [int(round(c * ONE)) for c in cam]
+
+    def band(t0, t1, fade=16):
+        return 0.0 if t < t0 or t >= t1 else max(0.0, min(1.0, (t - t0) / fade, (t1 - t) / fade))
+
+    def col(c, a):
+        return rgb([min(255, int(round(x * a))) for x in c]) if a > 0 else 0
+    a1, a2 = band(26, 152), band(176, 292)
+    tr = t - 305
+    slam = min(1.0, tr / 5.0) if tr >= 0 else 0.0
+    pulse = 0.9 + 0.1 * np.sin(t / 16.0)
+    if t < 24:
+        full = (0x000000, 1.0 - t / 24.0)
+    elif 0 <= tr < 7:
+        full = (rgb(FLASH_RGB), 0.7 * (1 - tr / 7.0))
+    else:
+        full = (rgb(VEIL), 0.12 + 0.05 * np.sin(t / 40.0))
+    barh = int(40 * min(1.0, t / 14.0))
+    return [*q16, yaw, pit,
+            int(round(np.sin(pit / turn) * ONE)), int(round(np.cos(pit / turn) * ONE)),
+            col(ASH_DIM, a1 * 0.9 * 0.95), col(BLOOD, a2 * 0.95),
+            col(GHOST_C, 0.16 * slam), col(GHOST_W, 0.16 * slam),
+            col(BONE, slam * pulse * 0.95), col(BLOOD, slam * 0.95),
+            full[0] | int(round(16 * full[1])) << 24, barh,
+            rgb(BAR) | (16 << 24 if barh else 0)]
+
+
+ROWS = cart.cram(Table([w for t in range(INTRO_LEN + 2) for w in intro_row(t)]), "intro_rows")
+assert all(len(intro_row(t)) == INTRO_RW for t in (0, 300))
+END_LO, FRONT_LO = cart._borrow_lo["end"], cart._borrow_lo["front"]
+_ig = [len(x) + 1 for x in INTRO_STRS]
+I_STR = [END_LO + 2 * len(FONT_CH) + sum(_ig[:i]) for i in range(len(INTRO_STRS))]
+I_ROW = END_LO + 2 * len(FONT_CH) + sum(_ig)
+I_T, I_X = I_ROW + INTRO_RW, I_ROW + INTRO_RW + 1
+_iend = font_words(INTRO_FONT_CH)
+_iend += [0] * (2 * len(FONT_CH) - len(_iend))
+for x in INTRO_STRS:
+    _iend += [len(x)] + [INTRO_FONT_CH.index(c) for c in x]
+_iend += intro_row(0) + [0] * INTRO_CELLS
+assert len(_iend) == B_END
+END_INTRO = cart.cram(Table(_iend), "intro_end")
+# the images filled once everything is placed (the end of this file)
+INTRO_PROG = cart.cram(Table([0] * spec.OVL_MAX), "intro_prog")
+MAIN_PROG = cart.cram(Table([0] * spec.OVL_MAX), "main_prog")
+END_MAIN = cart.cram(Table([0] * B_END), "main_end")
+FRONT_MAIN = cart.cram(Table([0] * B_FRONT), "main_front")
+
+
+def ir(k):
+    return I_ROW + k
+
+
+def mover(g, cells, src, dst, n):
+    for c, v in zip(cells, (src, dst, n, 1)):
+        g.set(c, v)
+
+
+def black(g):
+    g.set(spec.OL_BASE, 0).set(spec.DL_BASE, 0).set(spec.BG_SRC, 0)
+    g.set(spec.CO_BASE, 1)
+    g.rect(0, 0, 0, spec.W - 1, spec.H - 1, 0x000000, 16)
+
+
 
 # ---- the body: two meshes, back to back, holding the first idle pose ----
 first = half_words(d["V_idle"][0], d["S_idle"][0], halves[0]) \
@@ -111,13 +262,25 @@ UPPER, LOWER = int(BODY), int(BODY) + len(half_words(
 assert SPAN <= spec.DMA_MAX, f"pose span {SPAN} exceeds DMA_MAX"
 
 # ---- the pose bank: every frame of every sequence, one span each ---------
-bank, base = [], {}
+# The song build stores each DISTINCT pose once -- 44 of the 313 are exact
+# repeats (holds, the walk's mirrored half, every move's return to guard),
+# 130k words the record needs -- and reads a pose's slot from an index.
+bank, base, slot, seen = [], {}, [], {}
 for s in SEQS:
-    base[s] = len(bank) // SPAN
+    base[s] = len(slot)
     for V, S in zip(d["V_" + s], d["S_" + s]):
-        bank += pose_span(V, S)
+        w = pose_span(V, S)
+        k = tuple(w) if SONG else len(slot)
+        if k not in seen:
+            seen[k] = len(bank) // SPAN
+            bank += w
+        slot.append(seen[k])
 BANK = cart.cram(Table(bank), "poses")
 NPOSE = {s: len(d["V_" + s]) for s in SEQS}
+if SONG:
+    _sl = slot + [0] * (len(slot) & 1)
+    PSLOT = cart.data(Table([_sl[i] | _sl[i + 1] << 16 for i in range(0, len(_sl), 2)]),
+                      "pose_slot")
 
 # ---- THE STREET: Bancroft and Shattuck, from the archive's constants -----
 # tear.py:5176-5420 builds the "+" from hand-placed constants; the ~11,000
@@ -698,7 +861,7 @@ TITLE = cart.cram(Plate([int(r >> 3) << 10 | int(g >> 3) << 5 | int(b >> 3)
                          for r, g, b in _title.reshape(-1, 3)],
                         [spec.ZFAR] * spec.BG_WORDS), "title")
 MODE = cart.data(Table([0]), "mode")             # 0 the title, 1 the fight
-TT = cart.var("title_t")
+TT = cart.data(Table([1500]), "title_t")   # boots at ATTRACT: the intro first
 STREET_FACES = sum(len(b.f) for b in street)
 
 # ---- P4: THE KEYS -- what the fight hit-tests (tools/tnd_extract.py) -----
@@ -753,20 +916,20 @@ CANCELS = {"jab": _LIGHT, "cross": _LIGHT, "lead_hook": _HOOK, "rear_hook": _HOO
            "rear_uppercut": _bits("special")}
 _pm, _pf, _pat = move_rows(DEM["p_moves"], [DEM["p_fist_" + n] for n in PMN],
                            lambda k: base[PMN[k]], [CANCELS[n] for n in PMN])
-BIT = cart.data(Table([1 << i for i in range(len(PMN))]), "bits")
-PFIST = cart.data(Table(_pf), "p_fists")
+BIT = cart.data(Table([1 << i for i in range(len(PMN))]), "bits", borrow="auto")
+PFIST = cart.data(Table(_pf), "p_fists", borrow="auto")
 for k, row in enumerate(_pm):
     row[MR["fist"]] = int(PFIST) + _pat[k]
-PMT = cart.data(Table([w for r in _pm for w in r]), "p_moves")
-PKEY = cart.data(Table(zq(DEM["p_chin"]) + zq(DEM["p_gut"])), "p_keys")
+PMT = cart.data(Table([w for r in _pm for w in r]), "p_moves", borrow="auto")
+PKEY = cart.data(Table(zq(DEM["p_chin"]) + zq(DEM["p_gut"])), "p_keys", borrow="auto")
 DKEY, DMT = [], []              # per build: its keypoints, its move rows
 for i in range(3):
     rows, fw, at = move_rows(DEM["d_moves"], [DEM[f"b{i}_fist_{n}"] for n in DMN])
     DKEY.append(cart.data(Table(zq(DEM[f"b{i}_chin"]) + zq(DEM[f"b{i}_gut"]) + fw),
-                          f"demon{i}_keys"))
+                          f"demon{i}_keys", borrow="auto"))
     for k, row in enumerate(rows):         # the builds differ only in reach
         row[MR["fist"]] = int(DKEY[i]) + 6 + at[k]   # of arm: their fists
-    DMT.append(cart.data(Table([w for r in rows for w in r]), f"demon{i}_moves"))
+    DMT.append(cart.data(Table([w for r in rows for w in r]), f"demon{i}_moves", borrow="auto"))
 NMR = len(MROW)
 
 # ---- the wave: three demons round the crossing, facing in (tear.py) -----
@@ -792,7 +955,7 @@ for i in range(3):
              jt=int(DJT[i]), kp=int(DKEY[i]), mt=int(DMT[i]))
     slots += [v[f] for f in DF]
 DS = cart.data(Table(slots), "demons")
-SPAWN = cart.data(Table(slots), "spawn")       # a new wave is this, copied
+SPAWN = cart.data(Table(slots), "spawn", borrow="auto")       # a new wave is this, copied
 CUR = cart.var("cur", NF)                        # the demon being thought
 
 
@@ -831,7 +994,7 @@ def _octant(bits):
     return int(round(-np.arctan2(t, f) * 1024 / (2 * np.pi))) & 1023
 
 
-OCTANT = cart.data(Table([_octant(b) for b in range(16)]), "octants")
+OCTANT = cart.data(Table([_octant(b) for b in range(16)]), "octants", borrow="auto")
 NOBJ = cart.var("nobj")
 
 cart.boot(spec.CAM_Y, int(2.15 * ONE))           # the archive's follow height
@@ -944,10 +1107,10 @@ for head in (0, 1):
     meat, ring = (5200, 1900) if head else (3000, 1350)
     SFXP += [hz(ring), hz(f0), (hz(f1) - hz(f0)) // (n - 1), 15 * 256 // (n - 1),
              hz(meat), n]
-SFX = cart.data(Table(SFXP), "sfx_blow")
+SFX = cart.data(Table(SFXP), "sfx_blow", borrow="auto")
 SFX_V = cart.data(Table([10, 6, 3, 1,                  # the ring's fade
-                         15, 13, 9, 5, 15, 12, 7, 3]), "sfx_vol")   # the noise, body / head
-SFX_MEAT = cart.data(Table([hz(3000), hz(5200)]), "sfx_meat")
+                         15, 13, 9, 5, 15, 12, 7, 3]), "sfx_vol", borrow="auto")   # the noise, body / head
+SFX_MEAT = cart.data(Table([hz(3000), hz(5200)]), "sfx_meat", borrow="auto")
 SFX_T = cart.data(Table([SFX_N]), "sfx_t")     # boots past its end: quiet
 SFX_H, SFX_R = cart.var("sfx_h"), cart.var("sfx_r")
 
@@ -974,12 +1137,12 @@ SY = {k: cart.var("s_" + k) for k in ("pts", "combo", "idle", "rp", "rank",
                                        "g", "rgb")}
 S_REC = cart.data(Table([255] * 5), "s_recent")
 S_SHOWN = cart.data(Table([255]), "s_shown")             # 255: draw afresh
-S_AT = cart.data(Table([a * 16 for a in RANK_AT] + [1 << 30]), "s_rank_at")
-S_MULT = cart.data(Table([20, 12, 8, 5]), "s_mult")      # x/20
+S_AT = cart.data(Table([a * 16 for a in RANK_AT] + [1 << 30]), "s_rank_at", borrow="auto")
+S_MULT = cart.data(Table([20, 12, 8, 5]), "s_mult", borrow="auto")      # x/20
 BAR_W = 100
 S_FAC = cart.data(Table([int(BAR_W * ONE / ((RANK_AT[r + 1] - RANK_AT[r]) * 16))
-                         for r in range(6)] + [0]), "s_bar")
-S_RGB = cart.data(Table(list(RANK_RGB)), "s_rgb")
+                         for r in range(6)] + [0]), "s_bar", borrow="auto")
+S_RGB = cart.data(Table(list(RANK_RGB)), "s_rgb", borrow="auto")
 # THE TEXT ENGINE. Baked text is finished display-list triangles -- seven
 # words a triangle, ~57 a glyph: the five rank letters and RETRY were 552
 # words of a DMEM that had none left. A glyph here is its rectangles
@@ -988,31 +1151,22 @@ S_RGB = cart.data(Table(list(RANK_RGB)), "s_rgb")
 # and one routine (L_TEXT) turns a string of them into triangles when the
 # HUD changes. Two words a glyph; a string is its length and its glyphs.
 # (The width is stored as itself, 1..3, so an all-zero rectangle is none.)
-from zeta.forge import glyph_rects                          # noqa: E402
-FONT_CH = "DCBASRETYXN0123456789"
-_fw = []
-for c in FONT_CH:
-    rs = glyph_rects(c)
-    assert len(rs) <= 6, c
-    packed = [x | y << 2 | w << 5 | (h - 1) << 7 for x, y, w, h in rs]   # w >= 1: 0 is none
-    packed += [0] * (6 - len(packed))
-    _fw += [packed[0] | packed[1] << 10 | packed[2] << 20,
-            packed[3] | packed[4] << 10 | packed[5] << 20]
-FONT = cart.data(Table(_fw), "font")
+# (FONT_CH and the font's words: placed with the cart, P8 -- the intro
+# swaps in its own font at the same address)
 
 
 def glyphs(text):
     return [len(text)] + [FONT_CH.index(c) for c in text]
 
 
-STR_RANK = [cart.data(Table(glyphs(r)), "str_" + r) for r in RANKS]
-STR_RETRY = cart.data(Table(glyphs("RETRY")), "str_retry")
+STR_RANK = [cart.data(Table(glyphs(r)), "str_" + r, borrow="auto") for r in RANKS]
+STR_RETRY = cart.data(Table(glyphs("RETRY")), "str_retry", borrow="auto")
 # the wordmark, top left under the gauge: T and D in bone, the N in blood
 # (the archive draws its N demonic -- horned, ember-tipped -- in blood)
-WORDMARK = [(cart.data(Table(glyphs(c)), "str_wm_" + c), x, col)
+WORDMARK = [(cart.data(Table(glyphs(c)), "str_wm_" + c, borrow="auto"), x, col)
             for c, x, col in (("T", 9, 0xD8CFC1), ("N", 17, 0xD63A36), ("D", 25, 0xD8CFC1))]
-S_STRS = cart.data(Table([int(x) for x in STR_RANK]), "str_ranks")
-S_LEN = cart.data(Table([len(r) for r in RANKS]), "rank_len")
+S_STRS = cart.data(Table([int(x) for x in STR_RANK]), "str_ranks", borrow="auto")
+S_LEN = cart.data(Table([len(r) for r in RANKS]), "rank_len", borrow="auto")
 GW = 4 * 3                                     # a glyph and its gap, x3
 STR_COMBO = cart.data(Table([3, FONT_CH.index("X"), 0, 0]), "str_combo")  # X + 2 digits
 TX = {k: cart.var("tx_" + k) for k in ("str", "x", "y", "sc", "rgb", "n", "gp",
@@ -1068,7 +1222,10 @@ for i in range(256):
     _lf = (_lf >> 1) ^ (0xB400 if _lf & 1 else 0)
     _acc = (_acc * 3 + ((_lf & 0xFF) - 128)) // 4      # one-pole low-pass
     _noise.append(max(-110, min(110, _acc * 2)))
-WAVES = cart.data(Table(page(_sq_page) + page(_chug) + page(_noise)), "wave_pages")
+# (the song build's page 1 is the RECORD's: the mover lands a page of it
+# there every frame -- P7 -- and nothing else walked the chug)
+WAVES = cart.data(Table(page(_sq_page) + ([0] * spec.WAV_WORDS if SONG else page(_chug))
+                        + page(_noise)), "wave_pages")
 cart.boot(spec.WAV_SRC, int(WAVES))
 PG_SQ, PG_CHUG, PG_NOISE = 0, 1, 2
 
@@ -1124,12 +1281,14 @@ pat["lead_tease"] = lead_steps(TIER_B)
 pat["lead"] = lead_steps(HOOK)
 pat["harmony"] = lead_steps(HARMONY)
 assert len(notes) <= 254
-MPAT = cart.data(Table([sum(pat[st[0]][j * 4 + k] << (8 * k) for k in range(4))
-                        for st in STEMS for j in range(8)]), "music_steps")
-MNOTE = cart.data(Table(notes), "music_notes")
+if not SONG:                  # (the song build plays the record instead: P7)
+    MPAT = cart.data(Table([sum(pat[st[0]][j * 4 + k] << (8 * k) for k in range(4))
+                            for st in STEMS for j in range(8)]), "music_steps")
+    MNOTE = cart.data(Table(notes), "music_notes")
 MU = {k: cart.var("mu_" + k) for k in ("t", "step", "inten", "o", "code", "s",
                                         "kick", "drum", "dfade")}
-MENV = cart.var("mu_env", NSTEM)                       # each stem's level x16
+if not SONG:
+    MENV = cart.var("mu_env", NSTEM)                   # each stem's level x16
 KICK_HI, KICK_DROP = hz(135), (hz(135) - hz(30)) // 4
 
 # ---- P4: THE FIGHT ----------------------------------------------------------
@@ -1192,9 +1351,22 @@ p.rect(0, 115, 265, 204, 276, 0x16141C,         # the prompt, exactly
 # a FRESH press of Start or A (up now? or down last frame? -- neither)
 p.emit("load 1").push(spec.PAD_START | spec.PAD_A).emit("and").push(0).emit("eq")
 p.load(PV).push(spec.PAD_START | spec.PAD_A).emit("and", "or").push(0).emit("eq")
-p.emit(f"jz {L_MUSIC}")
+gi = p.label("gointro")
+p.emit(f"jz {gi}")
 p.set(int(MODE), 1).set(spec.BG_SRC, 0).set(spec.CO_BASE, 0)
 p.set(GT["carve"], 100).set(GC["carve"], 1)   # the A that left the title is spent
+p.emit(f"jmp {L_MUSIC}")
+# THE INTRO (P8): on the title's first frame, and after ATTRACT idle frames,
+# page it in -- with its font, strings and first row over the borrowed end
+p.mark(gi)
+p.push(ATTRACT - 1).load(TT).emit("lt", f"jz {L_MUSIC}")   # TT >= ATTRACT
+p.set(TT, 0)
+p.set(spec.DMA_SRC, int(END_INTRO)).set(spec.DMA_DST, END_LO)
+p.set(spec.DMA_LEN, B_END).set(spec.DMA_GO, 1)
+p.set(spec.OVL_SRC, int(INTRO_PROG)).set(spec.OVL_DST, 0)
+p.set(spec.OVL_LEN, spec.OVL_MAX).set(spec.OVL_GO, 1)
+p.set(spec.BG_SRC, 0).set(spec.CO_BASE, 1)
+p.rect(0, 0, 0, spec.W - 1, spec.H - 1, 0x000000, 16)
 p.emit(f"jmp {L_MUSIC}")
 p.mark(f"{tl}_fight")
 p.load(PX).store(AR["ox"]).load(PZ).store(AR["oz"])     # where he stood
@@ -1395,12 +1567,12 @@ row(PMT, F["mv"], "pose")
 p.load(AF).emit("add").store(POSE).emit(f"jmp {L['pd']}")
 p.mark(L["pm"])
 p.load(ANIM).push(1).emit("eq", f"jz {L['pi']}")
-p.load(AF).push(NPOSE["walk"] - 1).emit("and").push(base["walk"]).emit("add")
+p.load(AF).emit("shr 1").push(NPOSE["walk"] - 1).emit("and").push(base["walk"]).emit("add")  # 30 Hz
 p.store(POSE).emit(f"jmp {L['pd']}")
 p.mark(L["pi"])
-p.addi(IDLE, 1)
-p.load(IDLE).push(NPOSE["idle"]).emit("lt", f"jz {L['iw']}")
-p.load(IDLE).push(base["idle"]).emit("add").store(POSE)
+p.addi(IDLE, 1)                              # (the idle at 30 Hz: a pose
+p.load(IDLE).push(2 * NPOSE["idle"]).emit("lt", f"jz {L['iw']}")   # held two)
+p.load(IDLE).emit("shr 1").push(base["idle"]).emit("add").store(POSE)
 p.emit(f"jmp {L['pd']}")
 p.mark(L["iw"])
 p.set(IDLE, 0).set(POSE, base["idle"])
@@ -1431,7 +1603,16 @@ p.load(PX).store(AR["ox"]).load(PZ).store(AR["oz"])
 
 p.mark(L["frozen"])
 # ---- one mover request: the whole posed body ----------------------------------
-p.load(POSE).push(SPAN).emit("mul").push(int(BANK)).emit("add")
+if SONG:                       # the pose's slot: two 16-bit slots a word
+    _ps = p.label("pslot")
+    p.load(POSE).emit("shr 1").push(int(PSLOT)).emit("add", "loadi")
+    p.load(POSE).push(1).emit("and", f"jz {_ps}")
+    p.emit("shr 16")
+    p.mark(_ps)
+    p.push(0xFFFF).emit("and")
+else:
+    p.load(POSE)
+p.push(SPAN).emit("mul").push(int(BANK)).emit("add")
 p.store(spec.DMA_SRC)
 p.push(UPPER + 2).store(spec.DMA_DST)
 p.push(SPAN).store(spec.DMA_LEN)
@@ -1616,6 +1797,125 @@ FLASH_FOR = 8                  # while more than this much stun is left
 LENS2 = int(1.3 ** 2 * ONE)
 
 
+# ---- P8: THE ATTRACT INTRO -- a second program, paged in ------------------------
+# tear.py _intro / _intro_cam: a scripted flight over the FROZEN arena --
+# low across the crosswalk, up past the demons, a crane for the skyline,
+# then down behind the fighter as the title slams in -- under two beats of
+# text and the slam: THE EVE OF THE APOCALYPSE (the place line is cut: the
+# subtext stands alone), TEAR THROUGH THE NIGHT, then TEAR / NOT DEMON with
+# its cold and warm ghosts and a white flash. Letterbox bars slide in, the
+# frame fades up from black, a faint veil breathes over it.
+#
+# WHY A SECOND PROGRAM: the game's IMEM is full. The overlay mover (spec.OVL_*)
+# swaps scenes at a frame boundary, so the intro is its own 4,096 words:
+# its frame code, then -- emitted into BOTH programs by one generator, so
+# they cannot drift -- the street, the fighter, the demons, the music and
+# the sounds. The arena is frozen because nothing here runs their minds.
+#
+# THE INTRO IS DATA. Everything that changes per frame -- the camera
+# (smoothstepped between the archive's keys, its handheld sway, the gaze
+# solved for this machine's yaw and pitch), every string's colour (its
+# fade baked in: the display list has no alpha, so a fade is a colour
+# walked down to black over the dark street), the veil, fade and flash,
+# the bars -- is one ROW, baked here and fetched a frame ahead by the
+# first mover into the borrowed end. The archive's drop shadows are not
+# drawn: they would double every string's triangles.
+#
+# THE HANDSHAKE. The title, on its first frame (its timer boots at the
+# attract threshold) and after 25 idle seconds, pages the intro in and
+# lands the intro's font, strings and first row over the borrowed end. The
+# intro ends at INTRO_LEN or on a fresh Start in two frames: the mover puts
+# back the borrowed front, then the end -- with the camera cells the game
+# never rewrites -- and the overlay pages the game back in. Its title then
+# sees the Start that skipped as held, not fresh.
+from zeta.forge import Program                               # noqa: E402
+p_main = p
+q = Program(cart)                    # the intro (cart.program() is the game)
+q.label = p_main.label               # ONE label space: shared code is in both
+
+
+class Tee:
+    """The forge's Program, twice: everything emitted lands in both."""
+
+    def __init__(self, *progs):
+        self.progs = progs
+
+    def label(self, base):
+        return self.progs[0].label(base)
+
+    def __getattr__(self, name):
+        fns = [getattr(g, name) for g in self.progs]
+
+        def both(*a, **k):
+            for f in fns:
+                f(*a, **k)
+            return self
+        return both
+
+
+DMA1 = (spec.DMA_SRC, spec.DMA_DST, spec.DMA_LEN, spec.DMA_GO)
+OVL = (spec.OVL_SRC, spec.OVL_DST, spec.OVL_LEN, spec.OVL_GO)
+# exit, the second frame: the end back, the camera the game never rewrites,
+# and the game itself
+ix = q.label("ix")
+q.load(I_X).emit(f"jz {ix}")
+black(q)
+mover(q, DMA1, int(END_MAIN), END_LO, B_END)
+mover(q, OVL, int(MAIN_PROG), 0, spec.OVL_MAX)
+q.set(spec.CAM_Y, int(2.15 * ONE)).set(spec.CAM_PITCH, 20).set(spec.CAM_ROLL, 0)
+q.load(YAW).store(CY)
+q.emit(f"jmp {L_MUSIC}")
+q.mark(ix)
+# the flight's end, or a fresh Start: the first exit frame puts the front back
+ie = q.label("ie")
+q.load(I_T).push(INTRO_LEN).emit("lt")
+q.emit("load 1").push(spec.PAD_START).emit("and").push(0).emit("eq")
+q.load(PV).push(spec.PAD_START).emit("and", "or")             # not a fresh Start
+q.emit("and", f"jz {ie}_x", f"jmp {ie}")
+q.mark(f"{ie}_x")
+q.set(I_X, 1)
+black(q)
+mover(q, DMA1, int(FRONT_MAIN), FRONT_LO, B_FRONT)
+q.emit(f"jmp {L_MUSIC}")
+q.mark(ie)
+# the frame: the row the mover brought last frame
+for k, c in enumerate((spec.CAM_X, spec.CAM_Y, spec.CAM_Z, spec.CAM_YAW, spec.CAM_PITCH)):
+    q.load(ir(k)).store(c)
+q.set(spec.CAM_ROLL, 0).set(spec.BG_SRC, 0)
+q.load(ir(3)).store(CY)                                   # (the cull reads it)
+q.load(I_T).push(INTRO_RW).emit("mul").push(int(ROWS) + INTRO_RW).emit("add")
+q.store(spec.DMA_SRC)                                     # ...and the next row
+q.set(spec.DMA_DST, I_ROW).set(spec.DMA_LEN, INTRO_RW).set(spec.DMA_GO, 1)
+# the words: (string, x, y, scale, colour field) -- a colour of 0 is unshown
+_w = lambda text, sc: len(text) * 4 * sc                  # noqa: E731
+_ty = int(spec.H * 0.32)
+_gx = (spec.W - _w("TEAR", 8)) // 2
+for si, x, y, sc, fk in ((0, (spec.W - _w(INTRO_BEAT1, 2)) // 2, int(spec.H * 0.40) + 24, 2, 6),
+                         (1, (spec.W - _w(INTRO_BEAT2, 3)) // 2, int(spec.H * 0.44), 3, 7),
+                         (2, _gx - 1, _ty, 8, 8), (2, _gx + 1, _ty, 8, 9),
+                         (2, _gx, _ty, 8, 10),
+                         (3, (spec.W - _w("NOT DEMON", 4)) // 2, _ty + 8 * 5 + 8, 4, 11)):
+    if si == 0:
+        q.set(TX["n"], 0)
+    sk = q.label("iw")
+    q.load(ir(fk + 1)).emit(f"jz {sk}")
+    q.set(TX["str"], I_STR[si]).set(TX["x"], x).set(TX["y"], y).set(TX["sc"], sc)
+    q.load(ir(fk + 1)).store(TX["rgb"]).emit(f"call {L_TEXT}")
+    q.mark(sk)
+q.load(TX["n"]).store(spec.DL_BASE)
+# the compositor: the full frame (veil, fade or flash), then the two bars
+_b = spec.CO_BASE + 1
+q.set(spec.CO_BASE, 3)
+q.set(_b, (spec.W - 1) << 10).set(_b + 1, (spec.H - 1) << 10).load(ir(13)).store(_b + 2)
+q.set(_b + 3, (spec.W - 1) << 10)
+q.load(ir(14)).push(1).emit("sub").push(1023).emit("and", "shl 10").store(_b + 4)
+q.load(ir(15)).store(_b + 5)
+q.set(_b + 6, (spec.W - 1) << 10)
+q.push(spec.H).load(ir(14)).emit("sub").push((spec.H - 1) << 10).emit("or").store(_b + 7)
+q.load(ir(15)).store(_b + 8)
+q.addi(I_T, 1)
+p = Tee(p_main, q)                   # ...and from here, the shared frame
+
 # ---- WHAT THE CAMERA CANNOT SEE IS NOT SENT -----------------------------------
 # The sequencer transforms every vertex of every listed object, and its
 # frame-wide vertex cache holds 2,048 (zseq.v): past that, an object is
@@ -1713,6 +2013,7 @@ for d in range(3 if "demons" not in OMIT else 0):     # the demons, last
     p.mark(gone)
 p.load(NOBJ).store(spec.OL_BASE)
 
+p = p_main                           # (the intro has no style, no HUD)
 # ---- the style meter's frame: bleed, rank, best ------------------------------
 sb = p.label("sbleed")
 p.load(F["dead"]).emit(f"jz {sb}_a", f"jmp {sb}")
@@ -1845,6 +2146,7 @@ p.mark(f"{dk}_k")
 p.emit("shl 24").push32(0x000000).emit("or").store(HB + 8)
 p.mark(dk)
 # ---- the music's frame (stems as one loop over a table: IMEM is 4,096) ----------
+p = Tee(p_main, q)                   # the music and the sounds: in both
 p.mark(L_MUSIC)
 EVN = cart.var("ev_n")
 EV_BASE = spec.AU_EV_BASE + 1
@@ -1861,155 +2163,289 @@ def ev_at(o_cell, ch_bits, value_ops):
 
 
 INC, CTL = 0, 1 << 14
-# the voiced stems, one row each: ctrl register, event channel bits,
-# page bits, base volume, fade a frame (x16), its rank
-_vs = [(s, st) for s, st in enumerate(STEMS) if st[1] is not None]
-MSTEM = cart.data(Table([w for s, (n, v, pg, bv, fd) in _vs for w in (
-    spec.AU_BASE + 2 * v + 1, v << 10, pg << 8, bv, fd, s)]), "music_stems")
-MS = {k: cart.var("ms_" + k) for k in ("r", "n", "env")}
-mi = p.label("mint")
-p.push(70).load(SY["rank"]).push(34).emit("mul", "add").store(MU["s"])
-p.load(F["dead"]).emit(f"jz {mi}_a")
-p.set(MU["s"], 0)
-p.mark(f"{mi}_a")
-p.load(MU["inten"]).load(MU["s"]).emit("lt", f"jz {mi}_dn")
-p.load(MU["inten"]).push(10).emit("add").store(MU["inten"])
-p.load(MU["s"]).load(MU["inten"]).emit("lt", f"jz {mi}", f"jmp {mi}_cl")
-p.mark(f"{mi}_dn")
-p.load(MU["inten"]).push(3).emit("sub").store(MU["inten"])
-p.load(MU["inten"]).load(MU["s"]).emit("lt", f"jz {mi}")
-p.mark(f"{mi}_cl")
-p.load(MU["s"]).store(MU["inten"])
-p.mark(mi)
+if not SONG:
+    # the voiced stems, one row each: ctrl register, event channel bits,
+    # page bits, base volume, fade a frame (x16), its rank
+    _vs = [(s, st) for s, st in enumerate(STEMS) if st[1] is not None]
+    MSTEM = cart.data(Table([w for s, (n, v, pg, bv, fd) in _vs for w in (
+        spec.AU_BASE + 2 * v + 1, v << 10, pg << 8, bv, fd, s)]), "music_stems")
+    MS = {k: cart.var("ms_" + k) for k in ("r", "n", "env")}
+    mi = p.label("mint")
+    p.push(70).load(SY["rank"]).push(34).emit("mul", "add").store(MU["s"])
+    p.load(F["dead"]).emit(f"jz {mi}_a")
+    p.set(MU["s"], 0)
+    p.mark(f"{mi}_a")
+    p.load(MU["inten"]).load(MU["s"]).emit("lt", f"jz {mi}_dn")
+    p.load(MU["inten"]).push(10).emit("add").store(MU["inten"])
+    p.load(MU["s"]).load(MU["inten"]).emit("lt", f"jz {mi}", f"jmp {mi}_cl")
+    p.mark(f"{mi}_dn")
+    p.load(MU["inten"]).push(3).emit("sub").store(MU["inten"])
+    p.load(MU["inten"]).load(MU["s"]).emit("lt", f"jz {mi}")
+    p.mark(f"{mi}_cl")
+    p.load(MU["s"]).store(MU["inten"])
+    p.mark(mi)
 
 
-def field(k):
-    p.load(MS["r"]).push(k).emit("add", "loadi")
+    def field(k):
+        p.load(MS["r"]).push(k).emit("add", "loadi")
 
 
-def env_addr():
+    def env_addr():
+        field(5)
+        p.push(int(MENV)).emit("add")
+
+
+    # ---- the frame's fades: every voiced stem, one loop -------------------------------
+    fl = p.label("fl")
+    p.push(int(MSTEM)).store(MS["r"]).push(len(_vs)).store(MS["n"])
+    p.mark(fl)
+    env_addr()
+    p.emit("loadi")
+    field(4)
+    p.emit("sub", "dup").push(0).emit("lt", f"jz {fl}_c")
+    p.emit("drop").push(0)
+    p.mark(f"{fl}_c")
+    p.store(MS["env"])
     field(5)
-    p.push(int(MENV)).emit("add")
+    p.push(1).emit("sub").load(SY["rank"]).emit("lt", f"jz {fl}_g", f"jmp {fl}_k")
+    p.mark(f"{fl}_g")
+    p.set(MS["env"], 0)                               # silent below its rank
+    p.mark(f"{fl}_k")
+    p.load(MS["env"])
+    env_addr()
+    p.emit("storei")
+    p.load(MS["env"]).emit("shr 4").load(MU["inten"]).emit("mul", "shr 8")
+    field(2)
+    p.emit("or")
+    field(0)
+    p.emit("storei")
+    p.addi(MS["r"], 6).addi(MS["n"], -1)
+    p.load(MS["n"]).emit(f"jz {fl}_e", f"jmp {fl}")
+    p.mark(f"{fl}_e")
+    # the kick: four frames of falling pitch and fading level
+    kk = p.label("kick")
+    p.load(MU["kick"]).push(4).emit("lt", f"jz {kk}_off")
+    p.push(KICK_HI).load(MU["kick"]).push(KICK_DROP).emit("mul", "sub")
+    p.store(spec.AU_BASE + 2)
+    p.push(15).load(MU["kick"]).push(4).emit("mul", "sub").load(MU["inten"]).emit("mul", "shr 8")
+    p.push(2 << 4).emit("or").store(spec.AU_BASE + 3)
+    p.addi(MU["kick"], 1).emit(f"jmp {kk}")
+    p.mark(f"{kk}_off")
+    p.set(spec.AU_BASE + 3, 0)
+    p.mark(kk)
+    dn = p.label("drumn")
+    p.load(MU["drum"]).load(MU["dfade"]).emit("sub", "dup").push(0).emit("lt", f"jz {dn}")
+    p.emit("drop").push(0)
+    p.mark(dn)
+    p.store(MU["drum"])
+    p.load(MU["drum"]).emit("shr 4").load(MU["inten"]).emit("mul", "shr 8")
+    p.store(spec.AU_BASE + 7)
 
+    # ---- a step, if one falls in this frame --------------------------------------------
+    st_ = p.label("step")
+    p.push(LOOP).load(MU["step"]).push(32).emit("eq", f"jz {st_}_g", f"jmp {st_}_n")
+    p.mark(f"{st_}_g")
+    p.emit("drop").load(MU["step"]).push(SIX).emit("mul")
+    p.mark(f"{st_}_n")
+    p.load(MU["t"]).emit("sub").store(MU["o"])
+    p.load(MU["o"]).push(spec.SAMPLES_PER_FRAME).emit("lt", f"jz {st_}")
+    p.load(MU["step"]).push(31).emit("and").store(MU["step"])     # 32 -> 0
+    L_BYTE = p.label("byte")
+    # the drums (stem 0): bit 0 kick, bit 1 snare, bit 2 china
+    p.push(int(MPAT)).emit(f"call {L_BYTE}")
+    nk = p.label("nk")
+    p.load(MU["code"]).push(1).emit("and", f"jz {nk}")
+    p.set(MU["kick"], 0)
+    ev_at(MU["o"], (1 << 10) | INC, (f"push {KICK_HI}",))
+    ev_at(MU["o"], (1 << 10) | CTL, (f"load {int(MU['inten'])}", "push 15", "mul",
+                                     "shr 8", f"push {2 << 4}", "or"))
+    p.mark(nk)
+    nd = p.label("nd")
+    p.load(MU["code"]).push(6).emit("and", f"jz {nd}")
+    p.push(15 * 16).store(MU["drum"]).set(MU["dfade"], 34).push(hz(9000)).store(MU["s"])
+    p.load(MU["code"]).push(4).emit("and", f"jz {nd}_s")
+    p.set(MU["dfade"], 11).push(hz(6000)).store(MU["s"])           # the china
+    p.mark(f"{nd}_s")
+    ev_at(MU["o"], (3 << 10) | INC, (f"load {int(MU['s'])}",))
+    ev_at(MU["o"], (3 << 10) | CTL, (f"load {int(MU['inten'])}", "push 15", "mul", "shr 8"))
+    p.mark(nd)
+    # the voiced stems: one loop
+    sl = p.label("sl")
+    p.push(int(MSTEM)).store(MS["r"]).push(len(_vs)).store(MS["n"])
+    p.mark(sl)
+    field(5)
+    p.push(1).emit("sub").load(SY["rank"]).emit("lt", f"jz {sl}_nx")   # below its rank
+    field(5)
+    p.push(8).emit("mul").push(int(MPAT)).emit("add", f"call {L_BYTE}")
+    p.load(MU["code"]).emit(f"jz {sl}_nx")           # HOLD
+    p.load(MU["code"]).push(REST).emit("eq", f"jz {sl}_note")
+    p.push(0)
+    env_addr()
+    p.emit("storei")
+    field(1)
+    p.load(MU["o"]).emit("or").push(CTL).emit("or").store(EVW)
+    field(2)
+    p.store(EVV).emit(f"call {L_EV}", f"jmp {sl}_nx")
+    p.mark(f"{sl}_note")
+    field(3)
+    p.push(16).emit("mul")
+    env_addr()
+    p.emit("storei")
+    field(1)
+    p.load(MU["o"]).emit("or").store(EVW)
+    p.push(int(MNOTE) - 2).load(MU["code"]).emit("add", "loadi").store(EVV)
+    p.emit(f"call {L_EV}")
+    field(1)
+    p.load(MU["o"]).emit("or").push(CTL).emit("or").store(EVW)
+    field(3)
+    p.load(MU["inten"]).emit("mul", "shr 8")
+    field(2)
+    p.emit("or").store(EVV).emit(f"call {L_EV}")
+    p.mark(f"{sl}_nx")
+    p.addi(MS["r"], 6).addi(MS["n"], -1)
+    p.load(MS["n"]).emit(f"jz {sl}_e", f"jmp {sl}")
+    p.mark(f"{sl}_e")
+    p.addi(MU["step"], 1)
+    p.mark(st_)
+    p.load(MU["t"]).push(spec.SAMPLES_PER_FRAME).emit("add").store(MU["t"])
+    lp = p.label("loop")
+    p.load(MU["t"]).push(LOOP).emit("lt", f"jz {lp}_w", f"jmp {lp}")
+    p.mark(f"{lp}_w")
+    p.load(MU["t"]).push(LOOP).emit("sub").store(MU["t"])
+    p.mark(lp)
 
-# ---- the frame's fades: every voiced stem, one loop -------------------------------
-fl = p.label("fl")
-p.push(int(MSTEM)).store(MS["r"]).push(len(_vs)).store(MS["n"])
-p.mark(fl)
-env_addr()
-p.emit("loadi")
-field(4)
-p.emit("sub", "dup").push(0).emit("lt", f"jz {fl}_c")
-p.emit("drop").push(0)
-p.mark(f"{fl}_c")
-p.store(MS["env"])
-field(5)
-p.push(1).emit("sub").load(SY["rank"]).emit("lt", f"jz {fl}_g", f"jmp {fl}_k")
-p.mark(f"{fl}_g")
-p.set(MS["env"], 0)                               # silent below its rank
-p.mark(f"{fl}_k")
-p.load(MS["env"])
-env_addr()
-p.emit("storei")
-p.load(MS["env"]).emit("shr 4").load(MU["inten"]).emit("mul", "shr 8")
-field(2)
-p.emit("or")
-field(0)
-p.emit("storei")
-p.addi(MS["r"], 6).addi(MS["n"], -1)
-p.load(MS["n"]).emit(f"jz {fl}_e", f"jmp {fl}")
-p.mark(f"{fl}_e")
-# the kick: four frames of falling pitch and fading level
-kk = p.label("kick")
-p.load(MU["kick"]).push(4).emit("lt", f"jz {kk}_off")
-p.push(KICK_HI).load(MU["kick"]).push(KICK_DROP).emit("mul", "sub")
-p.store(spec.AU_BASE + 2)
-p.push(15).load(MU["kick"]).push(4).emit("mul", "sub").load(MU["inten"]).emit("mul", "shr 8")
-p.push(2 << 4).emit("or").store(spec.AU_BASE + 3)
-p.addi(MU["kick"], 1).emit(f"jmp {kk}")
-p.mark(f"{kk}_off")
-p.set(spec.AU_BASE + 3, 0)
-p.mark(kk)
-dn = p.label("drumn")
-p.load(MU["drum"]).load(MU["dfade"]).emit("sub", "dup").push(0).emit("lt", f"jz {dn}")
-p.emit("drop").push(0)
-p.mark(dn)
-p.store(MU["drum"])
-p.load(MU["drum"]).emit("shr 4").load(MU["inten"]).emit("mul", "shr 8")
-p.store(spec.AU_BASE + 7)
-
-# ---- a step, if one falls in this frame --------------------------------------------
-st_ = p.label("step")
-p.push(LOOP).load(MU["step"]).push(32).emit("eq", f"jz {st_}_g", f"jmp {st_}_n")
-p.mark(f"{st_}_g")
-p.emit("drop").load(MU["step"]).push(SIX).emit("mul")
-p.mark(f"{st_}_n")
-p.load(MU["t"]).emit("sub").store(MU["o"])
-p.load(MU["o"]).push(spec.SAMPLES_PER_FRAME).emit("lt", f"jz {st_}")
-p.load(MU["step"]).push(31).emit("and").store(MU["step"])     # 32 -> 0
-L_BYTE = p.label("byte")
-# the drums (stem 0): bit 0 kick, bit 1 snare, bit 2 china
-p.push(int(MPAT)).emit(f"call {L_BYTE}")
-nk = p.label("nk")
-p.load(MU["code"]).push(1).emit("and", f"jz {nk}")
-p.set(MU["kick"], 0)
-ev_at(MU["o"], (1 << 10) | INC, (f"push {KICK_HI}",))
-ev_at(MU["o"], (1 << 10) | CTL, (f"load {int(MU['inten'])}", "push 15", "mul",
-                                 "shr 8", f"push {2 << 4}", "or"))
-p.mark(nk)
-nd = p.label("nd")
-p.load(MU["code"]).push(6).emit("and", f"jz {nd}")
-p.push(15 * 16).store(MU["drum"]).set(MU["dfade"], 34).push(hz(9000)).store(MU["s"])
-p.load(MU["code"]).push(4).emit("and", f"jz {nd}_s")
-p.set(MU["dfade"], 11).push(hz(6000)).store(MU["s"])           # the china
-p.mark(f"{nd}_s")
-ev_at(MU["o"], (3 << 10) | INC, (f"load {int(MU['s'])}",))
-ev_at(MU["o"], (3 << 10) | CTL, (f"load {int(MU['inten'])}", "push 15", "mul", "shr 8"))
-p.mark(nd)
-# the voiced stems: one loop
-sl = p.label("sl")
-p.push(int(MSTEM)).store(MS["r"]).push(len(_vs)).store(MS["n"])
-p.mark(sl)
-field(5)
-p.push(1).emit("sub").load(SY["rank"]).emit("lt", f"jz {sl}_nx")   # below its rank
-field(5)
-p.push(8).emit("mul").push(int(MPAT)).emit("add", f"call {L_BYTE}")
-p.load(MU["code"]).emit(f"jz {sl}_nx")           # HOLD
-p.load(MU["code"]).push(REST).emit("eq", f"jz {sl}_note")
-p.push(0)
-env_addr()
-p.emit("storei")
-field(1)
-p.load(MU["o"]).emit("or").push(CTL).emit("or").store(EVW)
-field(2)
-p.store(EVV).emit(f"call {L_EV}", f"jmp {sl}_nx")
-p.mark(f"{sl}_note")
-field(3)
-p.push(16).emit("mul")
-env_addr()
-p.emit("storei")
-field(1)
-p.load(MU["o"]).emit("or").store(EVW)
-p.push(int(MNOTE) - 2).load(MU["code"]).emit("add", "loadi").store(EVV)
-p.emit(f"call {L_EV}")
-field(1)
-p.load(MU["o"]).emit("or").push(CTL).emit("or").store(EVW)
-field(3)
-p.load(MU["inten"]).emit("mul", "shr 8")
-field(2)
-p.emit("or").store(EVV).emit(f"call {L_EV}")
-p.mark(f"{sl}_nx")
-p.addi(MS["r"], 6).addi(MS["n"], -1)
-p.load(MS["n"]).emit(f"jz {sl}_e", f"jmp {sl}")
-p.mark(f"{sl}_e")
-p.addi(MU["step"], 1)
-p.mark(st_)
-p.load(MU["t"]).push(spec.SAMPLES_PER_FRAME).emit("add").store(MU["t"])
-lp = p.label("loop")
-p.load(MU["t"]).push(LOOP).emit("lt", f"jz {lp}_w", f"jmp {lp}")
-p.mark(f"{lp}_w")
-p.load(MU["t"]).push(LOOP).emit("sub").store(MU["t"])
-p.mark(lp)
+# ---- P7: THE RECORD (the song build) -- "Set It Off" through its STRUCTURE ----
+# song_structure.py on this machine: the record is cut into the archive's
+# sections (tools/tnd_song.py) and the music WALKS them, one at a time,
+# toward the climax -- rank is only the CAP on how far it may go, so even a
+# fast climb hears the whole arc. A fall from S or above drops it into the
+# BREAKDOWN, a refrain that holds until a rank is won back; tumbling all the
+# way to D lands on the MOBIUS REPRISE, the record's end run into its start.
+# A forward step waits for the current section's phrase (its own bar count),
+# a setback cuts on the next beat, the reprise on the bar -- the archive's
+# grids, counted in stream samples (a beat is 7,554 of them at 15,360 Hz).
+# The archive crossfades its cuts over 280 ms; one stream cannot, so every
+# cut lands on the grid instead, where the record itself is cutting.
+# The page: the SECOND mover request (spec.DMA2_*, build 104) brings this
+# frame's 256 samples into the wave bank's page 1 -- the pose has the first.
+else:
+    sd = np.load(HERE.parent / "assets" / "tnd" / "song.npz")
+    _order = [str(x) for x in sd["order"]]
+    _words, _at = [], {}
+    for n in _order:
+        _at[n] = len(_words)
+        b8 = sd[n].astype(np.int64) & 0xFF
+        _words += [int(b8[i] | b8[i + 1] << 8 | b8[i + 2] << 16 | b8[i + 3] << 24)
+                   for i in range(0, len(b8), 4)]
+    SONGC = cart.cram(Table(_words), "song")
+    _fr = dict(zip(_order, (int(x) for x in sd["frames"])))
+    PHRASE = {"intro": 4, "lift": 4, "drive": 4, "chorus": 6, "verse": 12, "surge": 6}
+    SECS = ("intro", "lift", "drive", "chorus", "verse", "surge", "climax",  # the ladder
+            "breakdown", "reprise")                                          # 7, 8
+    _rows = []
+    for n in SECS:
+        st0, nf = (_at["tail"], _fr["tail"] + _fr["intro"]) if n == "reprise" \
+            else (_at[n], _fr[n])
+        _rows += [int(SONGC) + st0, nf, PHRASE.get(n, 4)]
+    SECT = cart.data(Table(_rows), "song_sections")
+    SM = {k: cart.var("sm_" + k) for k in ("cur", "pos", "pend", "q", "acc", "bib", "phr",
+                                            "bus", "t", "r", "last", "hs", "ref", "dwell",
+                                            "ret", "j")}
+    SBEAT = round(bakepcm.PCM_HZ * 60 / 122)               # 7,554 samples
+    pg = p.label("prog")
+    # the journey has come as far as the section playing (if on the ladder)
+    p.load(SM["cur"]).push(7).emit("lt", f"jz {pg}_j")
+    p.load(SM["cur"]).store(SM["j"])
+    p.mark(f"{pg}_j")
+    # a SETBACK from S or above: a rank lost, or a knockdown (hitstun rising
+    # through 24), while alive
+    p.load(F["dead"]).emit(f"jz {pg}_al", f"jmp {pg}_held")
+    p.mark(f"{pg}_al")
+    p.push(3).load(SM["last"]).emit("lt", f"jz {pg}_held")          # last >= 4
+    p.load(SY["rank"]).load(SM["last"]).emit("lt")                   # dropped
+    p.load(SM["hs"]).push(24).emit("lt")
+    p.load(F["hs"]).push(24).emit("lt").push(0).emit("eq", "and", "or")   # knocked
+    p.emit(f"jz {pg}_held")
+    p.set(SM["ref"], 1).set(SM["dwell"], 0).emit(f"jmp {pg}_rk")
+    p.mark(f"{pg}_held")
+    p.load(SM["ref"]).emit(f"jz {pg}_rk")
+    p.addi(SM["dwell"], 1)
+    p.load(SY["rank"]).emit(f"jz {pg}_bot")
+    p.load(SM["last"]).load(SY["rank"]).emit("lt", f"jz {pg}_rk")    # won one back
+    p.push(44).load(SM["dwell"]).emit("lt", f"jz {pg}_rk")           # ...after 45
+    p.set(SM["ref"], 0).emit(f"jmp {pg}_rk")
+    p.mark(f"{pg}_bot")                                              # all the way
+    p.set(SM["ref"], 0).set(SM["ret"], 1).set(SM["j"], 0)            # down: reprise
+    p.mark(f"{pg}_rk")
+    p.load(SY["rank"]).emit(f"jz {pg}_r0")
+    p.set(SM["ret"], 0)
+    p.mark(f"{pg}_r0")
+    # the target, and the grid its cut waits for (0 beat, 1 bar, 2 phrase)
+    p.load(SM["ref"]).emit(f"jz {pg}_t1")
+    p.set(SM["t"], 7).set(SM["q"], 0).emit(f"jmp {pg}_go")
+    p.mark(f"{pg}_t1")
+    p.set(SM["q"], 2)
+    p.load(SY["rank"]).emit(f"jz {pg}_d", f"jmp {pg}_t2")
+    p.mark(f"{pg}_d")
+    p.load(SM["ret"]).emit(f"jz {pg}_t2")
+    p.set(SM["t"], 8).set(SM["q"], 1).emit(f"jmp {pg}_go")
+    p.mark(f"{pg}_t2")
+    p.load(SM["j"]).store(SM["t"])
+    p.load(SM["cur"]).push(7).emit("lt", f"jz {pg}_go")
+    p.load(SM["j"]).load(SY["rank"]).emit("lt", f"jz {pg}_go")
+    p.addi(SM["t"], 1)                                   # one step further
+    p.mark(f"{pg}_go")
+    p.load(SY["rank"]).store(SM["last"]).load(F["hs"]).store(SM["hs"])
+    p.load(SM["t"]).store(SM["pend"])                    # (pend == cur: none)
+    # the cut, if one is pending and its grid line falls in this frame
+    p.load(SM["pend"]).load(SM["cur"]).emit("eq", f"jz {pg}_p", f"jmp {pg}_play")
+    p.mark(f"{pg}_p")
+    p.push(SBEAT - 1 - spec.WAV_W).load(SM["acc"]).emit("lt", f"jz {pg}_play")  # a beat
+    p.load(SM["q"]).emit(f"jz {pg}_cut")
+    p.load(SM["bib"]).push(3).emit("eq", f"jz {pg}_play")                       # a bar
+    p.load(SM["q"]).push(1).emit("eq", f"jz {pg}_ph", f"jmp {pg}_cut")
+    p.mark(f"{pg}_ph")
+    p.push(int(SECT) + 2).load(SM["cur"]).push(3).emit("mul", "add", "loadi")   # a phrase
+    p.push(1).emit("sub").load(SM["phr"]).emit("eq", f"jz {pg}_play")
+    p.mark(f"{pg}_cut")
+    for c in ("pos", "acc", "bib", "phr"):
+        p.set(SM[c], 0)
+    p.load(SM["pend"]).store(SM["cur"])
+    # this frame's page: the second request
+    p.mark(f"{pg}_play")
+    p.push(int(SECT)).load(SM["cur"]).push(3).emit("mul", "add").store(SM["r"])
+    p.load(SM["r"]).emit("loadi").load(SM["pos"]).push(spec.WAV_WORDS).emit("mul", "add")
+    p.store(spec.DMA2_SRC)
+    p.set(spec.DMA2_DST, int(WAVES) + spec.WAV_WORDS).set(spec.DMA2_LEN, spec.WAV_WORDS)
+    p.set(spec.DMA2_GO, 1)
+    p.addi(SM["pos"], 1)
+    p.load(SM["r"]).push(1).emit("add", "loadi").load(SM["pos"]).emit("eq", f"jz {pg}_w")
+    p.set(SM["pos"], 0)                                  # the seam (folded)
+    p.mark(f"{pg}_w")
+    p.load(SM["acc"]).push(spec.WAV_W).emit("add").store(SM["acc"])
+    p.push(SBEAT - 1).load(SM["acc"]).emit("lt", f"jz {pg}_c")
+    p.load(SM["acc"]).push(SBEAT).emit("sub").store(SM["acc"])
+    p.addi(SM["bib"], 1)
+    p.load(SM["bib"]).push(4).emit("eq", f"jz {pg}_c")
+    p.set(SM["bib"], 0).addi(SM["phr"], 1)
+    p.load(SM["r"]).push(2).emit("add", "loadi").load(SM["phr"]).emit("eq", f"jz {pg}_c")
+    p.set(SM["phr"], 0)
+    p.mark(f"{pg}_c")
+    # the bus: up 6 a frame toward 176, down 4 -- and to nothing when he is down
+    p.push(176).load(F["dead"]).emit(f"jz {pg}_wa")
+    p.emit("drop").push(0)
+    p.mark(f"{pg}_wa")
+    p.store(SM["t"])
+    p.load(SM["bus"]).load(SM["t"]).emit("lt", f"jz {pg}_dn")
+    p.addi(SM["bus"], 6)
+    p.load(SM["t"]).load(SM["bus"]).emit("lt", f"jz {pg}_bs", f"jmp {pg}_cl")
+    p.mark(f"{pg}_dn")
+    p.addi(SM["bus"], -4)
+    p.load(SM["bus"]).load(SM["t"]).emit("lt", f"jz {pg}_bs")
+    p.mark(f"{pg}_cl")
+    p.load(SM["t"]).store(SM["bus"])
+    p.mark(f"{pg}_bs")
+    p.load(SM["bus"]).store(MU["inten"])                 # (the stinger rides it)
 
 sx = p.label("sfx")
 p.load(SFX_T).push(SFX_N).emit("lt", f"jz {sx}_q")
@@ -2086,7 +2522,7 @@ PLAYD = {name: cart.data(Table([int(SG[tc]), int(tab), 9, spec.AU_BASE + 2 * ch,
                                    ("step", "st", SND_STEP, 12))}
 STING = cart.data(Table([hz(root * 2 ** (semi / 12)) for root in
                          (196, 220, 262, 330, 392, 494, 587)
-                         for semi in (0, 4, 7, 12, 16)]), "snd_sting")
+                         for semi in (0, 4, 7, 12, 16)]), "snd_sting", borrow="auto")
 L_PLAY = p.label("play")
 sw = p.label("smalls")
 # triggers: the whiff on a swing's last active frame with nothing struck
@@ -2125,6 +2561,26 @@ p.addi(SG["gt"], 1).emit(f"jmp {sg}")
 p.mark(f"{sg}_q")
 p.set(spec.AU_BASE + 27, 0).set(spec.AU_BASE + 29, 0)
 p.mark(sg)
+if SONG:
+    # THE RECORD'S VOICES, ch4-10 in unison on page 1: one voice is quiet by
+    # construction (the mix has sixteen channels of headroom), so the
+    # channel count is the volume control (carts/gen_stream.py). Each walks
+    # the page exactly once a frame by two increments split at one sample
+    # (bakepcm.inc_law) -- an event per voice, and LAST in the list, since
+    # the list is read in ascending offset and the slap's comes earlier.
+    _ia, _ib, _split = bakepcm.inc_law()
+    assert SFX_SLAP < _split
+    vv = p.label("songv")
+    p.load(SM["bus"]).push(SONG_VOL).emit("mul", "shr 8").push(1 << 8).emit("or")
+    p.store(SM["t"]).set(SM["r"], SONG_CH[0])
+    p.mark(vv)
+    p.push(_ia).load(SM["r"]).emit("dup", "add").push(spec.AU_BASE).emit("add", "storei")
+    p.load(SM["t"]).load(SM["r"]).emit("dup", "add").push(spec.AU_BASE + 1).emit("add", "storei")
+    p.load(SM["r"]).emit(f"shl {spec.AU_EV_CH_SHIFT}").push(_split).emit("or").store(EVW)
+    p.push(_ib).store(EVV).emit(f"call {L_EV}")
+    p.addi(SM["r"], 1)
+    p.load(SM["r"]).push(SONG_CH[-1] + 1).emit("lt", f"jz {vv}_e", f"jmp {vv}")
+    p.mark(f"{vv}_e")
 p.load(EVN).store(spec.AU_EV_BASE)
 
 p.emit("load 1").store(PV)
@@ -2136,30 +2592,37 @@ p.emit("halt")
 # vis_cz, vis_r) into view space: yaw by the camera's right/forward,
 # then its fixed pitch (vy' = vy cos + vz sin, vz' = -vy sin + vz cos).
 # Unseen if wholly behind the eye or wholly outside a side plane.
-no_l, yes_l = p.label("vno"), p.label("vyes")
-p.mark(L_VIS)
-p.load(VIS["cx"]).load(spec.CAM_X).emit("sub").store(VIS["cx"])
-p.load(VIS["cz"]).load(spec.CAM_Z).emit("sub").store(VIS["cz"])
-p.load(VIS["cx"]).load(VIS["rx"]).emit("mulq")          # xc = d . right
-p.load(VIS["cz"]).load(VIS["rz"]).emit("mulq", "add").store(VIS["xc"])
-p.load(VIS["cz"]).load(VIS["rx"]).emit("mulq")          # zc = d . forward
-p.load(VIS["cx"]).load(VIS["rz"]).emit("mulq", "sub").store(VIS["zc"])
-p.push(0).load(VIS["cy"]).emit("sub").push(PSIN).emit("mulq")   # -vy sin
-p.load(VIS["zc"]).push(PCOS).emit("mulq", "add").store(VIS["zc"])
-p.load(VIS["zc"]).load(VIS["r"]).emit("add").push(0)
-p.emit("lt", f"jz {no_l}_b")                             # zc + r < 0: behind
-p.emit(f"jmp {no_l}")
-p.mark(f"{no_l}_b")
-p.load(VIS["xc"]).emit("dup").push(0).emit("lt", f"jz {yes_l}_a")
-p.push(0).emit("swap", "sub")                            # |xc|
-p.mark(f"{yes_l}_a")
-p.push(SCOS).emit("mulq")
-p.load(VIS["zc"]).push(SSIN).emit("mulq", "sub")         # |xc| cos - zc sin
-p.load(VIS["r"]).emit("swap", "lt", f"jz {yes_l}")       # r < that: outside
-p.mark(no_l)
-p.push(0).emit("ret")
-p.mark(yes_l)
-p.push(1).emit("ret")
+for g, intro_vis in ((p_main, False), (q, True)):   # (the intro: its real pitch and height)
+    no_l, yes_l = g.label("vno"), g.label("vyes")
+    g.mark(L_VIS)
+    g.load(VIS["cx"]).load(spec.CAM_X).emit("sub").store(VIS["cx"])
+    g.load(VIS["cz"]).load(spec.CAM_Z).emit("sub").store(VIS["cz"])
+    g.load(VIS["cx"]).load(VIS["rx"]).emit("mulq")          # xc = d . right
+    g.load(VIS["cz"]).load(VIS["rz"]).emit("mulq", "add").store(VIS["xc"])
+    g.load(VIS["cz"]).load(VIS["rx"]).emit("mulq")          # zc = d . forward
+    g.load(VIS["cx"]).load(VIS["rz"]).emit("mulq", "sub").store(VIS["zc"])
+    if intro_vis:                    # vy = (cy - 2.15) + 2.15 - CAM_Y; the row's pitch
+        g.push(0).load(VIS["cy"]).push(int(2.15 * ONE)).emit("add").load(spec.CAM_Y)
+        g.emit("sub", "sub").load(ir(5)).emit("mulq")
+        g.load(VIS["zc"]).load(ir(6)).emit("mulq", "add").store(VIS["zc"])
+    else:
+        g.push(0).load(VIS["cy"]).emit("sub").push(PSIN).emit("mulq")   # -vy sin
+        g.load(VIS["zc"]).push(PCOS).emit("mulq", "add").store(VIS["zc"])
+    g.load(VIS["zc"]).load(VIS["r"]).emit("add").push(0)
+    g.emit("lt", f"jz {no_l}_b")                             # zc + r < 0: behind
+    g.emit(f"jmp {no_l}")
+    g.mark(f"{no_l}_b")
+    g.load(VIS["xc"]).emit("dup").push(0).emit("lt", f"jz {yes_l}_a")
+    g.push(0).emit("swap", "sub")                            # |xc|
+    g.mark(f"{yes_l}_a")
+    g.push(SCOS).emit("mulq")
+    g.load(VIS["zc"]).push(SSIN).emit("mulq", "sub")         # |xc| cos - zc sin
+    g.load(VIS["r"]).emit("swap", "lt", f"jz {yes_l}")       # r < that: outside
+    g.mark(no_l)
+    g.push(0).emit("ret")
+    g.mark(yes_l)
+    g.push(1).emit("ret")
+
 
 # ARENA: ( -- inside? ) for (ar_x, ar_z), the archive's '+'.
 p.mark(L_ARENA)
@@ -2525,15 +2988,16 @@ p.load(EVW).push(EV_BASE).load(EVN).push(2).emit("mul", "add", "storei")
 p.load(EVV).push(EV_BASE + 1).load(EVN).push(2).emit("mul", "add", "storei")
 p.addi(EVN, 1).emit("ret")
 # BYTE: ( stem's pattern base -- ) mu_code = that stem's byte at mu_step
-bl = p.label("bl")
-p.mark(L_BYTE)
-p.load(MU["step"]).emit("shr 2", "add", "loadi")
-p.load(MU["step"]).push(3).emit("and").store(MU["s"])
-p.mark(bl)
-p.load(MU["s"]).emit(f"jz {bl}_e")
-p.emit("shr 8").addi(MU["s"], -1).emit(f"jmp {bl}")
-p.mark(f"{bl}_e")
-p.push(255).emit("and").store(MU["code"]).emit("ret")
+if not SONG:
+    bl = p.label("bl")
+    p.mark(L_BYTE)
+    p.load(MU["step"]).emit("shr 2", "add", "loadi")
+    p.load(MU["step"]).push(3).emit("and").store(MU["s"])
+    p.mark(bl)
+    p.load(MU["s"]).emit(f"jz {bl}_e")
+    p.emit("shr 8").addi(MU["s"], -1).emit(f"jmp {bl}")
+    p.mark(f"{bl}_e")
+    p.push(255).emit("and").store(MU["code"]).emit("ret")
 
 # TEXT: the string at tx_str (length, then glyphs) at (tx_x, tx_y), x tx_sc,
 # in tx_rgb, appended to the display list (tx_n triangles so far) -- each
@@ -2698,8 +3162,33 @@ p.mark(f"{top}_na")
 p.emit("ret")
 
 
+# ---- P8's images, now that everything is placed ------------------------------
+def _imem(g):
+    import tempfile
+    from zeta import asm
+    with tempfile.NamedTemporaryFile("w", suffix=".zol", delete=False) as f:
+        f.write("\n".join(g.lines()) + "\n")
+    words = asm.assemble(f.name)["imem"]
+    os.unlink(f.name)
+    assert len(words) <= spec.OVL_MAX, f"a program of {len(words)} words"
+    return words
+
+
+_main_w, _intro_w = _imem(p_main), _imem(q)
+cart_tables = {int(INTRO_PROG): _intro_w, int(MAIN_PROG): _main_w,
+               int(END_MAIN): cart.borrowed("end")[1],
+               int(FRONT_MAIN): cart.borrowed("front")[1]}
+for sym, res in cart._cram:
+    if int(sym) in cart_tables:
+        w = cart_tables[int(sym)]
+        res._w[:len(w)] = [spec.s32(int(v)) & spec.WORD_MASK for v in w]
+for k, v in (("INTRO_PROG", INTRO_PROG), ("MAIN_PROG", MAIN_PROG), ("INTRO_LEN", INTRO_LEN),
+             ("BORROW_FRONT", FRONT_LO), ("BORROW_FRONT_N", B_FRONT),
+             ("BORROW_END", END_LO), ("BORROW_END_N", B_END)):
+    cart.const(k, int(v))                       # (for the gates: tests/test_tnd.py)
 out = cart.write(OUT)
 print(cart.report())
+print(f"programs: the game {len(_main_w)} words, the intro {len(_intro_w)}")
 print(f"street: {len(STREET)} objects, {STREET_FACES} faces")
 print(f"poses: {len(bank) // SPAN} x {SPAN} words = {len(bank)} words "
       f"of CRAM; bases {base}")

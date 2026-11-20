@@ -352,7 +352,7 @@ def _above_the_mirror():
 class Cart:
     """Holds resources, assigns their addresses, emits .zol."""
 
-    def __init__(self, name, data_base=None, dl_lease=None):
+    def __init__(self, name, data_base=None, dl_lease=None, dl_borrow=None):
         self.name = name
         lo, hi = _reserved()
         self._lo, self._hi = (data_base or lo), hi
@@ -377,6 +377,28 @@ class Cart:
         if dl_lease is not None:
             self._spill.append([spec.DL_BASE + 1 + dl_lease * spec.DL_STRIDE,
                                 spec.DL_BASE + 1 + spec.DL_MAX * spec.DL_STRIDE])
+        # THE BORROWED TAIL: dl_borrow = (front, end) words of the leased
+        # tail held back from the spill, for CONSTANTS a second program --
+        # an overlay scene with no use for them -- may draw its own display
+        # list over (the front, entries just past the lease) or park its
+        # own data in (the end), and then put back from the cart by the
+        # mover before handing the machine back (borrowed()). Only data()
+        # with borrow= places there, and the forge cannot tell a constant
+        # from a variable: what goes there is the cart's promise, and its
+        # gates' to check (carts/gen_tnd.py poisons the region to prove it).
+        self._borrow = None
+        if dl_borrow is not None:
+            if dl_lease is None:
+                raise ForgeError(f"{name}: dl_borrow needs a dl_lease")
+            front, endw = dl_borrow
+            t = self._spill[1]
+            if front + endw > t[1] - t[0]:
+                raise ForgeError(f"{name}: dl_borrow {dl_borrow} exceeds the tail")
+            self._borrow = {"front": [t[0], t[0] + front],
+                            "end": [t[1] - endw, t[1]]}
+            self._borrow_lo = {k: v[0] for k, v in self._borrow.items()}
+            t[0] += front
+            t[1] -= endw
         self._data: list[tuple[Sym, Resource]] = []
         self._cram: list[tuple[Sym, Resource]] = []
         self._sd: dict[int, list[tuple[Sym, Resource]]] = {}
@@ -386,12 +408,26 @@ class Cart:
         self._scratch = self._lo   # cart variables live below the content
 
     # ---- placement -------------------------------------------------------
-    def data(self, res: Resource, name=None) -> Sym:
+    def data(self, res: Resource, name=None, borrow=None) -> Sym:
         """Place a resource in DMEM. The address is chosen; it cannot
         collide with anything already placed, nor with the law's
-        reserved regions."""
+        reserved regions. borrow="front"/"end" places it in that
+        borrowed reserve of the display list's tail (see __init__)."""
         res.check()
         w = res.words()
+        if borrow == "auto":            # the front if it fits, else the end,
+            fits = [k for k in ("front", "end")       # else the ordinary pool
+                    if self._borrow[k][0] + len(w) <= self._borrow[k][1]]
+            borrow = fits[0] if fits else None
+        if borrow is not None:
+            reg = self._borrow[borrow]
+            if reg[0] + len(w) > reg[1]:
+                raise ForgeError(f"{self.name}: the borrowed {borrow} is full -- "
+                                 f"{name} needs {len(w)}, {reg[1] - reg[0]} left")
+            sym = Sym(reg[0], name or type(res).__name__.lower(), len(w))
+            reg[0] += len(w)
+            self._data.append((sym, res))
+            return sym
         at = self._next
         if at + len(w) > self._hi:
             for reg in self._spill:
@@ -409,6 +445,17 @@ class Cart:
         self._next = at + len(w)
         self._data.append((sym, res))
         return sym
+
+    def borrowed(self, which) -> tuple[int, list[int]]:
+        """(address, words): the borrowed reserve's image as the cart
+        boots it -- what a scene that drew over it must put back."""
+        lo, hi = self._borrow_lo[which], self._borrow[which][1]
+        img = [0] * (hi - lo)
+        for sym, res in self._data:
+            if lo <= int(sym) < hi:
+                for i, v in enumerate(res.words()):
+                    img[int(sym) - lo + i] = v
+        return lo, img
 
     def var(self, name, count=1) -> Sym:
         """A scratch cell (or run) for the program's own state. Taken
@@ -571,6 +618,10 @@ class Cart:
             t = self._spill[1]
             tail += (f"; display-list tail (lease: <= {self.dl_lease} "
                      f"triangles) {t[0] - lo} used, {t[1] - t[0]} free")
+        if self._borrow:
+            tail += "; borrowed " + ", ".join(
+                f"{k} {v[0] - self._borrow_lo[k]}/{v[1] - self._borrow_lo[k]}"
+                for k, v in self._borrow.items())
         return (f"{self.name}: {len(self._data)} resources, "
                 f"{used} DMEM words used, {free} free "
                 f"(content must end by {self._hi}){tail}")

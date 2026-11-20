@@ -48,8 +48,11 @@ def frozen(res):
     V[F.reshape(-1)] = np.asarray(faces).reshape(-1, 3)
     return V, np.asarray(cols)
 seqs = {}
-seqs["idle"] = [frozen(bm.idle_mesh(f / 60.0)) for f in range(120)]
-seqs["walk"] = [frozen(bm.walk_mesh(f / 32.0, "fwd")) for f in range(32)]
+# THE SLOW CLIPS AT 30 Hz: the idle sway (a 2 s loop) and the walk cycle
+# keep every other frame, each held two -- the recorded music needed the
+# cart storage, and a sway this slow does not show it. Strikes stay 60.
+seqs["idle"] = [frozen(bm.idle_mesh(f / 60.0)) for f in range(0, 120, 2)]
+seqs["walk"] = [frozen(bm.walk_mesh(f / 32.0, "fwd")) for f in range(0, 32, 2)]
 # the swings, at the game's own timing: the clip stretched over the move's
 # startup + active + recovery, as tear.py draws it (t = frame / (total-1))
 for mv in ("jab", "cross", "lead_hook", "rear_hook", "special",

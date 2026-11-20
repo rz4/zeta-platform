@@ -322,3 +322,24 @@ def test_the_gap_above_the_mirror_is_offered_after_the_main_region():
     assert int(gap) == lo, "the spill did not start above the mirror"
     tail = c.data(Table([0] * 10), "next")
     assert int(tail) == spec.DL_BASE + 1 + 64 * spec.DL_STRIDE
+
+
+def test_the_borrowed_tail_is_held_back_and_imaged():
+    """dl_borrow holds (front, end) words of the leased tail back from the
+    spill: only borrow= places there ("auto": the front if it fits, else
+    the end, else the ordinary pool), and borrowed() returns each reserve
+    exactly as the cart boots it -- what a scene that drew over it puts
+    back."""
+    c = Cart("t", dl_lease=40, dl_borrow=(20, 10))
+    tail = spec.DL_BASE + 1 + 40 * spec.DL_STRIDE
+    top = spec.DL_BASE + 1 + spec.DL_MAX * spec.DL_STRIDE
+    a = c.data(Table([1] * 12), "a", borrow="auto")      # the front
+    b = c.data(Table([2] * 9), "b", borrow="auto")       # too big for it: the end
+    e = c.data(Table([3] * 5), "e", borrow="auto")       # back to the front
+    f = c.data(Table([4] * 4), "f", borrow="auto")       # neither: the pool
+    assert int(a) == tail and int(e) == tail + 12 and int(b) == top - 10
+    assert not (tail <= int(f) < top), "auto spilled past both reserves"
+    assert c.borrowed("front") == (tail, [1] * 12 + [3] * 5 + [0] * 3)
+    assert c.borrowed("end") == (top - 10, [2] * 9 + [0])
+    with pytest.raises(ForgeError):
+        c.data(Table([5] * 4), "g", borrow="end")         # full: refused
