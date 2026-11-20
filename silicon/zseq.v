@@ -651,14 +651,50 @@ module zseq (
   reg [50:0] cl_den;                // |da - db|
   reg        cl_sgn;                // sign of the quotient
   reg signed [31:0] cl_va;          // the coordinate being interpolated
-  reg [81:0] cl_mac, cl_msh;        // serial multiply: no DSP, no 82-bit
-  reg [32:0] cl_mul;                // multiplier in a device with none free
+  // THE CROSSING'S MULTIPLY AND DIVIDE (frontier B3). Both were one bit a
+  // beat -- 33 beats of shift-and-add, then 33 of restoring divide, for
+  // EACH coordinate of EACH crossing -- written when the device had no DSP
+  // to spare. It has ten now (56 of 66), and the band histogram put the
+  // price of the serial pair: 86,328 clocks of the TND brawl's frame 226
+  // (436 crossings x 3 coordinates x 66), all of it inside band 0, where
+  // the rasterizer has nothing to do but wait for the sequencer.
+  //
+  // THE MULTIPLY, two beats: |vb-va| (33 bits) x |da| (50) split 27/6 and
+  // 27/23 into four partial products, registered, then summed. The sum is
+  // taken modulo 2^82 exactly as the shift-and-add's 82-bit accumulator
+  // took it. Widths are each product's own: 27+27, 27+23, 6+27, 6+23.
+  reg [81:0] cl_mac;
+  reg [32:0] cl_mul;
+  reg [53:0] cl_pll;                // mul[26:0]  x dam[26:0]
+  reg [49:0] cl_plh;                // mul[26:0]  x dam[49:27]
+  reg [32:0] cl_phl;                // mul[32:27] x dam[26:0]
+  reg [28:0] cl_phh;                // mul[32:27] x dam[49:27]
+  reg        cl_mph;                // the multiply's beat
+  wire [81:0] cl_psum = {28'd0, cl_pll}
+                      + {5'd0, cl_plh, 27'd0}
+                      + {22'd0, cl_phl, 27'd0}
+                      + {cl_phh[27:0], 54'd0};
   reg        cl_dasg;               // sign(da) ^ sign(den), fixed per edge
   reg [51:0] cl_rem;
   reg [32:0] cl_low, cl_q;
   reg [5:0]  cl_ck;
   wire [51:0] cl_rsh  = {cl_rem[50:0], cl_low[32]};
   wire [52:0] cl_rsub = {1'b0, cl_rsh} - {2'b0, cl_den};
+  // THE DIVIDE, radix-4: the same restoring quotient, two bits a beat --
+  // sixteen of those and ONE radix-2 beat for the odd 33rd bit (the
+  // projection's own form, above). rem < den holds either way, so the
+  // doubly shifted remainder is < 4*den and the digit is 0..3.
+  // WIDTHS FROM THE RANGE: den < 2^51, so 3*den < 2^53 and rsh2 < 2^53.
+  wire [52:0] cl_rsh2 = {cl_rem[50:0], cl_low[32:31]};
+  wire [52:0] cl_den2 = {1'b0, cl_den, 1'b0};
+  wire [52:0] cl_den3 = cl_den2 + {2'd0, cl_den};
+  wire [53:0] cl_r1 = {1'b0, cl_rsh2} - {3'd0, cl_den};
+  wire [53:0] cl_r2 = {1'b0, cl_rsh2} - {1'b0, cl_den2};
+  wire [53:0] cl_r3 = {1'b0, cl_rsh2} - {1'b0, cl_den3};
+  wire [1:0]  cl_dig = !cl_r3[53] ? 2'd3 : !cl_r2[53] ? 2'd2 :
+                       !cl_r1[53] ? 2'd1 : 2'd0;
+  wire [52:0] cl_rem4 = !cl_r3[53] ? cl_r3[52:0] : !cl_r2[53] ? cl_r2[52:0] :
+                        !cl_r1[53] ? cl_r1[52:0] : cl_rsh2;
   wire signed [33:0] cl_qs = cl_sgn ? -{1'b0, cl_q} : {1'b0, cl_q};
   wire signed [31:0] cl_res = cl_va + cl_qs[31:0];
   // da - db in full width; at a crossing the two have opposite signs, so
@@ -1437,34 +1473,42 @@ module zseq (
       end
       S_CLM0: begin                   // coordinate cl_k: |vb-va| * |da|
         cl_va  <= cl_ca;
-        cl_mac <= 82'd0;
-        cl_msh <= {32'd0, cl_dam};
         cl_mul <= cl_dmag;
-        cl_ck  <= 6'd32;
+        cl_mph <= 1'b0;
         cl_sgn <= cl_dasg ^ cl_delta[32];
         st <= S_CLM;
       end
-      S_CLM: begin                    // shift-and-add, 33 beats: an 82-bit
-        if (cl_mul[0]) cl_mac <= cl_mac + cl_msh;   // product on a device
-        cl_msh <= {cl_msh[80:0], 1'b0};             // with no DSP to spare
-        cl_mul <= {1'b0, cl_mul[32:1]};
-        if (cl_ck == 6'd0) st <= S_CLV0;
-        else cl_ck <= cl_ck - 1'b1;
+      S_CLM: begin                    // two beats: four partial products,
+        cl_mph <= 1'b1;               // then their sum (mod 2^82)
+        if (!cl_mph) begin
+          cl_pll <= cl_mul[26:0]  * cl_dam[26:0];
+          cl_plh <= cl_mul[26:0]  * cl_dam[49:27];
+          cl_phl <= cl_mul[32:27] * cl_dam[26:0];
+          cl_phh <= cl_mul[32:27] * cl_dam[49:27];
+        end else begin
+          cl_mac <= cl_psum;
+          st <= S_CLV0;
+        end
       end
       S_CLV0: begin                   // THE DIVIDE SKIPS 49 BEATS. |q| can
         cl_rem <= {3'd0, cl_mac[81:33]};   // never exceed |vb-va| < 2^33,
         cl_low <= cl_mac[32:0];            // so the top 49 quotient bits
         cl_q   <= 33'd0;                   // are provably zero and the
-        cl_ck  <= 6'd32;                   // preload is exact, not a guess
+        cl_ck  <= 6'd16;                   // preload is exact, not a guess
         st <= S_CLDV;
       end
-      S_CLDV: begin                   // restoring divide, truncating --
-        cl_q   <= {cl_q[31:0], ~cl_rsub[52]};       // spec.tdiv's magnitude
-        cl_rem <= cl_rsub[52] ? cl_rsh : cl_rsub[51:0];
-        cl_low <= {cl_low[31:0], 1'b0};
-        if (cl_ck == 6'd0) st <= S_CLXS;
-        else cl_ck <= cl_ck - 1'b1;
-      end
+      S_CLDV:                         // restoring divide, truncating --
+        if (cl_ck == 6'd0) begin      // spec.tdiv's magnitude; the 33rd bit
+          cl_q   <= {cl_q[31:0], ~cl_rsub[52]};
+          cl_rem <= cl_rsub[52] ? cl_rsh : cl_rsub[51:0];
+          cl_low <= {cl_low[31:0], 1'b0};
+          st <= S_CLXS;
+        end else begin                // ...after sixteen radix-4 beats
+          cl_q   <= {cl_q[30:0], cl_dig};
+          cl_rem <= cl_rem4[51:0];
+          cl_low <= {cl_low[30:0], 2'b0};
+          cl_ck  <= cl_ck - 1'b1;
+        end
       S_CLXS: begin                   // va + q, into the output vertex
         case (cl_k)
           3'd0: clx[cl_ob | {1'b0, cl_m[2:0]}] <= cl_res;
