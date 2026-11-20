@@ -85,7 +85,29 @@ if fail:
             if l.startswith("========") or "Path #" in l
             or "From Node" in l or "To Node" in l
             or "Slack" in l or "Error" in l]
-    print("\n".join(keep[:400]))
+    print("\n".join(keep[:120]))
+    # THE FAMILIES. A failing clock fails in groups of paths that share a
+    # cause, and 400 path lines hide them: tally the VIOLATED setup paths
+    # by (from, to) with the bit indices and the hierarchy stripped.
+    fam: dict[tuple, list] = {}
+    cur = None
+    for l in keep:
+        m = re.search(r"Setup slack is (-?[\d.]+)", l)
+        if m:
+            cur = [float(m.group(1)), None, None]
+        elif cur and "From Node" in l:
+            cur[1] = l.split(":", 2)[-1].strip()
+        elif cur and "To Node" in l:
+            cur[2] = l.split(":", 2)[-1].strip()
+            if cur[0] < 0:
+                key = tuple(re.sub(r"\[\d+\]|_OTERM\d+|~\S+", "", n.split("u_top|")[-1])
+                            for n in cur[1:])
+                fam.setdefault(key, []).append(cur[0])
+            cur = None
+    if fam:
+        print("\n---- violated setup paths by family (all corners) ----")
+        for (a, b), v in sorted(fam.items(), key=lambda kv: min(kv[1])):
+            print(f"{min(v):+.3f}  x{len(v):<4} {a}  ->  {b}")
     sys.exit("FIT FAIL: a timing corner is violated. A fit quoted at one "
              "corner is not a fit.")
 

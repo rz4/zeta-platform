@@ -17,8 +17,11 @@ foreach_in_collection op [get_available_operating_conditions] {
     set name [get_operating_conditions_info $op -display_name]
     puts "\n======== $name : HOLD (worst 8) ========"
     report_timing -hold -npaths 8 -detail summary -stdout
-    puts "\n======== $name : SETUP (worst 3) ========"
-    report_timing -setup -npaths 3 -detail summary -stdout
+    # 400, NOT 3. Three paths name one culprit; a clock change fails in
+    # FAMILIES, and three at a time is one fit per family (frontier B5).
+    # fit_ci.py tallies these by endpoint family.
+    puts "\n======== $name : SETUP (worst 400) ========"
+    report_timing -setup -npaths 400 -detail summary -stdout
 }
 
 delete_timing_netlist
