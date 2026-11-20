@@ -36,13 +36,41 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from zeta import budget, cabinet, gpu, silicon, spec  # noqa: E402
 
-ROUTES = {"street": 241, "brawl": 521, "tour": 901,     # (+ the title's frame)
-          "intro": 420}                                 # power-on, no input: P8
+# A ROUTE IS ALSO A TAPE (zeta/tape.py): "tape:PATH" plays a recorded
+# session -- the Pocket's own ZTP0 file or the text form -- from its first
+# frame, pad for pad. The scripted routes below showed no frame over the
+# ceiling at 43.2 MHz; on the Pocket the player felt 51.84 MHz "a lot
+# smoother". Real play is heavier than a script, and this is how it gets
+# measured.
+_TAPES = {}
+
+
+def _tape(route):
+    if route not in _TAPES:
+        from zeta import tape
+        _TAPES[route] = tape.read(route[len("tape:"):])
+    return _TAPES[route]
+
+
+class _Routes(dict):
+    def __missing__(self, route):
+        if not str(route).startswith("tape:"):
+            raise KeyError(route)
+        return len(_tape(route))
+
+    def __contains__(self, route):
+        return dict.__contains__(self, route) or str(route).startswith("tape:")
+
+
+ROUTES = _Routes({"street": 241, "brawl": 521, "tour": 901,   # (+ the title's frame)
+                  "intro": 420})                              # power-on, no input: P8
 
 
 def pad(route, f):
     """frame 0 presses Start (TND opens on its title); the route's frame f
     is the machine's f + 1"""
+    if route.startswith("tape:"):
+        return _tape(route)[f]      # a session, exactly as it was played
     if route == "intro":
         return 0                    # the title pages in the intro and it plays
     if f == 0:
