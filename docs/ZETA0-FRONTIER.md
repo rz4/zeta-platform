@@ -1,23 +1,24 @@
-# ZETA-0 GRAPHICS FRONTIER — phase A audit and B1
+# ZETA-0 GRAPHICS FRONTIER — phase A audit, B1, B2, B3
 
 **The question.** Can Zeta draw about 2,000 *useful* triangles a frame in a
 TND combat encounter at a locked 60 Hz, and keep its graphical and
 deterministic guarantees?
 
-**The answer so far.** Not yet.
-- **Today:** 965 useful triangles at the brawl's worst frame. That frame was
-  over budget before B1 and is now inside it with 15% to spare.
-- **The first wall** was the rasterizer walking the whole bounding box of
-  every triangle. It is removed (B1, below) with no change to the law.
-- **The next wall** is the sequencer's cost per face, plus the one-deep
-  handoff that couples the sequencer to the rasterizer.
-  - A fit over 1,420 frames puts it at ~80 clocks per *submitted* face.
-  - At today's ratios that extrapolates to **~941k clocks for 2,000
-    triangles, against a 648k ceiling.**
-- **The most drawn so far** is 1,229 triangles (tour frame 692), and it fits
-  at 511k.
-- **2,000 is not yet measured.** It needs a stress scene before anyone
-  claims it (C1 in the matrix).
+**The answer so far.** Not yet, but the machine now holds about 1,400.
+- **Build 105:** the worst TND frames were over budget (30 brawl frames and
+  51 tour frames above the 648k ceiling).
+- **With B1 + B2 + B3** (branch `frontier/stack`), the worst frame of either
+  route is **482k clocks, 74% of the ceiling**. That is 27% below build 105
+  on the brawl and 30% below on the tour.
+- **What 2,000 would cost now.** A cost model fitted to the stack (§12) puts
+  one drawn triangle at about 400 clocks at TND's mix.
+  - The 43.2 MHz ceiling therefore holds about **1,400 drawn triangles**.
+  - 2,000 would cost about 893k clocks.
+  - At the 51.84 MHz clock (not closed) the ceiling would hold about 1,730.
+- **The most drawn so far** is 1,229 triangles (tour frame 692): 461k on the
+  stack.
+- **These are extrapolations of a linear fit.** A metered 2,000-triangle
+  scene (C1) is still the measurement that settles it.
 
 Each item below is **accepted**, **rejected**, **deferred** or
 **not yet measured**.
@@ -236,10 +237,12 @@ to the bitstream.
 | 466 | 514,470 | 164,934 | 98,632 | 7,017 | 61,854 | 45,815 | 38,093 | 23,183 | 69,127 |
 
 **Reading it.**
-- **The sequencer and the rasterizer now take turns.** At frame 226 the
+- **The sequencer and the rasterizer seem to take turns.** At frame 226 the
   sequencer holds a finished face for 213k clocks, while the rasterizer
-  starves for 246k (the meter's idle). The handoff is one deep, so neither
-  can run ahead of the other.
+  sits in S_WAIT for 246k (the meter's "idle").
+  - **This reading was wrong in an important way; §9 corrects it.** The
+    holding and the starving happen in *different bands*, so a queue cannot
+    trade one against the other.
 - **Clipping is the new heavy stage when the camera is near the street.**
   At frame 226 it costs 117k clocks, against 5–7k at 400 and 466.
 - **dl-hold (98k) is waiting on the band clear, and a probe shows it.** The
@@ -312,20 +315,25 @@ covered pixels per triangle):
 
 ## 7. The candidate matrix
 
-| # | candidate | target | expected gain | cost | disposition |
+Clock figures are at the route peaks unless stated otherwise.
+
+| # | candidate | target | measured or expected gain | cost | disposition |
 |---|---|---|---|---|---|
-| B1 | **span walk**: anchor, seek, draw, early exit | fill | walk −50–60% | a few hundred ALMs, no RAM | **accepted** (this branch) |
+| B1 | **span walk**: anchor, seek, draw, early exit | fill | **measured:** −112k brawl peak, −143k tour peak | +353 ALMs, no RAM | **accepted** |
+| B3 | **fast clipper**: 2-beat DSP multiply, radix-4 divide | the geometry pass, on clip-heavy frames | **measured:** −61k (brawl 226), −41k (tour 887); small elsewhere | +4 DSP; ALMs between ~120 and ~830 depending on the run (§11) | **accepted**: the stack fits with it |
+| B2 | **triangle queue**, 32 deep in MLAB | the sequencer's holds inside band 0 | **measured:** −28k on the *average* frame, −30k at the peaks | +422 ALMs (93%), no M10K | **accepted with a caveat**: one mutant unkilled (§9) |
 | — | early row exit only | fill | walk ×0.81 | small | **rejected**: B1 includes it |
 | — | serpentine walk | fill | walk ×0.63 (crude model) | small | **rejected**: breaks OBJ_LODSPAN's left-to-right order, so it changes the law |
-| C1 | 2,000-triangle stress scene (TND layout, metered) | measurement | answers the question | a cart, no silicon | **not yet measured**: next |
-| B2 | **triangle queue**, sequencer → rasterizer | handoff coupling: ~95k of holding through the clear, plus walk/clip turn-taking | at most min(sequencer hold, rasterizer idle), about 200k at brawl 226; an upper bound, not a forecast | counted below: in MLAB, about 280 ALMs and no M10K | **not yet measured**: recommended next |
-| B3 | clip cost: the clipper's per-band repeat, serial polygon reads | clip | up to ~100k at near-camera frames | unknown | **not yet measured**: needs a per-band clip count |
-| B4 | hide the band clear (lazy or overlapped clear) | clr, and dl-hold if the hypothesis holds | up to ~97k | per-pixel valid bits would need RAM, which is full | **deferred**: confirm the dl-hold hypothesis first |
-| B5 | DIV=6 core clock (51.84 MHz) | everything | +20% clocks a frame | one register on the vc → S_FN path, plus timing closure | **deferred**: an orthogonal lever, and it moves every budget |
+| — | deeper queue (64 to 2,048) | handoff | **measured:** 3k more at most | 280 ALMs per doubling | **rejected**: depth is not the limit (§9) |
+| B6 | radix-16 projection divider (two radix-4 stages a beat) | the geometry pass: 55k of divides every frame | est. −25k every frame; also shortens the gradient ladder | est. ~100 ALMs, plus a longer path | **not yet measured**: next |
+| B4 | hide the band clear | 97.7k every frame, all of it rasterizer-bound | up to ~90k | per-pixel valid bits would need RAM, which is full | **deferred**: no RAM to pay for it |
+| B5 | DIV=6 core clock (51.84 MHz) | everything | +20% clocks a frame | one register on the vc → S_FN path, plus timing closure at 93–94% ALMs | **deferred**: orthogonal, and harder now that the device is fuller |
+| B7 | overlap the geometry pass with rasterizing (frame pipelining) | the structure itself (§9) | large: up to the whole geometry pass | a second vertex cache and bin store; RAM is full | **rejected for this device** unless RAM is freed |
+| C1 | 2,000-triangle stress scene, metered | measurement | answers the question | a cart, no silicon | **not yet measured** |
 | — | texture cache or wider texel fetch | texture | none at present | RAM | **rejected for now**: the texel ladder is not a wall |
 | — | more PSRAM bandwidth | memory | none at present | | **rejected for now**: stall is under 1% |
 
-### B2: counting the bits
+### B2: counting the bits (written before it was built)
 
 One triangle crossing the zseq → zgpu port is **546 bits**:
 
@@ -356,5 +364,278 @@ rasterizer is ready.
 
 - `main` is untouched: build 105, last fit 44698703119.
 - build/pocket holds the verified column.
-- B1 lives only on `frontier/span-walk` until its fit and gates are green,
-  the user has seen it on glass, and the user decides on a merge.
+- Nothing merges until the user has seen it on glass and decides.
+
+**The branches:**
+
+| branch | contents | staged for glass |
+|---|---|---|
+| `frontier/span-walk` | B1 | build/frontier-b1 |
+| `frontier/tri-queue` | B1 + B2 | build/frontier-b2 |
+| `frontier/clip-fast` | B1 + B3, plus the bigclip cart | build/frontier-b3 |
+| `frontier/stack` | B1 + B2 + B3 | build/frontier-stack |
+
+## 9. B2: the triangle queue, and what it taught
+
+**What it is.** A 32-deep, 546-bit queue in zeta_top between zseq and zgpu
+(`frontier/tri-queue`).
+- The rasterizer sees the same handshake as before (ready observed, go one
+  clock later), now driven from the queue's head.
+- The sequencer's ready is the queue's, with one slot kept in hand for the
+  write in flight.
+- A band ends when the rasterizer is idle *and* nothing is queued or in
+  flight.
+- The law is untouched: the same triangles in the same order.
+
+**The prediction was wrong.** §5 bounded the gain at about 200k, by taking
+min(sequencer hold, rasterizer idle) at frame 226. The measured gain at
+that frame is 30k.
+
+**Why: depth is not the limit.** Queue depth was swept in simulation, with
+nothing else changed:
+
+| depth | brawl 226 | brawl 466 |
+|---:|---:|---:|
+| 1 (B1, no queue) | 551,442 | 514,470 |
+| 32 | 521,589 | 485,766 |
+| 64 | 518,663 | 475,018 |
+| 256 | 518,583 | 470,981 |
+| 2,048 | 518,583 | 470,981 |
+
+With an unlimited queue the sequencer is never blocked, and it finishes
+the frame's work in 286k clocks. The frame is still 518k.
+
+**The per-band profile shows the real structure.** The harness now reports
+what each band waits on, and zseq's state histogram per band. Frame 226,
+with the 32-deep queue:
+
+| band | band clocks | sequencer busy | rasterizer walking | vertex | clip | face + gradient |
+|---:|---:|---:|---:|---:|---:|---:|
+| **0** | **231,648** | 231,647 | 10,192 | 76,925 | 117,130 | 17,928 |
+| 1 | 29,155 | 12,942 | 18,160 | 0 | 0 | 1,988 |
+| 2 | 27,638 | 13,057 | 16,636 | 0 | 0 | 1,988 |
+| 3 | 28,453 | 23,218 | 17,412 | 0 | 0 | 2,733 |
+| 4 | 38,180 | 37,095 | 26,852 | 0 | 0 | 9,173 |
+| 5 | 32,979 | 32,727 | 20,201 | 0 | 0 | 12,155 |
+| 6 | 31,933 | 31,932 | 18,937 | 0 | 0 | 11,422 |
+| 7 | 24,967 | 24,574 | 13,865 | 0 | 0 | 4,544 |
+| 8 | 34,515 | 22,812 | 12,006 | 0 | 0 | 3,144 |
+
+- **Band 0 is the geometry pass for the whole frame.** Every vertex is
+  transformed and every face clipped and binned there. The rasterizer has
+  only band 0's own triangles to draw, so it waits.
+- **Bands 1–8 replay the bins.** The sequencer's own work is 2–12k a band,
+  and the rasterizer is the limit (the clear's 10.8k, plus the walk).
+- **So a frame is the sequencer's pass plus eight rasterizer-bound bands,**
+  on top of the VM's 31–44k. The holding and the starving that §5 counted
+  sit in different bands, which is why a queue cannot trade them.
+- **The meter's "idle" misleads.** It is "rasterizer in S_WAIT", counted
+  across the whole frame, the VM's run included. It does not mean a queue
+  could have fed it.
+
+**What B2 does buy.** It recovers the sequencer's holds inside band 0, and
+its first-triangle wait for each clear. That is worth about 28k on the
+average frame, not only at the peaks:
+
+| route | mean, B1 | mean, B1+B2 | peak, B1 | peak, B1+B2 |
+|---|---:|---:|---:|---:|
+| brawl | 430,349 | 400,531 | 551,442 | 521,589 |
+| tour | 416,340 | 388,736 | 543,552 | 516,473 |
+
+**Verification.**
+- Cross bit-equal on the six stress carts.
+- Routed cross bit-equal on all 521 + 901 TND frames.
+- CI gates green.
+- Lint at the baseline.
+
+**Physical cost** (fit 44730285068):
+
+| | B1 | B1 + B2 | change |
+|---|---:|---:|---:|
+| ALMs | 16,743 (91%) | 17,165 (93%) | **+422** |
+| ALMs used for memory | 190 | 470 | +280 |
+| M10K | 308 | 308 | 0 |
+| DSP | 56 | 56 | 0 |
+| core-clock setup slack, worst corner | +2.207 ns | +2.506 ns | still met |
+
+The queue landed in MLAB as written: memory ALMs rose by exactly 280.
+
+**Mutation witnesses.**
+
+| mutant | result |
+|---|---|
+| Q1: the band ends with triangles still queued | **FAIL on all four carts** |
+| Q2: flags read live from zseq, not from the queue | **FAIL** on glow and tex; bunny and fabric pass |
+| Q4: the queue never says full | **FAIL on all four** |
+| Q5: the pop is not guarded against the go in flight | **FAIL on all four** |
+| Q3: the pick id read live (cur_tri), not from the queue | **SURVIVES** |
+
+**The open gap (Q3).** No cart tried kills Q3: pick, watched, vessel,
+banked, and pick.zol re-aimed at a display-list triangle for 60 frames.
+- The queued id is the right design: the id belongs to the triangle, not
+  to whatever the sequencer is doing when the rasterizer takes it.
+- But no gate shows it. A cart whose picked triangle sits behind a backlog
+  would. That cart is owed before B2 merges.
+
+## 10. B3: the clipper's arithmetic
+
+**What was there.** For each coordinate of each plane crossing, the clipper
+computed va + (vb − va)·da / (da − db) one bit a clock: 33 beats of
+shift-and-add, then 33 of restoring divide. It was written when the device
+had no DSP block to spare; it now has ten.
+
+**What it cost.** The band profile at brawl frame 226 (all of it in band 0):
+
+| state | clocks |
+|---|---:|
+| S_CLM (multiply) | 43,164 |
+| S_CLDV (divide) | 43,164 |
+| the rest of the clipper | 30,802 |
+
+That is 436 crossings × 3 coordinates × 66 beats = 86,328.
+
+**The change** (`frontier/clip-fast`, silicon/zseq.v only):
+- **The multiply takes two beats.** The 33 × 50-bit product is split into
+  four partial products (27×27, 27×23, 6×27, 6×23). They are registered,
+  then summed modulo 2^82, exactly as the old 82-bit accumulator took it.
+- **The divide takes seventeen beats.** It is the same restoring quotient in
+  radix 4: sixteen two-bit beats, then one radix-2 beat for the odd 33rd
+  bit. This is the projection divider's own form.
+- **Widths come from the declared range:** den < 2^51, so 3·den and the
+  doubly shifted remainder are 53 bits.
+
+**Measured.** The prediction was 47 clocks saved per coordinate:
+
+| frame | B1 | B1 + B3 | saved | predicted |
+|---|---:|---:|---:|---:|
+| brawl 226 | 551,442 | 489,996 | **61,446** | 61,476 |
+| tour 887 | 543,552 | 502,371 | **41,181** | 41,172 |
+| brawl 466 (little clipping) | 514,470 | 510,485 | 3,985 | — |
+
+B3 is a peak fix, not an average one: the brawl's mean frame moves by 3k
+and the tour's by 9k.
+
+**Verification.**
+- Cross bit-equal on nearclip, hall and tex (40 frames each).
+- Routed cross bit-equal on all 521 + 901 TND frames.
+- Lint at the baseline.
+
+**Mutation witnesses, and the hole they found in the suite.**
+
+| mutant | nearclip | bigclip (new) |
+|---|---|---|
+| C1: a partial product one bit off | **FAIL** | |
+| C2: the divide one beat short | **FAIL** | |
+| C3: the digit never reaches 3 | **FAIL** | |
+| C4: the top partial product (6×23) dropped | survives | **FAIL** (85,369 px) |
+| C5: the high-multiplier partial (6×27) dropped | survives | **FAIL** (11,270 px) |
+| C6: 3·den narrowed to 52 bits | survives | survives: **equivalent** |
+
+- **The suite never reached the top of the clipper's range.** nearclip's
+  tiles are 2 units wide, so every crossing it makes is small arithmetic.
+  The wide end of the old serial datapath was just as unwitnessed.
+- **`carts/bigclip.zol` closes that.** It is the same checker with tiles
+  6,000 units wide, so adjacent vertices differ by more than 2^27 in view
+  space, and the tiles cross all five planes at once. It crosses bit-equal
+  and kills C4 and C5. It is a suite claim now, so it is a standing gate.
+- **C6 is equivalent, not unwitnessed.** Plane distances are signed 50-bit,
+  so den ≤ 2^50 and 3·den < 2^52. The 53-bit width is the declared range's,
+  and it stays.
+
+**Physical cost** (fit 44737066652, B1 + B3):
+
+| | B1 | B1 + B3 |
+|---|---:|---:|
+| ALMs needed | 16,743 (91%) | 17,572 (95%) |
+| combinational ALUTs | 26,575 | 28,235 |
+| DSP | 56 | **60** |
+| M10K | 308 | 308 |
+| core-clock setup slack, worst corner | +2.207 ns | +2.396 ns |
+
+That reads as +829 ALMs, four times the estimate. **But §11 shows the
+number cannot be taken at face value:** the stack, which contains the same
+B3 code, used 1,096 fewer ALUTs than this run did.
+
+## 11. The stack: B1 + B2 + B3
+
+Branch `frontier/stack`. Both routes cross bit-equal on every frame.
+
+| | build 105 | B1 | B1+B2 | B1+B3 | **B1+B2+B3** |
+|---|---:|---:|---:|---:|---:|
+| brawl peak | 663,546 | 551,442 | 521,589 | 510,485 | **481,842** |
+| brawl mean | — | 430,349 | 400,531 | 427,486 | **397,640** |
+| tour peak | 686,836 | 543,552 | 516,473 | 522,746 | **482,273** |
+| tour mean | — | 416,340 | 388,736 | 407,158 | **379,920** |
+| frames over 480k (brawl / tour) | — | 144 / 286 | 10 / 48 | 123 / 245 | **1 / 22** |
+
+- B2 and B3 are complementary: B3 lowers the clip-heavy frames, and B2
+  lowers every frame.
+- The stack's worst frame is 67% of the 720k frame and 74% of the ceiling.
+
+**Physical cost** (fit 44739753754; CI gates 44739754175 green):
+
+| | build 105 | B1 | B1+B2 | B1+B3 | **stack** |
+|---|---:|---:|---:|---:|---:|
+| ALMs needed | 16,390 (89%) | 16,743 (91%) | 17,165 (93%) | 17,572 (95%) | **17,286 (94%)** |
+| ALMs in final placement | 17,426 | 17,757 | 17,999 | 18,143 | **18,056** |
+| combinational ALUTs | 26,336 | 26,575 | 26,886 | 28,235 | **27,139** |
+| registers | 19,694 | 19,813 | 19,979 | 19,805 | **19,765** |
+| DSP | 56 | 56 | 56 | 60 | **60** |
+| M10K | 308 | 308 | 308 | 308 | **308** |
+| core-clock setup slack, worst corner | +2.586 ns | +2.207 ns | +2.506 ns | +2.396 ns | **+2.571 ns** |
+
+**Two things to take from this table.**
+- **The stack fits and closes timing.** It ends at 94%, with as much slack
+  as build 105 had.
+- **Per-candidate ALM costs are noisy by several hundred.**
+  - The stack holds everything B1+B3 holds, plus the queue, yet it reports
+    286 fewer ALMs and 1,096 fewer ALUTs than B1+B3 alone.
+  - Synthesis is resolving the same RTL differently between runs, and the
+    fitter packs harder as the device fills ("difficulty packing" went
+    from Medium to High).
+  - So a single fit says whether a configuration *fits*. It does not price
+    one candidate to the ALM.
+- **The device is close to physically full.** Final placement uses 18,056
+  of 18,480 ALMs. The 94% figure counts on about 1,100 ALMs the fitter
+  estimates it could recover by packing more densely. Every further
+  candidate has to be weighed against that.
+
+**Staged for glass** (each is build/pocket's cart with a different core):
+
+| directory | core |
+|---|---|
+| build/pocket | build 105, the known-working one |
+| build/frontier-b1 | B1 |
+| build/frontier-b2 | B1 + B2 |
+| build/frontier-b3 | B1 + B3 |
+| build/frontier-stack | B1 + B2 + B3 |
+
+## 12. The cost model on the stack
+
+The same regression as §5 (1,420 frames, census against metered clocks),
+on the stack. The fit is tighter: residual σ ≈ 11.4k, worst 62k.
+
+| term | after B1 | on the stack |
+|---|---:|---:|
+| fixed | 117,065 | 89,156 |
+| per submitted face | 80.1 | 68.4 |
+| per drawn triangle | 30.4 | 47.5 |
+| per covered pixel | 1.1 | 1.1 |
+
+At TND's mix (2.34 faces and 172 covered pixels per drawn triangle), one
+drawn triangle costs about **400 clocks**: 160 for its faces, 48 for
+itself, 190 for its pixels.
+
+| ceiling | clocks | drawn triangles it holds |
+|---|---:|---:|
+| 43.2 MHz, 90% | 648,000 | about 1,400 |
+| 51.84 MHz, 90% (not closed) | 777,600 | about 1,730 |
+| needed for 2,000 | about 893,000 | |
+
+**What would close the gap to 2,000.**
+- The clock alone is not enough: it reaches about 1,730.
+- The remaining 14% has to come out of the per-triangle cost. The
+  candidates are the projection divides (B6) and the clear (B4).
+- The alternative is content that submits fewer faces per triangle drawn.
+  Culling earlier would cut the 160-clock face share.
+- All of this is extrapolation. C1 measures it.
