@@ -636,6 +636,18 @@ CLAIMS: list[Claim] = [
           "the machine never named a triangle under the watched pixel -- "
           "or the readout is gone, which is what makes the answer visible",
           frames=40),
+    # THE ID RIDES WITH THE TRIANGLE (frontier B2). pick starts on the
+    # bunny, whose faces the rasterizer takes the moment they are offered;
+    # the floor's are offered during the clear and WAIT -- so only a pick
+    # on the floor can tell an id carried through the queue from one read
+    # off the sequencer's counter when the triangle is finally drawn.
+    Claim("pickfloor", "the pick register names a triangle that WAITED in "
+                       "the queue",
+          lambda o: o.picked > 0 and o.dl_tris > 0,
+          "the machine never named a triangle under the watched pixel -- "
+          "the crosshair is no longer on the floor, so the queued id is "
+          "unwitnessed again",
+          frames=24),
     Claim("vessel", "THE GAME: a goal, a fail state, text over a backdrop, "
                     "more than one mesh, SUB-FRAME sound -- and stage 4's "
                     "light, in a cart that is not a demo of it",

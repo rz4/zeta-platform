@@ -324,7 +324,7 @@ Clock figures are at the route peaks unless stated otherwise.
 | B1 | **span walk**: anchor, seek, draw, early exit | fill | **measured:** −112k brawl peak, −143k tour peak | +353 ALMs, no RAM | **accepted** |
 | B3 | **fast clipper multiply**: one inferred product, one beat | the geometry pass, on clip-heavy frames | **measured:** −42k (brawl 226), −28k (tour 887); small elsewhere | +4 DSP, **−47 ALMs**, −232 registers | **accepted** |
 | — | radix-4 clipper divide | the same | **measured:** a further −20k (brawl 226), −13k (tour 887) | +1,019 ALMs fitted alone | **rejected**: the dear half of the first B3 (§10) |
-| B2 | **triangle queue**, 32 deep in MLAB | the sequencer's holds inside band 0 | **measured:** −28k on the *average* frame, −30k at the peaks | +422 ALMs (93%), no M10K | **accepted with a caveat**: one mutant unkilled (§9) |
+| B2 | **triangle queue**, 32 deep in MLAB | the sequencer's holds inside band 0 | **measured:** −28k on the *average* frame, −30k at the peaks | +422 ALMs fitted alone (+237 in the stack), no M10K | **accepted** |
 | — | early row exit only | fill | walk ×0.81 | small | **rejected**: B1 includes it |
 | — | serpentine walk | fill | walk ×0.63 (crude model) | small | **rejected**: breaks OBJ_LODSPAN's left-to-right order, so it changes the law |
 | — | deeper queue (64 to 2,048) | handoff | **measured:** 3k more at most | 280 ALMs per doubling | **rejected**: depth is not the limit (§9) |
@@ -471,14 +471,19 @@ The queue landed in MLAB as written: memory ALMs rose by exactly 280.
 | Q2: flags read live from zseq, not from the queue | **FAIL** on glow and tex; bunny and fabric pass |
 | Q4: the queue never says full | **FAIL on all four** |
 | Q5: the pop is not guarded against the go in flight | **FAIL on all four** |
-| Q3: the pick id read live (cur_tri), not from the queue | **SURVIVES** |
+| Q3: the pick id read live (cur_tri), not from the queue | survives the four carts; **FAIL on pickfloor (new)** |
 
-**The open gap (Q3).** No cart tried kills Q3: pick, watched, vessel,
-banked, and pick.zol re-aimed at a display-list triangle for 60 frames.
-- The queued id is the right design: the id belongs to the triangle, not
-  to whatever the sequencer is doing when the rasterizer takes it.
-- But no gate shows it. A cart whose picked triangle sits behind a backlog
-  would. That cart is owed before B2 merges.
+**The gap Q3 found, and the cart that closed it.** Q3 survived pick,
+watched, vessel and banked, and pick.zol re-aimed at a display-list
+triangle.
+- **Why it survived.** Those carts pick small triangles that the rasterizer
+  takes the moment they are offered. An id read at that moment is the same
+  whether it rode in the queue or was read off the sequencer's counter.
+- **What waits is the floor.** It is the first mesh in the list, so every
+  band offers its triangles while the rasterizer is still clearing.
+- **`carts/pickfloor.zol`** is pick.zol with the crosshair started on the
+  floor at (160, 250). It crosses bit-equal, and Q3 fails it at frame 1 by
+  420 pixels. It is a suite claim now, so it is a standing gate.
 
 ## 10. B3: the clipper's arithmetic
 
