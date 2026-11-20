@@ -328,11 +328,12 @@ Clock figures are at the route peaks unless stated otherwise.
 | — | early row exit only | fill | walk ×0.81 | small | **rejected**: B1 includes it |
 | — | serpentine walk | fill | walk ×0.63 (crude model) | small | **rejected**: breaks OBJ_LODSPAN's left-to-right order, so it changes the law |
 | — | deeper queue (64 to 2,048) | handoff | **measured:** 3k more at most | 280 ALMs per doubling | **rejected**: depth is not the limit (§9) |
-| B6 | radix-16 projection divider (two radix-4 stages a beat) | the geometry pass: 55k of divides every frame | est. −25k every frame; also shortens the gradient ladder | est. ~100 ALMs, plus a longer path | **not yet measured**: next |
+| B6 | radix-16 projection divider (two radix-4 stages a beat) | the geometry pass: 55k of divides every frame | **measured:** −23k on every frame (brawl peak 483k → 460k) | **+986 ALMs: 17,919, 97%**; slack +1.960 ns | **rejected**: exact, but it does not fit this device (§13) |
 | B4 | hide the band clear | 97.7k every frame, all of it rasterizer-bound | up to ~90k | per-pixel valid bits would need RAM, which is full | **deferred**: no RAM to pay for it |
 | B5 | DIV=6 core clock (51.84 MHz) | everything | +20% clocks a frame | one register on the vc → S_FN path, plus timing closure at 93–94% ALMs | **deferred**: orthogonal, and harder now that the device is fuller |
 | B7 | overlap the geometry pass with rasterizing (frame pipelining) | the structure itself (§9) | large: up to the whole geometry pass | a second vertex cache and bin store; RAM is full | **rejected for this device** unless RAM is freed |
-| C1 | 2,000-triangle stress scene, metered | measurement | answers the question | a cart, no silicon | **not yet measured** |
+| C1 | stress scene: TND with a fourth demon, metered | measurement | **done** (§14): the object list and the vertex cache bind before the clock does | a build flag, no silicon | **measured** |
+| B8 | a longer object list (64 → ~100) and a larger vertex cache | the two limits C1 found | lets the scene grow past one more demon | a law change (OL_MAX), registers for the list, and M10K for the cache, which is full | **deferred**: needs RAM freed first |
 | — | texture cache or wider texel fetch | texture | none at present | RAM | **rejected for now**: the texel ladder is not a wall |
 | — | more PSRAM bandwidth | memory | none at present | | **rejected for now**: stall is under 1% |
 
@@ -659,3 +660,96 @@ itself, 186 for its pixels.
 - The alternative is content that submits fewer faces per triangle drawn.
   Culling earlier would cut the 164-clock face share.
 - All of this is extrapolation. C1 measures it.
+
+## 13. B6: the radix-16 projection divider (rejected)
+
+Every projected vertex pays three divides (w, x, y) of nine beats each on
+one shared radix-4 divider: 55k clocks of the TND brawl's frame 226, in
+band 0. A second radix-4 stage in the same beat makes it radix 16: five
+beats a divide, and seven for the gradient ladder where it took thirteen.
+
+- **Exact.** Crossed bit-equal on bunny, tex, nearclip, bigclip, lit and
+  glow, and on the whole TND brawl route (521 frames).
+- **Measured.** The brawl peak goes from 483,091 to 460,272, and the median
+  from 405,868 to 382,519: about 23k on every frame.
+- **Fitted** (run 44756570679, on top of the stack):
+
+| | stack | stack + B6 |
+|---|---:|---:|
+| ALMs needed | 16,933 (92%) | **17,919 (97%)** |
+| zseq combinational ALUTs | 9,205 | 11,143 |
+| core-clock setup slack, worst corner | +2.468 ns | +1.960 ns |
+
+- **Rejected.** 23k clocks is 5% of a frame. A thousand ALMs is more than
+  everything else in the stack put together, and it takes the device to
+  97%.
+- **The estimate was wrong again, the same way.** I guessed about 100 ALMs
+  for three more subtractors and a multiplexer; the clipper's radix-4
+  divide was guessed at 200 and fitted at 1,019. Divider stages cost about
+  a thousand ALMs each on this device, for reasons the reports kept so far
+  do not show. The map report is the place to look before anyone tries a
+  third.
+
+The branch `exp/div16` holds it, for a device with room.
+
+## 14. C1: the stress scene
+
+**The method.** `TND_STRESS=n` is a local build flag (like `TND_OMIT`). It
+lists n extra demons, each a render-only clone of a real one in its pose,
+standing a stride beside it. No game state changes, so a route plays
+identically and each frame compares one for one with the unstressed
+build. The stressed brawl crosses bit-equal (300 frames).
+
+**One extra demon** (measured on the stack, brawl route):
+
+| | TND | TND + 1 demon | change |
+|---|---:|---:|---:|
+| objects listed (of 64) | 49–51 | **61–63** | +12 |
+| faces submitted | 2,136 | 2,510 | +374 |
+| vertices transformed (frame 359, of 2,048 cached) | 1,657 | 1,911 | +254 |
+| drawn triangles (frame 359) | 933 | 1,128 | +195 |
+| frame clocks, median over the route | — | — | **+32,254** |
+| frame clocks, worst case | — | — | +44,755 (frame 359) |
+| brawl peak | 483,091 | 513,075 | still under the 648k ceiling |
+
+**What it shows.**
+- **Geometry scales linearly, with no cliff.** One demon is about 32k
+  clocks: 86 clocks per submitted face, 165 per drawn triangle. Demon
+  triangles are small, so they cost less than the route average of 394.
+- **On clocks alone there is room for about four more demons.** The
+  ceiling has 135k of headroom at the stressed peak. That would put the
+  fight near 1,900 drawn triangles.
+- **Two structural limits bind first.**
+  - **The object list holds 64.** The fight lists 49–51 and a demon is 12
+    parts, so exactly one more fits. A second cannot be listed at all.
+  - **The vertex cache holds 2,048.** The fight transforms 1,657 and a
+    demon is 254, so the cache overflows midway through the second extra
+    demon. Past that, an object is re-transformed in every band.
+- **So the answer to the 2,000 question has changed shape.** After the
+  stack, clocks are no longer what stops TND's combat scene from doubling.
+  The object list and the vertex cache are. Both are memory, and block RAM
+  is full (B8).
+
+## 15. B5: the 51.84 MHz clock (in progress)
+
+**What the old notes said:** it "needs the second PLL". A timing-only fit
+of the stack with the core output moved to 51.84 MHz confirmed where that
+came from: the fitter rejects the audio output's 12.282352 MHz as illegal
+once the core is 51.84.
+
+**One PLL can do it at a different VCO.** 51.84 × 23 = 1192.32 MHz divides
+into all three:
+
+| output | divider | frequency |
+|---|---:|---|
+| core | 23 | 51.84 MHz |
+| dot clock | 138 | 8.64 MHz |
+| audio | 97 | 12.291958 MHz: 0.033% from 12.288 (today's 12.282352 is 0.046% off) |
+
+**Still to do before this is a build:**
+- Confirm the fitter accepts the plan and see whether the logic closes at
+  19.29 ns (fit 44760529968, timing only).
+- Re-derive everything that counts clocks: DIV (5 → 6), the audio divider,
+  and the law's 720,000 clocks a frame.
+- Re-time the PSRAM interface at the faster clock. Only glass can prove
+  that.
