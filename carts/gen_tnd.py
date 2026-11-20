@@ -1059,9 +1059,14 @@ for i in range(256):                    # 2 root cycles, 3 fifths, 4 octaves
     ph = i / 256
     sq = lambda c: 1 if (ph * c) % 1 < 0.5 else -1   # noqa: E731
     _chug.append(max(-14, min(14, (sq(2) * 5 + sq(3) * 4 + sq(4) * 3) * 4)) * 8)
-WAVES = cart.data(Table(page(_sq_page) + page(_chug)), "wave_pages")
+_noise, _lf, _acc = [], 0xACE1, 0          # a deterministic grain, softened
+for i in range(256):
+    _lf = (_lf >> 1) ^ (0xB400 if _lf & 1 else 0)
+    _acc = (_acc * 3 + ((_lf & 0xFF) - 128)) // 4      # one-pole low-pass
+    _noise.append(max(-110, min(110, _acc * 2)))
+WAVES = cart.data(Table(page(_sq_page) + page(_chug) + page(_noise)), "wave_pages")
 cart.boot(spec.WAV_SRC, int(WAVES))
-PG_SQ, PG_CHUG = 0, 1
+PG_SQ, PG_CHUG, PG_NOISE = 0, 1, 2
 
 # the stems: (name, voice, page or None, base volume, fade a frame x16)
 STEMS = (("drums", None, None, 0, 0),
@@ -2046,6 +2051,72 @@ p.mark(f"{sx}_q")
 for reg in (1, 5):                               # quiet (ch3 is the drums')
     p.set(spec.AU_BASE + reg, 0)
 p.mark(sx)
+# ---- THE SMALL SOUNDS (sfx.py): the whiff, the step, the stinger ----------------
+# WHIFF  a swing whose active window closes on nothing: air only -- a noise
+#        swell with no transient and no low end, so it can never be taken
+#        for a blow ("how a player learns their own range")
+# STEP   a low noise thud every half stride (the page stepped slowly)
+# STING  a rank climbed: a square arpeggio with a fifth's shimmer over it,
+#        higher and longer the higher the rank (_STINGER_ROOT, 3 + r/2 notes)
+# On voices nothing else uses: ch11 the whiff, ch12 the step, ch13-14 the
+# stinger. The whiff and the step play per-frame (inc, vol) tables through
+# one subroutine; the stinger computes its notes, three frames each.
+def seq(incs, vols):
+    return [w for i, v in zip(incs, vols) for w in (i, v)]
+
+
+_wv = (4, 8, 10, 9, 7, 5, 4, 2, 1)                  # the swell, then the air
+_sv = (10, 8, 6, 4, 3, 2, 1, 1, 0)
+SND_WHIFF = cart.data(Table(seq([hz(70 - 3 * k) for k in range(9)], _wv)), "snd_whiff")
+SND_STEP = cart.data(Table(seq([hz(9)] * 9, _sv)), "snd_step")
+SG = {k: cart.var("sg_" + k) for k in ("gr", "last", "d", "t", "n")}
+SG.update({k: cart.data(Table([99]), "sg_" + k) for k in ("wt", "st", "gt")})  # (quiet)
+# a player's descriptor: its time cell, its table, its length, its voice
+PLAYD = {name: cart.data(Table([int(SG[tc]), int(tab), 9, spec.AU_BASE + 2 * ch,
+                                PG_NOISE << 8]), "play_" + name)
+         for name, tc, tab, ch in (("whiff", "wt", SND_WHIFF, 11),
+                                   ("step", "st", SND_STEP, 12))}
+STING = cart.data(Table([hz(root * 2 ** (semi / 12)) for root in
+                         (196, 220, 262, 330, 392, 494, 587)
+                         for semi in (0, 4, 7, 12, 16)]), "snd_sting")
+L_PLAY = p.label("play")
+sw = p.label("smalls")
+# triggers: the whiff on a swing's last active frame with nothing struck
+p.load(ANIM).push(2).emit("eq", f"jz {sw}_w")
+p.load(F["con"]).emit(f"jz {sw}_w1", f"jmp {sw}_w")
+p.mark(f"{sw}_w1")
+p.load(AF).push(1).emit("add")
+row(PMT, F["mv"], "endact")
+p.emit("eq", f"jz {sw}_w")
+p.set(SG["wt"], 0)
+p.mark(f"{sw}_w")
+p.load(ANIM).push(1).emit("eq", f"jz {sw}_s")         # a step each half stride
+p.load(AF).push(15).emit("and", f"jz {sw}_s1", f"jmp {sw}_s")
+p.mark(f"{sw}_s1")
+p.set(SG["st"], 0)
+p.mark(f"{sw}_s")
+p.load(SG["last"]).load(SY["rank"]).emit("lt", f"jz {sw}_g")   # a rank climbed
+p.set(SG["gt"], 0).load(SY["rank"]).store(SG["gr"])
+p.mark(f"{sw}_g")
+p.load(SY["rank"]).store(SG["last"])
+for name in ("whiff", "step"):
+    p.push(int(PLAYD[name])).store(SG["d"]).emit(f"call {L_PLAY}")
+# the stinger: note k = t / 3 of (3 + rank/2), a fifth above at half level
+sg = p.label("sting")
+p.load(SG["gr"]).emit("shr 1").push(3).emit("add").store(SG["n"])     # notes
+p.load(SG["gt"]).load(SG["n"]).push(3).emit("mul", "lt", f"jz {sg}_q")
+p.load(SG["gt"]).push(86).emit("mul", "shr 8").store(SG["t"])       # t / 3
+p.push(int(STING)).load(SG["gr"]).push(5).emit("mul", "add").load(SG["t"]).emit("add", "loadi")
+p.emit("dup").store(spec.AU_BASE + 26)
+p.push(3).emit("mul", "shr 1").store(spec.AU_BASE + 28)              # the fifth
+p.push(11).load(SG["gt"]).load(SG["t"]).push(3).emit("mul", "sub").push(3).emit("mul", "sub")
+p.load(MU["inten"]).push(128).emit("add", "mul", "shr 8")   # (rides the music, louder)
+p.emit("dup").push(PG_SQ << 8).emit("or").store(spec.AU_BASE + 27)
+p.emit("shr 1").push(PG_SQ << 8).emit("or").store(spec.AU_BASE + 29)
+p.addi(SG["gt"], 1).emit(f"jmp {sg}")
+p.mark(f"{sg}_q")
+p.set(spec.AU_BASE + 27, 0).set(spec.AU_BASE + 29, 0)
+p.mark(sg)
 p.load(EVN).store(spec.AU_EV_BASE)
 
 p.emit("load 1").store(PV)
@@ -2506,6 +2577,27 @@ p.emit("ret")
 
 _kia_sub()
 _shv_sub()
+
+# PLAY: the descriptor at sg_d -- [time cell, table, length, voice inc
+# register, page bits]: the table's (inc, vol) for this frame, or silence
+pl = p.label("pl")
+p.mark(L_PLAY)
+def dfield(k):
+    p.load(SG["d"])
+    if k:
+        p.push(k).emit("add")
+    p.emit("loadi")
+dfield(0); p.emit("loadi").store(SG["t"])
+p.load(SG["t"]); dfield(2); p.emit("lt", f"jz {pl}_q")
+dfield(1); p.load(SG["t"]).push(2).emit("mul", "add", "dup", "loadi")
+dfield(3); p.emit("storei")                                 # inc
+p.push(1).emit("add", "loadi"); dfield(4); p.emit("or")
+dfield(3); p.push(1).emit("add", "storei")                  # ctrl: page | vol
+p.load(SG["t"]).push(1).emit("add"); dfield(0); p.emit("storei")
+p.emit("ret")
+p.mark(f"{pl}_q")
+dfield(4); dfield(3); p.push(1).emit("add", "storei")       # silent
+p.emit("ret")
 
 # SINE: ( a -- sin a ), Q16.16, from the quarter wave. sin(a) for a in
 # 256..511 is sin(512 - a); the lower half-turn negates the upper.

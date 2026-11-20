@@ -537,3 +537,39 @@ def test_the_aware_marker_has_hysteresis():
     assert aware_after(0.53, 1) == 1, "left the cone early: no hysteresis"
     assert aware_after(0.53, 0) == 0, "entered the cone early: no hysteresis"
     assert aware_after(math.pi, 1) == 0
+
+
+def test_the_small_sounds():
+    """sfx.py's whiff, step and stinger, each on its own voice: steps while
+    he walks; a whiff for a jab at the air -- and none for one that lands
+    (the difference is how a player learns their range); the stinger when
+    the rank climbs, its notes three frames each."""
+    def vol(m, ch):
+        return m.vm.dmem[spec.AU_BASE + 2 * ch + 1] & 15
+    m = _fight_vm()
+    steps = 0
+    for f in range(60):
+        m.frame(spec.PAD_UP)
+        steps += vol(m, 12) > 0
+    assert steps > 10, "no footsteps"
+    m = _fight_vm()
+    whiff = []
+    for f in range(40):
+        m.frame(spec.PAD_A if f == 10 else 0)
+        whiff.append(vol(m, 11) > 0)
+    assert any(whiff), "a jab at the air made no whiff"
+    m = _fight_vm()
+    for f in range(345):
+        m.frame((spec.PAD_RIGHT if 300 <= f < 308 else 0) | (spec.PAD_A if f == 322 else 0))
+        if f > 322:
+            assert vol(m, 11) == 0, "a jab that landed whiffed"
+    assert _wave(m)[0]["hp"] < 70, "fixture: the jab must land"
+    m = _fight_vm()
+    sting = []
+    for f in range(40):
+        if f == 20:
+            m.vm.dmem[_sym("s_pts")] = 65 * 16           # to C
+        m.vm.dmem[_sym("s_idle")] = 0
+        m.frame(0)
+        sting.append(vol(m, 13) > 0)
+    assert sting[:20] == [False] * 20 and sum(sting) == 9, sting

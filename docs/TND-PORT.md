@@ -218,6 +218,11 @@ after the game ships.
                  (root, fifth and octave hard-clipped, as _power_chug).
                  One loop over a stem table: unrolled it was 1,150 words
                  and IMEM holds 4,096.
+    the small    sfx.py's whiff (a swing that closes on nothing: a noise
+    sounds      swell with no transient, never to be taken for a blow), a
+                 footstep each half stride, and the rank-up stinger (a square
+                 arpeggio with a fifth over it, 3 + r/2 notes from the rank's
+                 root) -- on voices nothing else uses, from a noise page.
     room made    the display-list lease cut to 40 triangles (the largest
                  text at once is RETRY's 38) and the blow's curves
                  computed instead of tabled.
