@@ -730,26 +730,79 @@ build. The stressed brawl crosses bit-equal (300 frames).
   The object list and the vertex cache are. Both are memory, and block RAM
   is full (B8).
 
-## 15. B5: the 51.84 MHz clock (in progress)
+## 15. B5: the 51.84 MHz clock (fitted; glass pending)
 
-**What the old notes said:** it "needs the second PLL". A timing-only fit
-of the stack with the core output moved to 51.84 MHz confirmed where that
-came from: the fitter rejects the audio output's 12.282352 MHz as illegal
-once the core is 51.84.
+Branch `frontier/div6`. Six clocks a pixel where there were five: the
+frame is 864,000 clocks where it was 720,000, and the 90% ceiling 777,600
+where it was 648,000. Staged for glass in build/frontier-div6.
 
-**One PLL can do it at a different VCO.** 51.84 × 23 = 1192.32 MHz divides
-into all three:
+**The PLL.** The old notes said the faster clock "needs the second PLL",
+and a first timing-only fit confirmed where that came from: with the core
+moved to 51.84 MHz the fitter rejects the audio output's 12.282352 MHz as
+illegal. One PLL does it at a different VCO, 51.84 × 23 = 1192.32 MHz:
 
 | output | divider | frequency |
 |---|---:|---|
 | core | 23 | 51.84 MHz |
 | dot clock | 138 | 8.64 MHz |
-| audio | 97 | 12.291958 MHz: 0.033% from 12.288 (today's 12.282352 is 0.046% off) |
+| audio | 97 | 12.291958 MHz: 0.033% from 12.288 (the 12.282352 it replaces is 0.046% off) |
 
-**Still to do before this is a build:**
-- Confirm the fitter accepts the plan and see whether the logic closes at
-  19.29 ns (fit 44760529968, timing only).
-- Re-derive everything that counts clocks: DIV (5 → 6), the audio divider,
-  and the law's 720,000 clocks a frame.
-- Re-time the PSRAM interface at the faster clock. Only glass can prove
-  that.
+**What followed the clock.**
+- zeta_glass's DIV goes 5 → 6. Everything it times was already written in
+  DIV: the dot strobe, the scanout's line bursts, and the audio strobe
+  (180 × DIV = 1,080 clocks a sample).
+- The budget gate's frame is 864,000 clocks.
+- The PSRAM's latency is a clock count and needed no change. Its pins meet
+  timing with about 5 ns to spare.
+
+**Timing closure.** The CI's failing-fit testimony was changed to tally
+every violated path by family (it printed three paths a corner). Each fit
+then named the next layer:
+
+| fit | worst setup slack | families it named | the fix |
+|---|---:|---|---|
+| 1 | −1.835 ns | the rasterizer's box test (218 paths) | the box extents take a register: one clock a triangle |
+| | | the edge seed's multiply (574) | its operands take a register: no extra clocks |
+| | | the scanout compositor's lerp (8) | the winning rectangle takes a register |
+| 2 | −1.625 ns | the audio mixer's sixteen-way sum (800) | four partial sums registered; the sample lands a clock later |
+| 3 | −0.595 ns | the vertex rotation (719) | the four products registered: six clocks a vertex |
+| | | the blend into the tile's colour (37) | the colour to write takes a register |
+| **4** | **+0.901 ns** | none | **every corner met** |
+
+**The fit** (run 44783525113):
+
+| | the stack at 43.2 MHz | B5 at 51.84 MHz |
+|---|---:|---:|
+| ALMs needed | 16,933 (92%) | 16,962 (92%) |
+| DSP | 60 | 60 |
+| setup slack, slow 85C / 0C | +2.468 ns worst | +0.901 / +0.954 ns |
+| hold slack, worst (fast 0C) | — | +0.089 ns |
+
+**Verification.**
+- Every fix crossed bit-equal on the stress carts as it went in. The last
+  set passes on glow, bunny, tex, lodspan, nearclip, bigclip, lit, fabric,
+  vessel, banked and pickfloor.
+- Audio: sample streams bit-equal on choir, voice, vessel, tnd, tex, pulse
+  and band (40 frames each).
+- The glass gate passes at six clocks a pixel (fade, tex, vessel).
+- TND's brawl route crosses bit-equal, all 521 frames.
+
+**What it buys TND** (brawl route, silicon meter):
+
+| | the stack, 43.2 MHz | B5, 51.84 MHz |
+|---|---:|---:|
+| peak, clocks | 483,091 | 494,240 |
+| the frame | 720,000 | 864,000 |
+| peak as a share of the frame | 67% | **57%** |
+| headroom under the 90% ceiling | 164,909 | **283,360** |
+
+The pipeline registers cost about 11k clocks a frame. The clock gives
+144k. By the stress scene's measure (§14, about 32k a demon) the headroom
+is worth nearly four more demons than before, if the object list and the
+vertex cache let them in.
+
+**Only glass can prove the rest.**
+- The PSRAM pair runs 20% faster. Timing analysis says its pins meet, but
+  the constraints are conservative estimates, not measurements.
+- The audio master clock moves from 12.282 to 12.292 MHz.
+- The scaler's dot clock is unchanged at 8.64 MHz.
