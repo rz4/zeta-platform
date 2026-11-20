@@ -853,3 +853,64 @@ more clocks a frame. Nothing measured asks for them yet: TND's heaviest
 scripted frame uses 58% of today's frame. The first tapes of real play
 (§15's finding) decide whether this is worth its glass risk. 69.12 MHz
 is rejected for this pipeline.
+
+## 17. The device was fuller than its headline, and B9: the event list as memory
+
+**The recorder's fit failed** (`platform/tape`, 01e4b1d): −0.184 ns in the
+slow corners, six paths, all `cram0_dq` → `r_data`, the frame memory's
+read capture. The recorder is 194 ALUTs and 191 registers. It should
+have had room.
+
+**It did not, and the headline hid it.** Quartus's "Logic utilization"
+is not what is placed. It is *needed* = placed − recoverable by dense
+packing + unavailable, and the middle term is a guess:
+
+| Fit | placed (A) | recoverable (B) | headline |
+|---|---:|---:|---:|
+| main, 1cafa9c | 17,717 | 1,276 | 16,962 (92%) |
+| + the recorder | 17,960 | 220 | 18,273 (99%) |
+
+Placement grew by 243. The headline grew by 1,311: when the fitter had
+to pack densely, most of the ALMs it had promised were not there (and
+under timing pressure it duplicated logic: `zseq` went from 9,901 ALUTs
+to 11,197 with its source unchanged). The device holds 18,480. Main was
+96% placed while it read 92%.
+
+**From here on a fit is quoted with both numbers.**
+
+**A fix that did nothing.** `FAST_INPUT_REGISTER` on the 32 frame-memory
+data pins, to take that path out of the fitter's hands. Quartus ignored
+it (warning 176250) and the refit was identical to the picosecond; the
+same on the 60.48 MHz experiment. The capture register sits inside
+`cram_burst`'s state machine. Pinning it needs a dedicated register and
+a re-timed burst: a glass change, not an assignment. Reverted.
+
+**B9: the audio event list as two memories (fitted; not yet on glass).**
+Looking for room in `zsnd` (2,400 ALMs, 3,669 registers) found that the
+voices were not the cost. The event list, one array read at `1+2p` and
+`2+2p` in the same clock, had never become a memory: the map report
+lists `evm~N` as registers, with two wide multiplexers to read them. An
+event's two words are read together and written apart, so each now has
+its own MLAB (`evm0`, `evm1`).
+
+| | main | B9 |
+|---|---:|---:|
+| `zsnd` registers | 3,669 | **1,133** |
+| `zsnd` placed, ALMs | 2,827 | **1,592** |
+| design placed (A) | 17,717 | **17,252** |
+| headline | 16,962 | **16,318 (88%)** |
+| worst slow-corner setup | +0.901 ns | +0.640 ns |
+
+- No behaviour changes: lint at 111; choir, voice, band, pulse and
+  vessel cross bit-equal for 40 frames, picture and sample stream (band,
+  pulse and vessel drive events).
+- `zseq` spread into the room (placed 6,627 → 7,156 with 680
+  recoverable), so the design gave back 466 placed ALMs where `zsnd`
+  alone gave 1,235.
+- **Owed:** glass. TND drives events every frame, so its sound is the
+  witness.
+
+**Still in block RAM for no reason:** the sixteen wave tables are 2,048
+bits each and sit in sixteen M10K blocks (of 308, all used). One merged
+table would need four. That is a serial mixer, and it is the next place
+to look when block RAM is what is short.
