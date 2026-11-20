@@ -276,6 +276,10 @@ def test_every_visit_keeps_the_save_and_a_push_keeps_the_tape(tmp_path):
         sdcard.TAPES = keep
     assert (card / deploy.TAPE_FILE).read_bytes() == recorded
     assert sdcard.TAPE_NAME == Path(deploy.TAPE_FILE).name
+    # ...and the push's own copy of the save went where it was told, not
+    # into the real build/tapes (a default argument bound at import did
+    # exactly that once, and left a test's save among the real ones)
+    assert len(list(home.glob("*.card.bin"))) == 2
 
 
 def test_the_session_again_writes_the_save_the_pocket_wrote(tmp_path, capsys):

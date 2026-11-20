@@ -54,7 +54,8 @@ TAPES = ROOT / "build" / "tapes"     # sessions and saves brought home
 TAPE_NAME = "tape.ztp"              # deploy.TAPE_FILE's name (tested equal)
 
 
-def saves_home(card: Path, out_dir: Path = TAPES, stamp: str | None = None) -> list[Path]:
+def saves_home(card: Path, out_dir: Path | None = None,
+               stamp: str | None = None) -> list[Path]:
     """Copy the card's save files home, under the time of this visit.
 
     A replay needs the save its session STARTED with, and the card only
@@ -63,7 +64,8 @@ def saves_home(card: Path, out_dir: Path = TAPES, stamp: str | None = None) -> l
     session just played and the start of the next."""
     import time
     from . import deploy
-    stamp = stamp or time.strftime("%Y%m%d-%H%M%S")
+    out_dir = out_dir or TAPES          # read NOW: a default argument is
+    stamp = stamp or time.strftime("%Y%m%d-%H%M%S")   # bound once, at import
     src = card / deploy.ASSETS
     out = []
     for f in sorted(src.glob("card*.bin")):
@@ -80,13 +82,14 @@ def saves_home(card: Path, out_dir: Path = TAPES, stamp: str | None = None) -> l
     return out
 
 
-def tape(card: Path, out_dir: Path = TAPES, cart=None) -> Path | None:
+def tape(card: Path, out_dir: Path | None = None, cart=None) -> Path | None:
     """Bring the recorded session home: the tape the OS wrote when the
     core last exited, trimmed to the session and named by the time it was
     written; the save files beside it; and which game on the card it was.
     `cart` (a loaded cart) is checked against its header instead."""
     import time
     from . import deploy, tape as ztape
+    out_dir = out_dir or TAPES
     src = card / deploy.TAPE_FILE
     if not src.is_file():
         print(f"no tape on the card ({deploy.TAPE_FILE})")
