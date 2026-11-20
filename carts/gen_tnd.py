@@ -109,10 +109,14 @@ def pose_span(V, S):
     return (half_words(V, S, halves[0])[2:] + half_words(V, S, halves[1]))
 
 
-# THE HUD'S PROMISE: at most 80 display-list triangles, ever -- the rank
-# (SSS: 30), the combo (X99: 28) and the wordmark (TND: 18) together, or
-# RETRY (34) alone -- so the list's other 1,232 words hold content.
-DL_LEASE = 80
+# THE HUD'S PROMISE: at most 78 display-list triangles, ever -- the rank
+# (SSS: 30), the combo at its worst digits (X55: 30) and the wordmark
+# (TND: 18) together, or RETRY (38) alone, or the title's BEST and a rank
+# (P14: 64) -- so the list's other 1,246 words hold content. It was 80,
+# on a count of 76 that was two short (X99 is 30, not 28): two triangles
+# nobody drew, 14 words, which P14's save needed in a DMEM with none
+# left. The promise is PROVED below from the font, not counted by hand.
+DL_LEASE = 78
 
 # ---- P8's sizes, which the cart needs before anything is placed -------------
 # THE ATTRACT INTRO (P8, below) is a SECOND PROGRAM, paged in by the overlay
@@ -140,6 +144,11 @@ INTRO_RW = 16                    # a frame's row: camera, colours, rects
 INTRO_CELLS = 4                  # ...and the intro's own cells after it
 FONT_CH = "DCBASRETYXN0123456789"
 assert len(INTRO_FONT_CH) <= len(FONT_CH)
+_digit = max(_rects(d) for d in "0123456789")
+_rank = max(_rects(r) for r in ("D", "C", "B", "A", "S", "SS", "SSS"))
+assert 2 * (_rank + _rects("X") + 2 * _digit + _rects("TND")) <= DL_LEASE, "the HUD"
+assert 2 * _rects("RETRY") <= DL_LEASE, "RETRY"
+assert 2 * (_rects("BEST") + _rank) <= DL_LEASE, "the title's BEST"
 B_FRONT = spec.DL_STRIDE * (INTRO_TRIS - DL_LEASE)
 B_END = 2 * len(FONT_CH) + sum(len(t) + 1 for t in INTRO_STRS) + INTRO_RW + INTRO_CELLS
 cart = Cart("tnd", dl_lease=DL_LEASE, dl_borrow=(B_FRONT, B_END))
@@ -1199,6 +1208,20 @@ WORDMARK = [(cart.data(Table(glyphs(c)), "str_wm_" + c, borrow="auto"), x, col)
 S_STRS = cart.data(Table([int(x) for x in STR_RANK]), "str_ranks", borrow="auto")
 S_LEN = cart.data(Table([len(r) for r in RANKS]), "rank_len", borrow="auto")
 GW = 4 * 3                                     # a glyph and its gap, x3
+# ---- P14: THE CARD -- what survives the power ---------------------------------
+# Two words in slot 2: the best rank ever reached (0 none yet, 1..7 for
+# D..SSS) and the runs that ended. Read once, a second after the machine
+# starts; a rank passed or a run ended is OWED to the card and goes out
+# when the card is free (one transfer in flight is the law's own rule).
+# (Placed at the TOP of the display list's tail -- Cart.tail_top -- so
+# these eight words move nothing else in a DMEM that is exactly full.)
+CARDV = cart.tail_top(Table([0, 0]), "save")
+CARDF = cart.tail_top(Table([0]), "save_f")    # bit 0: the read is asked;
+                                               # bit 1: CARDV is owed to the card
+SAVE_SLOT = 2
+cart.sd(SAVE_SLOT, Table([0, 0]), "save_img")
+STR_BEST = cart.data(Table(glyphs("BEST")), "str_best", borrow="auto")
+BEST_X, BEST_Y = 124, 246                      # over the prompt (to calibrate)
 STR_COMBO = cart.data(Table([3, FONT_CH.index("X"), 0, 0]), "str_combo")  # X + 2 digits
 FK = {k: cart.var("fk_" + k) for k in
       ("x", "z", "yaw", "jt", "cf", "j", "rp", "pp", "a", "ra",
@@ -1512,10 +1535,45 @@ GT = {b: cart.var("g_t_" + b) for b, _ in BTN}       # frames held, 0 = up
 GC = {b: cart.var("g_c_" + b) for b, _ in BTN}       # read as a chord
 L_MUSIC = p.label("music")
 tl = p.label("title")
+# P14: THE CARD'S FRAME, in the title and the fight alike. The read waits
+# for frame 60 -- gen_save.py's first version read at frame 1 and got zero
+# every time, the card not yet answering -- and is asked exactly once.
+cd = p.label("card")
+p.load(spec.SD_GO).emit(f"jz {cd}_free", f"jmp {cd}")        # one in flight
+p.mark(f"{cd}_free")
+p.load(CARDF).push(1).emit("and", f"jz {cd}_ask")
+p.load(CARDF).push(3).emit("eq", f"jz {cd}")                   # asked, and owed
+p.set(CARDF, 1).push(spec.SD_SAVE).emit(f"jmp {cd}_go")
+p.mark(f"{cd}_ask")
+p.push(59).load(spec.REG_FRAME).emit("lt", f"jz {cd}")
+p.load(CARDF).push(1).emit("or").store(CARDF)
+p.push(spec.SD_READ)
+p.mark(f"{cd}_go")                                           # (the direction rides the stack)
+p.set(spec.SD_SLOT, SAVE_SLOT).set(spec.SD_OFF, 0)
+p.set(spec.SD_DST, int(CARDV)).set(spec.SD_LEN, 2)
+p.store(spec.SD_GO)
+p.mark(cd)
 p.load(int(MODE)).emit(f"jz {tl}", f"jmp {tl}_fight")
 p.mark(tl)
 p.push(int(TITLE)).store(spec.BG_SRC)
 p.set(spec.OL_BASE, 0).set(spec.DL_BASE, 0)
+# P14: BEST and the rank, once the card has one to show (a word outside
+# 1..7 is not a rank: a card this cart never wrote says nothing)
+tb = p.label("tbest")
+p.load(CARDV).emit(f"jz {tb}")
+p.push(7).load(CARDV).emit("lt", f"jz {tb}_ok", f"jmp {tb}")
+p.mark(f"{tb}_ok")
+p.set(TX["n"], 0)
+for k, v in (("str", int(STR_BEST)), ("x", BEST_X), ("y", BEST_Y), ("sc", 2),
+             ("rgb", 0xD8CFC1)):
+    p.set(TX[k], v)
+p.emit(f"call {L_TEXT}")
+p.push(int(S_RGB) - 1).load(CARDV).emit("add", "loadi").store(TX["rgb"])
+p.push(int(S_STRS) - 1).load(CARDV).emit("add", "loadi").store(TX["str"])
+p.set(TX["x"], BEST_X + 5 * 8).set(TX["y"], BEST_Y).set(TX["sc"], 2)
+p.emit(f"call {L_TEXT}")
+p.load(TX["n"]).store(spec.DL_BASE)
+p.mark(tb)
 # PRESS START breathes as the archive's does (bright, then dim, on a
 # 60-frame beat): one compositor rectangle dims it on the off beat
 p.addi(TT, 1)
@@ -1529,6 +1587,8 @@ gi = p.label("gointro")
 p.emit(f"jz {gi}")
 p.set(int(MODE), 1).set(spec.BG_SRC, 0).set(spec.CO_BASE, 0)
 p.set(GT["jump"], 100).set(GC["jump"], 1)     # the A that left the title is spent
+p.set(spec.DL_BASE, 0).set(int(S_SHOWN), 255)  # P14: the title's words go,
+                                               # and the HUD draws afresh
 p.emit(f"jmp {L_MUSIC}")
 # THE INTRO (P8): on the title's first frame, and after ATTRACT idle frames,
 # page it in -- with its font, strings and first row over the borrowed end
@@ -3218,6 +3278,14 @@ p.mark(f"{rk}_e")
 p.addi(SY["rank"], 1).addi(SY["src"], 1)
 p.load(SY["rank"]).push(6).emit("lt", f"jz {rk}_e2", f"jmp {rk}")
 p.mark(f"{rk}_e2")
+# P14: a rank past the card's best is the new best, the moment it is reached
+# (a run quit at SSS still reached SSS), and it is owed to the card
+lm = p.label("svmax")
+p.load(F["fight"]).emit(f"jz {lm}")
+p.load(CARDV).load(SY["rank"]).push(1).emit("add", "lt", f"jz {lm}")   # best < rank + 1
+p.load(SY["rank"]).push(1).emit("add").store(CARDV)
+p.load(CARDF).push(2).emit("or").store(CARDF)
+p.mark(lm)
 
 # ---- the HUD's words: the rank, the combo, or RETRY -------------------------------
 # Rebuilt only when what it says changes (a key of what is shown):
@@ -4207,6 +4275,8 @@ p.push(0).load(PHP).emit("lt", f"jz {lab['noC']}_k")
 p.emit(f"jmp {lab['noC']}")
 p.mark(f"{lab['noC']}_k")
 p.set(F["dead"], 1).set(ANIM, 4).set(F["hs"], 0)  # he is down
+p.addi(int(CARDV) + 1, 1)                            # P14: a run ended, and the
+p.load(CARDF).push(2).emit("or").store(CARDF)         # card is owed the count
 bst = p.label("best")
 p.load(SY["pts"]).emit("shr 4").load(SY["best"]).emit("lt", f"jz {bst}", f"jmp {bst}_k")
 p.mark(bst)

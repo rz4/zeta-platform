@@ -343,3 +343,39 @@ def test_the_borrowed_tail_is_held_back_and_imaged():
     assert c.borrowed("end") == (top - 10, [2] * 9 + [0])
     with pytest.raises(ForgeError):
         c.data(Table([5] * 4), "g", borrow="end")         # full: refused
+
+
+# ---- shelving a cart that uses the card ---------------------------------------
+def _card_cart(tmp_path, name, slot, words):
+    from zeta.forge import Cart, Table
+    c = Cart(name)
+    c.sd(slot, Table(list(words)), "save")
+    c.program().emit("halt")
+    return c.write(tmp_path / f"{name}.zol")
+
+
+def test_a_shelved_carts_card_slot_is_adopted(tmp_path):
+    """The card belongs to the machine, not to whichever cart is running:
+    a launch replaces the program and the DMEM, never the card. So the
+    shelf carries its games' slot images at the same slot numbers."""
+    from zeta import asm
+    from zeta.forge import Cart
+    host = Cart("host")
+    host.program().emit("halt")
+    host.shelve(_card_cart(tmp_path, "game", 2, (7, 9)))
+    g = asm.assemble(host.write(tmp_path / "host.zol"))
+    assert g["sd"] == {"2": [7, 9]}, g["sd"]
+
+
+def test_two_shelved_carts_cannot_share_a_slot(tmp_path):
+    """Slots are absolute -- nothing relocates one (SLOT_BASE is not law
+    yet) -- so two games naming the same slot would read each other's
+    saves. That, and only that, is refused."""
+    import pytest
+    from zeta.forge import Cart, ForgeError
+    host = Cart("host")
+    host.program().emit("halt")
+    host.shelve(_card_cart(tmp_path, "one", 2, (1,)))
+    host.shelve(_card_cart(tmp_path, "other", 3, (2,)))       # a different slot: fine
+    with pytest.raises(ForgeError, match="slot 2"):
+        host.shelve(_card_cart(tmp_path, "two", 2, (3,)))

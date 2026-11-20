@@ -446,6 +446,31 @@ class Cart:
         self._data.append((sym, res))
         return sym
 
+    def tail_top(self, res: Resource, name=None) -> Sym:
+        """Place a resource at the TOP of the display list's leased tail,
+        growing downward.
+
+        The ordinary pool and its spills fill first-fit from the bottom,
+        so a few words added EARLY in a full cart shift everything after
+        them and can strand a large table with nowhere to go, though the
+        words exist (TND's save cells did exactly that to a 35-word sound
+        table, with 74 words free in the tail). A resource placed here
+        moves nothing else: the first-fit regions are untouched except
+        that the tail's free space is these words shorter."""
+        if self.dl_lease is None:
+            raise ForgeError(f"{self.name}: tail_top needs a dl_lease")
+        res.check()
+        w = res.words()
+        t = self._spill[1]
+        if t[1] - len(w) < t[0]:
+            raise ForgeError(f"{self.name}: the display list's tail is full -- "
+                             f"{name} needs {len(w)}, {t[1] - t[0]} left")
+        t[1] -= len(w)
+        self._tail_top = getattr(self, "_tail_top", 0) + len(w)
+        sym = Sym(t[1], name or type(res).__name__.lower(), len(w))
+        self._data.append((sym, res))
+        return sym
+
     def borrowed(self, which) -> tuple[int, list[int]]:
         """(address, words): the borrowed reserve's image as the cart
         boots it -- what a scene that drew over it must put back."""
@@ -580,13 +605,29 @@ class Cart:
         to write into SEG_BASE on the final frame -- NEVER baked into the
         DMEM image, which lands block by block: the block carrying 12262
         arrives two steps early and would relocate the launch's own
-        remaining steps. A cart that uses the card, or sets SEG_BASE in
-        its own .data, cannot be shelved (SLOT_BASE is not law yet)."""
+        remaining steps. A cart that sets SEG_BASE in its own .data
+        cannot be shelved.
+
+        THE CARD. A shelved cart's card slots are ADOPTED: its slot
+        images become this cart's own, at the same slot numbers, because
+        the card belongs to the machine and not to whichever cart is
+        running -- a launch replaces the program and the DMEM, never the
+        card. Slots are absolute (SLOT_BASE, the card's SEG_BASE, is not
+        law yet), so nothing can relocate one: two carts on a shelf that
+        name the same slot would read each other's saves, and THAT is
+        what is refused. It used to refuse every cart that used the card
+        at all, which kept the only game with a save off the shelf."""
         from . import asm
         g = asm.assemble(Path(path))
-        if g["sd"]:
-            raise ForgeError(f"{path} uses the card -- SLOT_BASE is not "
-                             f"law yet, so it cannot be shelved")
+        for slot, img in sorted(g["sd"].items(), key=lambda kv: int(kv[0])):
+            if int(slot) in self._sd:
+                raise ForgeError(
+                    f"{path} uses card slot {int(slot)}, which this cart or "
+                    f"another on its shelf already uses -- slots are "
+                    f"absolute (SLOT_BASE is not law yet), so two carts "
+                    f"cannot share one")
+            self._sd[int(slot)] = [(Sym(0, f"{Path(path).stem}_sd{int(slot)}",
+                                        len(img)), Table(list(img)))]
         dmem_img = [0] * spec.DMEM_WORDS
         for a, v in g["dmem"].items():
             dmem_img[int(a)] = v
@@ -617,7 +658,8 @@ class Cart:
             lo = spec.DL_BASE + 1 + self.dl_lease * spec.DL_STRIDE
             t = self._spill[1]
             tail += (f"; display-list tail (lease: <= {self.dl_lease} "
-                     f"triangles) {t[0] - lo} used, {t[1] - t[0]} free")
+                     f"triangles) {t[0] - lo + getattr(self, '_tail_top', 0)} "
+                     f"used, {t[1] - t[0]} free")
         if self._borrow:
             tail += "; borrowed " + ", ".join(
                 f"{k} {v[0] - self._borrow_lo[k]}/{v[1] - self._borrow_lo[k]}"
