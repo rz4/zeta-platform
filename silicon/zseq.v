@@ -396,6 +396,19 @@ module zseq (
                      !rs1[38] ? 2'd1 : 2'd0;
   wire [37:0] rem4 = !rs3[38] ? rs3[37:0] : !rs2[38] ? rs2[37:0] :
                      !rs1[38] ? rs1[37:0] : rsh2;
+  // ---- RADIX-16 (frontier B6): a SECOND radix-4 stage in the same beat --
+  // The first stage's remainder (< dvs again) takes the next two dividend
+  // bits and yields the next digit: four quotient bits a beat, the same
+  // restoring quotient. 17 bits = four of these and the radix-2 beat;
+  // 25 = six and one. Beats: 9 -> 5, 13 -> 7.
+  wire [37:0] rshB = {rem4[35:0], low[22:21]};
+  wire [38:0] rb1  = {1'b0, rshB} - {3'd0, dvs};
+  wire [38:0] rb2  = {1'b0, rshB} - {1'b0, dvs2};
+  wire [38:0] rb3  = {1'b0, rshB} - {1'b0, dvs3};
+  wire [1:0]  digB = !rb3[38] ? 2'd3 : !rb2[38] ? 2'd2 :
+                     !rb1[38] ? 2'd1 : 2'd0;
+  wire [37:0] remB = !rb3[38] ? rb3[37:0] : !rb2[38] ? rb2[37:0] :
+                     !rb1[38] ? rb1[37:0] : rshB;
 
   // THE ODD BIT. A quotient of 17 bits is eight radix-4 steps and ONE
   // radix-2 step, not nine radix-4 steps -- nine would make 18 and the
@@ -1050,7 +1063,7 @@ module zseq (
           dvs <= {5'd0, vz[30:0]};
           rem <= 37'd8192;            // the crown divide first: dividend
           low <= 25'd0;               // 2^30, head 2^30>>17, tail zero --
-          q <= 0; k <= 5'd8;         // no precheck needed (8192 < ZNEAR)
+          q <= 0; k <= 5'd4;         // no precheck needed (8192 < ZNEAR)
           vz16 <= (|vz[30:23]) ? 16'hFFFF : vz[22:7];    // z >> ZSHIFT, sat
           st <= S_DW;
         end
@@ -1062,16 +1075,16 @@ module zseq (
           sgn <= vx[31];
           st <= S_PCX;
         end else begin
-          rem <= rem4[36:0];
-          q   <= {q[23:0], dig};
-          low <= {low[22:0], 2'b0};
+          rem <= remB[36:0];
+          q   <= {q[21:0], dig, digB};
+          low <= {low[20:0], 4'b0};
           k <= k - 1'b1;
         end
       end
       S_PCX: begin                    // high part >= divisor: q needs an
         wv <= (q == 26'd0) ? 17'd1 : q[16:0];   // ...and w lands here
         if (rem >= {1'b0, dvs}) begin vinv_near <= 1'b0; st <= S_VINV; end
-        else begin q <= 0; k <= 5'd8; st <= S_DX; end
+        else begin q <= 0; k <= 5'd4; st <= S_DX; end
       end
       S_DX: if (k == 0) begin           // the final RADIX-2 beat
         rem <= rsub[37] ? rsh : rsub[36:0];
@@ -1079,9 +1092,9 @@ module zseq (
         low <= {low[23:0], 1'b0};
         st <= S_SX;
       end else begin
-        rem <= rem4[36:0];
-        q   <= {q[23:0], dig};
-        low <= {low[22:0], 2'b0};
+        rem <= remB[36:0];
+        q   <= {q[21:0], dig, digB};
+        low <= {low[20:0], 4'b0};
         k <= k - 1'b1;
       end
       S_SX: begin
@@ -1099,16 +1112,16 @@ module zseq (
       end
       S_PCY:
         if (rem >= {1'b0, dvs}) begin vinv_near <= 1'b0; st <= S_VINV; end
-        else begin q <= 0; k <= 5'd8; st <= S_DY; end
+        else begin q <= 0; k <= 5'd4; st <= S_DY; end
       S_DY: if (k == 0) begin
         rem <= rsub[37] ? rsh : rsub[36:0];
         q <= {q[24:0], ~rsub[37]};
         low <= {low[23:0], 1'b0};
         st <= S_SY;
       end else begin
-        rem <= rem4[36:0];
-        q   <= {q[23:0], dig};
-        low <= {low[22:0], 2'b0};
+        rem <= remB[36:0];
+        q   <= {q[21:0], dig, digB};
+        low <= {low[20:0], 4'b0};
         k <= k - 1'b1;
       end
       S_SY: begin
@@ -1327,7 +1340,7 @@ module zseq (
         if ({18'd0, gabs[35:17]} >= {1'b0, dvs}) begin
           q <= 26'd16777216;          // steeper than ZGRAD_MAX: clamp
           st <= S_GQ;
-        end else begin q <= 0; k <= 5'd12; st <= S_GD; end
+        end else begin q <= 0; k <= 5'd6; st <= S_GD; end
       end
       S_GD: if (k == 0) begin
         rem <= rsub[37] ? rsh : rsub[36:0];
@@ -1335,9 +1348,9 @@ module zseq (
         low <= {low[23:0], 1'b0};
         st <= S_GQ;
       end else begin
-        rem <= rem4[36:0];
-        q   <= {q[23:0], dig};
-        low <= {low[22:0], 2'b0};
+        rem <= remB[36:0];
+        q   <= {q[21:0], dig, digB};
+        low <= {low[20:0], 4'b0};
         k <= k - 1'b1;
       end
       S_GN:  begin gm_a <= gp_a; gm_b <= gp_b; st <= S_GN2; end
