@@ -62,11 +62,22 @@ def main(argv=None) -> int:
     p.add_argument("cart", nargs="?", default=None,
                    help="witness only: the cart the capture came from")
     p.add_argument("--card", default=None, help="card mountpoint (default: find it)")
+    p.add_argument("--staged", default=None,
+                   help="push: the staged folder (default: build/pocket)")
     p.add_argument("-n", type=int, default=1, help="shots: how many, newest first")
     p.add_argument("-f", "--frames", type=int, default=600,
                    help="witness: search this many frames")
     p.add_argument("--tape", default=None, help="witness: pad-log tape")
     p.add_argument("--diff", default=None, help="witness: write marked diff PPM")
+
+    p = sub.add_parser("stage", help="a card folder: one file a game, "
+                                     "chosen in the Pocket's own menu")
+    p.add_argument("games", nargs="+", metavar="[TITLE=]CART",
+                   help="a cart by name or path; TITLE is what the "
+                        "Pocket's browser shows (default: the cart's name)")
+    p.add_argument("--core", default="build/pocket",
+                   help="a staged folder to take the core from")
+    p.add_argument("--out", default="build/menu")
 
     p = sub.add_parser("budget", help="the frame-budget gate: does it fit 60?")
     p.add_argument("carts", nargs="*", help="default: every suite cart")
@@ -133,11 +144,25 @@ def main(argv=None) -> int:
               f"object-list entries here")
         return 0
 
+    if args.cmd == "stage":
+        from . import carts, deploy
+        games = {}
+        for g in args.games:
+            title, _, ref = g.rpartition("=")
+            path = carts.resolve(ref)
+            games[title or path.stem] = path
+        for f in deploy.stage_menu(Path(args.out), games, Path(args.core)):
+            print(f"  {f.name:28s} {f.stat().st_size:>10,} bytes")
+        print(f"staged {len(games)} game(s) in {args.out}: "
+              f"zeta sd push --staged {args.out}")
+        return 0
+
     if args.cmd == "sd":
         from . import sdcard
         card = sdcard.find_card(args.card)
         if args.action == "push":
-            return sdcard.push(card)
+            return (sdcard.push(card, Path(args.staged)) if args.staged
+                    else sdcard.push(card))
         if args.action == "shots":
             sdcard.shots(card, args.n)
             return 0

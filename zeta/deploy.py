@@ -292,6 +292,73 @@ def write_zbin(cart: dict, path: Path) -> None:
     path.write_bytes(struct.pack(f"<{len(words)}I", *words))
 
 
+# ---- THE POCKET'S OWN MENU (docs/PLATFORM.md, phase 1) ----------------------
+# The core loaded ONE fixed file, cart.zbin, and every game lived inside
+# it behind an in-cart launcher. A game is a file now, and the Pocket's
+# own browser chooses it:
+#
+#   required, no filename   the OS opens its browser in Assets/zeta/common,
+#                           filtered to .zbin, when the core is launched
+#   bit 0   user-reloadable: "load another" from the core's own menu
+#   bit 8   ...by UNLOADING the core and restarting it, bitstream and all,
+#           with the new file -- which is exactly a cold boot. cart_loader
+#           holds the console in reset until a whole cart has arrived and
+#           then latches, a path paid for on glass many times over; a
+#           reload that is a cold boot asks nothing new of it.
+#
+# Nothing in the bitstream changes: this is the manifest, and how the card
+# is laid out. The card slot is unchanged (one shared card.bin) until the
+# per-game save file is proved on glass.
+MENU_SLOT = {"name": "Game", "id": 1, "required": True,
+             "parameters": "0x101", "extensions": ["zbin"],
+             "address": "0x10000000"}
+
+
+def manifests(menu: bool = False) -> dict:
+    """The core's definition files; with `menu`, the game is chosen in the
+    Pocket's browser instead of being the fixed cart.zbin."""
+    if not menu:
+        return MANIFESTS
+    out = json.loads(json.dumps(MANIFESTS))
+    slots = out["data.json"]["data"]["data_slots"]
+    assert slots[0]["filename"] == "cart.zbin"
+    slots[0] = dict(MENU_SLOT)
+    return out
+
+
+def stage_menu(out: Path, games: dict, core_from: Path) -> list[Path]:
+    """A card folder with one file a game. `games` is {title: cart path};
+    the title is the name the Pocket's browser shows. The core -- its
+    bitstream and images -- is copied from `core_from`, an existing staged
+    folder, so a fit is never re-run to change what is on the card."""
+    from . import cabinet
+    coredir = f"Cores/{AUTHOR}.{CORENAME}"
+    if not (core_from / coredir / "zeta.rbf_r").is_file():
+        raise SystemExit(f"{core_from} holds no staged core ({coredir}/zeta.rbf_r)")
+    for sub in (coredir, "Platforms"):
+        shutil.copytree(core_from / sub, out / sub, dirs_exist_ok=True)
+    for name, doc in manifests(menu=True).items():
+        (out / coredir / name).write_text(json.dumps(doc, indent=1))
+    assets = out / "Assets/zeta/common"
+    assets.mkdir(parents=True, exist_ok=True)
+    for old in assets.glob("*.zbin"):            # what is staged IS the shelf
+        old.unlink()
+    written, card = [], {}
+    for title, path in games.items():
+        cart = cabinet.load_cart(path)
+        write_zbin(cart, assets / f"{title}.zbin")
+        written.append(assets / f"{title}.zbin")
+        for slot, img in cart.get("sd", {}).items():
+            if int(slot) in card and card[int(slot)][1] != list(img):
+                raise SystemExit(f"{title} and {card[int(slot)][0]} both use card "
+                                 f"slot {slot}: one shared card file cannot serve both yet")
+            card[int(slot)] = (title, list(img))
+    for slot, (title, img) in sorted(card.items()):
+        name = "card.bin" if slot == 2 else f"card{slot}.bin"
+        (assets / name).write_bytes(b"".join(int(w).to_bytes(4, "little") for w in img))
+    return written
+
+
 def run(cart: dict, cart_name: str, out: Path | None = None) -> int:
     out = out or ROOT / "build/pocket"
     check_seam()

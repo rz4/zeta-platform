@@ -72,3 +72,47 @@ def test_rtl_that_moved_without_a_bump_is_refused(tmp_path):
     have, build = deploy.read_stamp(stamp)
     assert build is None
     deploy.check_build_bump(have, build, "bbbb", 100)
+
+
+# --------------------------------------------------------------------------
+# the Pocket's own menu: a game is a file
+# --------------------------------------------------------------------------
+def test_the_menu_manifest_asks_the_pocket_to_choose():
+    """With the menu, the first slot names no file, is required, filters
+    to .zbin, is user-reloadable and reloads by a full core restart (the
+    cold boot cart_loader already survives) -- and nothing else about the
+    core's definition moves, the card slot included."""
+    plain, menu = deploy.manifests(), deploy.manifests(menu=True)
+    slot = menu["data.json"]["data"]["data_slots"][0]
+    assert "filename" not in slot and slot["required"] is True
+    assert slot["extensions"] == ["zbin"] and slot["address"] == "0x10000000"
+    bits = int(slot["parameters"], 16)
+    assert bits & 1 and bits & (1 << 8), "not reloadable by a full restart"
+    assert plain["data.json"]["data"]["data_slots"][0]["filename"] == "cart.zbin", \
+        "making the menu's manifest changed the default one"
+    for name in plain:
+        if name != "data.json":
+            assert menu[name] == plain[name]
+    assert menu["data.json"]["data"]["data_slots"][1:] == \
+        plain["data.json"]["data"]["data_slots"][1:]
+
+
+def test_staging_writes_one_file_a_game(tmp_path):
+    """Each game becomes its own .zbin under the title the browser shows;
+    the core is copied, never rebuilt; a restage replaces the shelf."""
+    core = tmp_path / "core"
+    cdir = core / f"Cores/{deploy.AUTHOR}.{deploy.CORENAME}"
+    cdir.mkdir(parents=True)
+    (cdir / "zeta.rbf_r").write_bytes(b"bitstream")
+    (core / "Platforms").mkdir()
+    out = tmp_path / "menu"
+    root = Path(__file__).parents[1]
+    made = deploy.stage_menu(out, {"TEAR": root / "games/tear/tear.zol",
+                                   "Bounce": root / "carts/examples/bounce.zol"}, core)
+    assert sorted(p.name for p in made) == ["Bounce.zbin", "TEAR.zbin"]
+    assert (out / cdir.relative_to(core) / "zeta.rbf_r").read_bytes() == b"bitstream"
+    import json
+    slots = json.loads((out / cdir.relative_to(core) / "data.json").read_text())
+    assert "filename" not in slots["data"]["data_slots"][0]
+    deploy.stage_menu(out, {"TEAR": root / "games/tear/tear.zol"}, core)
+    assert [p.name for p in (out / "Assets/zeta/common").glob("*.zbin")] == ["TEAR.zbin"]
