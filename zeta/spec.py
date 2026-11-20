@@ -349,6 +349,28 @@ CAM_ROLL = 12287                # camera BANK, 0..1023, applied last --
 # with it on each (tests/test_movers.py, tests/test_shelf.py).
 DMA_SRC, DMA_DST, DMA_LEN, DMA_GO = 12, 13, 14, 15
 
+# ---- THE SECOND REQUEST (build 104): two moves a frame ------------------
+# One request a frame was enough until a game needed two CONTINUOUS
+# streams. TND's boxer is a baked pose bank -- the whole body, 2,967
+# words, moved every frame he changes -- and a recorded song is a
+# 64-word page every frame without exception. Sharing the one request
+# measured 167 dropped poses in 900 frames of punching: the body
+# stutters exactly when the player is looking at it.
+#
+# So the mover takes a second descriptor, the same four cells' shape:
+#   DMA2_SRC DMA2_DST DMA2_LEN DMA2_GO
+# served IMMEDIATELY AFTER the first, by the same rules and the same
+# bound (DMA_MAX words each). Latched with every other request cell at
+# the instant (REQUEST_CELLS), so the first move rewriting these cells
+# changes nothing about the second; if both land on the same words, the
+# second wins, because it lands second. Its GO clears whether or not
+# the request was usable, exactly like the first's.
+#
+# The silicon is the same burst engine run twice: the second descriptor
+# is loaded into the first's registers and the engine re-entered, so
+# the amendment costs four latched cells and a flag, not a second mover.
+DMA2_SRC, DMA2_DST, DMA2_LEN, DMA2_GO = 12257, 12258, 12259, 12260
+
 # ---- OVERLAYS: the cart stops being 4,096 instructions -------------------
 # IMEM holds 4,096 instructions and that is the ceiling on how complicated
 # a game may be -- not how much CONTENT it has (the mover and the card
@@ -1158,7 +1180,7 @@ LOADER_SIG2 = 11700             # a MIRROR of the signature, written into
                                 # delivers intact -- so the loader's
                                 # testimony survives even if the top of
                                 # memory does not
-LOADER_BUILD = 103              # bumped per bitstream: word +7 of the
+LOADER_BUILD = 104              # bumped per bitstream: word +7 of the
                                 # signature, so a cart can say WHICH core
                                 # it is running on.
                                 # (101 = vertex C registered in zseq;

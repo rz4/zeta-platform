@@ -67,6 +67,7 @@ class VM:
     # The silicon's reading is the one legislated -- a mover acts on what
     # was ASKED -- and it costs no logic.
     REQUEST_CELLS = (spec.DMA_SRC, spec.DMA_DST, spec.DMA_LEN, spec.DMA_GO,
+                     spec.DMA2_SRC, spec.DMA2_DST, spec.DMA2_LEN, spec.DMA2_GO,
                      spec.OVL_SRC, spec.OVL_DST, spec.OVL_LEN, spec.OVL_GO,
                      spec.SD_SLOT, spec.SD_OFF, spec.SD_DST, spec.SD_LEN,
                      spec.SD_GO, spec.SEG_BASE)
@@ -83,15 +84,20 @@ class VM:
         return getattr(self, "_req", None) or self.dmem
 
     def dma(self) -> None:
-        """One legislated move, after the VM halts and before the GPU
-        reads DMEM. A request that does not fit moves nothing -- and
-        still clears DMA_GO, so a bad pointer cannot wedge the frame."""
+        """The legislated moves, after the VM halts and before the GPU
+        reads DMEM: the first request, then the second (build 104). A
+        request that does not fit moves nothing -- and still clears its
+        GO, so a bad pointer cannot wedge the frame."""
+        self._move(spec.DMA_SRC, spec.DMA_DST, spec.DMA_LEN, spec.DMA_GO)
+        self._move(spec.DMA2_SRC, spec.DMA2_DST, spec.DMA2_LEN, spec.DMA2_GO)
+
+    def _move(self, c_src, c_dst, c_len, c_go) -> None:
         d, r = self.dmem, self._r()
-        if not r[spec.DMA_GO]:
+        if not r[c_go]:
             return
-        src, dst = s32(r[spec.DMA_SRC]), s32(r[spec.DMA_DST])
-        n = s32(r[spec.DMA_LEN])
-        d[spec.DMA_GO] = 0
+        src, dst = s32(r[c_src]), s32(r[c_dst])
+        n = s32(r[c_len])
+        d[c_go] = 0
         if not 0 < n <= spec.DMA_MAX:
             return
         eff = src + s32(r[spec.SEG_BASE])   # the segment window (SEG_BASE)

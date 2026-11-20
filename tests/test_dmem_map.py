@@ -46,6 +46,7 @@ def regions():
     for name in ("PICK_X", "PICK_Y", "PICK_ID", "PICK_Z", "CAM_PITCH",
                  "CAM_X", "CAM_Y", "CAM_Z", "CAM_YAW", "CAM_ROLL",
                  "DMA_SRC", "DMA_DST", "DMA_LEN", "DMA_GO",
+                 "DMA2_SRC", "DMA2_DST", "DMA2_LEN", "DMA2_GO",
                  "OVL_SRC", "OVL_DST", "OVL_LEN", "OVL_GO",
                  "FOG_RGB", "FOG_NEAR", "FOG_SHIFT", "LOD_FLAT",
                  "SD_SLOT", "SD_OFF", "SD_DST", "SD_LEN", "SD_GO",

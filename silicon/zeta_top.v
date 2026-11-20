@@ -124,7 +124,8 @@ module zeta_top (
              I_GRP = 6'd47, I_GRR = 6'd48, I_GRR2 = 6'd49,
              I_GRW = 6'd50, I_GRC = 6'd51,
              I_VIS = 6'd52, I_AUD = 6'd53,    // (0..46 were taken)
-             I_ARW = 6'd54, I_ARC = 6'd55, I_ARZ = 6'd56;   // spec.AU_RESET
+             I_ARW = 6'd54, I_ARC = 6'd55, I_ARZ = 6'd56,   // spec.AU_RESET
+             I_D2 = 6'd57;                    // spec.DMA2_*: the second request
                                     // were taken, and a duplicate here
                                     // wedges the frame in silence)
   localparam [13:0] A_FRAME = REG_FRAME, A_PAD = REG_PAD;
@@ -239,6 +240,10 @@ module zeta_top (
   reg [31:0] e_rgb;                               // OBJ_EDGE's colour
   reg        dma_imem;               // this burst lands in IMEM, not DMEM
   reg        dma_ret;                // ...and returns to the overlay path
+  // spec.DMA2_*: the second request, latched with the rest and then
+  // loaded into d_* so the SAME engine (and req_ok) serves it
+  reg [31:0] m2_src, m2_dst, m2_len, m2_go;
+  reg        dma_two;                // the engine is serving request 2
   reg [15:0] c_slot_r;               // ...latched, so a cart rewriting
   reg [31:0] c_off_r;                // the cells mid-flight changes
   reg [13:0] c_dst_r;                // nothing
@@ -413,7 +418,8 @@ module zeta_top (
                           (st == I_WF) ? A_FRAME :
                           (st == I_WP) ? A_PAD :
                           dma_we       ? dma_dst :
-                          (st == I_DCLR) ? DMA_GO[13:0] :
+                          (st == I_DCLR) ? (dma_two ? DMA2_GO[13:0]
+                                                    : DMA_GO[13:0]) :
                           (st == I_OCLR) ? OVL_GO[13:0] :
                           card_we ? c_dst_r + {1'b0, c_i} :
                           (st == I_CCLR || st == I_CGO) ? SD_GO[13:0] :
@@ -441,7 +447,9 @@ module zeta_top (
                            st == I_EVW || st == I_EVC) ? au_addr : seq_addr;
   // 21.. walks the compositor block straight through, one cell a state,
   // instead of thirteen more lines of mux: the block is contiguous by law
-  wire [13:0] dreq_addr = (dsel == 6'd38) ? SEG_BASE[13:0] :
+  wire [13:0] dreq_addr = (dsel >= 6'd39)
+                            ? (DMA2_SRC[13:0] + {8'd0, dsel} - 14'd39) :
+                          (dsel == 6'd38) ? SEG_BASE[13:0] :
                           (dsel == 6'd37) ? LIGHT_DIF[13:0] :
                           (dsel == 6'd36) ? LIGHT_AMB[13:0] :
                           (dsel == 6'd35) ? LIGHT_DIR[13:0] :
@@ -735,6 +743,7 @@ module zeta_top (
       I_VK: st <= I_VW;                   // vm start pulse
       I_VW: if (!vm_running) begin        // halt, fuel out, or trap:
         dsel <= 3'd0; swept2 <= 1'b0;     // first the mover, then render
+        dma_two <= 1'b0;
         st <= I_DRD;
       end
       I_DRD: st <= I_DCK;                 // request cell dsel presented
@@ -766,14 +775,18 @@ module zeta_top (
           6'd36: l_amb <= (dl_data[31:0] > 32) ? 6'd32 : dl_data[5:0];
           6'd37: l_dif <= (dl_data[31:0] > 32) ? 6'd32 : dl_data[5:0];
           6'd38: d_seg <= dl_data;         // ...and the segment window
+          6'd39: m2_src <= dl_data;        // ...and the second request
+          6'd40: m2_dst <= dl_data;
+          6'd41: m2_len <= dl_data;
+          6'd42: m2_go  <= dl_data;
           default: co_reg[dsel - 6'd21] <= dl_data;
         endcase
-        if (dsel == 6'd38) st <= swept2 ? I_TXP : I_DCLR;
+        if (dsel == 6'd42) st <= swept2 ? I_TXP : I_DCLR;
         else begin dsel <= dsel + 1'b1; st <= I_DRD; end
       end
       I_DCLR:                             // GO clears whether or not the
-        if (d_go == 0) st <= I_OVL;       // request was usable (spec)
-        else if (!req_ok) st <= I_OVL;
+        if (d_go == 0) st <= dma_two ? I_OVL : I_D2;   // request was
+        else if (!req_ok) st <= dma_two ? I_OVL : I_D2; // usable (spec)
         else begin
           dma_addr <= CRAM_CART_BASE[21:0] + {eff_dma[20:0], 1'b0};
           dma_dst  <= d_dst[13:0];
@@ -793,8 +806,14 @@ module zeta_top (
       end
       I_DWAIT: if (d_fin && !dma_hi && !dma_we) begin
         d_fin <= 1'b0;                    // every half of this burst is
-        st <= (dma_left == 0) ? (dma_ret ? I_OCLR : I_OVL)
+        st <= (dma_left == 0) ? (dma_ret ? I_OCLR : dma_two ? I_OVL : I_D2)
                               : I_DBURST;           // landed now
+      end
+      // ---- the second request (spec.DMA2_*): the same engine, again --
+      I_D2: begin
+        d_src <= m2_src; d_dst <= m2_dst; d_len <= m2_len; d_go <= m2_go;
+        dma_two <= 1'b1;
+        st <= I_DCLR;
       end
       // ---- overlays: the same burst, into PROGRAM space ---------------
       // Safe by the frame model, not by a rule: the VM has halted and the
