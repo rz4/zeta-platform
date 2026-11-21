@@ -1677,23 +1677,44 @@ def test_out_of_a_lock_he_faces_where_the_target_was():
 
 
 def test_the_run_flips_any_way_and_over_the_target():
-    """On glass: "the jump flip should be possible no matter the direction --
-    leap over crowds and land where I want". In the run, A with any of the
-    eight ways flips that way from the target's frame -- Up flips over it,
-    clearing a head (1.9 up) and covering four units and more."""
-    for pad, kind in ((spec.PAD_UP, 0), (spec.PAD_DOWN | spec.PAD_LEFT, 2), (spec.PAD_RIGHT, 3)):
+    """On glass: "the running target jumps need to be a jump, then press
+    again to flip -- think Crash Bandicoot double jump". In the run A jumps;
+    a second A in the air flips along any of the pad's eight ways from the
+    target's frame (Up flips over it), or with none goes straight up again --
+    and the double jump climbs past the single one."""
+    for pad, kind in ((spec.PAD_UP, 0), (spec.PAD_DOWN | spec.PAD_LEFT, 2),
+                      (spec.PAD_RIGHT, 3), (0, 0)):
         m = _fight_vm()
         for f in range(20):
             m.frame(spec.PAD_R)
         for f in range(4):
             m.frame(RUN)
-        p0, peak, kinds = _player(m), 0.0, set()
-        for f in range(60):
-            m.frame(RUN | ((spec.PAD_A | pad) if f < 2 else 0))
+        p0, peak, kinds, first = _player(m), 0.0, set(), None
+        for f in range(70):
+            p = RUN | (spec.PAD_A if f < 2 else 0) | ((spec.PAD_A | pad) if 14 <= f < 16 else 0)
+            m.frame(p)
+            if f == 8:
+                first = _cell(m, "f_evf")
             peak = max(peak, _s32(_cell(m, "f_py")) / 65536)
             if _cell(m, "f_evf"):
                 kinds.add(_cell(m, "f_evk"))
-        (x, z) = _player(m)
+        assert first == 0, "the run's first press flipped: it should only jump"
         assert kinds == {kind}, f"{pad}: the flip's shape {kinds}"
-        assert peak > 1.8 and ((x - p0[0]) ** 2 + (z - p0[1]) ** 2) ** 0.5 > 3.5, \
-            f"{pad}: peak {peak:.2f}"
+        assert peak > 2.5, f"{pad}: the double jump peaked at {peak:.2f}"
+        if pad:
+            (x, z) = _player(m)
+            assert ((x - p0[0]) ** 2 + (z - p0[1]) ** 2) ** 0.5 > 3.5, f"{pad}: a short flip"
+
+
+def test_targetings_haymaker_always_lands_on_the_target():
+    """On glass: "the haymaker needs to hit the target every time targeting
+    is active". From across the street, it crosses most of the gap and
+    lands on the locked demon, whatever the distance."""
+    m = _fight_vm()
+    for f in range(40):
+        m.frame(spec.PAD_R)
+    tgt = _cell(m, "f_tgt")
+    hp0 = _wave(m)[tgt - 1]["hp"]
+    for f in range(40):
+        m.frame(spec.PAD_R | (spec.PAD_Y if f < 2 else 0))
+    assert _wave(m)[tgt - 1]["hp"] <= hp0 - 46, "the haymaker missed its target"
