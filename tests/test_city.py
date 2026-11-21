@@ -72,3 +72,18 @@ def test_districts_follow_the_route_and_share_the_ground(seed):
     assert c.districts() >= 6 and max(sizes.values()) <= 256 // 3, sizes
     for a, b in zip(c.route, c.route[1:]):
         assert c.danger[b] >= c.danger[a], "danger fell along the route"
+
+
+def test_only_gates_cross_districts_on_any_seed():
+    """Districts are horde units and a gate opens when one is cleared, so a
+    street between districts that is not a gate would walk round the fight.
+    Over sixty seeds: none, every district has its plaza, and the city is
+    still one piece."""
+    for seed in range(60):
+        c = city.generate(16, seed)
+        loose = [(u, m) for u in range(256) for m in c.adj[u]
+                 if m > u and c.district[u] != c.district[m] and (u, m) not in c.gates]
+        assert not loose, f"seed {seed}: ungated streets between districts {loose}"
+        assert {c.district[x + y * 16] for x, y in c.plazas} == set(range(c.districts()))
+        dist, _ = city._bfs(c.adj, c.start)
+        assert min(dist) >= 0, f"seed {seed}: the city fell apart"

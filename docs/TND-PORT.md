@@ -784,6 +784,56 @@ crossroads costs today.
 **BLOCK = 32 units**, a power of two: a position's node is a shift, as the
 VM has no divide. 16 nodes is 512 units across.
 
+**As built** (the plan above, then what measurement changed):
+- **Pieces, not kinds.** A node's sides are CLOSED, a street ARM, or OPEN
+  into a plaza; a piece is the canonical side pattern (9 occur on seed
+  666142), built in nine cells cut at the facade line 9.1 out: walls where
+  street meets block, one height a block so corners meet flush, every wall
+  dropping to 8 units for its last 3 before the tile's edge (so any
+  neighbour meets it), a set-back tower over long walls, a lamp at a jutting
+  corner, a centreline down each arm. 538 faces for all nine; one object a
+  node, turned by yaw (768 is a clockwise quarter, exact).
+- **The origin is the first plaza's centre**, so the fight opens where the
+  crossroads stood, the ring of three unchanged -- in a square 46 across.
+- **The map word**: sides (8 bits), yaw (10), piece (5), district (4), the
+  side toward the core (2). The arena, the walk, the spawns, the gates,
+  the dusk and the pointer all read it.
+- **The arena** is the map's: the junction, plus a side if it is not
+  closed, plus a corner only between two open sides; 7.1 from any wall.
+- **Spawns** land a frame after their request (DMA), so they are placed
+  then: in a plaza, the old ring round the plaza's centre; in a street, down
+  one of his node's streets 22-30 out. **The leash** re-places a demon that
+  is neither in his node nor one his streets reach, once it is off screen
+  (or past the fog, before the cone test's squares can overflow).
+- **Gates** are map bits: shut, the street reads CLOSED (the piece still
+  shows it; the arena stops him; the walk stops there) and a red-and-black
+  wall stands across it at the junction's edge, where he stops. Clearing a
+  district opens the next; its horde waits until he stands in it. Retry
+  shuts them all again.
+- **The dusk is the district's**, the opus toward the core: a bruise
+  violet, ash, ochre, blood red (pure black sank every wall into the sky).
+- **The pointer**: away from the fight, a gold arrow at the top of the
+  screen points down the next street toward the core -- one of eight ways,
+  by comparison, the machine having no divide. Display-list triangle 0,
+  every frame; the HUD's words moved to 1.
+
+- **The story starts at the start** (the player: "start at the start,
+  more cinematic and narrative"). Start puts him in the dead end at one end
+  of the longest street, facing out; the street is empty. Each district's
+  horde sleeps in its plaza and WAKES when he walks in -- the ring round
+  the plaza's centre. Before that the arrow leads to the plaza (map bits
+  29-30); after a clear, on toward the core. A death is the story again:
+  the alley, every gate shut. (The mechanics tests still open in the first
+  plaza, the three awake: they test the fight, not the walk to it.)
+- **Tight streets** (the player: "tighter and less wide"): 4.4 to the curb
+  where the crossroads' arms had 7.8, walls 5.7 out, a body kept 3.7 from
+  either; the tile stays 32, so the blocks are deep and the streets are
+  canyons. Plazas stay near 40 across.
+- **Measured on silicon** (the first 48 s of the 28-minute P18 tape, the
+  same thumbs on both carts): peak 59% on the crossroads, 52% in the city;
+  median 30% on both; no dropped frame. The walls hide what the
+  crossroads' long arms drew.
+
 **Steps**
 1. The six piece meshes (the crossroads' own builders: sidewalks,
    facades, corner towers, lamps, paint), the map table, and the draw

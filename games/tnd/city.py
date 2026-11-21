@@ -23,8 +23,11 @@ goal. The same skeleton is a city:
 
 What is ported and what is not:
   * the generation, step for step: snake_path, mutate_path (the same
-    random.Random(seed) and the same choice order), the tree, the root at the
-    mutation's last origin, the goal at the farthest node from it;
+    random.Random(seed) and the same choice order) and the tree; then, as
+    Terminal Limit does, origin and goal at the ends of a longest path --
+    exactly: Terminal Limit takes the farthest node from the tree's root
+    (one sweep, one end of a long path); a second sweep from that node
+    finds the far end of the longest, the tree's diameter;
   * FLOW without networkx: on a tree with every node in the same state,
     percolation centrality is betweenness, which subtree sizes give in O(N)
     (the archive called networkx's O(N*E) version); then the archive's own
@@ -87,7 +90,7 @@ class City:
     seed: int
     adj: list[list[int]]                 # neighbours of each node
     start: int                           # where play begins (the tree's root)
-    core: int                            # the goal: the farthest node from it
+    core: int                            # the goal: the far end of the longest path
     danger: list[int]                    # 0..11 a node
     district: list[int]                  # a district id a node
     gates: dict[tuple[int, int], int]    # (u, v) u < v -> 0 (a district line)
@@ -261,7 +264,7 @@ def generate(size: int = 16, seed: int = 666142, districts: int = 8) -> City:
     # and every branch belongs to the stretch it hangs from. A side street is
     # optional ground: its district's danger, its own dead ends.
     on_route = {v: k for k, v in enumerate(route)}
-    attach = [-1] * n
+    attach, rparent = [-1] * n, [-1] * n         # (rparent: toward the route)
     for r in route:
         attach[r] = r
     q = list(route)
@@ -269,6 +272,7 @@ def generate(size: int = 16, seed: int = 666142, districts: int = 8) -> City:
         for m in adj[v]:
             if attach[m] < 0:
                 attach[m] = attach[v]
+                rparent[m] = v
                 q.append(m)
     # (cut by GROUND, not by route length: the stretches near the root carry
     # most of the side streets, and equal lengths gave one district 122 of
@@ -302,25 +306,44 @@ def generate(size: int = 16, seed: int = 666142, districts: int = 8) -> City:
     # generator's streets. Inside it every neighbour is joined (the open
     # square), which is where the tree first grows loops.
     plaza, plazas = [-1] * n, []
+    # (on ground the district already holds, all four nodes: a plaza that
+    # took a node of the next district joined its streets to this one
+    # without a gate -- 2 crossings on seed 7, 4 on seed 9)
     for d in range(nd):
         stretch = [v for v in route if district[v] == d]
         mid = stretch[len(stretch) // 2]
         mx, my = mid % size, mid // size
         best = None
-        for ox in range(-(PLAZA_SPAN - 1), 1):
-            for oy in range(-(PLAZA_SPAN - 1), 1):
-                x0, y0 = mx + ox, my + oy
-                if not (0 <= x0 and 0 <= y0 and x0 + PLAZA_SPAN <= size and y0 + PLAZA_SPAN <= size):
-                    continue
+        for x0 in range(size - PLAZA_SPAN + 1):
+            for y0 in range(size - PLAZA_SPAN + 1):
                 cells = [(x0 + i) + (y0 + j) * size for i in range(PLAZA_SPAN) for j in range(PLAZA_SPAN)]
-                if any(plaza[c] >= 0 for c in cells):
+                if any(plaza[c] >= 0 or (district[c] != d and c in on_route) for c in cells):
                     continue
-                score = sum(district[c] == d for c in cells)
-                if best is None or score > best[0]:
-                    best = (score, x0, y0, cells)
+                foreign = sum(district[c] != d for c in cells)
+                far = (foreign, abs(x0 + 0.5 - mx) + abs(y0 + 0.5 - my))
+                if best is None or far < best[0]:
+                    best = (far, x0, y0, cells)
         if best is None:
             continue
         _, x0, y0, cells = best
+        # a thin district: the square takes side-street nodes of the next.
+        # Each one's street back to its own district is closed (its dead
+        # end), and the alley behind it comes into this district with it
+        for c in cells:
+            if district[c] == d:
+                continue
+            m = rparent[c]
+            if m >= 0 and m not in cells:
+                adj[c].remove(m)
+                adj[m].remove(c)
+            sub_, k = [c], 0
+            while k < len(sub_):
+                for e in adj[sub_[k]]:
+                    if rparent[e] == sub_[k] and e not in sub_:
+                        sub_.append(e)
+                k += 1
+            for e in sub_:
+                district[e] = d
         pid = len(plazas)
         plazas.append((x0, y0))
         for c in cells:

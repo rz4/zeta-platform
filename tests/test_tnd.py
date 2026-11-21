@@ -48,7 +48,26 @@ def _launch(m, frames=420):
 
 def _fight_vm():
     """TND opens on its title; Start on the first frame begins the fight,
-    which runs from the next -- so a test's frame f is the fight's f."""
+    which runs from the next -- so a test's frame f is the fight's f.
+    P19: the story starts at START, the street empty; these tests are of
+    the FIGHT, so this puts him where the fight is -- the first plaza's
+    centre, facing as he always did, the three on their ring and awake:
+    the opening every mechanics test was written against."""
+    cart = cabinet.load_cart(CART)
+    m = cabinet.VirtualMachine(cart)
+    boot = list(m.vm.dmem)
+    m.frame(spec.PAD_START)
+    d = m.vm.dmem
+    for name in ("px", "pz", "yaw", "cam_yaw"):
+        d[_sym(name)] = 0
+    ds = _sym("demons")
+    d[ds:ds + 3 * len(FIELDS)] = boot[ds:ds + 3 * len(FIELDS)]
+    d[_sym("woke")] = 1
+    return m
+
+
+def _story_vm():
+    """the game as it opens: Start, and nothing else"""
     m = cabinet.VirtualMachine(cabinet.load_cart(CART))
     m.frame(spec.PAD_START)
     return m
@@ -205,22 +224,105 @@ def test_bodies_do_not_pass_through_him():
             assert r > 0.6, f"frame {f}: demon {i} is {r:.2f} inside him"
 
 
-def test_the_street_holds_him():
-    """tear.py's _in_arena: forty units down the arm and no further, and
-    never through the wall beside it. (Without the clamp, 1,400 frames
-    of walking is 44.8 units -- in the fog -- and the turn into the wall
-    walks him through it. He SLIDES along the end to the wall.)"""
+# ---- P19: THE CITY -- a Python mirror of the arena, read from the map ----
+def _city(m):
+    return (m.vm.dmem, _sym("city_map"), _const("CITY_OXA"), _const("CITY_OYA"),
+            _const("AR_W") / 65536)
+
+
+def _node_at(m, x, z):
+    """(node, its map word, u, v in the tile) for zeta (x, z); node -1 off the map"""
+    d, cmap, ox, oy, _ = _city(m)
+    u, v = z + ox + 16, -x + oy + 16
+    if not (0 <= u < 512 and 0 <= v < 512):
+        return -1, 0, 0, 0
+    i, j = int(u // 32), int(v // 32)
+    return j * 16 + i, d[cmap + j * 16 + i], u - 32 * i - 16, v - 32 * j - 16
+
+
+def _on_street(m, x, z, slack=1e-3):
+    n, w, lx, ly = _node_at(m, x, z)
+    if n < 0:
+        return False
+    lim = _city(m)[4] + slack
+    side = lambda k: (w >> (2 * k)) & 3                        # noqa: E731
+    ax = None if abs(lx) <= lim else side(1 if lx > 0 else 3)
+    ay = None if abs(ly) <= lim else side(0 if ly > 0 else 2)
+    if ax is None and ay is None:
+        return True
+    if ax is None or ay is None:
+        return (ay if ax is None else ax) > 0
+    return ax == 2 and ay == 2
+
+
+def _centre(m, n):
+    """the zeta (x, z) of node n's centre"""
+    _, _, ox, oy, _ = _city(m)
+    return oy - (n // 16) * 32, (n % 16) * 32 - ox
+
+
+def _street_node(m, want, far=0.0):
+    """the first node whose sides (N E S W; 0 closed, 1 a street) are
+    `want`, at least `far` from the origin"""
+    d, cmap, *_ = _city(m)
+    for n in range(256):
+        if tuple((d[cmap + n] >> (2 * k)) & 3 for k in range(4)) == want \
+                and np.hypot(*_centre(m, n)) >= far:
+            return n
+    raise LookupError(want)
+
+
+def _put(m, x, z, yaw):
+    d = m.vm.dmem
+    for name, v in (("px", x), ("pz", z)):
+        d[_sym(name)] = int(round(v * 65536)) & 0xFFFFFFFF
+    d[_sym("yaw")] = yaw & 1023
+
+
+def test_the_city_holds_him():
+    """P19: the arena is the city's map. Down a long straight street,
+    walking and turning into its walls for 900 frames: never off the
+    street, and he still covers ground (the wall is one he slides along)."""
     m = _fight_vm()
-    for f in range(1700):
-        m.frame(spec.PAD_UP | (spec.PAD_LEFT if 1400 <= f < 1420 else 0))
+    n = _street_node(m, (1, 0, 1, 0))                 # a straight, north-south
+    x, z = _centre(m, n)
+    _put(m, x, z, 256)                                # facing along it
+    m.frame(0)
+    walked = 0.0
+    last = _player(m)
+    for f in range(900):
+        turn = spec.PAD_LEFT if (f // 150) % 2 else spec.PAD_RIGHT
+        m.frame(spec.PAD_UP | (turn if f % 150 < 20 else 0))
         px, pz = _player(m)
-        inside = max(abs(px), abs(pz)) <= 10.6 + 1e-3 \
-            or (abs(px) <= 7.1 + 1e-3 and abs(pz) <= 40 + 1e-3) \
-            or (abs(pz) <= 7.1 + 1e-3 and abs(px) <= 40 + 1e-3)
-        assert inside, f"frame {f}: he stands off the street at ({px:.2f}, {pz:.2f})"
-        if f == 1399:
-            assert pz > 39.9, f"he never reached the end of the arm ({pz:.2f})"
-    assert abs(px) > 6.9, f"the turn never took him to the wall ({px:.2f})"
+        assert _on_street(m, px, pz), f"frame {f}: he stands in a wall at ({px:.2f}, {pz:.2f})"
+        walked += np.hypot(px - last[0], pz - last[1])
+        last = (px, pz)
+    assert walked > 10, f"he hardly moved ({walked:.1f}): stuck on a wall"
+
+
+def test_the_first_plaza_opens_into_the_streets():
+    """The fight begins in the first district's plaza; its streets lead out.
+    Set at the mouth of one, facing out, he walks into the street beyond."""
+    m = _fight_vm()
+    d, cmap, *_ = _city(m)
+    n0, w0, *_ = _node_at(m, 1.0, 1.0)
+    plaza = [n for n in range(256) if (d[cmap + n] & 0xAA)
+             and abs(n % 16 - n0 % 16) <= 1 and abs(n // 16 - n0 // 16) <= 1]
+    exits = [(n, k) for n in plaza for k in range(4) if (d[cmap + n] >> (2 * k)) & 3 == 1]
+    assert exits, "the first plaza has no street out"
+    n, k = exits[0]
+    cx, cz = _centre(m, n)
+    dx, dz = [(0, 1), (1, 0), (0, -1), (-1, 0)][k]      # archive (x, y) of side k
+    fx, fz = -dz, dx                                    # ...in zeta (x, z)
+    yaw = int(round(np.arctan2(-fx, fz) * 1024 / (2 * np.pi)))
+    _put(m, cx, cz, yaw)
+    for f in range(800):
+        m.frame(spec.PAD_UP)
+        px, pz = _player(m)
+        assert _on_street(m, px, pz), f"frame {f}: off the street at ({px:.2f}, {pz:.2f})"
+    n1, w1, *_ = _node_at(m, *_player(m))
+    assert n1 != n and not (w1 & 0xAA), \
+        f"he never left the plaza (node {n1}, map word {w1:#x})"
 
 
 def test_what_the_camera_cannot_see_is_not_sent():
@@ -308,11 +410,11 @@ def test_their_blows_land_and_he_goes_down():
     assert m.vm.dmem[spec.DL_BASE] > 0, "no prompt after the death beat"
     m.frame(spec.PAD_A)
     assert _s32(_cell(m, "p_hp")) == 140 and _cell(m, "f_dead") == 0
-    assert m.vm.dmem[spec.DL_BASE] == 0, "the prompt outlived the retry"
-    born = _wave(cabinet.VirtualMachine(cabinet.load_cart(CART)))   # as the cart boots them
-    for i, w in enumerate(_wave(m)):
-        assert w["hp"] == 70 and w["st"] == 0, f"demon {i} not reset"
-    assert abs(_wave(m)[0]["x"] - born[0]["x"]) < 65536
+    assert m.vm.dmem[spec.DL_BASE] <= 1, "the prompt outlived the retry"   # (1: the arrow)
+    # P19: a new run is the story again -- back at the start, the street
+    # empty, the horde asleep in its plaza
+    assert _cell(m, "woke") == 0 and all(w["st"] == 4 for w in _wave(m))
+    assert _player(m) == _player(_story_vm()), "the retry did not go back to the start"
 
 
 def test_the_fallen_go_and_the_wave_returns():
@@ -464,7 +566,7 @@ def test_style_climbs_with_variety_and_draws_its_rank():
     assert _cell(m, "s_combo") >= 4          # (P18: the steady string is four blows)
     n = m.vm.dmem[spec.DL_BASE]
     assert n > 0, "no rank letter on glass"
-    rgb = m.vm.dmem[spec.DL_BASE + 1 + 6] & 0xFFFFFF
+    rgb = m.vm.dmem[spec.DL_BASE + 1 + spec.DL_STRIDE + 6] & 0xFFFFFF   # (0: the arrow)
     assert rgb == 0xAA8C78, f"C painted {rgb:06x}"
 
 
@@ -562,6 +664,22 @@ def _image(cart, at, n):
     return [cart["cram"].get(str(at + i), 0) for i in range(n)]
 
 
+def _pieces_listed(m):
+    """the objects this frame whose mesh is one of the city's pieces"""
+    d = m.vm.dmem
+    pt = _sym("pieces")
+    meshes = {d[pt + k] for k in range(_symlen("pieces"))}
+    return [o for o in range(d[spec.OL_BASE])
+            if d[spec.OL_BASE + 1 + o * spec.OL_STRIDE] in meshes]
+
+
+def _symlen(name):
+    for line in CART.read_text().splitlines():
+        if line.startswith(f"; {name}: "):
+            return int(line.split(": ", 1)[1].split()[0])
+    raise KeyError(name)
+
+
 def test_the_intro_plays_and_hands_back():
     """Power-on with no input: the title pages in the intro (a second
     program), which flies the frozen street under its words for INTRO_LEN
@@ -583,7 +701,7 @@ def test_the_intro_plays_and_hands_back():
         if n:
             seen.add(f // 100)
         if f in (100, 200, 330):
-            assert m.vm.dmem[spec.OL_BASE] > 20, "the street is not drawn under the words"
+            assert len(_pieces_listed(m)) >= 2, "the street is not drawn under the words"
             assert n > 80, f"frame {f}: the intro's words are missing ({n} triangles)"
     assert list(m.vm.imem[:len(cart["imem"])]) == list(cart["imem"]), \
         "the intro did not hand back the game's program"
@@ -1088,7 +1206,9 @@ def test_start_pauses_resumes_and_quits():
     m.frame(spec.PAD_START)
     m.frame(0)
     m.frame(0)
-    assert [(d["st"], d["hp"]) for d in _wave(m)] == [(0, 70)] * 3, "no fresh wave after QUIT"
+    # P19: QUIT then Start is the story from its start: the street empty
+    assert _cell(m, "woke") == 0 and all(d["st"] == 4 for d in _wave(m)), "the old wave survived QUIT"
+    assert _player(m) == _player(_story_vm()), "QUIT then Start did not begin at the start"
 
 
 def test_a_blow_taken_flashes_and_a_lunge_is_heard():
@@ -1142,7 +1262,8 @@ def test_the_title_shows_the_cards_best_and_a_lesser_run_keeps_it():
     m.frame(spec.PAD_A)                     # a fresh press: the fight
     assert _cell(m, "mode") == 1
     assert m.vm.dmem[spec.DL_BASE] == 0, "BEST followed him into the fight"
-    for f in range(900):
+    _put(m, 3.0, 3.0, 0)                    # (P19: into the plaza, where they wait)
+    for f in range(1300):
         m.frame(0)
     assert _cell(m, "f_dead") > 0
     assert m.vm.sd[2][:2] == [5, 4], f"the card holds {m.vm.sd[2][:2]}"
@@ -1192,8 +1313,9 @@ def test_the_huds_promise_is_kept():
     m.frame(0)
     assert _cell(m, "s_rank") == 6
     n = m.vm.dmem[spec.DL_BASE]
-    assert n == 78, f"SSS, X55 and TND came to {n} triangles"
-    assert max(worst, n) <= 78
+    lease = _const("DL_LEASE")              # (P19: the words from 1; 0 is the arrow)
+    assert n == lease, f"SSS, X55 and TND came to {n} triangles"
+    assert max(worst, n) <= lease
 
 
 # ---- P15: the feel ------------------------------------------------------------------
@@ -1720,30 +1842,85 @@ def test_targetings_haymaker_always_lands_on_the_target():
     assert _wave(m)[tgt - 1]["hp"] <= hp0 - 46, "the haymaker missed its target"
 
 
-def _in_arena(x, z):
-    sq, lane, reach = 10.6, 7.1, 40.0
-    x, z = abs(x), abs(z)
-    return (x <= sq and z <= sq) or (x <= lane and z <= reach) or (z <= lane and x <= reach)
+def test_the_story_starts_at_the_start():
+    """P19: "start at the start" -- Start puts him in the dead end at one end
+    of the city's longest street, facing out of it. The street is empty and
+    stays empty, and the gold arrow points the way (to the district's plaza)."""
+    m = _story_vm()
+    d = m.vm.dmem
+    for f in range(240):
+        m.frame(0)
+        assert all(w["st"] == 4 for w in _wave(m)), f"frame {f}: a demon in the empty street"
+    n, w, *_ = _node_at(m, *_player(m))
+    sides = [(w >> (2 * k)) & 3 for k in range(4)]
+    assert sorted(sides) == [0, 0, 0, 1], f"he starts in node {n}, sides {sides}: not a dead end"
+    assert (w >> 23) & 15 == 0 and _cell(m, "woke") == 0
+    assert d[spec.DL_BASE] >= 1 and d[spec.DL_BASE + 7] == 0xE8C040, "no arrow"
+    # facing out: up walks him along the street, not into the wall
+    x0, z0 = _player(m)
+    for f in range(200):
+        m.frame(spec.PAD_UP)
+    x1, z1 = _player(m)
+    assert np.hypot(x1 - x0, z1 - z0) > 6, "Up at the start walked him into a wall"
+
+
+def test_the_plaza_wakes_its_horde():
+    """The ambush: walking into the district's plaza wakes its horde -- three
+    on their ring round the plaza's centre within a few frames -- and the
+    arrow goes away for the fight."""
+    m = _story_vm()
+    for f in range(10):
+        m.frame(0)
+    _put(m, 3.0, 3.0, 0)
+    for f in range(4):
+        m.frame(0)
+    assert _cell(m, "woke") == 1
+    wave = _wave(m)
+    assert all(w["st"] != 4 for w in wave), "the plaza did not wake its horde"
+    for i, w in enumerate(wave):
+        x, z = w["x"] / 65536, w["z"] / 65536
+        assert 6 < np.hypot(x, z) < 10 and _on_street(m, x, z), (i, x, z)
+    assert m.vm.dmem[spec.DL_BASE + 7] == 0, "the arrow stayed up in the fight"
+
+
+def test_lost_demons_come_down_his_streets():
+    """P19, the leash: three demons left in the first plaza while he stands
+    in a street across town are placed again where fresh ones would be --
+    down his node's streets, 22-30 units out, on the street and apart."""
+    m = _fight_vm()
+    n = _street_node(m, (1, 0, 1, 0), far=80)
+    _put(m, *_centre(m, n), 256)
+    for f in range(3):
+        m.frame(0)
+    seen = []
+    for i, w in enumerate(_wave(m)):
+        x, z = w["x"] / 65536, w["z"] / 65536
+        assert _on_street(m, x, z), f"demon {i} placed in a wall at ({x:.1f}, {z:.1f})"
+        nd = _node_at(m, x, z)[0]
+        assert nd in (n + 16, n - 16), f"demon {i} is in node {nd}, not down his streets ({n})"
+        seen.append((round(x, 1), round(z, 1)))
+    assert len(set(seen)) == 3, f"demons placed on top of each other: {seen}"
 
 
 def test_the_lens_stays_in_the_street():
     """On glass: "the camera goes wonky targeting down street alleys" --
     over the shoulder beside a wall, the lens stood inside the building.
-    Down a street, against its wall, targeting and turning: the lens is in
-    the street every frame."""
-    m = _fight_vm()
-    d = m.vm.dmem
+    Down a city street, against either wall, targeting and turning: the
+    lens is in the street every frame."""
     for side in (1, -1):
         m = _fight_vm()
         d = m.vm.dmem
-        d[_sym("px")] = int(side * 6.8 * 65536) & 0xFFFFFFFF   # against a wall,
-        d[_sym("pz")] = int(-22 * 65536) & 0xFFFFFFFF          # down the south street
+        n = _street_node(m, (1, 0, 1, 0))
+        x, z = _centre(m, n)
+        _put(m, x, z + side * (_city(m)[4] - 0.3), 256)   # against a wall (a
+                                                        # N-S street runs along
+                                                        # zeta x), facing along
         outside = 0
         for f in range(240):
             m.frame(spec.PAD_R | (spec.PAD_LEFT if f % 60 < 30 else spec.PAD_RIGHT)
                     if f > 20 else spec.PAD_LEFT if f < 10 else 0)
             cx, cz = (_s32(d[r]) / 65536 for r in (spec.CAM_X, spec.CAM_Z))
-            outside += not _in_arena(cx, cz)
+            outside += not _on_street(m, cx, cz)
         assert outside == 0, f"the lens left the street on {outside} frames (side {side})"
 
 
@@ -1810,7 +1987,9 @@ def test_the_horde_refills_the_street_until_the_district_is_clear():
     for f in range(400):
         m.frame(0)
         slowed |= _cell(m, "f_slow") > 0
-        if _cell(m, "s_dx") == 1 and all(w["st"] == 0 for w in _wave(m)):
+        if _cell(m, "s_dx") == 1:
             break
     assert slowed, "the last of the district did not fall in slow motion"
-    assert _cell(m, "s_dx") == 1 and res() == 30 + 15 - 3, f"next district: {res()}"
+    # P19: the next district's horde waits, asleep in its own plaza
+    assert _cell(m, "s_dx") == 1 and res() == 30 + 15, f"next district: {res()}"
+    assert _cell(m, "woke") == 0

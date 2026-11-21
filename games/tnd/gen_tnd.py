@@ -128,7 +128,7 @@ def pose_span(V, S):
 # on a count of 76 that was two short (X99 is 30, not 28): two triangles
 # nobody drew, 14 words, which P14's save needed in a DMEM with none
 # left. The promise is PROVED below from the font, not counted by hand.
-DL_LEASE = 78
+DL_LEASE = 79                    # (P19: 78 for the HUD's words, + the pointer)
 
 # ---- P8's sizes, which the cart needs before anything is placed -------------
 # THE ATTRACT INTRO (P8, below) is a SECOND PROGRAM, paged in by the overlay
@@ -158,7 +158,7 @@ FONT_CH = "DCBASRETYXN0123456789"
 assert len(INTRO_FONT_CH) <= len(FONT_CH)
 _digit = max(_rects(d) for d in "0123456789")
 _rank = max(_rects(r) for r in ("D", "C", "B", "A", "S", "SS", "SSS"))
-assert 2 * (_rank + _rects("X") + 2 * _digit + _rects("TND")) <= DL_LEASE, "the HUD"
+assert 1 + 2 * (_rank + _rects("X") + 2 * _digit + _rects("TND")) <= DL_LEASE, "the HUD"
 assert 2 * _rects("RETRY") <= DL_LEASE, "RETRY"
 assert 2 * (_rects("BEST") + _rank) <= DL_LEASE, "the title's BEST"
 B_FRONT = spec.DL_STRIDE * (INTRO_TRIS - DL_LEASE)
@@ -623,198 +623,350 @@ for i in range(3):
                 _err = max(_err, np.abs(P[k] - MZ @ T[f, JN.index(joints[0])]).max())
 assert _err < 0.01, f"demon FK drifts {_err:.4f} units from the archive"
 
-# Long thin strips at ground level are cut along their length: a long
-# face's depth, interpolated linearly in screen space, over-reads, and
-# would sink below the ground (THE GROUND RIDES THE CAMERA, below).
-CUTS = {"walk": 6, "line": 6}
-SP_ = lambda k: CUTS.get(k, 1)                        # noqa: E731
-
-street = []
-# NO ROAD GEOMETRY: the asphalt is ground_mesh(), which rides the camera.
-# (Measured first, 2026-11-19, on the brawl route: the old ten faces
-# walked 110k-189k pixels a frame. A BACKDROP PLATE was tried -- the
-# camera's height, pitch and roll never change, so the ground is the same
-# on every row -- and cost MORE: reading a full-screen plate is ~136k
-# clocks a frame on its own, where the clear it replaces is ~98k.)
-
-walk = Build()                   # sidewalks: raised 0.12, curb faces in
-# The arms' long curbs are gone: 0.12 tall and seen edge-on, they were a
-# line of pixels bought with a third of the sidewalks' DMEM -- and the
-# tops must be cut into pieces now (THE GROUND RIDES THE CAMERA, below)
-for sgn in (-1, 1):
-    a0, a1 = (EDGE, REACH) if sgn > 0 else (-REACH, -EDGE)
-    for side in (-1, 1):
-        l0, l1 = (LANE, SW_OUT) if side > 0 else (-SW_OUT, -LANE)
-        walk.box(a0, a1, l0, l1, 0.0, 0.12, SIDEWALK,         # E/W arms
-                 sides=((-sgn, 0),), nx=SP_("walk"))
-        walk.box(l0, l1, a0, a1, 0.0, 0.12, SIDEWALK,         # N/S arms
-                 sides=((0, -sgn),), ny=SP_("walk"))
-for sx in (-1, 1):
-    for sy in (-1, 1):
-        x0, x1 = sorted((sx * LANE, sx * EDGE))
-        y0, y1 = sorted((sy * LANE, sy * EDGE))
-        walk.box(x0, x1, y0, y1, 0.0, 0.12, SIDEWALK,         # corner pads
-                 sides=((-sx, 0), (0, -sy)))
-street.append(walk) if "sidewalks" not in OMIT else None
-
-paint = Build()                  # the centreline and four zebra bands
-for sgn in (-1, 1):
-    a0, a1 = (EDGE, REACH) if sgn > 0 else (-REACH, -EDGE)
-    paint.flat(a0, a1, -0.09, 0.09, 0.04, LINE, SP_("line"), 1)
-    paint.flat(-0.09, 0.09, a0, a1, 0.04, LINE, 1, SP_("line"))
-for off in (A_R - 2.0, -(A_R - 2.0)):
-    x = -LANE
-    while x < LANE:
-        x1 = min(x + 0.7, LANE)
-        paint.flat(x, x1, off - 1.5, off + 1.5, 0.04, PAINT)     # across x
-        paint.flat(off - 1.5, off + 1.5, x, x1, 0.04, PAINT)     # across y
-        x += 1.2
-street.append(paint) if "paint" not in OMIT else None
-
-blocks = []                      # 12 corner + 48 street buildings
-for sx in (-1, 1):
-    for sy in (-1, 1):
-        for j in range(3):
-            w = d = 4.6 + (j % 2) * 2.0
-            h = 7.5 + j * 3.4
-            col = BCOL[(j + (sx > 0) + 2 * (sy > 0)) % 4]
-            bx = sx * (ROAD_HALF + w / 2 + j * 2.0)
-            by = sy * (ROAD_HALF + d / 2 + j * 2.0)
-            blocks.append((bx, by, w, d, h, col))
-# THE STREET BUILDINGS BECOME FACADES. The archive's 48 boxes cost
-# ~287k clocks a frame here -- measured, by omission -- because looking
-# down an arm ten fronts a side stack in depth and the rasteriser pays
-# every pixel of every face, hidden or not. A continuous facade per side
-# keeps the archive's heights: one front a segment, plus only the height
-# steps that FACE the crossing (the camera stands 2.15 high and the roofs
-# are 8-17, so no roof is ever seen).
-fac = Build()
+# ---- P19: THE CITY (games/tnd/city.py; docs/TND-PORT.md P19) ---------------
+# The crossroads is gone: the street is a CITY, Terminal Limit's generator
+# ported -- a 16x16 tree of streets, districts in order toward the core, a
+# plaza at each district's heart. No geometry streams. A node shows one of
+# a few PIECES, each built once here and placed as an object at the node,
+# turned a quarter turn at a time (yaw 768 is a clockwise quarter: N -> E).
+#
+# A PIECE is a 32 x 32 tile in nine cells -- the junction, four edges, four
+# corners, cut at the facade line FAC either side of the centre. Each side
+# of the node is CLOSED, an ARM (a street goes on) or OPEN (inside a plaza:
+# the square goes on). The junction is street; an edge is street when its
+# side is not closed; a corner only when both its sides are open. A wall
+# stands wherever street meets block, facing the street, with a sidewalk
+# at its foot. A block's height is one per block, so walls meet flush at
+# every corner; where a wall reaches the tile's edge it drops to SEAM_H for
+# its last 3 units (with a cap where it steps), so every neighbour meets it
+# at the same height whatever its own block stands at.
+import importlib.util as _ilu                                 # noqa: E402
+_cs = _ilu.spec_from_file_location("tnd_city", Path(__file__).with_name("city.py"))
+city = _ilu.module_from_spec(_cs)
+sys.modules["tnd_city"] = city                # (its dataclass asks for itself)
+_cs.loader.exec_module(city)
+CITY_SEED = 666142
+CITY = city.generate(16, CITY_SEED)
+CS = CITY.size
+TILE = 32.0                                  # = city.BLOCK's role, a power of two
+assert TILE == 32.0                          # (a node is a shift: >> 21 in Q16)
+HT = TILE / 2
+# THE CITY'S STREETS ARE TIGHT (the player, 2026-11-21: "tighter and less
+# wide"): 4.4 from the centreline to the curb, where the crossroads' arms
+# were 7.8 -- a lane 8.8 across, its walls 5.7 out, a body's centre kept
+# 3.7 from either. The tile stays 32, so the blocks between are deep and
+# the streets canyons; the plazas stay squares near 40 across.
+CITY_LANE = 4.4
+FAC = CITY_LANE + 1.3                        # the facade line
+SEAM, SEAM_H = 3.0, 8.0
+CLOSED, ARMS, OPEN = 0, 1, 2
+CSTEP = [CS, 1, -CS, -1]                     # N E S W, in node numbers
 
 
-def arm(dx, dy, u, v, z):
-    """an arm's local frame (u out along the arm, v lateral) -> archive"""
-    return (dx * u, v, z) if dx else (v, dy * u, z)
-
-
-for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
-    out = (dx, dy, 0)
-    for side in (-1, 1):
-        face_v = side * (LANE + 1.3)                     # the street wall
-        back_v = side * (LANE + 1.3 + 6.0)
-        n_front = (0, -side, 0) if dx else (-side, 0, 0)
-        n_step = (-dx, -dy, 0)                           # toward the crossing
-        segs = []
-        for dist in range(20, 46, 6):
-            h = 8.0 + ((dist // 6) % 3) * 4.5
-            col = BCOL[(dist // 6 + (side > 0)) % 4]
-            segs.append((dist - 3.0, dist + 3.0, h, col))
-        prev_h = 0.0
-        for u0, u1, h, col in segs:
-            fac.quad([arm(dx, dy, u0, face_v, 0), arm(dx, dy, u1, face_v, 0),
-                      arm(dx, dy, u1, face_v, h), arm(dx, dy, u0, face_v, h)],
-                     n_front, col, SP_("facade"))
-            if h > prev_h:                               # a step we can see
-                fac.quad([arm(dx, dy, u0, face_v, prev_h),
-                          arm(dx, dy, u0, back_v, prev_h),
-                          arm(dx, dy, u0, back_v, h),
-                          arm(dx, dy, u0, face_v, h)], n_step, col)
-            prev_h = h
-    # the end wall at the fog line: the fog turns it into the dusk
-    w = LANE + 7.3
-    fac.quad([arm(dx, dy, REACH - 1, -w, 0), arm(dx, dy, REACH - 1, w, 0),
-              arm(dx, dy, REACH - 1, w, 18), arm(dx, dy, REACH - 1, -w, 18)],
-             (-dx, -dy, 0), BCOL[0])
-street.append(fac) if not OMIT & {"buildings", "facades"} else None
-# THE CORNER TOWERS AS ONE SURFACE. Each corner is three boxes that
-# INTERPENETRATE (each steps 2 units back and up from the last), so a
-# third of their side faces lay inside a neighbour -- never visible, and
-# every buried pixel still walked. Each corner is now the boundary of the
-# union: every side face minus the parts inside another box of its
-# corner. No roofs: the camera never rises above 2.15 and the lowest
-# roof is 7.5.
-def union_sides(boxes):
-    """boxes [(x0,x1,y0,y1,h,col)] -> the visible side rectangles, as
-    (axis, at, lo, hi, z0, z1, normal sign, col)"""
+def node_sides(n):
+    """(N, E, S, W) of node n: CLOSED, ARMS or OPEN"""
+    x, y = CITY.xy(n)
     out = []
-    for i, (x0, x1, y0, y1, h, col) in enumerate(boxes):
-        for axis, at, lo, hi, sgn in ((0, x0, y0, y1, -1), (0, x1, y0, y1, 1),
-                                      (1, y0, x0, x1, -1), (1, y1, x0, x1, 1)):
-            cuts = []                              # (lo, hi, ztop) inside others
-            for k, (a0, a1, b0, b1, hk, _) in enumerate(boxes):
-                if k == i:
-                    continue
-                p0, p1, q0, q1 = (a0, a1, b0, b1) if axis == 0 else (b0, b1, a0, a1)
-                if p0 < at < p1 and q0 < hi and q1 > lo:
-                    cuts.append((max(q0, lo), min(q1, hi), hk))
-            vs = sorted({lo, hi, *(c[0] for c in cuts), *(c[1] for c in cuts)})
-            for v0, v1 in zip(vs, vs[1:]):
-                mid = (v0 + v1) / 2
-                ztop = max([c[2] for c in cuts if c[0] <= mid <= c[1]], default=0.0)
-                if ztop < h:
-                    out.append((axis, at, v0, v1, ztop, h, sgn, col))
-    return out
+    for dx, dy, _ in city.DIRS:
+        m = (x + dx) + (y + dy) * CS
+        if not (0 <= x + dx < CS and 0 <= y + dy < CS) or m not in CITY.adj[n]:
+            out.append(CLOSED)
+        elif CITY.plaza[n] >= 0 and CITY.plaza[n] == CITY.plaza[m]:
+            out.append(OPEN)
+        else:
+            out.append(ARMS)
+    return tuple(out)
 
 
-corners = Build()
-for sx in (-1, 1):
-    for sy in (-1, 1):
-        boxes = []
-        for bx, by, w, d, h, col in blocks:
-            if np.sign(bx) == sx and np.sign(by) == sy:
-                boxes.append((bx - w / 2, bx + w / 2, by - d / 2, by + d / 2, h, col))
-        for axis, at, v0, v1, z0, z1, sgn, col in union_sides(boxes):
-            if axis == 0:
-                q = [(at, v0, z0), (at, v1, z0), (at, v1, z1), (at, v0, z1)]
-                n = (sgn, 0, 0)
+def canon(sides):
+    """-> (the canonical sides, q): sides is canon turned q clockwise
+    quarters, i.e. sides[(k + q) % 4] == canon[k]"""
+    best = None
+    for q in range(4):
+        c = tuple(sides[(k + q) % 4] for k in range(4))
+        if best is None or c < best[0]:
+            best = (c, q)
+    return best
+
+
+def piece_build(sides):
+    """the piece for canonical `sides`, in archive space round the node"""
+    def walkable(cx, cy):
+        if cx == 0 and cy == 0:
+            return True
+        if cy == 0:
+            return sides[1 if cx > 0 else 3] != CLOSED
+        if cx == 0:
+            return sides[0 if cy > 0 else 2] != CLOSED
+        return sides[0 if cy > 0 else 2] == OPEN and sides[1 if cx > 0 else 3] == OPEN
+    span = {-1: (-HT, -FAC), 0: (-FAC, FAC), 1: (FAC, HT)}
+    cells = [(cx, cy) for cx in (-1, 0, 1) for cy in (-1, 0, 1)]
+    # blocks: the unwalkable cells, joined by their sides
+    comp = {}
+    for c in cells:
+        if walkable(*c) or c in comp:
+            continue
+        stack, comp[c] = [c], c
+        while stack:
+            a = stack.pop()
+            for d in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                b = (a[0] + d[0], a[1] + d[1])
+                if b[0] in span and b[1] in span and not walkable(*b) and b not in comp:
+                    comp[b] = c
+                    stack.append(b)
+    roots = sorted(set(comp.values()))
+    seed_ = sum(s * 3 ** k for k, s in enumerate(sides))
+    height = {r: 8.0 + 4.5 * ((seed_ + 7 * i) % 3) for i, r in enumerate(roots)}
+    colour = {r: BCOL[(seed_ + i) % 4] for i, r in enumerate(roots)}
+    # walls: (axis, at, lo, hi, normal sign, root); axis 0 = a wall of
+    # constant x (normal along x), 1 = of constant y
+    segs = {}
+    for a in cells:
+        if not walkable(*a):
+            continue
+        for d in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            b = (a[0] + d[0], a[1] + d[1])
+            if not (b[0] in span and b[1] in span) or walkable(*b):
+                continue
+            if d[0]:
+                at = FAC * d[0]
+                lo, hi = span[a[1]]
+                key = (0, at, -d[0], comp[b])
             else:
-                q = [(v0, at, z0), (v1, at, z0), (v1, at, z1), (v0, at, z1)]
-                n = (0, sgn, 0)
-            corners.quad(q, n, col)
-street.append(corners) if not OMIT & {"buildings", "corners"} else None
+                at = FAC * d[1]
+                lo, hi = span[a[0]]
+                key = (1, at, -d[1], comp[b])
+            segs.setdefault(key, []).append((lo, hi))
+    walls = []
+    for (axis, at, sgn, r), spans in sorted(segs.items()):
+        spans.sort()
+        cur = list(spans[0])
+        for lo, hi in spans[1:] + [(None, None)]:
+            if lo is not None and abs(lo - cur[1]) < 1e-6:
+                cur[1] = hi
+                continue
+            walls.append((axis, at, cur[0], cur[1], sgn, r))
+            if lo is not None:
+                cur = [lo, hi]
+    b = Build()
 
-lamps = Build()                  # four streetlights, warm
-for sx in (-1, 1):
-    for sy in (-1, 1):
-        x, y = sx * ROAD_HALF, sy * ROAD_HALF
-        lamps.box(x - .07, x + .07, y - .07, y + .07, 0.0, 3.1, (18, 16, 18))
-        lamps.box(x - .22, x + .22, y - .22, y + .22, 3.0, 3.3, (255, 200, 120))
-street.append(lamps) if "lamps" not in OMIT else None
+    def P(axis, at, u, z):
+        return (at, u, z) if axis == 0 else (u, at, z)
 
-# THE STREET BY PLACE, NOT BY KIND. The sequencer draws the frame in
-# nine 32-row bands and, for every band an object's projected span
-# touches, transforms EVERY vertex of the object again (~45 clocks each,
-# zseq.v). Measured at the street route's peak, the rasteriser sat
-# STARVED for 278k clocks while the sequencer re-transformed street
-# meshes whose pieces, scattered over the screen, spanned every band:
-# all four crosswalks as one mesh paid for each stripe 8 times over.
-# (Merging whole regions -- facades with the floor under them -- spans
-# the screen again, and measured no better.) So faces are grouped by
-# LAYER (the floor, and what stands up) and by SECTOR (eight wedges
-# round the crossing, the floor's split again near and far): compact in
-# the world, so compact on screen, so each object touches few bands.
-def place_of(b, f):
-    P = np.array([np.array(b.v[i], float) / ONE for i in f[:3]])
-    c = P.mean(axis=0)
-    x, y = c[2], -c[0]                              # zeta -> archive
-    sector = int(((np.arctan2(y, x) + np.pi / 8) % (2 * np.pi)) // (np.pi / 4))
-    floor = P[:, 1].max() <= 0.2
-    return (floor, sector, floor and np.hypot(x, y) > 2 * EDGE)
+    def nrm(axis, sgn):
+        return (sgn, 0, 0) if axis == 0 else (0, sgn, 0)
+    for axis, at, lo, hi, sgn, r in walls:
+        h, col = height[r], colour[r]
+        stops = [lo, hi]
+        lo_seam, hi_seam = abs(lo + HT) < 1e-6, abs(hi - HT) < 1e-6
+        m0 = lo + SEAM if lo_seam else lo
+        m1 = hi - SEAM if hi_seam else hi
+        pieces = [(m0, m1, h)]
+        if lo_seam:
+            pieces.append((lo, m0, SEAM_H))
+        if hi_seam:
+            pieces.append((m1, hi, SEAM_H))
+        for u0, u1, hh in pieces:
+            b.quad([P(axis, at, u0, 0.12), P(axis, at, u1, 0.12),
+                    P(axis, at, u1, hh), P(axis, at, u0, hh)], nrm(axis, sgn), col)
+        # A TOWER BEHIND: the block rises again 3 back from its street wall,
+        # over the middle of a long wall, so the skyline steps as the
+        # crossroads' corner towers did (no roofs: the eye is never above 8)
+        if m1 - m0 > 9.0:
+            t0, t1, set_ = m0 + 3.0, m1 - 3.0, at - sgn * 3.0
+            th = h + 4.0 + 3.0 * ((int(abs(at) * 7 + lo * 3) + r[0] + 2 * r[1]) % 3)
+            b.quad([P(axis, set_, t0, h), P(axis, set_, t1, h),
+                    P(axis, set_, t1, th), P(axis, set_, t0, th)], nrm(axis, sgn), col)
+            for u, out in ((t0, -1), (t1, 1)):
+                n = (0, out, 0) if axis == 0 else (out, 0, 0)
+                b.quad([P(axis, set_, u, h), P(axis, set_ - sgn * 6.0, u, h),
+                        P(axis, set_ - sgn * 6.0, u, th), P(axis, set_, u, th)], n, col)
+        back = at - sgn * 6.0                      # the block's depth, behind
+        for u, out in ((m0, -1), (m1, 1)):
+            if (out < 0 and lo_seam or out > 0 and hi_seam) and h > SEAM_H:
+                n = (0, out, 0) if axis == 0 else (out, 0, 0)
+                b.quad([P(axis, at, u, SEAM_H), P(axis, back, u, SEAM_H),
+                        P(axis, back, u, h), P(axis, at, u, h)], n, col)
+        # the sidewalk at its foot, cut where it is long
+        walk_at = at - sgn * (FAC - CITY_LANE)
+        k = max(1, int(np.ceil((hi - lo) / 9.0)))
+        for i in range(k):
+            u0, u1 = lo + (hi - lo) * i / k, lo + (hi - lo) * (i + 1) / k
+            b.quad([P(axis, at, u0, 0.12), P(axis, walk_at, u0, 0.12),
+                    P(axis, walk_at, u1, 0.12), P(axis, at, u1, 0.12)],
+                   (0, 0, 1), SIDEWALK)
+    # A LAMP at the first corner of the junction that juts into the street
+    # (both its neighbours street, itself block): warm, on the sidewalk
+    for cx, cy in ((1, 1), (-1, 1), (-1, -1), (1, -1)):
+        if walkable(cx, 0) and walkable(0, cy) and not walkable(cx, cy):
+            x, y = cx * (FAC - 0.6), cy * (FAC - 0.6)
+            b.box(x - .07, x + .07, y - .07, y + .07, 0.12, 3.1, (18, 16, 18), top=False)
+            b.box(x - .22, x + .22, y - .22, y + .22, 3.0, 3.3, (255, 200, 120))
+            break
+    # the centreline down each street arm (through, on a straight)
+    straight = sides in ((ARMS, CLOSED, ARMS, CLOSED), (CLOSED, ARMS, CLOSED, ARMS))
+    for k, (dx, dy, _) in enumerate(city.DIRS):
+        if sides[k] != ARMS:
+            continue
+        a0, a1 = (-HT if straight else FAC), HT
+        if straight and k >= 2:
+            continue
+        if dx:
+            x0, x1 = sorted((dx * a0, dx * a1))
+            b.flat(x0, x1, -0.09, 0.09, 0.04, LINE, 2 if straight else 1, 1)
+        else:
+            y0, y1 = sorted((dy * a0, dy * a1))
+            b.flat(-0.09, 0.09, y0, y1, 0.04, LINE, 1, 2 if straight else 1)
+    return b
 
 
-merged = {}
-for b in street:
-    for f in b.f:
-        r = merged.setdefault(place_of(b, f), Build())
-        ids = [r.vert(np.array(b.v[i], float) / ONE) for i in f[:3]]
-        r.f.append((*ids, f[3]))
-street = [merged[k] for k in sorted(merged)]
-STREET, SPHERE = [], []        # each street object and its bounding sphere
-for i, b in enumerate(street):
-    for k, m in enumerate(b.meshes()):
-        STREET.append(int(cart.data(m, f"street{i}_{k}")))
-        V = np.array(m.verts, float).reshape(-1, 3) / ONE
-        c = (V.min(0) + V.max(0)) / 2
-        SPHERE.append((c, np.linalg.norm(V - c, axis=1).max()))
+SIDES = [node_sides(n) for n in range(CS * CS)]
+KINDS = sorted({canon(s)[0] for s in SIDES})
+PIECE_M = []
+CITY_FACES = 0
+for kd in KINDS:
+    _pb = piece_build(kd)
+    CITY_FACES += len(_pb.f)
+    ms = _pb.meshes()
+    assert len(ms) == 1, f"piece {kd} needs {len(ms)} meshes"
+    PIECE_M.append(int(cart.data(ms[0], "piece_" + "".join(map(str, kd)))))
+# THE ORIGIN IS THE FIRST DISTRICT'S PLAZA: its centre (the corner its four
+# nodes share) is world (0, 0), where the crossroads' square was -- so the
+# fight begins in an open square half again as wide, the ring of three
+# where it always stood.
+PX0, PY0 = CITY.plazas[0]
+assert CITY.district[PX0 + PY0 * CS] == 0
+OXA = PX0 * TILE + HT                     # archive x of the origin, city-wise
+OYA = PY0 * TILE + HT
+# THE MAP, a word a node: its sides (2 bits each, N E S W from bit 0), the
+# piece's yaw (bits 8-17), the piece (bits 18-22), its district (23-26)
+# and the way to the core (bits 27-28: the side its next street toward the
+# core leaves by -- the pointer's road)
+_cd, _cp = city._bfs(CITY.adj, CITY.core)
+
+
+def side_to(a, b):
+    """the side of node a that node b lies through"""
+    return CSTEP.index(b - a)
+
+
+# ...and the way to its own district's plaza (bits 29-30): before the
+# district's horde wakes, the pointer leads there
+_pl_hop = [0] * (CS * CS)
+for _d in range(CITY.districts()):
+    _q = [v for v in range(CS * CS) if CITY.plaza[v] >= 0 and CITY.district[v] == _d]
+    _seen = set(_q)
+    for v in _q:
+        for m_ in CITY.adj[v]:
+            if m_ not in _seen and CITY.district[m_] == _d:
+                _seen.add(m_)
+                _pl_hop[m_] = side_to(m_, v)
+                _q.append(m_)
+CMAP_W = []
+for n in range(CS * CS):
+    kd, q = canon(SIDES[n])
+    yaw = (1024 - 256 * q) & 1023
+    w = sum(s << (2 * k) for k, s in enumerate(SIDES[n]))
+    hop = side_to(n, _cp[n]) if _cp[n] >= 0 else 0
+    CMAP_W.append(w | yaw << 8 | KINDS.index(kd) << 18 | CITY.district[n] << 23 | hop << 27
+                  | _pl_hop[n] << 29)
+# START: the dead end at one end of the longest street, facing out of it
+_sx, _sy = CITY.xy(CITY.start)
+START_X = int(round(-(_sy * TILE - OYA) * ONE))
+START_Z = int(round((_sx * TILE - OXA) * ONE))
+_sk = next(k for k in range(4) if SIDES[CITY.start][k])
+_fdx, _fdy, _ = city.DIRS[_sk]
+START_YAW = int(round(np.arctan2(_fdy, _fdx) * 1024 / (2 * np.pi))) & 1023   # forward (-sin, cos) = (-dy, dx)
+# THE GATES: the streets on the route where one district gives on to the
+# next. Shut, a gate is a street whose map bits read CLOSED: the piece still
+# shows the street, but the arena stops him at it and the walk draws nothing
+# past it -- the gate's own wall stands there instead. Clearing district
+# k - 1 opens gate k (its bits OR'd back in).
+GATES = sorted((k, e) for e, k in CITY.gates.items())
+NDIST = CITY.districts()
+GT_W = []
+for k, (a, b) in GATES:
+    sa, sb = side_to(a, b), side_to(b, a)
+    if CITY.district[a] > CITY.district[b]:
+        a, b, sa, sb = b, a, sb, sa
+    CMAP_W[a] &= ~(3 << 2 * sa)
+    CMAP_W[b] &= ~(3 << 2 * sb)
+    (ia, ja), (ib, jb) = CITY.xy(a), CITY.xy(b)
+    # (standing where the street stops: just past the near junction -- a
+    # shut side ends the street at the junction, not at the tile's edge)
+    gax = ia * TILE - OXA + (ib - ia) * (FAC + 0.3)
+    gay = ja * TILE - OYA + (jb - ja) * (FAC + 0.3)
+    GT_W += [a, 1 << 2 * sa, b, 1 << 2 * sb, int(round(-gay * ONE)), int(round(gax * ONE)),
+             0 if ia == ib else 256]
+GT_N = 7
+CMAP = cart.data(Table(CMAP_W), "city_map")
+GATE_T = cart.data(Table(GT_W or [0]), "gates")
+_gb = Build()                      # the gate: a wall of bars across the street,
+for i in range(7):                 # red and black, seen from both sides
+    x0, x1 = -FAC + 2 * FAC * i / 7, -FAC + 2 * FAC * (i + 1) / 7
+    col = (190, 28, 24) if i % 2 == 0 else (14, 10, 12)
+    _gb.quad([(x0, 0, 0.12), (x1, 0, 0.12), (x1, 0, 14), (x0, 0, 14)], (0, 1, 0), col)
+    _gb.quad([(x0, 0, 0.12), (x1, 0, 0.12), (x1, 0, 14), (x0, 0, 14)], (0, -1, 0), col)
+GATE_M = int(cart.data(_gb.mesh(), "gate"))
+# THE DISTRICTS' DUSK -- the opus, toward the core: black, white, yellow,
+# red (nigredo, albedo, citrinitas, rubedo). The fog takes the colour of
+# the district he stands in.
+_opus = [(0x40, 0x26, 0x48), (0x7A, 0x76, 0x82), (0x8C, 0x70, 0x26), (0x8E, 0x22, 0x1A)]
+# (black is a bruise, not black: a black dusk sank every wall into the
+# sky -- measured on the first city frames, against the old 0x6A2420)
+
+
+def _dusk(d):
+    t = d / max(1, NDIST - 1) * (len(_opus) - 1)
+    k = min(int(t), len(_opus) - 2)
+    f = t - k
+    c = [round(a + (b - a) * f) for a, b in zip(_opus[k], _opus[k + 1])]
+    return c[0] << 16 | c[1] << 8 | c[2]
+
+
+DUSK = cart.data(Table([_dusk(d) for d in range(16)]), "dusk")
+_aw = []                           # the pointer's eight ways, then none: a
+for k in range(8):                 # triangle a way, at the top of the screen
+    th = k * np.pi / 4             # (0 ahead, clockwise; screen y is down)
+    ux, uy = np.sin(th), -np.cos(th)
+    cx_, cy_ = 160, 40
+    pts = [(cx_ + 10 * ux, cy_ + 10 * uy), (cx_ - 5 * ux + 6 * uy, cy_ - 5 * uy - 6 * ux),
+           (cx_ - 5 * ux - 6 * uy, cy_ - 5 * uy + 6 * ux)]
+    _aw += [int(round(c)) for pt in pts for c in pt] + [0xE8C040]
+_aw += [0] * spec.DL_STRIDE
+ARROWS = cart.data(Table(_aw), "arrows")
+CT_MAX = 12                     # pieces a frame, at most
+PIECE_CY, PIECE_R = 8.5, 25.0   # a piece's bounding sphere: centre height, radius
+PIECE_T = cart.data(Table(PIECE_M), "pieces")
+
+CT = {k: cart.var("ct_" + k) for k in ("n", "x", "z", "w", "c", "k", "n1", "w1", "bk")}
+CTLIST = cart.var("ct_list", CT_MAX)
+
+
+def city_node(g, xcell, zcell):
+    """( -- ) CT n, CT w for the zeta point (xcell, zcell): -1 off the map"""
+    off = g.label("cnoff")
+    g.load(zcell).push32(int((OXA + HT) * ONE)).emit("add")        # u = ax
+    g.emit("dup").push(0).emit("lt", f"jz {off}_a", "drop", f"jmp {off}")
+    g.mark(f"{off}_a")
+    g.emit("dup").push32(int(CS * TILE * ONE)).emit("lt", f"jz {off}_b")
+    g.emit("shr 21")
+    g.push32(int((OYA + HT) * ONE)).load(xcell).emit("sub")         # v = ay
+    g.emit("dup").push(0).emit("lt", f"jz {off}_c", "drop", "drop", f"jmp {off}")
+    g.mark(f"{off}_c")
+    g.emit("dup").push32(int(CS * TILE * ONE)).emit("lt", f"jz {off}_d")
+    g.emit("shr 21", "shl 4", "add", "dup").store(CT["n"])
+    g.push(int(CMAP)).emit("add", "loadi").store(CT["w"])
+    g.emit(f"jmp {off}_e")
+    g.mark(f"{off}_d")
+    g.emit("drop")
+    g.mark(f"{off}_b")
+    g.emit("drop")
+    g.mark(off)
+    g.set(CT["n"], -1)
+    g.mark(f"{off}_e")
+
+
 
 
 # 0.2 BELOW the street: everything that stands on the ground (paint at
@@ -917,7 +1069,6 @@ TITLE = cart.cram(Plate([int(r >> 3) << 10 | int(g >> 3) << 5 | int(b >> 3)
                         [spec.ZFAR] * spec.BG_WORDS), "title")
 MODE = cart.data(Table([0]), "mode")             # 0 the title, 1 the fight
 TT = cart.data(Table([1500]), "title_t")   # boots at ATTRACT: the intro first
-STREET_FACES = sum(len(b.f) for b in street)
 
 # ---- P4: THE KEYS -- what the fight hit-tests (tools/tnd_extract.py) -----
 # Archive axes (x fwd, y left, z up) to the cart's, Q16.16.
@@ -1019,6 +1170,7 @@ for i in range(3):
              jt=int(DJT[i]), kp=int(DKEY[i]), mt=int(DMT[i]))
     slots += [v[f] for f in DF]
 DS = cart.data(Table(slots), "demons")
+RING = [(slots[d * NF + DF["x"]], slots[d * NF + DF["z"]]) for d in range(3)]
 # A NEW WAVE IS THIS, FETCHED (P15). The image was 78 words of DMEM read
 # only when a wave stands up -- so it lives in the segment now, and the
 # mover brings it: the one frame's request that would have carried his
@@ -1026,6 +1178,9 @@ DS = cart.data(Table(slots), "demons")
 # already does at 30 Hz). The 78 words went to the sounds below.
 SPAWN = cart.cram(Table(slots), "spawn")
 CUR = cart.var("cur", NF)                        # the demon being thought
+SPN = cart.var("spn")                            # P19: demons sent, to place
+WOKE = cart.var("woke")                          # P19: the district's horde is up
+LEASH_FOG = int(44 * ONE)                        # beyond this on an axis: unseen
 
 
 def dslot(d, f):
@@ -1096,12 +1251,13 @@ W = {k: cart.var("w_" + k) for k in ("k", "bx", "bz", "c", "s", "x", "y", "z", "
 # crossing square inside 10.6, and the two streets 7.1 either side of
 # their centreline out to 40. A step that ends anywhere else keeps only
 # what stays on -- for him and for the demons alike.
-AR = {k: cart.var("ar_" + k) for k in ("x", "z", "ox", "oz")}
-AR_SQ, AR_LANE, AR_REACH = (int(v * ONE) for v in (11 - 0.4, 11 - 3.2 - 0.7, 54 - 14))
+AR = {k: cart.var("ar_" + k) for k in ("x", "z", "ox", "oz", "u", "v")}
+AR_W = int((CITY_LANE - 0.7) * ONE)    # how near a wall a body's centre comes
 
 
 L_KIA = p.label("kia")
-KP = {k: cart.var("kp_" + k) for k in ("p", "o")}    # where x (z next), where ox
+KP = {k: cart.var("kp_" + k) for k in ("p", "o", "x", "y")}  # where x (z next),
+                                                     # where ox; (the arena's sides)
 
 
 def keep_in_arena(xc, zc, ox, oz):
@@ -1652,6 +1808,7 @@ p.store(spec.SD_GO)
 p.mark(cd)
 p.load(int(MODE)).emit(f"jz {tl}", f"jmp {tl}_fight")
 p.mark(tl)
+p.set(PX, 0).set(PZ, 0)          # (P19: on the title he stands where the intro films)
 p.push(int(TITLE)).store(spec.BG_SRC)
 p.set(spec.OL_BASE, 0).set(spec.DL_BASE, 0)
 # P14: BEST and the rank, once the card has one to show (a word outside
@@ -1684,6 +1841,13 @@ gi = p.label("gointro")
 p.emit(f"jz {gi}")
 p.set(int(MODE), 1).set(spec.BG_SRC, 0).set(spec.CO_BASE, 0)
 p.set(RES, HORDE0).set(LVL, 0).set(CLR, 0)          # P18: the first district
+# P19: THE STORY STARTS AT THE START -- the dead end at one end of the
+# city's longest street, facing out, the street empty. The first district's
+# horde is in its plaza, asleep until he walks in.
+p.set(PX, START_X).set(PZ, START_Z).set(YAW, START_YAW).set(CY, START_YAW)
+p.set(WOKE, 0)
+for d in range(3):
+    p.set(dslot(d, "st"), 4)
 p.set(GT["jump"], 100).set(GC["jump"], 1)     # the A that left the title is spent
 p.set(spec.DL_BASE, 0).set(int(S_SHOWN), 255)  # P14: the title's words go,
                                                # and the HUD draws afresh
@@ -1701,6 +1865,68 @@ p.set(spec.BG_SRC, 0).set(spec.CO_BASE, 1)
 p.rect(0, 0, 0, spec.W - 1, spec.H - 1, 0x000000, 16)
 p.emit(f"jmp {L_MUSIC}")
 p.mark(f"{tl}_fight")
+# P19: A DEMON SENT IS PLACED IN THE CITY. The mover lands a fresh demon at
+# its place on the ring round the origin, a frame after it is asked for
+# (SPN marks which); here it is moved to where he is. In a plaza, the same
+# ring round the plaza's own centre -- at the first plaza that is nothing
+# at all, the fight as it always was. In a street, down one of his node's
+# streets (each demon tries its own first), 22-30 units off: coming in.
+sp_ = p.label("spn")
+p.load(SPN).emit(f"jz {sp_}", )
+city_node(p, PX, PZ)
+p.load(CT["n"]).push(0).emit("lt", f"jz {sp_}_on")
+p.set(SPN, 0).emit(f"jmp {sp_}")
+p.mark(f"{sp_}_on")
+p.load(CT["n"]).emit("shr 4", "shl 21").push32(int(OYA * ONE)).emit("swap", "sub")
+p.store(CT["x"])                                   # the node's centre, zeta
+p.load(CT["n"]).push(CS - 1).emit("and", "shl 21").push32(int(OXA * ONE))
+p.emit("sub").store(CT["z"])
+for d in range(3):
+    sd = p.label("spd")
+    p.load(SPN).push(1 << d).emit("and", f"jz {sd}")
+    p.load(CT["w"]).push(0xAA).emit("and", f"jz {sd}_st")          # a plaza?
+    # the plaza's centre: the corner its open sides share (E: +x, N: +y)
+    # (its ring place a constant: a demon placed again was anywhere)
+    p.load(CT["w"]).push(8).emit("and", f"jz {sd}_w")
+    p.load(CT["z"]).push32(int(HT * ONE)).emit("add").emit(f"jmp {sd}_e")
+    p.mark(f"{sd}_w")
+    p.load(CT["z"]).push32(int(HT * ONE)).emit("sub")
+    p.mark(f"{sd}_e")
+    p.push32(RING[d][1]).emit("add").store(dslot(d, "z"))
+    p.load(CT["w"]).push(2).emit("and", f"jz {sd}_s")
+    p.load(CT["x"]).push32(int(HT * ONE)).emit("sub").emit(f"jmp {sd}_n")
+    p.mark(f"{sd}_s")
+    p.load(CT["x"]).push32(int(HT * ONE)).emit("add")
+    p.mark(f"{sd}_n")
+    p.push32(RING[d][0]).emit("add").store(dslot(d, "x"))
+    p.emit(f"jmp {sd}_o")
+    p.mark(f"{sd}_st")
+    for t in range(4):
+        k = (d + t) % 4
+        dx, dy, _ = city.DIRS[k]
+        far = int((22 + 4 * d) * ONE)
+        p.load(CT["w"]).emit(f"shr {2 * k}").push(3).emit("and", f"jz {sd}_t{t}")
+        p.load(CT["x"]).push32(-dy * far).emit("add").store(dslot(d, "x"))
+        p.load(CT["z"]).push32(dx * far).emit("add").store(dslot(d, "z"))
+        p.emit(f"jmp {sd}_o")
+        p.mark(f"{sd}_t{t}")
+    p.mark(f"{sd}_o")
+    p.load(dslot(d, "x")).store(dslot(d, "ox"))
+    p.load(dslot(d, "z")).store(dslot(d, "oz"))
+    p.mark(sd)
+p.set(SPN, 0)
+p.mark(sp_)
+du_ = p.label("dusk")                            # P19: his district's dusk
+city_node(p, PX, PZ)
+p.load(CT["n"]).push(0).emit("lt", f"jz {du_}_on", f"jmp {du_}")
+p.mark(f"{du_}_on")
+p.load(CT["w"]).emit("shr 23").push(15).emit("and").push(int(DUSK)).emit("add", "loadi")
+p.store(spec.FOG_RGB)
+# THE AMBUSH: a district's horde wakes when he walks into its plaza
+p.load(CT["w"]).push(0xAA).emit("and", f"jz {du_}")
+p.load(CT["w"]).emit("shr 23").push(15).emit("and").load(LVL).emit("eq", f"jz {du_}")
+p.set(WOKE, 1)
+p.mark(du_)
 # P13: a FRESH Start in the fight pages in the pause (its words over the end)
 pa_ = p.label("pause")
 held(spec.PAD_START)
@@ -2562,7 +2788,8 @@ p.push(DEATH_BEAT).load(F["dead"]).emit("lt")
 fresh(spec.PAD_A)
 p.emit("and", f"jz {L['frozen']}")
 # RETRY: a fresh run -- full health, the start, a new wave (tear.py _retry)
-RETRY_CELLS = ((PX, 0), (PZ, 0), (YAW, 0), (CY, 0), (ANIM, 0), (AF, 0),
+RETRY_CELLS = ((PX, START_X), (PZ, START_Z), (YAW, START_YAW), (CY, START_YAW),
+             (WOKE, 0), (ANIM, 0), (AF, 0),
              (PHP, 140), (F["dead"], 0), (F["tilt"], 0), (F["hs"], 0),
              (F["stop"], 0), (F["vx"], 0), (F["vz"], 0), (F["buf"], 0),
              (F["c3"], 0), (F["fight"], 0), (F["wave"], 0), (SFX_T, SFX_N),
@@ -2575,6 +2802,10 @@ RETRY_CELLS = ((PX, 0), (PZ, 0), (YAW, 0), (CY, 0), (ANIM, 0), (AF, 0),
              *((int(S_REC) + i, 255) for i in range(5)))
 for c, v in RETRY_CELLS:
     p.set(c, v)
+for k in range(len(GATES)):                     # (P19: and every gate shut again)
+    for half in (0, 2):
+        a_, bit_ = GT_W[k * GT_N + half], GT_W[k * GT_N + half + 1]
+        p.load(int(CMAP) + a_).push32(~bit_ & 0xFFFFFFFF).emit("and").store(int(CMAP) + a_)
 # (the wave: the three are marked gone, and the fight's own respawn -- below,
 # this same frame -- fetches the new one, as the pause's QUIT always did)
 for d in range(3):
@@ -3038,6 +3269,56 @@ for d in range(3):
     p.emit(f"call {L_DMIND}")
     p.push(int(CUR)).store(CP["src"]).push(int(DS) + d * NF).store(CP["dst"])
     p.push(NF).store(CP["n"]).emit(f"call {L_COPY}")
+# P19: THE LEASH. A demon slides along a wall toward him, which takes it
+# round one corner and no further: lost in the streets it would stand at
+# a wall for ever. One that is neither in his node nor a node his streets
+# reach, and is not on screen, is placed again where a fresh one would be
+# (SPN), keeping everything but where it stands. Behind the walls, a demon
+# is wherever the fight needs it.
+city_node(p, PX, PZ)
+p.load(CT["n"]).store(CT["n1"]).load(CT["w"]).store(CT["w1"])
+for d in range(3):
+    ls = p.label("leash")
+    p.load(CT["n1"]).push(0).emit("lt", f"jz {ls}_p", f"jmp {ls}")     # he is off the map
+    p.mark(f"{ls}_p")
+    p.load(dslot(d, "st")).push(4).emit("eq", f"jz {ls}_a", f"jmp {ls}")   # gone
+    p.mark(f"{ls}_a")
+    city_node(p, dslot(d, "x"), dslot(d, "z"))
+    p.load(CT["n"]).load(CT["n1"]).emit("sub", "dup").store(CT["k"])
+    p.emit(f"jz {ls}")                                                 # his node
+    for k_, df in enumerate((CS + 1, CS - 1, -CS + 1, -CS - 1)):   # (a plaza's
+        p.load(CT["k"]).push(df).emit("eq", f"jz {ls}_q{k_}")      # far corner:
+        p.load(CT["w"]).push(0xAA).emit("and", f"jz {ls}_q{k_}")   # both
+        p.load(CT["w1"]).push(0xAA).emit("and", f"jz {ls}_q{k_}")  # in it)
+        p.emit(f"jmp {ls}")
+        p.mark(f"{ls}_q{k_}")
+    for k in range(4):
+        p.load(CT["k"]).push(CSTEP[k]).emit("eq", f"jz {ls}_k{k}")
+        p.load(CT["w1"]).emit(f"shr {2 * k}").push(3).emit("and", f"jz {ls}_k{k}")
+        p.emit(f"jmp {ls}")                                            # a street away
+        p.mark(f"{ls}_k{k}")
+    for cell, cam in (("x", spec.CAM_X), ("z", spec.CAM_Z)):      # in the fog:
+        p.load(dslot(d, cell)).load(cam).emit("sub", "dup")       # unseen (and
+        p.push(0).emit("lt", f"jz {ls}_{cell}p")                  # before the
+        p.push(0).emit("swap", "sub")                             # squares can
+        p.mark(f"{ls}_{cell}p")                                   # overflow)
+        p.push(LEASH_FOG).emit("swap", "lt", f"jz {ls}_{cell}n", f"jmp {ls}_off")
+        p.mark(f"{ls}_{cell}n")
+    sin_of(p, cell=CY)                                    # on screen? (the
+    p.load(dslot(d, "x")).load(spec.CAM_X).emit("sub", "mulq")   # tokens' test:
+    p.push(0).emit("swap", "sub")                         # dot > 0, cross^2 <
+    sin_of(p, 256, cell=CY)                               # tan^2 dot^2)
+    p.load(dslot(d, "z")).load(spec.CAM_Z).emit("sub", "mulq", "add").emit("dup").store(W["dc"])
+    p.push(0).emit("swap", "lt", f"jz {ls}_off")
+    sin_of(p, 256, cell=CY)
+    p.load(dslot(d, "x")).load(spec.CAM_X).emit("sub", "mulq")
+    sin_of(p, cell=CY)
+    p.load(dslot(d, "z")).load(spec.CAM_Z).emit("sub", "mulq", "add", "dup", "mulq")
+    p.load(W["dc"]).emit("dup", "mulq").push(ONSCREEN_TAN2).emit("mulq", "lt", f"jz {ls}_off")
+    p.emit(f"jmp {ls}")
+    p.mark(f"{ls}_off")
+    p.load(SPN).push(1 << d).emit("or").store(SPN)
+    p.mark(ls)
 # P16: THE FIGHT DOES NOT STOP. The wave came back only when all three
 # were gone, so every wave ended on the same two seconds of nothing -- 18%
 # of the tape's fight had no demon alive, and every rank the player lost
@@ -3051,6 +3332,18 @@ for d in range(3):
 # replaced from it until it is empty. The last of a district falls in slow
 # motion; CLEAR_FOR frames later the next district comes, HSTEP bigger.
 # "Fight through hundreds": three are real at any moment.
+def here(away):
+    """-> away unless he stands in the district being fought (LVL): a
+    horde comes only where it lives"""
+    h_ = p.label("here")
+    p.load(WOKE).emit(f"jz {away}")                  # (asleep in its plaza)
+    city_node(p, PX, PZ)
+    p.load(CT["n"]).push(0).emit("lt", f"jz {h_}", f"jmp {away}")
+    p.mark(h_)
+    p.load(CT["w"]).emit("shr 23").push(15).emit("and").load(LVL).emit("eq")
+    p.emit(f"jz {away}")
+
+
 nw = p.label("nowave")
 lv_ = p.label("last")
 p.load(RES).emit(f"jz {lv_}_z", f"jmp {lv_}")          # the district's last:
@@ -3072,20 +3365,34 @@ p.load(RES).emit(f"jz {nw}_clr", f"jmp {nw}_ring")     # all gone, none left: CL
 p.mark(f"{nw}_clr")
 p.addi(CLR, 1)
 p.push(CLEAR_FOR).load(CLR).emit("lt", f"jz {nw}")     # (the beat, then the next)
-p.addi(LVL, 1).set(CLR, 0)
+p.addi(LVL, 1).set(CLR, 0).set(WOKE, 0)
 p.load(LVL).push(HSTEP).emit("mul").push(HORDE0).emit("add").store(RES)
+# P19: THE GATE OPENS -- gate LVL, into the district now owed -- and the
+# next horde waits for him there
+p.load(LVL).push(NDIST).emit("lt", f"jz {nw}")
+for half in (0, 2):
+    p.load(LVL).push(GT_N).emit("mul").push(int(GATE_T) - GT_N + half).emit("add")
+    p.emit("dup", "loadi").push(int(CMAP)).emit("add", "dup", "loadi")   # [e, a, w]
+    p.emit("swap").store(CT["k"])                                        # [e, w]
+    p.emit("swap").push(1).emit("add", "loadi", "or")                    # [w | bit]
+    p.load(CT["k"]).emit("storei")
+p.emit(f"jmp {nw}")
 p.mark(f"{nw}_ring")
+here(f"{nw}")
 p.load(RES).push(3).emit("sub", "dup").push(0).emit("lt", f"jz {nw}_rp")
 p.emit("drop").push(0)
 p.mark(f"{nw}_rp")
 p.store(RES)
 p.set(spec.DMA_SRC, int(SPAWN)).set(spec.DMA_DST, int(DS)).set(spec.DMA_LEN, 3 * NF)
+p.set(SPN, 7)                                          # (placed next frame)
 p.emit(f"jmp {nw}_all")
 p.mark(f"{nw}_one")
 p.load(RES).emit(f"jz {nw}")                           # the reserve is spent
+here(f"{nw}")
 for d in range(3):
     p.load(dslot(d, "st")).push(4).emit("eq", f"jz {nw}_{d}")
     p.set(spec.DMA_SRC, int(SPAWN) + d * NF).set(spec.DMA_DST, int(DS) + d * NF)
+    p.load(SPN).push(1 << d).emit("or").store(SPN)
     p.emit(f"jmp {nw}_send")
     p.mark(f"{nw}_{d}")
 p.emit(f"jmp {nw}")
@@ -3417,24 +3724,94 @@ def if_visible(cx, cy, cz, r, body):
     p.mark(skip)
 
 
-# the street as ONE loop over a table (mesh, centre, radius -- the y
-# already relative to the eye): twenty unrolled copies of the test were
-# ~500 of IMEM's 4,096 words
-ST_TAB = cart.data(Table([w for m, (c, r) in zip(STREET, SPHERE) for w in (
-    m, int(round(c[0] * ONE)), int(round((c[1] - 2.15) * ONE)),
-    int(round(c[2] * ONE)), int(round((r + 0.05) * ONE)))]), "street_cull")
-STP, STN = cart.var("st_p"), cart.var("st_n")
-stl = p.label("stl")
-p.push(int(ST_TAB)).store(STP).push(len(STREET)).store(STN)
-p.mark(stl)
-for k, c in enumerate(("cx", "cy", "cz", "r")):
-    p.load(STP).push(k + 1).emit("add", "loadi").store(VIS[c])
-p.emit(f"call {L_VIS}", f"jz {stl}_s")
-p.object(NOBJ, (f"load {int(STP)}", "loadi"), 0, 0, 0, 0, spec.OBJ_CULL)
-p.mark(f"{stl}_s")
-p.addi(STP, 5).addi(STN, -1)
-p.load(STN).emit(f"jz {stl}_e", f"jmp {stl}")
-p.mark(f"{stl}_e")
+# THE CITY'S PIECES NEAR HIM (P19): the node he stands on, the nodes its
+# streets reach, and the nodes theirs reach -- two streets out is 48 units
+# or more, where the fog is already total -- each culled against the view
+# and listed once (a plaza's square reaches a node by two ways). The walls
+# hide the rest, so the rest is not drawn.
+L_CTILE, L_CRING = p_main.label("ctile_sub"), p_main.label("cring_sub")
+
+
+def city_subs():
+  for g in (p_main, q, pz):
+    # CTILE: list node CT n's piece, if not listed yet and in view
+    ex = g.label("ctile")
+    g.mark(L_CTILE)
+    g.load(CT["c"]).push(CT_MAX).emit("lt", f"jz {ex}")            # (the cap)
+    g.set(CT["k"], 0)
+    g.mark(f"{ex}_s")
+    g.load(CT["k"]).load(CT["c"]).emit("lt", f"jz {ex}_new")
+    g.load(CT["k"]).push(int(CTLIST)).emit("add", "loadi").load(CT["n"]).emit("eq")
+    g.emit(f"jz {ex}_nx", f"jmp {ex}")
+    g.mark(f"{ex}_nx")
+    g.addi(CT["k"], 1).emit(f"jmp {ex}_s")
+    g.mark(f"{ex}_new")
+    g.load(CT["n"]).load(CT["c"]).push(int(CTLIST)).emit("add", "storei")
+    g.addi(CT["c"], 1)
+    g.push32(int(OYA * ONE)).load(CT["n"]).emit("shr 4", "shl 21", "sub").store(CT["x"])
+    g.load(CT["n"]).push(CS - 1).emit("and", "shl 21").push32(int(OXA * ONE))
+    g.emit("sub").store(CT["z"])
+    g.load(CT["x"]).store(VIS["cx"]).load(CT["z"]).store(VIS["cz"])
+    g.push(int(round((PIECE_CY - 2.15) * ONE))).store(VIS["cy"])
+    g.push(int(round(PIECE_R * ONE))).store(VIS["r"])
+    g.emit(f"call {L_VIS}", f"jz {ex}")
+    g.load(CT["n"]).push(int(CMAP)).emit("add", "loadi").store(CT["w"])
+    g.object(NOBJ,
+             lambda h: h.load(CT["w"]).emit("shr 18").push(31).emit("and")
+             .push(int(PIECE_T)).emit("add", "loadi"),
+             (f"load {int(CT['x'])}",), 0, (f"load {int(CT['z'])}",),
+             lambda h: h.load(CT["w"]).emit("shr 8").push(1023).emit("and"),
+             spec.OBJ_CULL)
+    g.mark(ex)
+    g.emit("ret")
+    # CRING: the nodes CT n1's streets reach, but back the way it came (bk)
+    g.mark(L_CRING)
+    for d in range(4):
+        sk = g.label("cring")
+        g.load(CT["bk"]).push(d).emit("eq", f"jz {sk}_go", f"jmp {sk}")
+        g.mark(f"{sk}_go")
+        g.load(CT["w1"]).emit(f"shr {2 * d}").push(3).emit("and", f"jz {sk}")
+        g.load(CT["n1"]).push(CSTEP[d]).emit("add").store(CT["n"])
+        g.emit(f"call {L_CTILE}")
+        g.mark(sk)
+    g.emit("ret")
+
+p.set(CT["c"], 0)
+cw_ = p.label("cwalk")
+for g in (p_main, q, pz):
+    city_node(g, PX, PZ)
+p.load(CT["n"]).push(0).emit("lt", f"jz {cw_}_in", f"jmp {cw_}")
+p.mark(f"{cw_}_in")
+p.load(CT["n"]).store(CT["n1"]).load(CT["w"]).store(CT["w1"])
+p.emit(f"call {L_CTILE}")
+for d in range(4):
+    sk = p.label("cw1")
+    p.load(CT["w1"]).emit(f"shr {2 * d}").push(3).emit("and", f"jz {sk}")
+    p.load(CT["n1"]).push(CSTEP[d]).emit("add").store(CT["n"])
+    p.emit(f"call {L_CTILE}")
+    p.load(CT["n"]).store(CT["n1"])
+    p.load(CT["n"]).push(int(CMAP)).emit("add", "loadi").store(CT["w1"])
+    p.set(CT["bk"], (d + 2) % 4)
+    p.emit(f"call {L_CRING}")
+    p.load(CT["n1"]).push(CSTEP[d]).emit("sub").store(CT["n1"])      # (back)
+    p.load(CT["n1"]).push(int(CMAP)).emit("add", "loadi").store(CT["w1"])
+    p.mark(sk)
+p.mark(cw_)
+# the next gate shut, if it can be seen (gate LVL + 1: the way out of the
+# district being fought; every gate before it is open, every one after it
+# behind it)
+gd_ = p.label("gate")
+p.load(LVL).push(NDIST - 1).emit("lt", f"jz {gd_}")
+p.load(LVL).push(GT_N).emit("mul").push(int(GATE_T)).emit("add").store(CT["k"])
+p.load(CT["k"]).push(4).emit("add", "loadi").store(VIS["cx"])
+p.load(CT["k"]).push(5).emit("add", "loadi").store(VIS["cz"])
+p.push(int(round((7 - 2.15) * ONE))).store(VIS["cy"]).push(int(12 * ONE)).store(VIS["r"])
+p.emit(f"call {L_VIS}", f"jz {gd_}")
+p.object(NOBJ, GATE_M,
+         lambda h: h.load(CT["k"]).push(4).emit("add", "loadi"), 0,
+         lambda h: h.load(CT["k"]).push(5).emit("add", "loadi"),
+         lambda h: h.load(CT["k"]).push(6).emit("add", "loadi"), spec.OBJ_CULL)
+p.mark(gd_)
 def flash_flags(hs, out):
     """out = FLASH while the blow is fresh -- the STRUCK body only: hitstop
     freezes the attacker too, but only the target carries a stun (12 +
@@ -3632,7 +4009,7 @@ p.mark(f"{hk}_c")
 p.load(SY["g"]).push(int(S_SHOWN)).emit("loadi", "eq", f"jz {hk}_draw", f"jmp {hk}")
 p.mark(f"{hk}_draw")
 p.load(SY["g"]).push(int(S_SHOWN)).emit("storei")
-p.set(TX["n"], 0)
+p.set(TX["n"], 1)                  # (P19: triangle 0 is the pointer's)
 p.load(SY["g"]).push(1).emit("eq", f"jz {hk}_fight")
 for k, v in (("str", int(STR_RETRY)), ("x", 141), ("y", 80), ("sc", 2), ("rgb", 0xE8D8C0)):
     p.set(TX[k], v)
@@ -3672,6 +4049,74 @@ p.emit(f"call {L_TEXT}")
 p.mark(f"{hk}_out")
 p.load(TX["n"]).store(spec.DL_BASE)
 p.mark(hk)
+# P19: THE POINTER. Away from the district being fought -- a district
+# cleared behind him, its gate open -- a gold arrow at the top of the
+# screen points down the next street toward the core (the map's bits
+# 27-28), turned into the camera's view: one of eight ways, by comparison
+# (the machine has no divide). Triangle 0 of the display list, every frame;
+# the HUD's words start at 1.
+pt_ = p.label("ptr")
+p.set(CT["k"], 8)                                        # 8: hidden
+p.load(F["dead"]).emit(f"jz {pt_}_up", f"jmp {pt_}_w")     # (not while he is down)
+p.mark(f"{pt_}_up")
+city_node(p, PX, PZ)
+p.load(CT["n"]).push(0).emit("lt", f"jz {pt_}_on", f"jmp {pt_}_w")
+p.mark(f"{pt_}_on")
+p.set(CT["c"], 27)                                       # the road: to the core,
+p.load(CT["w"]).emit("shr 23").push(15).emit("and").load(LVL).emit("eq")
+p.emit(f"jz {pt_}_away")
+p.load(WOKE).emit(f"jz {pt_}_asl", f"jmp {pt_}_w")       # (the fight: none)
+p.mark(f"{pt_}_asl")
+p.set(CT["c"], 29)                                       # ...or, asleep, its plaza
+p.mark(f"{pt_}_away")
+p.load(CT["n"]).emit("shr 4", "shl 21").push32(int(OYA * ONE)).emit("swap", "sub")
+p.load(PX).emit("sub").store(CT["x"])                    # node centre - him
+p.load(CT["n"]).push(CS - 1).emit("and", "shl 21").push32(int(OXA * ONE))
+p.emit("sub").load(PZ).emit("sub").store(CT["z"])
+for k in range(4):                                       # ...+ the next street
+    dx, dy, _ = city.DIRS[k]
+    p.load(CT["w"]).emit("shr 27").load(CT["c"]).push(27).emit("eq", f"jz {pt_}_s{k}")
+    p.emit("shr 2")                                      # (bits 29-30)
+    p.mark(f"{pt_}_s{k}")
+    p.push(3).emit("and").push(k).emit("eq", f"jz {pt_}_h{k}")
+    if dy:
+        p.load(CT["x"]).push32(-dy * int(TILE * ONE)).emit("add").store(CT["x"])
+    if dx:
+        p.load(CT["z"]).push32(dx * int(TILE * ONE)).emit("add").store(CT["z"])
+    p.mark(f"{pt_}_h{k}")
+p.load(CT["x"]).load(VIS["rx"]).emit("mulq")             # right
+p.load(CT["z"]).load(VIS["rz"]).emit("mulq", "add").store(CT["n1"])
+p.load(CT["z"]).load(VIS["rx"]).emit("mulq")             # forward
+p.load(CT["x"]).load(VIS["rz"]).emit("mulq", "sub").store(CT["w1"])
+for c_, a_ in ((CT["n1"], CT["x"]), (CT["w1"], CT["z"])):   # |right|, |forward|
+    ab = p.label("pabs")
+    p.load(c_).emit("dup").push(0).emit("lt", f"jz {ab}")
+    p.push(0).emit("swap", "sub")
+    p.mark(ab)
+    p.store(a_)
+TAN67 = int(round(2.4142 * ONE))
+p.load(CT["z"]).push(TAN67).emit("mulq").load(CT["x"]).emit("lt", f"jz {pt_}_nh")
+p.push(0).load(CT["n1"]).emit("lt").push(-4).emit("mul").push(6).emit("add")  # 2 or 6
+p.store(CT["k"]).emit(f"jmp {pt_}_w")
+p.mark(f"{pt_}_nh")
+p.load(CT["x"]).push(TAN67).emit("mulq").load(CT["z"]).emit("lt", f"jz {pt_}_dg")
+p.push(0).load(CT["w1"]).emit("lt").push(-4).emit("mul").push(4).emit("add")  # 0 or 4
+p.store(CT["k"]).emit(f"jmp {pt_}_w")
+p.mark(f"{pt_}_dg")                                       # a diagonal
+p.push(0).load(CT["n1"]).emit("lt", f"jz {pt_}_dl")
+p.push(0).load(CT["w1"]).emit("lt").push(2).emit("mul").push(3).emit("swap", "sub")   # 3 or 1
+p.store(CT["k"]).emit(f"jmp {pt_}_w")
+p.mark(f"{pt_}_dl")
+p.push(0).load(CT["w1"]).emit("lt").push(2).emit("mul").push(5).emit("add")   # 7 or 5
+p.store(CT["k"])
+p.mark(f"{pt_}_w")
+p.load(CT["k"]).push(spec.DL_STRIDE).emit("mul").push(int(ARROWS)).emit("add").store(CP["src"])
+p.push(spec.DL_BASE + 1).store(CP["dst"]).push(spec.DL_STRIDE).store(CP["n"])
+p.emit(f"call {L_COPY}")
+p.load(spec.DL_BASE).emit(f"jz {pt_}_n1", f"jmp {pt_}")
+p.mark(f"{pt_}_n1")
+p.set(spec.DL_BASE, 1)
+p.mark(pt_)
 
 # ---- THE GAUGE (P6 dresses it): his health, on the compositor's free
 # rectangles, from the first blow either way -- an untouched opening is
@@ -4268,25 +4713,44 @@ for g, intro_vis in ((p_main, False), (q, True), (pz, True)):   # (the intro: it
     g.push(0).emit("ret")
     g.mark(yes_l)
     g.push(1).emit("ret")
+city_subs()
 
 
 # ARENA: ( -- inside? ) for (ar_x, ar_z), the archive's '+'.
 p.mark(L_ARENA)
-for c in ("x", "z"):                                 # |x|, |z| in place
-    pos = p.label("abs")
-    p.load(AR[c]).emit("dup").push(0).emit("lt", f"jz {pos}")
-    p.push(0).emit("swap", "sub")
-    p.mark(pos)
-    p.store(AR[c])
-yes = p.label("ain")
-p.push(AR_SQ).load(AR["x"]).emit("lt")               # outside the square?
-p.push(AR_SQ).load(AR["z"]).emit("lt", "or", f"jz {yes}")
-for a, b in (("x", "z"), ("z", "x")):                # either street
-    p.push(AR_LANE).load(AR[a]).emit("lt")
-    p.push(AR_REACH).load(AR[b]).emit("lt", "or", f"jz {yes}")
+# P19: THE CITY IS THE ARENA. The point's node and its place in the tile:
+# inside the junction (|u|, |v| < AR_W) is street; past it on one axis,
+# street if that side is not closed; past it on both (a corner), street
+# only if both sides open into a plaza. The crossroads' own test, from a
+# map -- the same AR_W from every wall.
+city_node(p, AR["x"], AR["z"])
+ai_ = p.label("ain")
+p.load(CT["n"]).push(0).emit("lt", f"jz {ai_}_on")
 p.push(0).emit("ret")
-p.mark(yes)
-p.push(1).emit("ret")
+p.mark(f"{ai_}_on")
+for cell, coord in ((AR["u"], "x"), (AR["v"], "y")):
+    # the coordinate in the tile, -16..16: archive x is zeta z; y is -x
+    if coord == "x":
+        p.load(AR["z"]).push32(int((OXA + HT) * ONE)).emit("add")
+    else:
+        p.push32(int((OYA + HT) * ONE)).load(AR["x"]).emit("sub")
+    p.push32((1 << 21) - 1).emit("and").push32(1 << 20).emit("sub").store(cell)
+for cell, hi_side, lo_side, out in ((AR["u"], 1, 3, "x"), (AR["v"], 0, 2, "y")):
+    t_ = p.label("aside")
+    p.push(9).store(KP[out])                       # 9: inside on this axis
+    p.push(AR_W).load(cell).emit("lt", f"jz {t_}_lo")
+    p.load(CT["w"]).emit(f"shr {2 * hi_side}").push(3).emit("and").store(KP[out])
+    p.mark(f"{t_}_lo")
+    p.load(cell).push(-AR_W).emit("lt", f"jz {t_}")
+    p.load(CT["w"]).emit(f"shr {2 * lo_side}").push(3).emit("and").store(KP[out])
+    p.mark(t_)
+p.load(KP["x"]).push(9).emit("eq", f"jz {ai_}_x")
+p.push(0).load(KP["y"]).emit("lt", "ret")          # inside on x: y's side open?
+p.mark(f"{ai_}_x")
+p.load(KP["y"]).push(9).emit("eq", f"jz {ai_}_c")
+p.push(0).load(KP["x"]).emit("lt", "ret")
+p.mark(f"{ai_}_c")
+p.load(KP["x"]).load(KP["y"]).emit("add").push(4).emit("eq", "ret")   # a corner
 
 # COPY: n words from src to dst
 cl = p.label("copy_l")
@@ -5172,12 +5636,13 @@ for k, v in (("INTRO_PROG", INTRO_PROG), ("MAIN_PROG", MAIN_PROG), ("INTRO_LEN",
              ("BORROW_END", END_LO), ("BORROW_END_N", B_END),
              ("POSE_WALK", base["walk"]), ("POSE_LAND", base["land"]),
              ("DREST", DREST), ("PK_TOP", PK_TOP), ("CAM_TURN", CAM_TURN),
-             ("PAGE", PAGE)):
+             ("PAGE", PAGE), ("DL_LEASE", DL_LEASE), ("CITY_OXA", OXA), ("CITY_OYA", OYA), ("AR_W", AR_W)):
     cart.const(k, int(v))                       # (for the gates: tests/test_tnd.py)
 out = cart.write(OUT)
 print(cart.report())
 print(f"programs: the game {len(_main_w)} words, the intro {len(_intro_w)}, "
       f"the pause {len(_pause_w)}")
-print(f"street: {len(STREET)} objects, {STREET_FACES} faces")
+print(f"city: {CS}x{CS}, {len(KINDS)} pieces, {CITY_FACES} faces, "
+      f"{len(PIECE_M)} meshes")
 print(f"poses: {len(bank) // SPAN} x {SPAN} words = {len(bank)} words "
       f"of CRAM; bases {base}")
