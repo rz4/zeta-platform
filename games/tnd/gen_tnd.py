@@ -2603,6 +2603,8 @@ p.mark(nf_)
 # parked up to 2.8 degrees off on one side only. Inside 8 units it snaps.
 snap_l = p.label("snap")
 CAM_TURN = 36                   # units of 1024 a frame: 12.7 degrees
+THREAT_KEEP = 90                # P18: a threat is kept within 32 degrees of the line
+DREST = 54                      # a demon's wait, squared up, before it swings (P16)
 T = cart.var("cam_d")
 # P12: the follow's yaw is his -- or, boxing, the latched cross; or, locked,
 # the bearing to the target (tear.py _action_cam's base_yaw)
@@ -2615,6 +2617,39 @@ p.load(F["tgt"]).emit(f"jz {by_}")
 p.load(F["tgt"]).push(1).emit("sub").store(F["brg"]).emit(f"call {L_BRG}")
 p.load(F["brg"]).store(W["oy"])
 p.mark(by_)
+# P18: THE THREAT IS IN THE FRAME. On glass: "getting hit from behind is
+# annoying -- if I'm about to be attacked the camera pans just enough to
+# have the enemy in view." The most urgent demon -- swinging, or in the
+# last 30 frames of its wait (the amber tell) -- is kept within THREAT_KEEP
+# of the camera's line: the line turns toward it just that far, and no
+# farther (CAM_TURN still caps the turn). The target, framed already, is
+# left to targeting.
+th_ = p.label("threat")
+p.push(DREST - 30).store(W["dc"]).push(-1).store(W["k"])
+for d in range(3):
+    nx = p.label("th_n")
+    p.load(dslot(d, "st")).push(2).emit("lt", f"jz {nx}")          # free or swinging
+    p.load(dslot(d, "ai")).load(dslot(d, "st")).push(DREST).emit("mul", "add", "dup")
+    p.load(W["dc"]).emit("swap", "lt", f"jz {nx}_f")               # more urgent
+    p.store(W["dc"]).set(W["k"], d).emit(f"jmp {nx}")
+    p.mark(f"{nx}_f")
+    p.emit("drop")
+    p.mark(nx)
+p.load(W["k"]).push(0).emit("lt", f"jz {th_}_y", f"jmp {th_}")
+p.mark(f"{th_}_y")
+p.load(W["k"]).push(1).emit("add").load(F["tgt"]).emit("eq", f"jz {th_}_b", f"jmp {th_}")
+p.mark(f"{th_}_b")
+p.load(W["k"]).store(F["brg"]).emit(f"call {L_BRG}")
+p.load(F["brg"]).load(W["oy"]).emit("sub").push(512).emit("add")
+p.push(1023).emit("and").push(512).emit("sub")                     # its gap from the line
+p.emit("dup").push(THREAT_KEEP).emit("swap", "lt", f"jz {th_}_l")  # KEEP < gap: turn left
+p.emit("drop").load(F["brg"]).push(THREAT_KEEP).emit("sub", f"jmp {th_}_s")
+p.mark(f"{th_}_l")
+p.push(-THREAT_KEEP).emit("lt", f"jz {th_}")                       # gap < -KEEP: right
+p.load(F["brg"]).push(THREAT_KEEP).emit("add")
+p.mark(f"{th_}_s")
+p.push(1023).emit("and").store(W["oy"])
+p.mark(th_)
 p.load(W["oy"]).load(CY).emit("sub").push(512).emit("add")
 p.push(1023).emit("and").push(512).emit("sub").store(T)   # d in -512..511
 p.load(T).emit("shr 3", "dup", f"jz {snap_l}")
@@ -2913,7 +2948,8 @@ DWALK = int(0.028 * ONE)       # P16: was 0.020. Still slower than his 0.032, so
 DREACH2 = int(1.5 ** 2 * ONE)  # closer than 1.5 they stop and square up
 DCONE = int(np.tan(0.46) ** 2 * ONE)
 CONE_OUT = int(np.tan(0.60) ** 2 * ONE)            # tear.py ENEMY_CONE_EXIT
-DREST = 54                     # P16: was 74. Squared up and in reach, it
+# (DREST = 54, defined with P18's constants: the camera reads it first)
+                               # P16: was 74. Squared up and in reach, it
                                # swings in under a second; the last 24 frames
                                # of the wait are TOLD (L_TELE, amber)
 DTEMP = {k: cart.var("dt_" + k) for k in

@@ -1627,3 +1627,27 @@ def test_the_shots_spark_is_on_the_demon_it_hit():
         assert ((sx - w["x"] / 65536) ** 2 + (sz - w["z"] / 65536) ** 2) ** 0.5 < 0.6, \
             "the spark is not on the demon"
         assert (0.4 < sy < 0.7) if aim_low else (1.0 < sy < 1.9), f"the spark at height {sy:.2f}"
+
+
+def test_the_camera_turns_to_a_demon_about_to_strike():
+    """On glass: getting hit from behind. When a demon is about to swing
+    (its amber tell, or the swing) and lies outside the camera's line, the
+    camera turns just far enough to have it in view -- within 32 degrees."""
+    m = _fight_vm()
+    for f in range(36):
+        m.frame(spec.PAD_RIGHT)                  # his back to the brute
+    for f in range(240):
+        m.frame(0)
+        w = _wave(m)
+        if any(x["st"] == 0 and x["ai"] > _const("DREST") - 25 for x in w):
+            break
+    for f in range(20):
+        m.frame(0)
+    cy = _cell(m, "cam_yaw")
+    px, pz = _player(m)
+    gaps = []
+    for x in _wave(m):
+        brg = int(round(np.arctan2(-(x["x"] / 65536 - px), x["z"] / 65536 - pz) * 1024 / (2 * np.pi)))
+        gaps.append(abs(((brg - cy + 512) % 1024) - 512))
+    assert min(gaps) <= 128, f"no threat in view: gaps {gaps}"   # (45 degrees: on screen)
+    assert abs(((cy - _cell(m, "yaw") + 512) % 1024) - 512) > 100, "the camera never left his back"
