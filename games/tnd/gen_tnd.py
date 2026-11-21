@@ -64,10 +64,18 @@ STRESS = int(os.environ.get("TND_STRESS", "0"))
 # THE SWARM HOOK (P20b): TND_SWARM=1 starts the fight in the first plaza with
 # the whole swarm (district 4's eight) -- for metering. Local, never committed.
 SWARM_TEST = os.environ.get("TND_SWARM") == "1"
+# THE LAYERS (P21): TND_LAYER=n builds the game up to layer n, to be judged
+# alone on glass. Layer 0 is the BASE -- the city and the player: the tank on
+# the d-pad, the dodges, the jab and its context (pick up, unlock), a key and
+# a gate a district; no shoulders, no enemies. A local build (build/layerN/),
+# never a committed cart; what is settled there is merged into the game.
+LAYER = int(os.environ.get("TND_LAYER", "9"))
+BASE = LAYER == 0
 SONG_CH = range(4, 11)          # the record's voices (the synth theme's, freed)
 SONG_VOL = 15                   # each voice's level at full bus (x bus / 256)
-OUT = Path(os.environ.get("TND_OUT", ROOT / "build" / "song" / "tnd.zol"
-                          if SONG else HERE / "tnd.zol"))
+OUT = Path(os.environ.get("TND_OUT", ROOT / "build" / f"layer{LAYER}" / "tnd.zol"
+                          if "TND_LAYER" in os.environ else
+                          ROOT / "build" / "song" / "tnd.zol" if SONG else HERE / "tnd.zol"))
 OUT.parent.mkdir(parents=True, exist_ok=True)
 BAKE = ROOT / "assets" / "tnd" / "boxer.npz"
 CUT = 1.009                     # the one hip-height cut that fits both
@@ -913,6 +921,25 @@ for i in range(7):                 # red and black, seen from both sides
     _gb.quad([(x0, 0, 0.0), (x1, 0, 0.0), (x1, 0, 11), (x0, 0, 11)], (0, 1, 0), col)
                                    # (one side: the gate is drawn unculled)
 GATE_M = int(cart.data(_gb.mesh(), "gate"))
+if BASE:
+    # P21: A KEY A DISTRICT, in the middle of its plaza -- found, picked up
+    # with the jab, and carried to the district's gate, which the jab then
+    # unlocks. (In the layers above, something will be holding it.)
+    KEYPOS = cart.data(Table([c for (kx_, ky_) in CITY.plazas[:NDIST] for c in (
+        int(round(-(ky_ * TILE + HT - OYA) * ONE)), int(round((kx_ * TILE + HT - OXA) * ONE)))]),
+        "keypos")
+    _kb = Build()
+    _kv = [np.array(v_) for v_ in ((0.26, 0, 0), (-0.26, 0, 0), (0, 0, 0.26), (0, 0, -0.26),
+                                   (0, 0.42, 0), (0, -0.42, 0))]      # (zeta: y up)
+    for a_, b_, c_ in ((0, 2, 4), (2, 1, 4), (1, 3, 4), (3, 0, 4), (2, 0, 5), (1, 2, 5), (3, 1, 5), (0, 3, 5)):
+        t_ = [_kv[a_], _kv[b_], _kv[c_]]
+        ids = [_kb.vert(v_) for v_ in t_]
+        n_ = np.cross(t_[1] - t_[0], t_[2] - t_[0])
+        if np.dot(n_, sum(t_)) < 0:
+            ids = [ids[0], ids[2], ids[1]]
+        k_ = 0.62 + 0.38 * (len(_kb.f) % 4) / 3
+        _kb.f.append((*ids, rgb((int(240 * k_), int(196 * k_), int(60 * k_)))))
+    KEY_M = int(cart.data(_kb.mesh(), "key"))
 # THE DISTRICTS' DUSK -- the opus, toward the core: black, white, yellow,
 # red (nigredo, albedo, citrinitas, rubedo). The fog takes the colour of
 # the district he stands in.
@@ -1202,9 +1229,9 @@ LEASH_FOG = int(FOG_FULL * ONE)                  # beyond this on an axis: unsee
 # meets; a shot drops every one on its line). The fog hides how little
 # they are: the PS1's own trick. They come while a district is awake, more
 # the deeper the district, and drop where they stand when it is cleared.
-N_IMP = 8
+N_IMP = 0 if BASE else 8                     # (the base has no swarm, and needs its room)
 IMP_F = {k: i for i, k in enumerate(("x", "z", "ox", "oz", "st", "t", "yaw"))}
-IMPS = cart.var("imps", N_IMP * len(IMP_F))         # st 0 none, 1 up, 2 falling
+IMPS = cart.var("imps", max(1, N_IMP) * len(IMP_F))   # st 0 none, 1 up, 2 falling
 IACT = cart.var("imp_act")                           # his blow is live this frame
 IMP_BASE = cart.data(Table([8 if SWARM_TEST else 4]), "imp_base")   # the first district's
                                                      # swarm (one more a district)
@@ -1229,6 +1256,9 @@ def imp(i, k):
 def imp_mesh():
     """a lesser demon, hunched, horned, long-armed: archive space, facing +x"""
     b = Build()
+    if BASE:                                  # (no swarm in the base: its room is free)
+        b.flat(0, 0.1, 0, 0.1, 0, (0, 0, 0))
+        return b.mesh()
     BODY, LIMB, HORN, EYE = (54, 18, 16), (34, 12, 12), (120, 96, 78), (255, 92, 30)
 
     def beam(p0, p1, r0, r1, col):            # four sides between two squares
@@ -1851,6 +1881,38 @@ L_FOE = p.label("foe")
 L_STEER, L_LINE = p.label("steer"), p.label("line")
 PHP = cart.data(Table([140]), "p_hp")
 FRIC = int(round(0.82 * ONE))                   # tear.py: body friction
+# ---- P21: THE BASE LAYER'S KNOBS. The feel of the tank is tuned ON GLASS: in
+# a layer-0 build, SELECT held makes the d-pad a tuner (Left/Right pick a
+# knob, Up/Down turn it a notch) and the screen shows the knob and its notch
+# (50 is where it started). The tape carries every press home, so the replay
+# reads the values chosen -- no card trip a guess. (name, start, a notch)
+KNOBS = (("walk", WALK, int(0.002 * ONE)),            # 0 his pace
+         ("ramp", int(0.22 * ONE), int(0.03 * ONE)),  # 1 how fast he gets to it (weight)
+         ("turn", 12, 1),                             # 2 the tank's turn, a frame
+         ("qturn", 44, 4),                            # 3 the quick turn's, a frame
+         ("camd", int(3.0 * ONE), int(0.2 * ONE)),    # 4 the follow's distance
+         ("camh", int(2.15 * ONE), int(0.1 * ONE)),   # 5 ...and its height
+         ("slide", int(0.6 * ONE), int(0.1 * ONE)),   # 6 the least of his pace a wall leaves
+         ("pick", 18, 2))                             # 7 frames a pick-up commits him
+if BASE:
+    KN = cart.data(Table([v for _, v, _ in KNOBS]), "knobs")
+    KNOTCH = cart.var("knob_n", len(KNOBS))
+    KSEL, KPV, KTUNE = (cart.var(k) for k in ("knob_sel", "knob_pv", "knob_on"))
+    WSPD, QT, KEY, PICK, KNEAR, KX, KZ = (cart.var(k) for k in (
+        "walk_v", "qturn_left", "key_held", "pick_t", "ctx_near", "ctx_x", "ctx_z"))
+    KSTR1 = cart.data(Table([1, 0]), "str_k1")
+    KSTR2 = cart.data(Table([2, 0, 0]), "str_k2")
+
+
+PICK_BOW = 96                    # the pick-up's bow: 34 degrees forward
+
+
+def knob(g, name):
+    """push the knob: its cell in a base build, its constant in the game"""
+    i = [k for k, _, _ in KNOBS].index(name)
+    return g.load(int(KN) + i) if BASE else g.push(KNOBS[i][1])
+
+
 J = int(0.05 * ONE)                             # the shake, lateral
 BUFFER, STRING = 10, 22
 
@@ -1942,6 +2004,9 @@ for d in range(3):
     p.set(dslot(d, "st"), 4)
 for i in range(N_IMP):
     p.set(imp(i, "st"), 0)
+if BASE:
+    for c_ in (KEY, PICK, QT, WSPD, KNEAR):
+        p.set(c_, 0)
 if SWARM_TEST:                                  # (the meter's hook: the fight in the
     p.set(PX, int(3 * ONE)).set(PZ, int(3 * ONE))               # first plaza, the
 p.set(GT["jump"], 100).set(GC["jump"], 1)        # whole swarm up)     # the A that left the title is spent
@@ -1961,6 +2026,44 @@ p.set(spec.BG_SRC, 0).set(spec.CO_BASE, 1)
 p.rect(0, 0, 0, spec.W - 1, spec.H - 1, 0x000000, 16)
 p.emit(f"jmp {L_MUSIC}")
 p.mark(f"{tl}_fight")
+if BASE:
+    tn = p.label("tune")
+    p.set(KTUNE, 0)
+    p.emit("load 1").load(KPV).push(-1).emit("xor", "and").store(W["qy"])   # pressed now
+    p.emit("load 1").store(KPV)
+    held(spec.PAD_SELECT)
+    p.emit(f"jz {tn}")
+    p.set(KTUNE, 1)
+    for bit, dv in ((spec.PAD_RIGHT, 1), (spec.PAD_LEFT, len(KNOBS) - 1)):
+        ns = p.label("ksel")
+        p.load(W["qy"]).push(bit).emit("and", f"jz {ns}")
+        p.load(KSEL).push(dv).emit("add").push(len(KNOBS) - 1).emit("and").store(KSEL)
+        p.mark(ns)
+    for k, (_, _, step) in enumerate(KNOBS):
+        nk = p.label("knob")
+        p.load(KSEL).push(k).emit("eq", f"jz {nk}")
+        p.load(W["qy"]).push(spec.PAD_UP).emit("and", f"jz {nk}_d")
+        p.load(int(KNOTCH) + k).push(20).emit("lt", f"jz {nk}_d")
+        p.addi(int(KN) + k, step).addi(int(KNOTCH) + k, 1)
+        p.mark(f"{nk}_d")
+        p.load(W["qy"]).push(spec.PAD_DOWN).emit("and", f"jz {nk}")
+        p.push(-20).load(int(KNOTCH) + k).emit("lt", f"jz {nk}")
+        p.addi(int(KN) + k, -step).addi(int(KNOTCH) + k, -1)
+        p.mark(nk)
+    p.push(0).store(spec.REG_PAD)                 # (the game sees nothing meanwhile)
+    p.mark(tn)
+    # no shoulders in the base; and a pick-up holds him, crouched, till it is done
+    p.emit("load 1").push(0xFFFF & ~(spec.PAD_L | spec.PAD_R | spec.PAD_SELECT))
+    p.emit("and").store(spec.REG_PAD)
+    pk = p.label("pick")                          # (he bows to it -- the fold the
+    p.load(PICK).emit(f"jz {pk}_up")              # body already has, part way -- and
+    p.addi(PICK, -1).set(LANDT, LAND_FOR // 2 + 1)   # comes back up)
+    p.push(0).store(spec.REG_PAD)
+    p.push(PICK_BOW).load(F["tilt"]).emit("sub", "shr 2").load(F["tilt"]).emit("add").store(F["tilt"])
+    p.emit(f"jmp {pk}")
+    p.mark(f"{pk}_up")
+    p.load(F["tilt"]).emit("dup").push(3).emit("add", "shr 2", "sub").store(F["tilt"])
+    p.mark(pk)
 # P19: A DEMON SENT IS PLACED IN THE CITY. The mover lands a fresh demon at
 # its place on the ring round the origin, a frame after it is asked for
 # (SPN marks which); here it is moved to where he is. In a plaza, the same
@@ -2033,8 +2136,35 @@ p.store(spec.FOG_RGB)
 # THE AMBUSH: a district's horde wakes when he walks into its plaza
 p.load(CT["w"]).push(0xAA).emit("and", f"jz {du_}")
 p.load(CT["w"]).emit("shr 23").push(15).emit("and").load(LVL).emit("eq", f"jz {du_}")
-p.set(WOKE, 1)
+if not BASE:
+    p.set(WOKE, 1)
 p.mark(du_)
+if BASE:
+    # THE JAB'S CONTEXT: the district's key within reach and ahead of him
+    # (1), or -- the key held -- its gate (2). The jab is then that, and
+    # only then: he is never turned or drawn to it.
+    kn = p.label("ctx")
+    p.set(KNEAR, 0)
+    p.load(LVL).push(len(GATES)).emit("lt", f"jz {kn}")          # (the last district: none)
+    p.load(KEY).emit(f"jz {kn}_k")
+    p.load(LVL).push(GT_N).emit("mul").push(int(GATE_T) + 4).emit("add", "dup", "loadi").store(KX)
+    p.push(1).emit("add", "loadi").store(KZ)
+    p.push32(int(3.9 ** 2 * ONE)).store(W["d2"]).emit(f"jmp {kn}_t")
+    p.mark(f"{kn}_k")
+    p.push(int(KEYPOS)).load(LVL).push(2).emit("mul", "add", "dup", "loadi").store(KX)
+    p.push(1).emit("add", "loadi").store(KZ)
+    p.push32(int(1.4 ** 2 * ONE)).store(W["d2"])
+    p.mark(f"{kn}_t")
+    p.load(KX).load(PX).emit("sub").store(W["qx"]).load(KZ).load(PZ).emit("sub").store(W["qz"])
+    p.load(W["qx"]).emit("dup", "mulq").load(W["qz"]).emit("dup", "mulq", "add")
+    p.load(W["d2"]).emit("lt", f"jz {kn}")                       # in reach
+    sin_of(p, 256)
+    p.load(W["qz"]).emit("mulq")
+    sin_of(p)
+    p.load(W["qx"]).emit("mulq", "sub")                          # fwd . to it
+    p.push(0).emit("swap", "lt", f"jz {kn}")                     # ahead
+    p.load(KEY).push(1).emit("add").store(KNEAR)
+    p.mark(kn)
 # P13: a FRESH Start in the fight pages in the pause (its words over the end)
 pa_ = p.label("pause")
 held(spec.PAD_START)
@@ -2209,6 +2339,26 @@ choose(MOVE["special"])
 p.mark(sp)
 # the carve string
 p.load(GTAP["carve"]).emit(f"jz {L['notap']}")
+if BASE:
+    cx_ = p.label("ctxdo")
+    p.load(KNEAR).emit(f"jz {cx_}")
+    p.load(ANIM).push(2).emit("eq", f"jz {cx_}_a", f"jmp {cx_}")   # (mid-swing: a jab)
+    p.mark(f"{cx_}_a")
+    p.load(KNEAR).push(1).emit("eq", f"jz {cx_}_g")
+    p.set(KEY, 1).emit(f"jmp {cx_}_do")                            # the key: his
+    p.mark(f"{cx_}_g")                                             # the gate: open
+    p.set(KEY, 0).addi(LVL, 1)
+    for half in (0, 2):
+        p.load(LVL).push(GT_N).emit("mul").push(int(GATE_T) - GT_N + half).emit("add")
+        p.emit("dup", "loadi").push(int(CMAP)).emit("add", "dup", "loadi")
+        p.emit("swap").store(CT["k"])
+        p.emit("swap").push(1).emit("add", "loadi", "or")
+        p.load(CT["k"]).emit("storei")
+    p.mark(f"{cx_}_do")
+    knob(p, "pick").store(PICK)
+    p.set(KNEAR, 0).set(WSPD, 0)
+    p.emit(f"jmp {L['notap']}")
+    p.mark(cx_)
 # P18: THE RHYTHM. The gap since the string's last blow ENDED says which
 # string this is: a tap during it or within STEADY keeps time; to PAUSE it
 # is a WAIT; past that a new string. (A tap while the string's next blow
@@ -2273,6 +2423,10 @@ p.emit("lt", f"jz {dcn}_r", f"jmp {jp}")
 p.mark(f"{dcn}_r")
 p.set(ANIM, 0)
 p.mark(dcn)
+if BASE:                                          # P21: Down alone with A: the quick turn
+    p.emit("load 1").push(15).emit("and").push(spec.PAD_DOWN).emit("eq", f"jz {dg_}_nq")
+    p.set(QT, 512).set(WSPD, 0).emit(f"jmp {jp}")
+    p.mark(f"{dg_}_nq")
 p.set(F["evk"], 5).push(512).store(W["qx"])      # none held: back
 held(15)
 p.emit(f"jz {dg_}_go")
@@ -2515,13 +2669,30 @@ p.set(F["aimh"], 1)                              # targeting opens on the body
 p.mark(stn)
 
 tk = p.label("turn")
+if BASE:                                           # P21: THE QUICK TURN (Down + A): half
+    p.load(QT).emit(f"jz {tk}_nq")                 # round, a knob's worth a frame, and
+    p.load(QT)                                     # nothing else turns him meanwhile
+    knob(p, "qturn")
+    p.emit("over", "over", "lt", f"jz {tk}_q1")
+    p.emit("drop", f"jmp {tk}_q2")
+    p.mark(f"{tk}_q1")
+    p.emit("swap", "drop")
+    p.mark(f"{tk}_q2")
+    p.emit("dup").load(YAW).emit("add").push(1023).emit("and").store(YAW)
+    p.load(QT).emit("swap", "sub").store(QT)
+    p.emit(f"jmp {tk}")
+    p.mark(f"{tk}_nq")
 p.load(F["sty"]).emit(f"jz {tk}_t", f"jmp {tk}")   # (the styles steer themselves)
 p.mark(f"{tk}_t")
 p.emit("load 1").push(spec.PAD_A | spec.PAD_B | spec.PAD_X | spec.PAD_Y)
 p.emit("and", f"jz {tk}_go", f"jmp {tk}")
 p.mark(f"{tk}_go")
-p.if_pad(spec.PAD_LEFT, lambda q: q.addi(YAW, 12))      # a raised yaw turns him
-p.if_pad(spec.PAD_RIGHT, lambda q: q.addi(YAW, -12))    # LEFT (forward is (-sin, cos))
+if BASE:
+    p.if_pad(spec.PAD_LEFT, lambda q: knob(q.load(YAW), "turn").emit("add").store(YAW))
+    p.if_pad(spec.PAD_RIGHT, lambda q: knob(q.load(YAW), "turn").emit("sub").store(YAW))
+else:
+    p.if_pad(spec.PAD_LEFT, lambda q: q.addi(YAW, 12))      # a raised yaw turns him
+    p.if_pad(spec.PAD_RIGHT, lambda q: q.addi(YAW, -12))    # LEFT (forward is (-sin, cos))
 p.load(YAW).push(1023).emit("and").store(YAW)
 p.mark(tk)
 
@@ -2706,6 +2877,37 @@ p.load(F["py"]).load(F["acmb"]).emit("or", f"jz {L['walk']}_gr")   # aloft: no
 p.emit(f"jmp {L['idle']}")                    # stride (the air owns him)
 p.mark(f"{L['walk']}_gr")
 wb = p.label("wback")
+if BASE:
+    # P21: THE WALK HAS WEIGHT. His pace is a speed that eases to what the pad
+    # asks (the ramp knob a frame): he leans into a step and settles out of
+    # it. The heading is still the tank's, exact.
+    p.push(0)
+    p.load(QT).emit(f"jz {wb}_t", f"jmp {wb}_e")          # (mid quick turn: he stands)
+    p.mark(f"{wb}_t")
+    p.emit("load 1", f"push {spec.PAD_UP}", "and", f"jz {wb}_d")
+    p.emit("drop")
+    knob(p, "walk")
+    p.mark(f"{wb}_d")
+    p.emit("load 1", f"push {spec.PAD_DOWN}", "and", f"jz {wb}_e")
+    p.emit("drop").push(0)
+    knob(p, "walk").emit("sub")
+    p.mark(f"{wb}_e")
+    p.load(WSPD).emit("sub")
+    knob(p, "ramp").emit("mulq").load(WSPD).emit("add").store(WSPD)
+    sin_of(p)
+    p.load(WSPD).emit("mulq").load(PX).emit("swap", "sub").store(PX)
+    sin_of(p, 256)
+    p.load(WSPD).emit("mulq").load(PZ).emit("add").store(PZ)
+    p.push(int(0.004 * ONE)).load(WSPD).emit("lt", f"jz {wb}_b")       # forward
+    p.set(ANIM, 1).addi(AF, 1).emit(f"jmp {L['motion']}")
+    p.mark(f"{wb}_b")
+    p.load(WSPD).push(-int(0.004 * ONE)).emit("lt", f"jz {wb}_s")      # back
+    p.set(ANIM, 1).addi(AF, -1).emit(f"jmp {L['motion']}")
+    p.mark(f"{wb}_s")
+    p.emit("load 1").push(spec.PAD_UP | spec.PAD_DOWN).emit("and", f"jz {wb}_z")
+    p.emit(f"jmp {L['idle']}")
+    p.mark(f"{wb}_z")
+    p.set(WSPD, 0).emit(f"jmp {L['idle']}")
 p.emit("load 1", f"push {spec.PAD_UP}", "and", f"jz {wb}")
 p.set(ANIM, 1)
 p.addi(AF, 1)
@@ -2730,6 +2932,11 @@ p.set(ANIM, 0)
 
 # ---- momentum: knockback and lunge, scrubbed by friction ----------------------
 p.mark(L["motion"])
+if BASE:                                          # (a swing, a dodge: the walk is spent)
+    ws_ = p.label("wspent")
+    p.push(1).load(ANIM).emit("lt").load(F["evf"]).emit("or", f"jz {ws_}")
+    p.set(WSPD, 0)
+    p.mark(ws_)
 # (P10: a style owns its velocity -- no friction while it steps or a flip
 # carries him, 0.90 while a swing or a blow commits him; the tank's 0.82)
 fr_ = p.label("fric")
@@ -2989,6 +3196,45 @@ p.set(spec.DMA_GO, 1)
 p.mark(pd_)
 
 keep_in_arena(PX, PZ, AR["ox"], AR["oz"])
+if BASE:
+    # P21: A WALL CARRIES HIM ALONG IT. Walking into a wall kept only the part
+    # of his step that ran along it -- at a shallow angle, a crawl (a third of
+    # the walking on the first town tape was slowed so, 149 frames stopped).
+    # Now a wall leaves him at least the slide knob's share of his pace along
+    # it; dead on (under an eighth of his pace along it) he still stops.
+    sl_ = p.label("slide")
+    p.load(ANIM).push(1).emit("eq", f"jz {sl_}")
+    p.load(WSPD).emit("dup").push(0).emit("lt", f"jz {sl_}_a")
+    p.push(0).emit("swap", "sub")
+    p.mark(f"{sl_}_a")
+    p.emit("dup").store(W["dmg"])
+    knob(p, "slide").emit("mulq").store(W["stop"])
+    p.load(W["dmg"]).emit("shr 3").store(W["dg"])
+    for pos, old, opos, oold, ax, oax in ((PX, AR["ox"], PZ, AR["oz"], "x", "z"),
+                                          (PZ, AR["oz"], PX, AR["ox"], "z", "x")):
+        nx = p.label("sl")
+        p.load(opos).load(oold).emit("eq", f"jz {nx}")           # the other axis: stopped
+        p.load(pos).load(old).emit("sub", "dup").store(W["d2"])
+        p.emit("dup").push(0).emit("lt", f"jz {nx}_p")
+        p.push(0).emit("swap", "sub")
+        p.mark(f"{nx}_p")
+        p.emit("dup").load(W["stop"]).emit("lt", f"jz {nx}_d")
+        p.load(W["dg"]).emit("swap", "lt", f"jz {nx}")
+        p.push(0).load(W["d2"]).emit("lt", f"jz {nx}_m")
+        p.load(old).load(W["stop"]).emit("add", f"jmp {nx}_s")
+        p.mark(f"{nx}_m")
+        p.load(old).load(W["stop"]).emit("sub")
+        p.mark(f"{nx}_s")
+        p.emit("dup").store(AR[ax])
+        p.load(opos).store(AR[oax])
+        p.emit(f"call {L_ARENA}", f"jz {nx}_r")
+        p.store(pos).emit(f"jmp {sl_}")
+        p.mark(f"{nx}_r")
+        p.emit("drop", f"jmp {sl_}")
+        p.mark(f"{nx}_d")
+        p.emit("drop")
+        p.mark(nx)
+    p.mark(sl_)
 
 # his trig, for his keys and his fist: the BODY's facing
 sin_of(p, 256, cell=HEAD)
@@ -3112,7 +3358,7 @@ md_ = p.label("camd")
 # cross; the run 5.4, wide, on the target; targeting 2.8 over the right
 # shoulder at the target -- and in its FOCUS, in to 2.2. The distance and
 # the lean ease between them (DIST_EASE), the yaw at most CAM_TURN.
-p.push(int(TANK_D * ONE)).store(W["dmg"]).push(0).store(W["stop"])
+knob(p, "camd").store(W["dmg"]).push(0).store(W["stop"])
 for sty_, d_, sh_ in ((2, BOX_D, BOX_SH), (1, FENCE_D, BOX_SH), (SQ_TARGET, TGT_D, TGT_SH)):
     nm = p.label("cm")
     p.load(F["sty"]).push(sty_).emit("eq", f"jz {nm}")
@@ -3139,7 +3385,7 @@ for reg, me, plus, fsgn in ((spec.CAM_X, PX, 0, 1), (spec.CAM_Z, PZ, 256, -1)):
         p.push(0).emit("swap", "sub")
     p.emit("add").store(reg)
 p.load(CY).store(spec.CAM_YAW)
-p.load(F["py"]).push(int(2.15 * ONE)).emit("add").store(spec.CAM_Y)   # (P9: up with him)
+knob(p.load(F["py"]), "camh").emit("add").store(spec.CAM_Y)   # (P9: up with him)
 
 # ---- P12: THE OPERATOR -- the special shots over the follow -----------------
 CW = CAM_W
@@ -3362,6 +3608,12 @@ p.mark(f"{op}_e")
 # (halfway, once, for a soft pull; then the bodies' own slide, from him --
 # whichever axis stays in the street -- so the lens is never left outside)
 cmc = p.label("lens")
+if BASE:
+    # P21: THE FOLLOW KEEPS ITS DISTANCE (the player: "make sure the camera
+    # stays the same distance to the player when a wall is up close behind").
+    # The tank's lens is straight behind him, so a wall it backs into faces
+    # away from it and is not drawn: it may stand in the building.
+    p.emit(f"jmp {cmc}")
 p.load(spec.CAM_X).store(AR["x"]).load(spec.CAM_Z).store(AR["z"])
 p.emit(f"call {L_ARENA}", f"jz {cmc}_o", f"jmp {cmc}")
 p.mark(f"{cmc}_o")
@@ -4258,6 +4510,19 @@ for i in range(N_IMP):
                  ang_ops, spec.OBJ_CULL)
     if_visible((f"load {imp(i, 'x')}",), 0.7, (f"load {imp(i, 'z')}",), 1.0, body)
     p.mark(e)
+if BASE:
+    kd_ = p.label("dkey")
+    p.load(KEY).emit(f"jz {kd_}_s", f"jmp {kd_}")
+    p.mark(f"{kd_}_s")
+    p.load(LVL).push(len(GATES)).emit("lt", f"jz {kd_}")
+    p.object(NOBJ, KEY_M, (f"load {int(KX)}",),
+             (f"load {spec.REG_FRAME}", "push 3", "mul", "push 63", "and", "push 400", "mul",
+              f"push {int(0.85 * ONE)}", "add"),                 # (it rises and drops)
+             (f"load {int(KZ)}",),
+             (f"load {spec.REG_FRAME}", "push 5", "mul", f"load {int(KNEAR)}", "push 4", "mul",
+              "push 1", "add", "mul", "push 1023", "and"),       # (in reach: it spins fast)
+             spec.OBJ_CULL)
+    p.mark(kd_)
 # P15: the spark, last in the list, while its frames last
 sk_ = p.label("spark")
 p.load(int(SPK) + 3).emit(f"jz {sk_}")
@@ -4334,6 +4599,24 @@ p.emit("drop").push(99)
 p.mark(f"{hk}_k")
 p.load(SY["g"]).emit("add").store(SY["g"])
 p.mark(f"{hk}_c")
+if BASE:
+    p.load(KTUNE).emit(f"jz {hk}_nt")
+    p.push(255).push(int(S_SHOWN)).emit("storei")        # (the HUD draws afresh after)
+    p.set(TX["n"], 1)
+    p.load(KSEL).push(FONT_CH.index("0")).emit("add").store(int(KSTR1) + 1)
+    for k, v in (("str", int(KSTR1)), ("x", 20), ("y", 196), ("sc", 4), ("rgb", 0xE8C040)):
+        p.set(TX[k], v)
+    p.emit(f"call {L_TEXT}")
+    p.push(int(KNOTCH)).load(KSEL).emit("add", "loadi").push(50).emit("add", "dup")
+    p.push(205).emit("mul", "shr 11", "dup").store(TX["j"])              # tens
+    p.push(10).emit("mul", "sub").push(FONT_CH.index("0")).emit("add").store(int(KSTR2) + 2)
+    p.load(TX["j"]).push(FONT_CH.index("0")).emit("add").store(int(KSTR2) + 1)
+    for k, v in (("str", int(KSTR2)), ("x", 52), ("y", 196), ("sc", 4), ("rgb", 0xD8CFC1)):
+        p.set(TX[k], v)
+    p.emit(f"call {L_TEXT}")
+    p.load(TX["n"]).store(spec.DL_BASE)
+    p.emit(f"jmp {hk}")
+    p.mark(f"{hk}_nt")
 p.load(SY["g"]).push(int(S_SHOWN)).emit("loadi", "eq", f"jz {hk}_draw", f"jmp {hk}")
 p.mark(f"{hk}_draw")
 p.load(SY["g"]).push(int(S_SHOWN)).emit("storei")
@@ -4393,7 +4676,12 @@ p.mark(f"{pt_}_on")
 p.set(CT["c"], 27)                                       # the road: to the core,
 p.load(CT["w"]).emit("shr 23").push(15).emit("and").load(LVL).emit("eq")
 p.emit(f"jz {pt_}_away")
-p.load(WOKE).emit(f"jz {pt_}_asl", f"jmp {pt_}_w")       # (the fight: none)
+if BASE:                                                 # P21: the key held, on to the
+    p.load(KEY).emit(f"jz {pt_}_nk", f"jmp {pt_}_away")  # gate; else to the plaza it
+    p.mark(f"{pt_}_nk")                                  # lies in (there: no arrow)
+    p.load(CT["w"]).push(0xAA).emit("and", f"jz {pt_}_asl", f"jmp {pt_}_w")
+else:
+    p.load(WOKE).emit(f"jz {pt_}_asl", f"jmp {pt_}_w")       # (the fight: none)
 p.mark(f"{pt_}_asl")
 p.set(CT["c"], 29)                                       # ...or, asleep, its plaza
 p.mark(f"{pt_}_away")

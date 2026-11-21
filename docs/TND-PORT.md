@@ -931,3 +931,60 @@ a lesser swarm, and the three made relentless.
   first plaza with all eight: TND_SWARM=1): peak 669,149 (77%), median 72%,
   none over the ceiling, none dropped. The frame's vertices peak at 2,040
   of the cache's 2,048.
+
+## P21: layers, and the base (2026-11-21; not yet on glass)
+
+The first town tape (1m41s, replayed to the Pocket's save word for word):
+93 seconds in the streets and never the first plaza -- no fight at all.
+Fifteen seconds of it the free run; much of the rest swings at nothing. Of
+672 frames of tank walking, 227 were slowed by a wall and 149 stopped.
+
+The player's frame for the game: the city is a gauntlet to the core;
+things are locked, and he fights through to a key to unlock the way. The
+combat's feel comes first, and it is LAYERED -- comfortable at the base
+(walk, aim, fire, close), RE6 as it heats, DMC at its hottest -- so the
+game is built in layers, each judged alone on glass:
+
+    TND_LAYER=0   the BASE: the city and the player. The tank on the
+                  d-pad, the dodges, the jab and its context; a key and a
+                  gate a district. No shoulders, no enemies.
+
+A layer build is local (build/layerN/tnd.zol); the committed cart is the
+whole game and is byte-identical with the flag unset. What a layer settles
+is merged into the game.
+
+**The base, as built** (all of it behind BASE in gen_tnd.py):
+
+- **The walk has weight**: his pace is a speed that eases to what the pad
+  asks (the ramp knob a frame: 90% in ten frames, and as long to settle).
+  The heading is still the tank's, exact; the turn is not eased.
+- **The quick turn**: Down + A, half round in eleven frames. A with any
+  other direction is that dodge still; A alone the back dodge.
+- **A wall carries him along it**: it leaves him at least the slide knob's
+  share (0.6) of his pace along it; under an eighth of his pace along it
+  (dead on, to about 7 degrees) he still stops. At 10 degrees off dead on
+  he slid at 0.0056 a frame; now 0.0191.
+- **The follow keeps its distance**: the tank's lens is straight behind
+  him, so a wall it backs into faces away and is not drawn -- it stands in
+  the building rather than closing to half. 3.0 at the dead end's wall.
+- **The jab's context**: a district's key lies in the middle of its plaza
+  (a gold thing that spins faster in reach). In reach (1.4) and ahead of
+  him, the jab picks it up: he bows and is held for the pick knob's 18
+  frames. The key held, the jab at the district's gate (in reach of its
+  bars, ahead) unlocks it. Anywhere else the jab is a jab; he is never
+  turned or drawn to anything. The arrow leads to the plaza, then, the key
+  held, to the gate.
+- **Tuned on glass**: SELECT held makes the d-pad a tuner -- Left/Right
+  pick a knob (0 walk, 1 ramp, 2 turn, 3 quick turn, 4 the lens's distance,
+  5 its height, 6 slide, 7 pick-up frames), Up/Down turn it a notch -- and
+  the screen shows the knob and its notch (50 where it started). The tape
+  carries the presses home; the replay reads the values.
+- **Fast gates**: tests/test_tnd_base.py is four tests, half a minute in
+  parallel (the game's suite is twenty minutes).
+- **Measured on silicon** (out of the dead end, into walls, quick turns):
+  peak 55%, median 44%, none dropped.
+
+**Found on the way**: the swarm's code is eight unrolled copies, and the
+game's program is 16,152 words of its 16,384-word page. The swarm must
+become one routine over an index before anything else is added above the
+base.
