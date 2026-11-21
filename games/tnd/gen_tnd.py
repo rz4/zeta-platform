@@ -1421,12 +1421,12 @@ F = {k: cart.var("f_" + k) for k in
      ("hs", "stop", "vx", "vz", "con", "ltap", "c3", "alt", "buf", "bmv",
       "mv", "dead", "shake", "act", "fx", "fy", "fz", "pc", "ps", "fight",
       "wave", "tilt", "py", "pvy", "acmb", "uwin", "foe",
-      "sty", "chain", "cgr", "latch", "qtw", "aim", "iref", "spd", "evf", "evt",
+      "sty", "chain", "cgr", "latch", "slow", "aim", "skip", "spd", "evf", "evt",
       "evk", "evx", "evz", "flipu", "ph", "kdir",
-      "tgt", "plc", "met", "metd", "pdir", "brg", "dmi")}
-# (P17: aim, iref and pdir were the quick turn's qtc and qts and the lock
-# flick's lrp -- the same cells, so nothing else in memory moves)
-AIM, IREF, PDIR = F["aim"], F["iref"], F["pdir"]
+      "tgt", "plc", "aimh", "sec", "lrp", "brg", "dmi")}
+# (P18: slow, aim, skip, aimh and sec were the quick turn's qtw, qtc and
+# qts and METEOR's met and metd -- the same cells, so nothing else moves)
+AIM = F["aim"]
 # ---- P10: THE MOVEMENT LAYER (tear.py _action_move, _parkour, _boxing) ------
 # L held is DEVIL TRIGGER. From the tank: UP enters PARKOUR -- a run whose
 # speed ramps logistically to 0.13 a frame, turning at a fixed rate (so
@@ -1456,19 +1456,31 @@ PK_INVTOP = int(ONE / 0.13 * ONE) >> 16                 # (1 / top, Q16)
 PK_TURN = int(round(0.085 * PACE * 1024 / (2 * np.pi)))  # yaw units a frame
 CHAIN_GRACE, CHAIN_SPEED2 = 26, int(0.10 * 0.10 * ONE)
 QT_WINDOW, QT_COOL = 22, 30
-# P17: THE DANCE (docs/TND-PORT.md P17) -- the d-pad is the SCREEN's
-# directions, not a tank's; R is the stance that faces a demon and circles
-# it; L is the sprint. Every blow finds the demon nearest the line it is
-# thrown along; the gun finds the one the pad points at.
-JOG = int(0.068 * ONE)          # his free pace: 4.1 units a second
-JOG_STRIDE = int(0.068 * 1.5 * ONE)   # ...on the run's poses, at a jog's cadence
-TURN_FREE = 96                  # yaw units a frame he turns to the pad (34 degrees)
-FIST_AIM2 = int(3.2 ** 2 * ONE)  # a fist looks this far for someone to hit...
-GUN_AIM2 = int(13.0 ** 2 * ONE)  # ...and the gun this far
-AIM_CONE = 180                  # either side of the line: 63 degrees
-PB2 = int(1.8 ** 2 * ONE)       # POINT BLANK: a shot this close staggers
-STING = int(2.5 * ONE)          # the Stinger: the haymaker's lunge, x2.5
+# ---- P18: THE FOUR MODES (docs/TND-PORT.md P18) ------------------------------
+# The base is the TANK -- unit-like, exact: Left/Right turn, Up/Down walk.
+# Every attack goes the way the pad points, relative to his facing, and
+# snaps there, so you know where it lands. A is the DODGE, that way too.
+#   R      TARGETING: the nearest demon locked, he plants and faces it;
+#          Left/Right change targets, Up/Down step the shot high/mid/low;
+#          an attack HELD slows the world to a third (FOCUS) until let go
+#   L      THE BOXER: square steps on the cross he held; A jumps, and with
+#          a direction it is a directional jump and flip
+#   L + R  THE RUN: he runs the way the pad points round the target, the
+#          camera anchored on it; the gun shoots it
+SQ_TARGET = 3                   # f_sty: 0 tank, 1 run, 2 boxer, 3 targeting
+SLOW_EVERY = 3                  # FOCUS: the world moves one frame in three
+FOCUS_HOLD = 3                  # ...once an attack is held past a tap (CHORD_SLOP)
+SLOW_LAUNCH = 40                # a launcher that lands: 40 of the fight's frames
+                                # (two seconds of glass, its hitstop and rise), and
+                                # the gun tracks the body in the air
+RUN_TURN = 48                   # the run's turn toward the pad: 17 degrees a frame
+GUN_CONE = 46                   # the free shot's line: 16 degrees either side
+GUN_AIM2 = int(13.0 ** 2 * ONE)
 CLOSE_CALL = 30                 # style, a fist dodged through
+STEADY, PAUSE = 14, 55          # the rhythm, from the end of the last blow of the
+                                # string: a tap during it or within 14 frames keeps
+                                # time; 15..55 is a WAIT; longer, a new string
+SEC_MAX = 2                     # shots inside a string before it is lost
 BOX_RATE, BOX_FR = int(0.016 * PACE * ONE), int(0.865 * ONE)
 FLIP_V = int(0.20 * ONE)
 FLIPS = ((int(0.18 * ONE), 20), (int(0.14 * ONE), 20),
@@ -1537,9 +1549,9 @@ if SONG:                     # P7's record state (here: the pause's QUIT resets 
 # target -- lower and tighter with speed, boring in within 10 units -- in
 # at 0.024 a frame and out at 0.028, or CUT straight to it if he already
 # faces the target.
-TANK_D, DT_D, BOX_D, FENCE_D = 3.6, 3.2, 4.0, 5.4   # P17: free 3.6 (was the tank's
-DT_SH, BOX_SH, DIST_EASE = -0.3, -0.12, 0.07        # 3.0); the sprint 3.2 on the
-                                                    # shoulder; locked, 5.4 wide
+TANK_D, DT_D, BOX_D, FENCE_D = 3.0, 2.6, 4.0, 5.4
+TGT_D, TGT_SH, FOCUS_D = 2.8, -0.55, 2.2          # P18: targeting, over the shoulder
+DT_SH, BOX_SH, DIST_EASE = -0.5, -0.12, 0.07
 PROWL_D, PROWL_UP, PROWL_PITCH = 4.3, 2.5, 0.34
 PROWL_SURGE, PROWL_CROUCH, PROWL_FLAT = 1.0, 0.45, 0.12
 STALK_RANGE, STALK_PULL, STALK_DROP = 10.0, 1.9, 0.75
@@ -1570,7 +1582,7 @@ FOLLOW_EASE = int(round(0.34 * ONE))
 SLOWFALL = int(round(0.03 * ONE))
 SLAM = int(round(0.62 * ONE))
 L_FOE = p.label("foe")
-L_WANT, L_STEER, L_AIM = p.label("want"), p.label("steer"), p.label("aim")
+L_STEER, L_LINE = p.label("steer"), p.label("line")
 PHP = cart.data(Table([140]), "p_hp")
 FRIC = int(round(0.82 * ONE))                   # tear.py: body friction
 J = int(0.05 * ONE)                             # the shake, lateral
@@ -1688,8 +1700,34 @@ L = {k: p.label(k) for k in ("dead", "frozen", "free", "walk", "idle",
                              "motion", "anim", "pi", "pj", "pd", "iw",
                              "notap", "brk", "hook", "tapd", "nobuf", "busy",
                              "hurt", "launch", "turnd", "pm", "ph")}
+# P18: FOCUS. Targeting, an attack held past a tap slows the world to a
+# third until it is let go; a launcher that lands does it for a second.
+# The slow is a FREEZE two frames in three -- his and theirs, the hitstop's
+# own path -- so everything keeps its rhythm in the fight's time, and the
+# buttons are read through it. f_skip is the phase: 0 runs, 1 and 2 hold.
+fc = p.label("focus")
+GEST = p.label("gest")                           # (the grammar, below)
+p.load(F["slow"]).emit(f"jz {fc}_n", f"jmp {fc}_s")   # (counted in the fight's
+p.mark(f"{fc}_n")                                     # time: on running frames)
+p.load(F["sty"]).push(SQ_TARGET).emit("eq", f"jz {fc}_o")
+p.push(FOCUS_HOLD).load(GT["carve"]).emit("lt")
+p.push(FOCUS_HOLD).load(GT["special"]).emit("lt", "or", f"jz {fc}_o")
+p.mark(f"{fc}_s")
+p.load(F["skip"]).push(1).emit("add", "dup").push(SLOW_EVERY).emit("lt", f"jz {fc}_w")
+p.store(F["skip"]).emit(f"jmp {fc}")
+p.mark(f"{fc}_w")
+p.emit("drop")
+p.load(F["slow"]).emit(f"jz {fc}_o")
+p.addi(F["slow"], -1)
+p.mark(f"{fc}_o")
+p.set(F["skip"], 0)
+p.mark(fc)
 p.load(F["dead"]).emit(f"jz {L['dead']}_no", f"jmp {L['dead']}")
 p.mark(f"{L['dead']}_no")
+p.load(F["skip"]).emit(f"jz {fc}_r")             # a held frame: listen, and hold
+p.emit(f"call {GEST}")
+p.set(GT["jump"], 0).emit(f"jmp {L['frozen']}")
+p.mark(f"{fc}_r")
 # P16: THE FREEZE STILL LISTENS. A landed blow stops the world for its
 # hitstop, and until now it stopped the buttons too: on the first tape of
 # real play (docs/TND-PORT.md, P16) a third of every press began inside a
@@ -1699,7 +1737,6 @@ p.mark(f"{L['dead']}_no")
 # buffer does not age while frozen). The jump is the one press that is not
 # buffered -- it fires on its first held frame -- so its count is held at
 # zero through the freeze and that frame comes when the world moves again.
-GEST = p.label("gest")
 p.load(F["stop"]).emit(f"jz {L['frozen']}_no")
 p.addi(F["stop"], -1).emit(f"call {GEST}")
 p.set(GT["jump"], 0).emit(f"jmp {L['frozen']}")
@@ -1724,6 +1761,11 @@ p.mark(f"{L['frozen']}_no")
 #   jump+shoot     the gun
 # (jump alone comes with the air layer.)
 GTAP = {b: cart.var("g_tap_" + b) for b in ("carve", "special")}
+# P18: THE RHYTHM's strings -- state: ((steady move, next), (wait move, next))
+CMB = {1: ((1, 2), (2, 4)),                      # jab, then: cross / (wait) lead hook
+       2: ((2, 3), (3, 0)),                      # jab cross, then: lead hook / (wait) rear hook
+       3: ((6, 0), (6, 0)),                      # ...the rear uppercut, the launcher
+       4: ((6, 0), (6, 0))}                      # (state 0, or a new string: the jab)
 TAP_MAX, CHORD_SLOP = 9, 3
 CHARGE = 26                     # combat.resolve: a shot held this long is charged
 MOVE = {n: i for i, n in enumerate(PMN)}
@@ -1740,8 +1782,18 @@ def choose(mv_const=None, mv_cell_ops=None):
 
 
 p.addi(F["ltap"], 1)
+lt_ = p.label("ltap")                             # P18: the rhythm counts from the END
+p.load(ANIM).push(2).emit("eq", f"jz {lt_}")      # of the string's last blow: while
+p.load(F["mv"]).push(MOVE["special"]).emit("eq", f"jz {lt_}_s", f"jmp {lt_}")   # one is
+p.mark(f"{lt_}_s")                                # thrown (not the special, not a shot)
+p.load(F["mv"]).push(MOVE["gun"]).emit("lt", f"jz {lt_}")   # the clock stands at zero
+p.set(F["ltap"], 0)
+p.mark(lt_)
 p.load(F["buf"]).emit(f"jz {L['nobuf']}")
 p.addi(F["buf"], -1)
+p.load(F["buf"]).emit(f"jz {L['nobuf']}_x", f"jmp {L['nobuf']}")   # P18: a blow that
+p.mark(f"{L['nobuf']}_x")                         # expired unthrown takes the string
+p.set(F["c3"], 0)                                 # with it (or it would be skipped)
 p.mark(L["nobuf"])
 p.emit(f"call {GEST}", f"jmp {GEST}_end")
 p.mark(GEST)
@@ -1755,8 +1807,10 @@ for b, bit in BTN:
         hd = p.label("g_hd")
         p.load(GC[b]).emit(f"jz {hd}_c", f"jmp {done}")
         p.mark(f"{hd}_c")
-        p.load(GT[b]).push(CHORD_SLOP + 1).emit("eq", f"jz {done}")
-        p.set(GTAP[b], 1).set(GC[b], 1)                    # (spent)
+        p.load(F["sty"]).push(SQ_TARGET).emit("eq", f"jz {hd}_t", f"jmp {done}")
+        p.mark(f"{hd}_t")                                  # (P18: targeting holds it --
+        p.load(GT[b]).push(CHORD_SLOP + 1).emit("eq", f"jz {done}")   # FOCUS -- and it
+        p.set(GTAP[b], 1).set(GC[b], 1)                    # fires on release) (spent)
     p.emit(f"jmp {done}")
     p.mark(up)
     p.load(GT[b]).emit(f"jz {done}")                       # was it down?
@@ -1772,9 +1826,10 @@ for b, bit in BTN:
         p.mark(f"{ns}_c")
         p.push(CHARGE - 1).load(GT[b]).emit("lt", f"jz {ns}_p")
         choose(MOVE["gun_charged"])
-        p.emit(f"jmp {ns}")
+        p.addi(F["sec"], 1).emit(f"jmp {ns}")        # (P18: a shot in the string)
         p.mark(f"{ns}_p")
         choose(MOVE["gun"])
+        p.addi(F["sec"], 1)
         p.mark(ns)
     p.set(GT[b], 0).set(GC[b], 0)
     p.mark(done)
@@ -1793,9 +1848,7 @@ def chord(a, b, move):
     p.mark(no)
 
 
-chord("carve", "jump", "rear_uppercut")
-chord("shoot", "special", "lead_uppercut")
-chord("jump", "shoot", "gun")
+# (P18: no chords -- the launchers come from the rhythm, and A is the dodge)
 # the special: its own tap
 sp = p.label("g_sp")
 p.load(GTAP["special"]).emit(f"jz {sp}")
@@ -1803,70 +1856,83 @@ choose(MOVE["special"])
 p.mark(sp)
 # the carve string
 p.load(GTAP["carve"]).emit(f"jz {L['notap']}")
-hti = p.label("hightime")                         # P17: locked, BACK and carve is
-p.load(F["tgt"]).emit(f"jz {hti}")                # the launcher (DMC's High Time):
-held(spec.PAD_DOWN)                               # the rear uppercut sends it up,
-p.emit(f"jz {hti}")                               # and A in the window follows it
-choose(MOVE["rear_uppercut"])
-p.emit(f"jmp {L['notap']}")
-p.mark(hti)
-p.load(F["ltap"]).push(STRING).emit("lt", f"jz {L['brk']}")
-p.addi(F["c3"], 1)
-p.emit(f"jmp {L['brk']}_d")
-p.mark(L["brk"])
-p.set(F["c3"], 1)                                 # a new string
-p.mark(f"{L['brk']}_d")
-p.set(F["ltap"], 0)
-p.load(F["c3"]).push(3).emit("eq", f"jz {L['hook']}")
-p.set(F["c3"], 0)                                 # third tap: the hook
-choose(mv_cell_ops=(f"load {int(F['alt'])}", "push 2", "add"))   # 2 lead, 3 rear
-p.emit(f"jmp {L['tapd']}")
-p.mark(L["hook"])
-p.load(F["alt"]).push(1).emit("xor").store(F["alt"])
-choose(mv_cell_ops=(f"load {int(F['alt'])}",))    # 0 jab, 1 cross
-p.mark(L["tapd"])
+# P18: THE RHYTHM. The gap since the string's last blow ENDED says which
+# string this is: a tap during it or within STEADY keeps time; to PAUSE it
+# is a WAIT; past that a new string. (A tap while the string's next blow
+# still waits in the buffer is that same beat, not another: mashing does not
+# skip ahead to the finisher.) (2 x state + wait) indexes CMB, each word a move and the next
+# state (move | state << 4):
+#   X X X X        jab, cross, lead hook, rear uppercut (the launcher)
+#   X - X X        jab, (wait) lead hook, rear uppercut
+#   X X - X        jab, cross, (wait) rear hook
+# Shots may fill a wait; more than SEC_MAX of them and the string is lost.
+rh = p.label("rhythm")
+p.load(F["buf"]).emit(f"jz {rh}_q")               # a blow of the string still waiting
+p.load(F["bmv"]).push(MOVE["special"]).emit("eq", f"jz {rh}_b", f"jmp {rh}_q")   # in the
+p.mark(f"{rh}_b")                                 # buffer: this tap is the same beat
+p.load(F["bmv"]).push(MOVE["gun"]).emit("lt", f"jz {rh}_q", f"jmp {L['notap']}")
+p.mark(f"{rh}_q")
+p.push(0)
+p.push(STEADY).load(F["ltap"]).emit("lt", f"jz {rh}_c")
+p.emit("drop").push(1)
+p.push(PAUSE).load(F["ltap"]).emit("lt", f"jz {rh}_c")
+p.set(F["c3"], 0)                                 # too long: a new string
+p.mark(f"{rh}_c")
+p.push(SEC_MAX).load(F["sec"]).emit("lt", f"jz {rh}_s")
+p.set(F["c3"], 0)                                 # too many shots: lost
+p.mark(f"{rh}_s")
+p.store(W["dc"])                                  # (in code: memory has no room for
+rd_ = p.label("rdone")                            # a table)
+for st_, ((ms, ns_), (mw, nw_)) in CMB.items():
+    nx = p.label("rs")
+    p.load(F["c3"]).push(st_).emit("eq", f"jz {nx}")
+    p.load(W["dc"]).emit(f"jz {nx}_s")
+    p.push(mw).set(F["c3"], nw_).emit(f"jmp {rd_}")
+    p.mark(f"{nx}_s")
+    p.push(ms).set(F["c3"], ns_).emit(f"jmp {rd_}")
+    p.mark(nx)
+p.push(0).set(F["c3"], 1)                         # the jab opens a string
+p.mark(rd_)
+choose(mv_cell_ops=())
+p.set(F["ltap"], 0).set(F["sec"], 0)
 p.mark(L["notap"])
 p.emit("ret")
 p.mark(f"{GEST}_end")
 # THE JUMP: X's press, at once -- unless A is down (carve+jump launches)
 jp = p.label("jump")
-p.load(GT["jump"]).push(1).emit("eq", f"jz {jp}")
-p.load(GT["carve"]).emit(f"jz {jp}_a", f"jmp {jp}")
-p.mark(f"{jp}_a")
+p.load(GT["jump"]).push(1).emit("eq", f"jz {jp}")   # (P18: no chords)
 p.load(F["py"]).load(F["acmb"]).emit("or", f"jz {jp}_g", f"jmp {jp}_fl")   # aloft: flip?
 p.mark(f"{jp}_g")
-dg_ = p.label("dodge")                           # P11: FENCING + jump + one way:
-p.load(F["tgt"]).emit(f"jz {dg_}")               # a DODGE, not a jump
-p.load(F["sty"]).push(2).emit("eq", f"jz {dg_}")
-p.load(F["evf"]).emit(f"jz {dg_}_a", f"jmp {dg_}")
+dg_ = p.label("dodge")                           # P18: THE DODGE is A in the tank
+p.load(F["sty"]).push(SQ_TARGET).emit("eq")      # and in targeting -- the way the
+p.load(F["sty"]).push(0).emit("eq", "or", f"jz {dg_}")   # pad points, or back
+p.load(F["uwin"]).emit(f"jz {dg_}_u")            # (a launcher's window: A follows
+p.emit(f"call {L_FOE}")                          # the body up instead)
+p.load(F["foe"]).push(0).emit("lt", f"jz {dg_}")
+p.mark(f"{dg_}_u")
+p.load(F["evf"]).emit(f"jz {dg_}_a", f"jmp {jp}")
 p.mark(f"{dg_}_a")
-dcn = p.label("dcan")                            # P17: the dodge CANCELS a swing's
-p.load(ANIM).push(2).emit("eq", f"jz {dcn}")     # recovery (not its windup or its
-p.load(AF)                                       # live frames: a blow thrown is
-row(PMT, F["mv"], "endact")                      # thrown)
-p.emit("lt", f"jz {dcn}_r", f"jmp {dg_}")
+dcn = p.label("dcan")                            # it CANCELS a swing's recovery
+p.load(ANIM).push(2).emit("eq", f"jz {dcn}")     # (not its windup or live frames:
+p.load(AF)                                       # a blow thrown is thrown)
+row(PMT, F["mv"], "endact")
+p.emit("lt", f"jz {dcn}_r", f"jmp {jp}")
 p.mark(f"{dcn}_r")
 p.set(ANIM, 0)
 p.mark(dcn)
-p.set(W["qz"], -1)
-for bit, k in ((spec.PAD_UP, 0), (spec.PAD_DOWN, 1), (spec.PAD_LEFT, 2), (spec.PAD_RIGHT, 3)):
-    nb = p.label("dd")
+p.set(F["evk"], 5).push(512).store(W["qx"])      # none held: back
+held(15)
+p.emit(f"jz {dg_}_go")
+p.push(int(OCTANT)).emit("load 1").push(15).emit("and", "add", "loadi").store(W["qx"])
+for bit, k in ((spec.PAD_UP, 4), (spec.PAD_DOWN, 5), (spec.PAD_LEFT, 6), (spec.PAD_RIGHT, 7)):
+    nb = p.label("dd")                           # (its shape: the last axis read)
     held(bit)
     p.emit(f"jz {nb}")
-    p.load(W["qz"]).push(0).emit("lt", f"jz {dg_}")    # two axes: a plain jump
-    p.set(W["qz"], k)
+    p.set(F["evk"], k)
     p.mark(nb)
-p.load(W["qz"]).push(0).emit("lt", f"jz {dg_}_go", f"jmp {dg_}")
 p.mark(f"{dg_}_go")
-p.load(W["qz"]).push(4).emit("add").store(F["evk"])
 p.set(F["evt"], DODGE_F).set(F["evf"], DODGE_F)
-p.push(0).store(W["qx"])
-for k, off in ((1, 512), (2, 256), (3, -256)):
-    nk = p.label("do")
-    p.load(W["qz"]).push(k).emit("eq", f"jz {nk}")
-    p.push(off).store(W["qx"])
-    p.mark(nk)
-p.load(F["latch"]).load(W["qx"]).emit("add").push(1023).emit("and").store(W["qx"])
+p.load(YAW).load(W["qx"]).emit("add").push(1023).emit("and").store(W["qx"])
 sin_of(p, cell=W["qx"])
 p.push(DODGE_V).emit("mulq").push(0).emit("swap", "sub", "dup").store(F["evx"]).store(F["vx"])
 sin_of(p, 256, cell=W["qx"])
@@ -1883,7 +1949,8 @@ p.mark(f"{jp}_p")
 p.load(ANIM).push(2).emit("eq", f"jz {jp}_j", f"jmp {jp}")   # not mid-swing
 p.mark(f"{jp}_j")
 p.set(F["pvy"], JUMP_V0).set(F["py"], 1)
-p.emit(f"jmp {jp}")
+p.load(F["sty"]).push(2).emit("eq", f"jz {jp}")   # P18: THE BOXER -- a direction with
+p.emit(f"jmp {jp}_f2")                            # the jump flips that way at once
 # P10: THE FLIP -- a second A in the air, once a jump: forward from the run,
 # any of four ways from the boxing stance (the archive's one-axis rule)
 p.mark(f"{jp}_fl")
@@ -1965,60 +2032,93 @@ p.load(F["foe"]).push(1).emit("add").store(F["tgt"]).emit(f"jmp {lk}_cy")
 p.mark(f"{lk}_off")
 p.set(F["tgt"], 0)
 p.mark(f"{lk}_cy")
-# (P17: the lock's left/right FLICK is gone -- locked, Left and Right
-# circle the demon. A fallen target is replaced by the nearest, above.)
-# THE PLANT: in the tank, still for 6 frames, locked -- he squares up to it
-p.mark(f"{lk}_pl")
-p.load(F["tgt"]).emit(f"jz {lk}_np")
-p.load(F["sty"]).push(2).emit("eq", f"jz {lk}_np")     # (P17: the dance stance)
+# a left/right FLICK (its edge) in the tank moves the lock by bearing: right
+# to the next bearing up, left to the next down (tear.py's sort, its order)
 held(spec.PAD_UP | spec.PAD_DOWN | spec.PAD_LEFT | spec.PAD_RIGHT)
-p.emit(f"jz {lk}_s1", f"jmp {lk}_np")
-p.mark(f"{lk}_s1")
-speed2()
-p.push(CHAIN_SPEED2).emit("lt", f"jz {lk}_np")
-p.load(F["plc"]).push(PLANT_HOLD).emit("lt", f"jz {lk}_pf")
-p.addi(F["plc"], 1)
-p.mark(f"{lk}_pf")
-p.load(F["plc"]).push(PLANT_HOLD).emit("eq", f"jz {lk}_e")
+p.emit("dup").load(F["lrp"]).push(-1).emit("xor", "and").store(W["qy"])   # the edges
+p.store(F["lrp"])
+p.load(F["tgt"]).emit(f"jz {lk}_pl")
+p.load(F["sty"]).push(SQ_TARGET).emit("eq", f"jz {lk}_pl")   # (P18: targeting's)
+p.load(W["qy"]).push(spec.PAD_LEFT | spec.PAD_RIGHT).emit("and", f"jz {lk}_pl")
 p.load(F["tgt"]).push(1).emit("sub").store(F["brg"]).emit(f"call {L_BRG}")
-p.load(F["brg"]).store(YAW).emit(f"jmp {lk}_e")
-p.mark(f"{lk}_np")
+p.load(F["brg"]).store(W["head"])                # its bearing
+p.push(1024).store(W["dmg"])                     # the best gap so far
+p.load(F["tgt"]).store(W["stop"])                # ...and who
+for d in range(3):
+    nx = p.label("cy")
+    p.load(F["tgt"]).push(d + 1).emit("eq", f"jz {nx}_a", f"jmp {nx}")
+    p.mark(f"{nx}_a")
+    p.load(dslot(d, "st")).push(3).emit("lt", f"jz {nx}")
+    p.set(F["brg"], d).emit(f"call {L_BRG}")
+    p.load(W["qy"]).push(spec.PAD_RIGHT).emit("and", f"jz {nx}_l")
+    p.load(F["brg"]).load(W["head"]).emit("sub", f"jmp {nx}_g")
+    p.mark(f"{nx}_l")
+    p.load(W["head"]).load(F["brg"]).emit("sub")
+    p.mark(f"{nx}_g")
+    p.push(1023).emit("and", "dup").load(W["dmg"]).emit("lt", f"jz {nx}_f")
+    p.store(W["dmg"]).set(W["stop"], d + 1).emit(f"jmp {nx}")
+    p.mark(f"{nx}_f")
+    p.emit("drop")
+    p.mark(nx)
+p.load(W["stop"]).store(F["tgt"])
+# P18: TARGETING IS PLANTED -- squared up to it every frame (and so the
+# operator's AIM shot, which waits for the plant, frames it)
+p.mark(f"{lk}_pl")
 p.set(F["plc"], 0)
+p.load(F["sty"]).push(SQ_TARGET).emit("eq", f"jz {lk}_e")
+p.set(F["plc"], PLANT_HOLD)
+p.load(F["tgt"]).push(1).emit("sub").store(F["brg"]).emit(f"call {L_BRG}")
+p.load(F["brg"]).store(YAW)
+# ...and Up/Down step the shot: 0 high (the head), 1 mid, 2 low (the legs)
+for bit, dv in ((spec.PAD_UP, -1), (spec.PAD_DOWN, 1)):
+    nb = p.label("ah")
+    p.load(W["qy"]).push(bit).emit("and", f"jz {nb}")
+    p.load(F["aimh"]).push(dv).emit("add", "dup").push(0).emit("lt", f"jz {nb}_lo")
+    p.emit("drop", f"jmp {nb}")
+    p.mark(f"{nb}_lo")
+    p.emit("dup").push(3).emit("lt", f"jz {nb}_hi")
+    p.store(F["aimh"]).emit(f"jmp {nb}")
+    p.mark(f"{nb}_hi")
+    p.emit("drop")
+    p.mark(nb)
 p.mark(f"{lk}_e")
 
-# P17: THE STANCE IS THE BUTTONS. It was a grammar -- L+Up the run, L+Down
-# the boxing stance, a locked flip between them, a quick turn -- and on two
-# tapes the player found almost none of it. Now: L held is the SPRINT; R
-# held (a demon locked) is the DANCE, facing it, stepping round it; neither
-# is FREE, the pad steering him across the screen. A committed swing keeps
-# the stance it began in. Sprinting locked, Left or Right is METEOR, the
-# circle at speed.
+# P18: THE STANCE IS THE SHOULDERS. Neither: the tank. R: targeting. L:
+# the boxer. Both: the run. A committed swing keeps the stance it began in.
 stn = p.label("stance")
-p.load(cmt).emit(f"jz {stn}_c", f"jmp {stn}_m")
+p.load(cmt).emit(f"jz {stn}_c", f"jmp {stn}")
 p.mark(f"{stn}_c")
 p.push(0).load(F["tgt"]).emit(f"jz {stn}_t")
-p.emit("drop").push(2)
+p.emit("drop").push(SQ_TARGET)
 p.mark(f"{stn}_t")
 held(spec.PAD_L)
 p.emit(f"jz {stn}_l")
-p.emit("drop").push(1)
+p.emit("dup").push(SQ_TARGET).emit("eq", f"jz {stn}_b")
+p.emit("drop").push(1).emit(f"jmp {stn}_l")      # L and R: the run
+p.mark(f"{stn}_b")
+p.emit("drop").push(2)                           # L alone: the boxer
 p.mark(f"{stn}_l")
 p.emit("dup").load(F["sty"]).emit("eq", f"jz {stn}_ch")
-p.emit("drop", f"jmp {stn}_m")
+p.emit("drop", f"jmp {stn}")
 p.mark(f"{stn}_ch")                              # a new stance
-p.emit("dup").store(F["sty"]).push(2).emit("eq", f"jz {stn}_m")
-p.load(YAW).store(F["latch"])
-p.mark(f"{stn}_m")
-p.set(F["met"], 0)                               # METEOR: sprinting, locked, a side
-p.load(F["sty"]).push(1).emit("eq", f"jz {stn}")
-p.load(F["tgt"]).emit(f"jz {stn}")
-for bit, dr in ((spec.PAD_LEFT, 1), (spec.PAD_RIGHT, -1)):
-    nb = p.label("mt")
-    held(bit)
-    p.emit(f"jz {nb}")
-    p.set(F["met"], 1).set(F["metd"], dr)
-    p.mark(nb)
+p.emit("dup").store(F["sty"])
+p.emit("dup").push(2).emit("eq", f"jz {stn}_nb")
+p.load(YAW).store(F["latch"])                    # the boxer: this cross, held
+p.mark(f"{stn}_nb")
+p.push(SQ_TARGET).emit("eq", f"jz {stn}")
+p.set(F["aimh"], 1)                              # targeting opens on the body
 p.mark(stn)
+
+tk = p.label("turn")
+p.load(F["sty"]).emit(f"jz {tk}_t", f"jmp {tk}")   # (the styles steer themselves)
+p.mark(f"{tk}_t")
+p.emit("load 1").push(spec.PAD_A | spec.PAD_B | spec.PAD_X | spec.PAD_Y)
+p.emit("and", f"jz {tk}_go", f"jmp {tk}")
+p.mark(f"{tk}_go")
+p.if_pad(spec.PAD_LEFT, lambda q: q.addi(YAW, 12))      # a raised yaw turns him
+p.if_pad(spec.PAD_RIGHT, lambda q: q.addi(YAW, -12))    # LEFT (forward is (-sin, cos))
+p.load(YAW).push(1023).emit("and").store(YAW)
+p.mark(tk)
 
 # ---- a swing owns the body until its frames are done --------------------------
 p.load(ANIM).push(2).emit("eq", f"jz {L['free']}")
@@ -2043,44 +2143,47 @@ p.load(F["buf"]).emit(f"jz {L['walk']}_q")
 p.load(F["bmv"]).store(F["mv"])
 p.set(ANIM, 2).set(AF, 0).set(F["con"], 0).set(F["buf"], 0)
 gf = p.label("gunface")
-# P17: WHERE THE BLOW GOES. Locked, at the demon. Free, along the pad on
-# screen (or his facing), then onto the nearest demon within 63 degrees of
-# that line -- a fist's 3.2 units, the gun's 13 -- and he turns to it. The
-# gun's chosen demon (f_aim) is hit at any range, as the locked shot was.
-p.load(YAW).store(W["head"]).set(AIM, 0)
-p.load(F["tgt"]).emit(f"jz {gf}_u")
+# P18: WHERE THE ATTACK GOES -- the way the pad points from his facing,
+# snapped there, all three attacks alike (the gun too: "never the pad" is
+# gone); locked, at the target. The gun finds whom its exact line meets
+# (L_LINE), and in a launcher's slow motion it tracks the body in the air.
+# The shot does not move him: no lunge, only the recoil's shake.
+p.set(AIM, 0)
+p.load(F["tgt"]).emit(f"jz {gf}_p")
 p.load(F["tgt"]).emit("dup").store(AIM).push(1).emit("sub").store(F["brg"])
 p.emit(f"call {L_BRG}")
-p.load(F["brg"]).store(W["head"]).emit(f"jmp {gf}_a")
-p.mark(f"{gf}_u")
-p.emit(f"call {L_WANT}", "drop")
-p.push(FIST_AIM2).store(W["d2"])
-p.push(MOVE["gun"] - 1).load(F["mv"]).emit("lt", f"jz {gf}_f")
-p.push32(GUN_AIM2).store(W["d2"])
-p.mark(f"{gf}_f")
-p.emit(f"call {L_AIM}")
-p.mark(f"{gf}_a")
-p.load(W["head"]).emit("dup").store(YAW).store(HEAD)
-p.push(MOVE["gun"] - 1).load(F["mv"]).emit("lt", f"jz {gf}")   # the gun's recoil kick:
+p.load(F["brg"]).store(HEAD).emit(f"jmp {gf}_g")
+p.mark(f"{gf}_p")
+p.push(int(OCTANT)).emit("load 1").push(15).emit("and", "add", "loadi")
+p.load(YAW).emit("add").push(1023).emit("and").store(HEAD)
+p.mark(f"{gf}_g")
+p.push(MOVE["gun"] - 1).load(F["mv"]).emit("lt", f"jz {gf}_m")
+p.load(F["slow"]).emit(f"jz {gf}_l")              # the slow motion: track it
+p.emit(f"call {L_FOE}")
+p.load(F["foe"]).emit("dup").push(0).emit("lt", f"jz {gf}_t")
+p.emit("drop", f"jmp {gf}_l")
+p.mark(f"{gf}_t")
+p.emit("dup").push(1).emit("add").store(AIM).store(F["brg"])
+p.emit(f"call {L_BRG}")
+p.load(F["brg"]).store(HEAD).emit(f"jmp {gf}_k0")
+p.mark(f"{gf}_l")
+p.load(AIM).emit(f"jz {gf}_ln", f"jmp {gf}_k0")   # locked: its target
+p.mark(f"{gf}_ln")
+p.load(HEAD).store(W["head"]).emit(f"call {L_LINE}")
+p.mark(f"{gf}_k0")
 p.push(3).load(F["mv"]).push(MOVE["gun"]).emit("sub").push(4).emit("mul", "add")
-p.load(F["shake"]).emit("over", "over", "lt", f"jz {gf}_k")   # 3 frames, the charged 7
-p.emit("swap")
+p.load(F["shake"]).emit("over", "over", "lt", f"jz {gf}_k")   # the recoil kick:
+p.emit("swap")                                # 3 frames, the charged one 7
 p.mark(f"{gf}_k")
 p.emit("drop").store(F["shake"])
-p.mark(gf)
-row(PMT, F["mv"], "lunge")                     # P17: THE STINGER -- locked, toward,
-sg2 = p.label("sting")                         # the haymaker crosses the gap: x2.5
-p.load(F["mv"]).push(MOVE["special"]).emit("eq", f"jz {sg2}")
-p.load(F["tgt"]).emit(f"jz {sg2}")
-held(spec.PAD_UP)
-p.emit(f"jz {sg2}")
-p.push(STING).emit("mulq")
-p.mark(sg2)
-p.emit("dup").store(W["dmg"])
+p.emit(f"jmp {L['motion']}")
+p.mark(f"{gf}_m")                               # a fist: its lunge, along HEAD
 sin_of(p, cell=HEAD)
+row(PMT, F["mv"], "lunge")
 p.emit("mulq").load(F["vx"]).emit("swap", "sub").store(F["vx"])   # fwd x = -sin
 sin_of(p, 256, cell=HEAD)
-p.load(W["dmg"]).emit("mulq").load(F["vz"]).emit("add").store(F["vz"])
+row(PMT, F["mv"], "lunge")
+p.emit("mulq").load(F["vz"]).emit("add").store(F["vz"])
 p.emit(f"jmp {L['motion']}")
 p.mark(f"{L['walk']}_q")
 p.load(YAW).store(HEAD)                       # no strike: he faces his steering
@@ -2093,17 +2196,16 @@ p.set(ANIM, 0).emit(f"jmp {L['motion']}")
 p.mark(f"{ev}_n")
 p.load(F["sty"]).push(1).emit("eq", f"jz {ev}_b")
 # PARKOUR: the quick turn, the logistic ramp, the fixed turn, grip and scrub
-p.emit(f"call {L_WANT}")                      # P17: the sprint goes where the pad
-p.emit(f"jz {ev}_co")                          # points on screen; no quick turn
-p.push(PK_TURN).store(W["dg"])
-p.load(F["tgt"]).emit(f"jz {ev}_st")
-p.push(PK_TURN_FAST).store(W["dg"])
-p.mark(f"{ev}_st")
-p.load(F["met"]).emit(f"jz {ev}_sw")
-p.emit(f"jmp {ev}_sv")
-p.mark(f"{ev}_sw")
-p.emit(f"call {L_STEER}")
-p.mark(f"{ev}_sv")
+# P18: THE RUN goes the way the pad points round the target -- Up at it,
+# Down away, Left and Right round it -- turning there at RUN_TURN a frame
+p.load(F["tgt"]).push(1).emit("sub").store(F["brg"]).emit(f"call {L_BRG}")
+p.emit("load 1").push(15).emit("and", "dup", f"jz {ev}_nd")
+p.push(int(OCTANT)).emit("add", "loadi").load(F["brg"]).emit("add")
+p.push(1023).emit("and").store(W["head"])
+p.push(RUN_TURN).store(W["dg"]).emit(f"call {L_STEER}")
+p.push(1)
+p.mark(f"{ev}_nd")
+p.emit(f"jz {ev}_co")
 p.load(F["spd"]).push(PK_SEED).emit("lt", f"jz {ev}_sd")
 p.set(F["spd"], PK_SEED)
 p.mark(f"{ev}_sd")
@@ -2114,54 +2216,9 @@ p.set(F["spd"], PK_TOP)
 p.mark(f"{ev}_tp")
 p.emit(f"jmp {ev}_tr")
 p.mark(f"{ev}_co")
-p.load(F["met"]).emit(f"jz {ev}_cf", f"jmp {ev}_tr")         # (METEOR keeps its own)
-p.mark(f"{ev}_cf")
 p.load(F["spd"]).push(PK_FR).emit("mulq").store(F["spd"])     # coasting
 p.mark(f"{ev}_tr")
-# P11: METEOR -- the circle round the target, facing its tangent
-mt_ = p.label("meteor")
-p.load(F["met"]).emit(f"jz {mt_}_x")
-p.load(F["tgt"]).emit(f"jz {mt_}_off")
-held(spec.PAD_LEFT | spec.PAD_RIGHT)
-p.emit(f"jz {mt_}_nd")
-p.load(F["tgt"]).push(1).emit("sub").store(F["brg"]).emit(f"call {L_BRG}")
-p.load(F["brg"]).store(W["head"])                # inward
-p.load(F["spd"]).push(PK_SEED).emit("lt", f"jz {mt_}_s")   # at parkour speed,
-p.set(F["spd"], PK_SEED)                         # Up or not
-p.mark(f"{mt_}_s")
-p.load(F["spd"]).emit("dup", "dup", "mulq").push(PK_INVTOP).emit("mulq", "sub")
-p.push(PK_GROWTH).emit("mulq").load(F["spd"]).emit("add").store(F["spd"])
-p.push(PK_TOP).load(F["spd"]).emit("lt", f"jz {mt_}_t")
-p.set(F["spd"], PK_TOP)
-p.mark(f"{mt_}_t")
-p.load(F["metd"]).push(256).emit("mul").load(W["head"]).emit("add")
-p.push(1023).emit("and").store(YAW)              # the tangent
-p.push(-METEOR_OUT).store(W["dmg"])              # outward, gently...
-held(spec.PAD_UP)
-p.emit(f"jz {mt_}_v")
-p.push(0).store(W["dmg"])                        # ...or reeled in, not through him
-p.push(METEOR_RMIN2).load(W["qx"]).emit("dup", "mulq").load(W["qz"]).emit("dup", "mulq", "add")
-p.emit("lt", f"jz {mt_}_v")
-p.push(METEOR_IN).store(W["dmg"])
-p.mark(f"{mt_}_v")
-for vel, plus, neg in ((F["vx"], 0, True), (F["vz"], 256, False)):
-    sin_of(p, plus)
-    p.load(F["spd"]).emit("mulq")
-    sin_of(p, plus, cell=W["head"])
-    p.load(W["dmg"]).emit("mulq", "add")
-    if neg:
-        p.push(0).emit("swap", "sub")
-    p.store(vel)
-p.emit(f"jmp {ev}_ph")
-p.mark(f"{mt_}_nd")                              # the direction let go: if Up,
-held(spec.PAD_UP)                                # run straight at it
-p.emit(f"jz {mt_}_off")
-p.load(F["tgt"]).push(1).emit("sub").store(F["brg"]).emit(f"call {L_BRG}")
-p.load(F["brg"]).store(YAW)
-p.mark(f"{mt_}_off")
-p.set(F["met"], 0)
-p.mark(f"{mt_}_x")
-# (P17: the prowler's left/right turn is the pad's steer, above)
+# (P18: METEOR and the prowler's turn are the run's steer, above)
 for vel, plus, neg in ((F["vx"], 0, True), (F["vz"], 256, False)):
     sin_of(p, plus)
     p.load(F["spd"]).emit("mulq")
@@ -2183,19 +2240,9 @@ p.set(ANIM, 5).emit(f"jmp {L['motion']}")
 # BOXING: the four steps on the latched cross, and he faces it
 p.mark(f"{ev}_b")
 p.load(F["sty"]).push(2).emit("eq", f"jz {ev}_tank")
-fn_ = p.label("fence")                         # P11: FENCING -- the cross
-p.load(F["tgt"]).emit(f"jz {fn_}")               # re-latched onto the target
-held(spec.PAD_A | spec.PAD_B | spec.PAD_X | spec.PAD_Y)   # (not while a strike
-p.emit(f"jz {fn_}_l", f"jmp {fn_}")              # button chooses its aim)
-p.mark(f"{fn_}_l")
-p.load(F["tgt"]).push(1).emit("sub").store(F["brg"]).emit(f"call {L_BRG}")
-p.load(F["brg"]).store(F["latch"])
-p.mark(fn_)
+# (P18: FENCING, the locked boxer, is gone -- locked is targeting or the run)
 p.load(F["latch"]).emit("dup").store(YAW).store(HEAD)
 p.push(BOX_FR).store(W["qx"]).push(BOX_RATE).store(W["qz"])
-p.load(F["tgt"]).emit(f"jz {fn_}_r")
-p.push(FENCE_FR).store(W["qx"]).push(FENCE_RATE).store(W["qz"])
-p.mark(f"{fn_}_r")
 for vel, plus, neg in ((F["vx"], 0, True), (F["vz"], 256, False)):
     p.load(vel).load(W["qx"]).emit("mulq").store(vel)
     # + (forward * (up - down) + left * (left - right)) * rate; left = fwd(+256)
@@ -2231,24 +2278,34 @@ p.set(ANIM, 6).emit(f"jmp {L['motion']}")
 p.mark(f"{ev}_bi")
 p.set(ANIM, 0).emit(f"jmp {L['motion']}")
 p.mark(f"{ev}_tank")
+p.load(F["sty"]).push(SQ_TARGET).emit("eq", f"jz {ev}_tk")    # P18: TARGETING is
+p.set(ANIM, 0).emit(f"jmp {L['motion']}")                      # planted: no step
+p.mark(f"{ev}_tk")
 p.load(F["py"]).load(F["acmb"]).emit("or", f"jz {L['walk']}_gr")   # aloft: no
 p.emit(f"jmp {L['idle']}")                    # stride (the air owns him)
 p.mark(f"{L['walk']}_gr")
-# P17: FREE. The pad is the screen's directions: he turns to the one held
-# (34 degrees a frame) and jogs along it at once -- the line the pad means,
-# not the way he happens to face, so a reversal is a step, not a circle.
-p.emit(f"call {L_WANT}", f"jz {L['idle']}")
-p.push(TURN_FREE).store(W["dg"]).emit(f"call {L_STEER}")
-sin_of(p, cell=W["head"])
-p.push(JOG).emit("mulq").load(PX).emit("swap", "sub").store(PX)
-sin_of(p, 256, cell=W["head"])
-p.push(JOG).emit("mulq").load(PZ).emit("add").store(PZ)
-p.set(F["spd"], JOG_STRIDE)                       # (the run's poses, and its feet,
-p.load(F["ph"]).push(int(JOG_STRIDE * 4)).emit("add").store(F["ph"])   # at a jog's
-                                                  # shorter stride: 2.7 units)
-p.set(ANIM, 5).emit(f"jmp {L['motion']}")
+wb = p.label("wback")
+p.emit("load 1", f"push {spec.PAD_UP}", "and", f"jz {wb}")
+p.set(ANIM, 1)
+p.addi(AF, 1)
+sin_of(p)                                     # forward is model +z: (-sin, cos)
+p.push(WALK).emit("mulq").load(PX).emit("swap", "sub").store(PX)
+sin_of(p, 256)
+p.push(WALK).emit("mulq").load(PZ).emit("add").store(PZ)
+p.emit(f"jmp {L['motion']}")
+# BACK: the tank's other half, at the same pace (tear.py _tank: fwd = +-1),
+# the walk played backwards
+p.mark(wb)
+p.emit("load 1", f"push {spec.PAD_DOWN}", "and", f"jz {L['idle']}")
+p.set(ANIM, 1)
+p.addi(AF, -1)
+sin_of(p)
+p.push(WALK).emit("mulq").load(PX).emit("add").store(PX)
+sin_of(p, 256)
+p.push(WALK).emit("mulq").load(PZ).emit("swap", "sub").store(PZ)
+p.emit(f"jmp {L['motion']}")
 p.mark(L["idle"])
-p.set(ANIM, 0).set(F["spd"], 0)
+p.set(ANIM, 0)
 
 # ---- momentum: knockback and lunge, scrubbed by friction ----------------------
 p.mark(L["motion"])
@@ -2467,9 +2524,9 @@ RETRY_CELLS = ((PX, 0), (PZ, 0), (YAW, 0), (CY, 0), (ANIM, 0), (AF, 0),
              (F["stop"], 0), (F["vx"], 0), (F["vz"], 0), (F["buf"], 0),
              (F["c3"], 0), (F["fight"], 0), (F["wave"], 0), (SFX_T, SFX_N),
              (F["py"], 0), (F["pvy"], 0), (F["acmb"], 0), (F["uwin"], 0),
-             (F["sty"], 0), (F["chain"], 0), (F["cgr"], 0), (F["qtw"], 0), (PDIR, 0),
+             (F["sty"], 0), (F["chain"], 0), (F["cgr"], 0), (F["slow"], 0), (F["skip"], 0),
              (F["spd"], 0), (F["evf"], 0), (F["flipu"], 0), (F["tgt"], 0),
-             (F["plc"], 0), (F["met"], 0),
+             (F["plc"], 0), (F["sec"], 0),
              (SY["pts"], 0), (SY["combo"], 0), (SY["idle"], 0), (int(S_SHOWN), 255),
              *((int(S_REC) + i, 255) for i in range(5)))
 for c, v in RETRY_CELLS:
@@ -2555,23 +2612,6 @@ p.load(F["tgt"]).emit(f"jz {by_}")
 p.load(F["tgt"]).push(1).emit("sub").store(F["brg"]).emit(f"call {L_BRG}")
 p.load(F["brg"]).store(W["oy"])
 p.mark(by_)
-# P17: FREE, the camera is LAZY. Behind his facing it followed him as a
-# tank's must; with the pad on screen a camera that wheels after every turn
-# turns the screen. It holds while he stands or runs across or toward it,
-# and eases in behind him, at half the pace, only while he runs away.
-lz = p.label("lazy")
-p.load(F["sty"]).load(F["tgt"]).emit("or", f"jz {lz}_f", f"jmp {lz}")
-p.mark(f"{lz}_f")
-p.emit("load 1").push(15).emit("and", f"jz {lz}_h")
-p.load(PDIR).push(int(OCTANT)).emit("add", "loadi").load(IREF).emit("add")   # the way
-p.load(CY).emit("sub").push(192).emit("add").push(1023).emit("and")         # he MEANS:
-p.push(384).emit("lt", f"jz {lz}_h")             # only AWAY, within 67 degrees
-p.load(YAW).load(CY).emit("sub").push(512).emit("add").push(1023).emit("and")
-p.push(512).emit("sub", "shr 1").load(CY).emit("add").push(1023).emit("and")
-p.store(W["oy"]).emit(f"jmp {lz}")
-p.mark(f"{lz}_h")
-p.load(CY).store(W["oy"])
-p.mark(lz)
 p.load(W["oy"]).load(CY).emit("sub").push(512).emit("add")
 p.push(1023).emit("and").push(512).emit("sub").store(T)   # d in -512..511
 p.load(T).emit("shr 3", "dup", f"jz {snap_l}")
@@ -2594,15 +2634,21 @@ p.mark(f"{snap_l}_d")
 # its eased shoulder (P12: the mode's -- the tank 3 and square, as before)
 CWd = CAM_W
 md_ = p.label("camd")
+# P18: ONE SHOT A MODE. The tank 3.0 back and square; the boxer 4.0 on its
+# cross; the run 5.4, wide, on the target; targeting 2.8 over the right
+# shoulder at the target -- and in its FOCUS, in to 2.2. The distance and
+# the lean ease between them (DIST_EASE), the yaw at most CAM_TURN.
 p.push(int(TANK_D * ONE)).store(W["dmg"]).push(0).store(W["stop"])
-p.load(F["sty"]).push(2).emit("eq", f"jz {md_}_dt")
-p.push(int(BOX_D * ONE)).store(W["dmg"]).push(int(BOX_SH * ONE)).store(W["stop"])
-p.load(F["tgt"]).emit(f"jz {md_}_e")
-p.push(int(FENCE_D * ONE)).store(W["dmg"]).emit(f"jmp {md_}_e")
-p.mark(f"{md_}_dt")
-held(spec.PAD_L)
-p.emit(f"jz {md_}_e")
-p.push(int(DT_D * ONE)).store(W["dmg"]).push(int(DT_SH * ONE)).store(W["stop"])
+for sty_, d_, sh_ in ((2, BOX_D, BOX_SH), (1, FENCE_D, BOX_SH), (SQ_TARGET, TGT_D, TGT_SH)):
+    nm = p.label("cm")
+    p.load(F["sty"]).push(sty_).emit("eq", f"jz {nm}")
+    p.push(int(d_ * ONE)).store(W["dmg"]).push(int(sh_ * ONE)).store(W["stop"])
+    p.mark(nm)
+p.load(F["sty"]).push(SQ_TARGET).emit("eq")      # FOCUS: targeting, an attack held --
+p.push(FOCUS_HOLD).load(GT["carve"]).emit("lt")
+p.push(FOCUS_HOLD).load(GT["special"]).emit("lt", "or", "and")
+p.load(F["slow"]).emit("or", f"jz {md_}_e")       # -- or a launcher's slow motion
+p.push(int(FOCUS_D * ONE)).store(W["dmg"])
 p.mark(f"{md_}_e")
 for cell, want in ((CWd["d"], W["dmg"]), (CWd["sh"], W["stop"])):
     p.load(want).load(cell).emit("sub").push(int(DIST_EASE * ONE)).emit("mulq")
@@ -3384,13 +3430,12 @@ p = p_main                           # (the intro has no style, no HUD)
 sb = p.label("sbleed")
 p.load(F["dead"]).emit(f"jz {sb}_a", f"jmp {sb}")
 p.mark(f"{sb}_a")
+p.load(F["skip"]).emit(f"jz {sb}_k", f"jmp {sb}")    # (not while FOCUS holds the world)
+p.mark(f"{sb}_k")
 p.addi(SY["idle"], 1)
-# P17: THE METER COOLS, IT DOES NOT DROP. It bled 0.6 a frame after 45
-# idle frames and 2.2 after 90 -- 130 points a second, a rank in under two
-# seconds of circling. On the second tape 36 of 50 rank drops were that
-# bleed, and the rank sat at D for three minutes of a five-minute fight.
-# Now 0.25 a frame after a second and 0.75 after two: a rank takes some
-# five seconds of doing nothing to lose. (Being hit still costs 55%.)
+# THE METER COOLS, IT DOES NOT DROP (P17, kept): 0.25 a frame after a
+# second idle, 0.75 after two -- it bled 0.6 after 45 frames and 2.2 after
+# 90, and the second tape spent three minutes at D
 p.push(120).load(SY["idle"]).emit("lt", f"jz {sb}_45")
 p.load(SY["pts"]).push(12).emit("sub").store(SY["pts"])      # 0.75 a frame
 p.set(SY["combo"], 0).emit(f"jmp {sb}_c")
@@ -4182,12 +4227,13 @@ for a, b in (("qx", "fx"), ("qy", "fy"), ("qz", "fz")):
     p.load(F[b]).store(W[a])
 p.load(cur("py")).store(W["oy"])                 # struck where it is: aloft
 nearest((f"load {cur('kp')}",), X, Z, t["c"], t["s"])
-ag_ = p.label("aimgun")                          # P11: THE AIM GUN -- locked, a
-p.push(MOVE["gun"] - 1).load(F["mv"]).emit("lt", f"jz {ag_}")   # shot goes down
-p.load(AIM).emit(f"jz {ag_}")                   # the line to its demon, at any
-p.load(AIM).load(F["dmi"]).emit("eq", f"jz {lab['noA']}", f"jmp {ag_}_hit")   # range
-# (P17: f_aim -- the locked demon, or the one the pad pointed the gun at)
-p.mark(ag_)
+ag_ = p.label("aimgun")                          # P18: THE GUN lands on the
+p.push(MOVE["gun"] - 1).load(F["mv"]).emit("lt", f"jz {ag_}")   # demon its line met
+p.load(AIM).load(F["dmi"]).emit("eq", f"jz {lab['noA']}")        # (or its target),
+p.load(F["sty"]).push(SQ_TARGET).emit("eq", f"jz {ag_}_hit")     # at any range, and
+p.load(F["aimh"]).push(0).emit("eq").store(W["head"])           # no other -- and in
+p.emit(f"jmp {ag_}_hit")                                          # targeting, HIGH is
+p.mark(ag_)                                                       # the head
 p.load(W["d2"])
 row(PMT, F["mv"], "reach2")
 p.emit("lt", f"jz {lab['noA']}")
@@ -4207,10 +4253,10 @@ p.store(F["shake"])
 gch = p.label("gunchip")
 p.load(F["mv"]).push(MOVE["gun"]).emit("eq", f"jz {gch}_s")
 p.load(cur("py")).emit(f"jz {gch}_g", f"jmp {gch}_s")
-p.mark(f"{gch}_g")                              # P17: ...unless it is POINT BLANK:
-p.load(cur("x")).load(PX).emit("sub", "dup", "mulq")   # inside 1.8 the plain shot
-p.load(cur("z")).load(PZ).emit("sub", "dup", "mulq", "add")   # staggers as a fist does
-p.push(PB2).emit("lt", f"jz {gch}")             # (the gun is a close weapon too)
+p.mark(f"{gch}_g")                              # P18: ...unless targeting aimed it LOW:
+p.load(F["sty"]).push(SQ_TARGET).emit("eq", f"jz {gch}")   # the legs -- it staggers,
+p.load(F["aimh"]).push(2).emit("eq", f"jz {gch}")          # and its approach stops
+p.set(cur("vx"), 0).set(cur("vz"), 0).set(AI, 0)
 p.mark(f"{gch}_s")
 p.load(W["stop"]).push(12).emit("add").store(cur("hs"))
 p.set(ST, 2).set(MF, 0)                         # a hit stops a swing
@@ -4248,6 +4294,7 @@ lw, la = p.label("lift"), p.label("airh")
 row(PMT, F["mv"], "lift")
 p.emit("dup", f"jz {lw}_no")
 p.store(cur("vy"))
+p.set(F["slow"], SLOW_LAUNCH)                   # P18: a launcher lands: slow motion
 row(PMT, F["mv"], "air")
 p.store(cur("hs")).emit(f"jmp {lw}")
 p.mark(f"{lw}_no")
@@ -4298,6 +4345,9 @@ p.set(ST, 3).set(cur("dt"), 0).set(cur("hs"), 0)  # down
 p.mark(lab["noA"])
 
 # ---- B: my body -------------------------------------------------------------------
+fz_ = p.label("fskip")
+p.load(F["skip"]).emit(f"jz {fz_}", "ret")      # P18: FOCUS holds them too
+p.mark(fz_)
 p.load(cur("stop")).emit(f"jz {lab['frz']}")
 p.addi(cur("stop"), -1).emit("ret")             # frozen in the blow
 p.mark(lab["frz"])
@@ -4454,17 +4504,14 @@ nearest((f"push {int(PKEY)}",), PX, PZ, F["pc"], F["ps"])
 p.load(W["d2"])
 row(cur("mt"), MV, "reach2", const_table=False)
 p.emit("lt", f"jz {lab['noC']}")
-p.load(F["hs"]).emit(f"jz {lab['noC']}_h", f"jmp {lab['noC']}")   # P17: NOT WHILE HE
-p.mark(f"{lab['noC']}_h")                         # REELS -- on the second tape 7 of 39
-                                                  # blows landed on a body still stunned
+p.load(F["hs"]).emit(f"jz {lab['noC']}_h", f"jmp {lab['noC']}")   # NOT WHILE HE REELS
+p.mark(f"{lab['noC']}_h")                         # (7 of 39 blows on the second tape)
 p.push(int(0.9 * ONE)).load(F["py"]).emit("lt", f"jz {lab['noC']}_y", f"jmp {lab['noC']}")
-p.mark(f"{lab['noC']}_y")                         # ...NOR ALOFT: his keys are measured on
-                                                  # the ground, and a demon's fist found him
-                                                  # six units up, mid air-combo
-cc_ = p.label("close")                            # P17: A DODGE IS UNTOUCHABLE. The
-p.load(F["evf"]).emit(f"jz {cc_}")                # fist that would have landed goes
-p.set(cur("con"), 1)                              # through him, spent -- and a close
-p.load(SY["pts"]).push(CLOSE_CALL * 16).emit("add").store(SY["pts"])   # call pays
+p.mark(f"{lab['noC']}_y")                         # ...nor aloft (his keys are on the ground)
+cc_ = p.label("close")                            # A DODGE IS UNTOUCHABLE: the fist
+p.load(F["evf"]).emit(f"jz {cc_}")                # goes through him, spent, and a
+p.set(cur("con"), 1)                              # close call pays
+p.load(SY["pts"]).push(CLOSE_CALL * 16).emit("add").store(SY["pts"])
 p.set(SY["idle"], 0).emit(f"jmp {lab['noC']}")
 p.mark(cc_)
 landed(cur("mt"), MV, True)
@@ -4705,29 +4752,11 @@ for d in range(3):
     p.mark(nx)
 p.emit("ret")
 
-# P17: WANT -- the pad's direction ON SCREEN as a yaw, into w_head; pushes
-# the direction bits (0: none). "The screen" is the camera as it stood when
-# this direction was first pressed (f_iref): read live, a camera turning
-# after him would turn a held Left under him, and he would run in a circle.
-wn_ = p.label("wn")
-p.mark(L_WANT)
-p.emit("load 1").push(15).emit("and", "dup", f"jz {wn_}_n")
-p.emit("dup").load(PDIR).emit("eq", f"jz {wn_}_r", f"jmp {wn_}_k")
-p.mark(f"{wn_}_r")
-p.load(CY).store(IREF)                           # a new direction: a new screen
-p.mark(f"{wn_}_k")
-p.emit("dup").store(PDIR)
-p.emit("dup").push(int(OCTANT)).emit("add", "loadi").load(IREF).emit("add")
-p.push(1023).emit("and").store(W["head"])
-p.emit("ret")
-p.mark(f"{wn_}_n")
-p.set(PDIR, 0).emit("ret")
-
-# STEER: turn his yaw toward w_head by at most w_dg (the shortest arc)
+# P18: STEER -- turn his yaw toward w_head by at most w_dg, the short way
+hi_, lo_ = p.label("sth"), p.label("stl")
 p.mark(L_STEER)
 p.load(W["head"]).load(YAW).emit("sub").push(512).emit("add")
 p.push(1023).emit("and").push(512).emit("sub")           # gap, -512..511
-hi_, lo_ = p.label("sth"), p.label("stl")
 p.emit("dup").load(W["dg"]).emit("swap", "lt", f"jz {hi_}")   # dg < gap: dg
 p.emit("drop").load(W["dg"])
 p.mark(hi_)
@@ -4737,20 +4766,18 @@ p.mark(lo_)
 p.load(YAW).emit("add").push(1023).emit("and").store(YAW)
 p.emit("ret")
 
-# AIM: the live demon nearest the line w_head, within AIM_CONE of it and
-# w_d2 (squared) of him -> f_aim = its slot + 1 (0: nobody), and w_head
-# onto its bearing. (Each candidate costs a bearing: three at most, and
-# only on the frame a blow is thrown.)
-am_ = p.label("am")
-p.mark(L_AIM)
-p.push(AIM_CONE + 1).store(W["dc"])               # the best gap so far
-p.load(W["head"]).store(W["oy"])                 # (the line, kept)
+# P18: LINE -- the free shot's demon: the live one nearest the line w_head,
+# within GUN_CONE of it and 13 units -> f_aim (its slot + 1, or 0). A shot
+# goes exactly where the pad points; this only says whom that line meets.
+p.mark(L_LINE)
+p.push(GUN_CONE + 1).store(W["dc"]).set(AIM, 0)
+p.load(W["head"]).store(W["oy"])
 for d in range(3):
-    nx = p.label("am_n")
+    nx = p.label("ln_n")
     p.load(dslot(d, "st")).push(3).emit("lt", f"jz {nx}")
     p.load(dslot(d, "x")).load(PX).emit("sub", "dup", "mulq")
     p.load(dslot(d, "z")).load(PZ).emit("sub", "dup", "mulq", "add")
-    p.load(W["d2"]).emit("lt", f"jz {nx}")
+    p.push32(GUN_AIM2).emit("lt", f"jz {nx}")
     p.set(F["brg"], d).emit(f"call {L_BRG}")
     p.load(F["brg"]).load(W["oy"]).emit("sub").push(512).emit("add")
     p.push(1023).emit("and").push(512).emit("sub")
@@ -4758,8 +4785,7 @@ for d in range(3):
     p.push(0).emit("swap", "sub")
     p.mark(f"{nx}_p")
     p.emit("dup").load(W["dc"]).emit("lt", f"jz {nx}_f")
-    p.store(W["dc"]).set(AIM, d + 1).load(F["brg"]).store(W["head"])
-    p.emit(f"jmp {nx}")
+    p.store(W["dc"]).set(AIM, d + 1).emit(f"jmp {nx}")
     p.mark(f"{nx}_f")
     p.emit("drop")
     p.mark(nx)

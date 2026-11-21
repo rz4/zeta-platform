@@ -692,3 +692,69 @@ it, and eases in behind him only while he runs away. Free 3.6 back
 - **Not done:** the walk's planted stride (P15) has no slow gait to play
   any more -- the jog uses the run's poses at a jog's cadence. A dash
   (DMC's Trickster) has no button of its own; the dodge is the closest.
+
+## P17 on glass: turned down (2026-11-20)
+
+The player played P17 for 81 seconds and said no. The design they gave
+instead, close to verbatim: the base d-pad is TANK CONTROLS -- controlled,
+unit-like movement, "for exactness, that is at the core". On top are the
+three attacks, which go "in the direction of the d-pad -- fast, and snaps
+to the direction so you know where the hit will land". No magnetism: the
+precision is the point. P17 is kept on its branch as a record; P18 is
+built on P16.
+
+## P18: the four modes (2026-11-20; not yet on glass)
+
+| mode | buttons | movement | A | attacks |
+|---|---|---|---|---|
+| the tank | neither shoulder | Left/Right turn, Up/Down walk | the DODGE, the way the pad points (back with none) | the way the pad points from his facing, snapped there |
+| targeting | R | planted, facing the target; Left/Right change targets; Up/Down step the shot high / mid / low | the dodge | at the target; an attack HELD is FOCUS: the world at a third until it is let go, then the blow |
+| the boxer | L | square steps on the cross he held | the jump; with a direction, a directional jump and flip | the way the pad points from the cross |
+| the run | L + R | runs the way the pad points round the target (Up at it, Down away, Left/Right round it) | the jump | the gun shoots the target |
+
+**The three attacks**
+- **Primary (X): rhythm.** The gap since the string's last blow *ended*:
+  a tap during it or within 14 frames keeps time; 15 to 55 is a wait;
+  longer, a new string.
+
+  | rhythm | string |
+  |---|---|
+  | X X X X | jab, cross, lead hook, rear uppercut (the launcher) |
+  | X - X X | jab, (wait) lead hook, rear uppercut |
+  | X X - X | jab, cross, (wait) rear hook |
+
+  Shots may fill a wait; a third shot in one loses the string. A tap while
+  the string's next blow still waits in the buffer is the same beat, so
+  mashing plays the steady string instead of skipping to its finisher.
+- **Secondary (B): the gun.** Tap, or hold 26 frames for the charged
+  shot. It goes exactly along the pad (16 degrees either side) and hits
+  only the demon that line meets -- the old shot hit anything within 13
+  units. It does not move him.
+- **Special (Y): the haymaker.**
+
+**Targeting's shot height:** high is the head (x1.35, so 9 for a plain
+shot); mid the body; low the legs, which staggers a standing demon and
+stops its approach (a plain shot at mid only chips, as P16 made it).
+
+**Slow motion** is a freeze two frames in three for him and the demons
+alike, on the hitstop's own path, so every rhythm keeps the fight's time
+and the buttons are read throughout. FOCUS (targeting, an attack held)
+lasts while it is held. A launcher that lands gives 40 of the fight's
+frames of it (about two seconds), and a shot in it tracks the body in the
+air.
+
+**The camera, a shot a mode:** the tank 3.0 back and square; the boxer
+4.0 on its cross; the run 5.4 wide on the target; targeting 2.8 over the
+right shoulder, in to 2.2 in focus. Distance and lean ease between modes;
+the yaw turns at most 12.7 degrees a frame. Targeting is a permanent plant,
+so the operator's AIM shot frames it.
+
+**Kept from P17:** the dodge is untouchable for its 12 frames, cancels a
+swing's recovery, and a fist dodged through pays 30 style; no fist lands
+while he reels or more than 0.9 up; the style meter cools at 0.25 then
+0.75 a frame after one and two seconds idle.
+
+**Gone:** the chords (A+X, B+Y, A+B), the quick turn, METEOR and the
+prowler's turn, fencing, the locked style flips, the Devil Trigger shot.
+
+Program memory 7,974 of 8,192 words (P16 7,959); no new cells. 66 tests.
