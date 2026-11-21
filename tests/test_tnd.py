@@ -1779,3 +1779,38 @@ def test_attack_tokens_two_at_a_time_and_only_on_screen():
             if _cell(m, "f_dead"):
                 break
         assert swings >= 4, "fixture: the ring never attacked"
+
+
+def test_the_horde_refills_the_street_until_the_district_is_clear():
+    """P18, the horde: a district holds a reserve beyond the three on the
+    street. A fallen demon is replaced from it until it is spent; the last
+    of the district falls in slow motion; after the beat the next district
+    comes, bigger. The bar under the gauge is two pixels a demon left."""
+    m = _fight_vm()
+    d = m.vm.dmem
+    for f in range(5):
+        m.frame(0)
+    res = lambda: _cell(m, "s_n")                                  # noqa: E731
+    assert res() == 30
+    b = spec.CO_BASE + 1 + 2 * spec.CO_STRIDE
+    assert (d[b] >> 10) & 1023 == 8 + 2 * 30 and d[b + 2] >> 24 > 0, "no horde bar"
+    base, n, st = _sym("demons"), len(FIELDS), FIELDS.index("st")
+    d[_sym("s_n")] = 1
+    d[base + st] = 3                                  # one falls, one in reserve
+    for f in range(130):
+        m.frame(0)
+    assert res() == 0 and [w["st"] for w in _wave(m)] == [0, 0, 0], "not replaced"
+    d[base + st] = 3                                  # the reserve is spent: it stays down
+    for f in range(130):
+        m.frame(0)
+    assert _wave(m)[0]["st"] == 4, "replaced from an empty reserve"
+    for i in (1, 2):
+        d[base + i * n + st] = 3                      # the district's last two
+    slowed = False
+    for f in range(400):
+        m.frame(0)
+        slowed |= _cell(m, "f_slow") > 0
+        if _cell(m, "s_dx") == 1 and all(w["st"] == 0 for w in _wave(m)):
+            break
+    assert slowed, "the last of the district did not fall in slow motion"
+    assert _cell(m, "s_dx") == 1 and res() == 30 + 15 - 3, f"next district: {res()}"

@@ -1441,6 +1441,8 @@ F = {k: cart.var("f_" + k) for k in
 AIM = F["aim"]
 TOKC = F["alt"]                 # (P18: f_alt, the old string's hand -- unused since
                                 # the rhythm -- counts the attack tokens held)
+RES, LVL, CLR = SY["n"], SY["dx"], SY["dst"]   # the horde: reserve, district, the
+                                # clear's beat (three style scratch cells, unused)
 # ---- P10: THE MOVEMENT LAYER (tear.py _action_move, _parkour, _boxing) ------
 # L held is DEVIL TRIGGER. From the tank: UP enters PARKOUR -- a run whose
 # speed ramps logistically to 0.13 a frame, turning at a fixed rate (so
@@ -1482,6 +1484,8 @@ QT_WINDOW, QT_COOL = 22, 30
 #   L + R  THE RUN: he runs the way the pad points round the target, the
 #          camera anchored on it; the gun shoots it
 SQ_TARGET = 3                   # f_sty: 0 tank, 1 run, 2 boxer, 3 targeting
+HORDE0, HSTEP, CLEAR_FOR = 30, 15, 150   # THE HORDE: the first district's reserve,
+                                # each next one's more, and the beat between them
 SLOW_EVERY = 3                  # FOCUS: the world moves one frame in three
 FOCUS_HOLD = 3                  # ...once an attack is held past a tap (CHORD_SLOP)
 SLOW_LAUNCH = 40                # a launcher that lands: 40 of the fight's frames
@@ -1679,6 +1683,7 @@ p.load(PV).push(spec.PAD_START | spec.PAD_A).emit("and", "or").push(0).emit("eq"
 gi = p.label("gointro")
 p.emit(f"jz {gi}")
 p.set(int(MODE), 1).set(spec.BG_SRC, 0).set(spec.CO_BASE, 0)
+p.set(RES, HORDE0).set(LVL, 0).set(CLR, 0)          # P18: the first district
 p.set(GT["jump"], 100).set(GC["jump"], 1)     # the A that left the title is spent
 p.set(spec.DL_BASE, 0).set(int(S_SHOWN), 255)  # P14: the title's words go,
                                                # and the HUD draws afresh
@@ -2565,6 +2570,7 @@ RETRY_CELLS = ((PX, 0), (PZ, 0), (YAW, 0), (CY, 0), (ANIM, 0), (AF, 0),
              (F["sty"], 0), (F["chain"], 0), (F["cgr"], 0), (F["slow"], 0), (F["skip"], 0),
              (F["spd"], 0), (F["evf"], 0), (F["flipu"], 0), (F["tgt"], 0),
              (F["plc"], 0), (F["sec"], 0),
+             (SY["n"], HORDE0), (SY["dx"], 0), (SY["dst"], 0),      # (the horde, anew)
              (SY["pts"], 0), (SY["combo"], 0), (SY["idle"], 0), (int(S_SHOWN), 255),
              *((int(S_REC) + i, 255) for i in range(5)))
 for c, v in RETRY_CELLS:
@@ -2641,6 +2647,7 @@ CAM_TURN = 36                   # units of 1024 a frame: 12.7 degrees
 THREAT_KEEP = 90                # P18: a threat is kept within 32 degrees of the line
 DREST = 54                      # a demon's wait, squared up, before it swings (P16)
 TOKENS = 2                      # demons that may be told or swinging at once
+# (HORDE0, HSTEP, CLEAR_FOR: with P18's first constants, the retry reads them)
 ONSCREEN_TAN2 = int(0.30 * ONE)  # on screen: within ~29 degrees of the lens's line
 T = cart.var("cam_d")
 # P12: the follow's yaw is his -- or, boxing, the latched cross; or, locked,
@@ -3039,15 +3046,43 @@ for d in range(3):
 # mover carries one request; the lowest gone slot first). All three gone
 # together -- the retry, the quit -- still come back together, in the one
 # request, as they always did. f_wave counts arrivals: a ring, or a demon.
+# P18: THE HORDE (frontier 19's first use of the room). A district holds
+# RES demons beyond the three on the street; each one that falls is
+# replaced from it until it is empty. The last of a district falls in slow
+# motion; CLEAR_FOR frames later the next district comes, HSTEP bigger.
+# "Fight through hundreds": three are real at any moment.
 nw = p.label("nowave")
+lv_ = p.label("last")
+p.load(RES).emit(f"jz {lv_}_z", f"jmp {lv_}")          # the district's last:
+p.mark(f"{lv_}_z")
+p.load(CLR).emit(f"jz {lv_}_c", f"jmp {lv_}")
+p.mark(f"{lv_}_c")
+for d in range(3):
+    p.load(dslot(d, "st")).push(3).emit("lt")
+p.emit("or", "or", f"jz {lv_}_s", f"jmp {lv_}")
+p.mark(f"{lv_}_s")
+p.set(F["slow"], SLOW_LAUNCH).set(CLR, 1)              # ...falls in slow motion
+p.mark(lv_)
 p.load(spec.OVL_GO).emit(f"jz {nw}_go", f"jmp {nw}")   # (not on a frame that pages a scene
 p.mark(f"{nw}_go")                                      # in: its handshake has the mover)
 for d in range(3):
     p.load(dslot(d, "st")).push(4).emit("eq")
 p.emit("and", "and", f"jz {nw}_one")
+p.load(RES).emit(f"jz {nw}_clr", f"jmp {nw}_ring")     # all gone, none left: CLEARED
+p.mark(f"{nw}_clr")
+p.addi(CLR, 1)
+p.push(CLEAR_FOR).load(CLR).emit("lt", f"jz {nw}")     # (the beat, then the next)
+p.addi(LVL, 1).set(CLR, 0)
+p.load(LVL).push(HSTEP).emit("mul").push(HORDE0).emit("add").store(RES)
+p.mark(f"{nw}_ring")
+p.load(RES).push(3).emit("sub", "dup").push(0).emit("lt", f"jz {nw}_rp")
+p.emit("drop").push(0)
+p.mark(f"{nw}_rp")
+p.store(RES)
 p.set(spec.DMA_SRC, int(SPAWN)).set(spec.DMA_DST, int(DS)).set(spec.DMA_LEN, 3 * NF)
 p.emit(f"jmp {nw}_all")
 p.mark(f"{nw}_one")
+p.load(RES).emit(f"jz {nw}")                           # the reserve is spent
 for d in range(3):
     p.load(dslot(d, "st")).push(4).emit("eq", f"jz {nw}_{d}")
     p.set(spec.DMA_SRC, int(SPAWN) + d * NF).set(spec.DMA_DST, int(DS) + d * NF)
@@ -3055,11 +3090,13 @@ for d in range(3):
     p.mark(f"{nw}_{d}")
 p.emit(f"jmp {nw}")
 p.mark(f"{nw}_send")
+p.addi(RES, -1)                                        # (one from the reserve)
 p.set(spec.DMA_LEN, NF)
 p.mark(f"{nw}_all")
 p.set(spec.DMA_GO, 1)
 p.addi(F["wave"], 1)
 p.mark(nw)
+
 
 # ---- the shove: bodies do not pass through bodies -------------------------
 # tear.py weights it by mass (0.85 + 0.55 bulk); he is 1. Inside 0.9
@@ -3676,6 +3713,24 @@ p.emit("swap", "drop")
 p.mark(f"{dk}_k")
 p.emit("shl 24").push32(0x000000).emit("or").store(HB + 8)
 p.mark(dk)
+# P18: THE HORDE'S BAR, top left under the gauge: two pixels a demon left
+# in the district (to 150). On the darken rectangle -- alive and unstruck
+# it is free; the fall and the hit flash, below, take it back.
+hbr = p.label("hbar")
+p.load(F["dead"]).emit(f"jz {hbr}_a", f"jmp {hbr}")
+p.mark(f"{hbr}_a")
+p.load(RES).emit("dup").push(150).emit("lt", f"jz {hbr}_c", f"jmp {hbr}_k")
+p.mark(f"{hbr}_c")
+p.emit("drop").push(150)
+p.mark(f"{hbr}_k")
+p.emit("dup", "add").push(8).emit("add", "shl 10").push(8).emit("or").store(HB + 6)
+p.set(HB + 7, 15 | (16 << 10))
+p.push(12).load(RES).emit(f"jz {hbr}_0", f"jmp {hbr}_1")
+p.mark(f"{hbr}_0")
+p.emit("drop").push(0)
+p.mark(f"{hbr}_1")
+p.emit("shl 24").push32(0xB01818).emit("or").store(HB + 8)
+p.mark(hbr)
 # P13: THE HIT FLASH (tear.py self.flash): struck, the frame washes red
 # through his hitstop -- on the darken rectangle, which only the fallen use
 fl_ = p.label("hflash")
