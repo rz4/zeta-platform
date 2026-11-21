@@ -2951,6 +2951,21 @@ p.load(YAW).store(F["brg"])
 p.push(int(round(PU_PITCH * 1024 / (2 * np.pi)))).store(W["dg"])
 blend(CW["pu"])
 p.mark(f"{op}_e")
+# P18: THE LENS STAYS IN THE STREET. On glass the camera "goes wonky,
+# targeting down street alleys": over the shoulder, beside a wall, the lens
+# stood inside the building. Whatever shot placed it, a lens off the street
+# (the arena's own test) is pulled halfway to him, and again if need be.
+# (halfway, once, for a soft pull; then the bodies' own slide, from him --
+# whichever axis stays in the street -- so the lens is never left outside)
+cmc = p.label("lens")
+p.load(spec.CAM_X).store(AR["x"]).load(spec.CAM_Z).store(AR["z"])
+p.emit(f"call {L_ARENA}", f"jz {cmc}_o", f"jmp {cmc}")
+p.mark(f"{cmc}_o")
+for reg, me, w in ((spec.CAM_X, PX, W["bx"]), (spec.CAM_Z, PZ, W["bz"])):
+    p.load(reg).load(me).emit("add", "shr 1").store(w)
+keep_in_arena(W["bx"], W["bz"], PX, PZ)
+p.load(W["bx"]).store(spec.CAM_X).load(W["bz"]).store(spec.CAM_Z)
+p.mark(cmc)
 # THE SHAKE: a landed blow jolts the lens side to side for its hitstop
 sk = p.label("shake")
 p.load(F["shake"]).emit(f"jz {sk}")

@@ -1718,3 +1718,30 @@ def test_targetings_haymaker_always_lands_on_the_target():
     for f in range(40):
         m.frame(spec.PAD_R | (spec.PAD_Y if f < 2 else 0))
     assert _wave(m)[tgt - 1]["hp"] <= hp0 - 46, "the haymaker missed its target"
+
+
+def _in_arena(x, z):
+    sq, lane, reach = 10.6, 7.1, 40.0
+    x, z = abs(x), abs(z)
+    return (x <= sq and z <= sq) or (x <= lane and z <= reach) or (z <= lane and x <= reach)
+
+
+def test_the_lens_stays_in_the_street():
+    """On glass: "the camera goes wonky targeting down street alleys" --
+    over the shoulder beside a wall, the lens stood inside the building.
+    Down a street, against its wall, targeting and turning: the lens is in
+    the street every frame."""
+    m = _fight_vm()
+    d = m.vm.dmem
+    for side in (1, -1):
+        m = _fight_vm()
+        d = m.vm.dmem
+        d[_sym("px")] = int(side * 6.8 * 65536) & 0xFFFFFFFF   # against a wall,
+        d[_sym("pz")] = int(-22 * 65536) & 0xFFFFFFFF          # down the south street
+        outside = 0
+        for f in range(240):
+            m.frame(spec.PAD_R | (spec.PAD_LEFT if f % 60 < 30 else spec.PAD_RIGHT)
+                    if f > 20 else spec.PAD_LEFT if f < 10 else 0)
+            cx, cz = (_s32(d[r]) / 65536 for r in (spec.CAM_X, spec.CAM_Z))
+            outside += not _in_arena(cx, cz)
+        assert outside == 0, f"the lens left the street on {outside} frames (side {side})"
