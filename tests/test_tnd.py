@@ -1031,8 +1031,8 @@ def test_the_operator_takes_its_shots():
     m = _fight_vm()
     for f in range(400):
         m.frame((spec.PAD_LEFT if TURN0 <= f < TURN0 + 8 else 0)
-                | (spec.PAD_Y if 330 <= f < 338 else 0))
-        hal = max(hal, _cell(m, "cam_hal"))
+                | (spec.PAD_Y if STRING0 <= f < STRING0 + 8 else 0))   # (before the
+        hal = max(hal, _cell(m, "cam_hal"))              # ring's first swing)
     assert hal > 16, "the haymaker's connect took no align shot"
 
 
@@ -1745,3 +1745,37 @@ def test_the_lens_stays_in_the_street():
             cx, cz = (_s32(d[r]) / 65536 for r in (spec.CAM_X, spec.CAM_Z))
             outside += not _in_arena(cx, cz)
         assert outside == 0, f"the lens left the street on {outside} frames (side {side})"
+
+
+def test_attack_tokens_two_at_a_time_and_only_on_screen():
+    """P18: "the camera keeps those enemies on screen as being the ones about
+    to attack." A demon's wait crosses into its tell only holding one of two
+    tokens, and only on screen. Untouched, and turning, over a long fight:
+    never more than two told or swinging, and no swing begun off screen."""
+    D = _const("DREST")
+
+    def onscreen(m, w):
+        cy = _cell(m, "cam_yaw") * 2 * np.pi / 1024
+        cx, cz = (_s32(m.vm.dmem[r]) / 65536 for r in (spec.CAM_X, spec.CAM_Z))
+        vx, vz = w["x"] / 65536 - cx, w["z"] / 65536 - cz
+        dot = -vx * np.sin(cy) + vz * np.cos(cy)
+        cr = vx * np.cos(cy) + vz * np.sin(cy)
+        return dot > 0 and cr * cr < 0.31 * dot * dot
+
+    for route in (lambda f: 0, lambda f: spec.PAD_RIGHT if f % 200 < 40 else 0):
+        m = _fight_vm()
+        prev, swings = [0, 0, 0], 0
+        for f in range(800):
+            told = [x for x in _wave(m) if x["st"] == 0 and x["ai"] == D - 30]
+            m.frame(route(f))
+            w = _wave(m)
+            busy = sum(1 for x in w if x["st"] == 1 or (x["st"] == 0 and x["ai"] > D - 31))
+            assert busy <= 2, f"frame {f}: {busy} demons attacking at once"
+            for i in range(3):
+                if w[i]["st"] == 0 and w[i]["ai"] == D - 29:      # just entered the tell
+                    assert onscreen(m, w[i]), f"frame {f}: demon {i} told off screen"
+                swings += w[i]["st"] == 1 and prev[i] != 1
+                prev[i] = w[i]["st"]
+            if _cell(m, "f_dead"):
+                break
+        assert swings >= 4, "fixture: the ring never attacked"

@@ -268,11 +268,12 @@ _pend += [0]
 _pend += [0] * (B_END - len(_pend))
 END_PAUSE = cart.cram(Table(_pend), "pause_end")
 # the images filled once everything is placed (the end of this file)
-# A PROGRAM'S PAGE: the game, the intro and the pause each fit 8,192 words,
+# A PROGRAM'S PAGE: the game, the intro and the pause each fit PAGE words,
 # and an overlay copies exactly that much. (It was spec.OVL_MAX, which is
-# the whole of IMEM -- and IMEM grows to 32,768 words in the SRAM, frontier
-# 19: four times the copy for nothing.)
-PAGE = 8192
+# the whole of IMEM.) 16,384 in the SRAM's IMEM (frontier 19): the game has
+# twice the room it had, and a page-in copies 16K words -- a frame's work at
+# the SRAM's pace, on the frames the intro or the pause come and go.
+PAGE = 16384
 INTRO_PROG = cart.cram(Table([0] * PAGE), "intro_prog")
 PAUSE_PROG = cart.cram(Table([0] * PAGE), "pause_prog")
 MAIN_PROG = cart.cram(Table([0] * PAGE), "main_prog")
@@ -1438,6 +1439,8 @@ F = {k: cart.var("f_" + k) for k in
 # (P18: slow, aim, skip, aimh and sec were the quick turn's qtw, qtc and
 # qts and METEOR's met and metd -- the same cells, so nothing else moves)
 AIM = F["aim"]
+TOKC = F["alt"]                 # (P18: f_alt, the old string's hand -- unused since
+                                # the rhythm -- counts the attack tokens held)
 # ---- P10: THE MOVEMENT LAYER (tear.py _action_move, _parkour, _boxing) ------
 # L held is DEVIL TRIGGER. From the tank: UP enters PARKOUR -- a run whose
 # speed ramps logistically to 0.13 a frame, turning at a fixed rate (so
@@ -2637,6 +2640,8 @@ snap_l = p.label("snap")
 CAM_TURN = 36                   # units of 1024 a frame: 12.7 degrees
 THREAT_KEEP = 90                # P18: a threat is kept within 32 degrees of the line
 DREST = 54                      # a demon's wait, squared up, before it swings (P16)
+TOKENS = 2                      # demons that may be told or swinging at once
+ONSCREEN_TAN2 = int(0.30 * ONE)  # on screen: within ~29 degrees of the lens's line
 T = cart.var("cam_d")
 # P12: the follow's yaw is his -- or, boxing, the latched cross; or, locked,
 # the bearing to the target (tear.py _action_cam's base_yaw)
@@ -3003,6 +3008,21 @@ DTEMP = {k: cart.var("dt_" + k) for k in
          ("ty", "fx", "fz", "dx", "dz", "cr", "dot", "s", "c")}
 
 
+# ---- P18: ATTACK TOKENS -- "keep the enemies on screen the ones about to
+# attack". A demon's wait may cross into its tell (its last 30 frames, the
+# amber) only holding one of TOKENS, and only ON SCREEN; held, it waits at
+# the threshold, squared up, until both are true. TOKC counts the tokens
+# held now: every demon swinging or already told.
+p.set(TOKC, 0)
+for d in range(3):
+    nx = p.label("tok")
+    p.load(dslot(d, "st")).push(1).emit("eq")
+    p.load(dslot(d, "st")).emit(f"jz {nx}_w")
+    p.emit(f"jmp {nx}_c")
+    p.mark(f"{nx}_w")
+    p.push(DREST - 31).load(dslot(d, "ai")).emit("lt", "or")
+    p.mark(f"{nx}_c")
+    p.load(TOKC).emit("add").store(TOKC)
 # ---- the wave: each demon's mind, on a copy of its slot ----------------------
 for d in range(3):
     p.push(int(DS) + d * NF).store(CP["src"]).push(int(CUR)).store(CP["dst"])
@@ -4562,6 +4582,23 @@ p.load(t["cr"]).load(t["cr"]).emit("mulq")
 p.load(t["dot"]).load(t["dot"]).emit("mulq").push(DCONE).emit("mulq")
 p.emit("lt", "and", f"jz {lab['nocone']}")      # ...and inside the cone
 p.addi(AI, 1)
+tk_ = p.label("token")                           # P18: into the tell only with a
+p.load(AI).push(DREST - 30).emit("eq", f"jz {tk_}")   # token, and on screen
+p.load(TOKC).push(TOKENS).emit("lt", f"jz {tk_}_h")   # (the camera's line, from
+sin_of(p, cell=CY)                               # its lens: dot > 0 and
+p.load(X).load(spec.CAM_X).emit("sub", "mulq").push(0).emit("swap", "sub")   # cross^2
+sin_of(p, 256, cell=CY)                          # < tan^2 dot^2)
+p.load(Z).load(spec.CAM_Z).emit("sub", "mulq", "add").emit("dup").store(W["dc"])   # dot
+p.push(0).emit("swap", "lt", f"jz {tk_}_h")
+sin_of(p, 256, cell=CY)
+p.load(X).load(spec.CAM_X).emit("sub", "mulq")
+sin_of(p, cell=CY)
+p.load(Z).load(spec.CAM_Z).emit("sub", "mulq", "add", "dup", "mulq")          # cross^2
+p.load(W["dc"]).emit("dup", "mulq").push(ONSCREEN_TAN2).emit("mulq", "lt", f"jz {tk_}_h")
+p.addi(TOKC, 1).emit(f"jmp {tk_}")               # a token, taken
+p.mark(f"{tk_}_h")
+p.set(AI, DREST - 31)                            # held at the threshold
+p.mark(tk_)
 p.load(AI).push(DREST).emit("eq", f"jz {lab['clip']}")
 p.set(AI, 0).set(ST, 1).set(MF, 0).set(cur("con"), 0)
 p.set(SG["wt"], 0)                              # P13: its lunge, heard (the whoosh)
