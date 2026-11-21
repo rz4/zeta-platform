@@ -53,8 +53,9 @@ N_, E_, S_, W_ = 1, 2, 4, 8
 DIRS = ((0, 1, N_), (1, 0, E_), (0, -1, S_), (-1, 0, W_))   # (dx, dy, bit)
 OPP = {N_: S_, S_: N_, E_: W_, W_: E_}
 # piece kinds, by how many ways out and whether two are opposite
-DEAD, STRAIGHT, CORNER, TEE, CROSS = range(5)
-KIND_NAMES = ("dead end", "straight", "corner", "tee", "crossing")
+DEAD, STRAIGHT, CORNER, TEE, CROSS, PLAZA = range(6)
+KIND_NAMES = ("dead end", "straight", "corner", "tee", "crossing", "plaza")
+PLAZA_SPAN = 2                  # a plaza is PLAZA_SPAN x PLAZA_SPAN nodes, open
 
 
 def snake_path(s: int) -> tuple[list[int], int]:
@@ -95,6 +96,9 @@ class City:
     order: list[int] = field(default_factory=list)   # districts, in the order
                                                      # the route enters them
     flow: list[int] = field(default_factory=list)    # Terminal Limit's centrality
+    plaza: list[int] = field(default_factory=list)   # a plaza id a node, or -1
+    plazas: list[tuple[int, int]] = field(default_factory=list)   # each one's
+                                                     # lowest-left node (x, y)
 
     # ---- what the game needs ----------------------------------------------
     def xy(self, n: int) -> tuple[int, int]:
@@ -113,7 +117,10 @@ class City:
 
     def piece(self, n: int) -> tuple[int, int]:
         """(kind, quarter turns) of the piece at n. The unturned pieces:
-        dead end opens N; straight N-S; corner N-E; tee N-E-S (closed W)."""
+        dead end opens N; straight N-S; corner N-E; tee N-E-S (closed W);
+        a plaza's nodes are PLAZA, turn 0."""
+        if self.plaza and self.plaza[n] >= 0:
+            return PLAZA, 0
         bits = self.ways(n)
         k = bin(bits).count("1")
         for turn in range(4):
@@ -289,7 +296,46 @@ def generate(size: int = 16, seed: int = 666142, districts: int = 8) -> City:
             k += 1
             order.append(district[b])
     flow = _flow(adj, start)
-    return City(size, seed, adj, start, core, danger, district, gates, route, order, flow)
+    # PLAZAS AND STREETS (the player's choice, 2026-11-21): each district's
+    # heart -- the middle of its stretch of the route -- opens into a plaza
+    # PLAZA_SPAN nodes square, sized for a horde fight, joined by the
+    # generator's streets. Inside it every neighbour is joined (the open
+    # square), which is where the tree first grows loops.
+    plaza, plazas = [-1] * n, []
+    for d in range(nd):
+        stretch = [v for v in route if district[v] == d]
+        mid = stretch[len(stretch) // 2]
+        mx, my = mid % size, mid // size
+        best = None
+        for ox in range(-(PLAZA_SPAN - 1), 1):
+            for oy in range(-(PLAZA_SPAN - 1), 1):
+                x0, y0 = mx + ox, my + oy
+                if not (0 <= x0 and 0 <= y0 and x0 + PLAZA_SPAN <= size and y0 + PLAZA_SPAN <= size):
+                    continue
+                cells = [(x0 + i) + (y0 + j) * size for i in range(PLAZA_SPAN) for j in range(PLAZA_SPAN)]
+                if any(plaza[c] >= 0 for c in cells):
+                    continue
+                score = sum(district[c] == d for c in cells)
+                if best is None or score > best[0]:
+                    best = (score, x0, y0, cells)
+        if best is None:
+            continue
+        _, x0, y0, cells = best
+        pid = len(plazas)
+        plazas.append((x0, y0))
+        for c in cells:
+            plaza[c] = pid
+            district[c] = d
+        for c in cells:
+            for e in cells:
+                if e > c and abs(c % size - e % size) + abs(c // size - e // size) == 1 and e not in adj[c]:
+                    adj[c].append(e)
+                    adj[e].append(c)
+    for a in adj:
+        a.sort()
+    danger = [district[v] * (LEVELS - 1) // max(1, nd - 1) for v in range(n)]
+    return City(size, seed, adj, start, core, danger, district, gates, route, order, flow,
+                plaza, plazas)
 
 
 def render(city: City, path, scale: int = 24) -> None:
@@ -313,6 +359,12 @@ def render(city: City, path, scale: int = 24) -> None:
             if m > u:
                 c = heat(max(city.danger[u], city.danger[m]))
                 g.line([at(u), at(m)], fill=c, width=max(2, scale // 4))
+    for (x0, y0) in city.plazas:                   # the plazas, open squares
+        a = at(x0 + y0 * s)
+        b = at((x0 + PLAZA_SPAN - 1) + (y0 + PLAZA_SPAN - 1) * s)
+        g.rectangle([min(a[0], b[0]) - scale // 3, min(a[1], b[1]) - scale // 3,
+                     max(a[0], b[0]) + scale // 3, max(a[1], b[1]) + scale // 3],
+                    fill=heat(city.danger[x0 + y0 * s]))
     for a, b in zip(city.route, city.route[1:]):
         g.line([at(a), at(b)], fill=(230, 220, 200), width=max(1, scale // 10))
     for (u, m), k in city.gates.items():
