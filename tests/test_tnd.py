@@ -16,11 +16,13 @@ from zeta import cabinet, spec  # noqa: E402
 CART = Path(__file__).parents[1] / "games/tnd/tnd.zol"
 
 
-# THE ROUTE most of these tests walk: stand while the wave closes in, turn
-# onto the brute as it squares up, then work the string. Its two times are
-# the wave's arrival, which is the demons' walk (P16: 0.028 a frame, here
-# by frame 225; it was 0.020 and 315).
-TURN0, STRING0 = 210, 230
+# THE ROUTE most of these tests walk: stand while the wave closes in, then
+# work the string on the brute as it squares up. Its time is the wave's
+# arrival, which is the demons' walk (P16: 0.028 a frame, here by frame
+# 225; it was 0.020 and 315). (It used to turn onto the brute first; P17's
+# blows find the demon on their line, and the brute stands 34 degrees off
+# his nose.)
+STRING0 = 230
 
 
 def _fight_vm():
@@ -120,7 +122,7 @@ def test_the_wave_closes_in_and_squares_up():
     m = _fight_vm()
     start = [np.hypot(w["x"], w["z"]) / 65536 for w in _wave(m)]
     assert all(abs(r - 7.8) < 0.01 for r in start)
-    for _ in range(360):
+    for _ in range(265):                 # (arrived by 225; the first swing is 278)
         m.frame(0)
     px, pz = _player(m)
     for i, w in enumerate(_wave(m)):
@@ -204,11 +206,14 @@ def test_what_the_camera_cannot_see_is_not_sent():
     """The street's twenty objects and the demons' thirty-six are culled
     against the view before the sequencer sees them (its vertex cache
     holds 2,048 a frame). Witnessed both ways: some objects are always
-    left out, and the count changes as he turns."""
+    left out, and the count changes as the camera turns (P17: locked onto
+    the demon behind him, which turns it half round)."""
     m = _fight_vm()
     counts = set()
     for f in range(90):
-        m.frame(spec.PAD_LEFT)
+        if f == 10:
+            m.vm.dmem[_sym("f_tgt")] = 2
+        m.frame(spec.PAD_R if f >= 10 else 0)
         n = m.vm.dmem[spec.OL_BASE]
         assert n < 59, f"frame {f}: all {n} objects listed -- nothing culled"
         counts.add(n)
@@ -253,8 +258,7 @@ def test_his_blows_land():
     m = _fight_vm()
     stunned = False
     for f in range(560):
-        m.frame((spec.PAD_LEFT if TURN0 <= f < TURN0 + 8 else 0)
-                | (spec.PAD_X if f >= STRING0 and f % 9 == 0 else 0))
+        m.frame((spec.PAD_X if f >= STRING0 and f % 9 == 0 else 0))
         w = _wave(m)[0]
         stunned |= w["st"] == 2 and w["hs"] > 0
         if w["st"] >= 3:                 # (P16: it is replaced once it is gone,
@@ -267,7 +271,7 @@ def test_their_blows_land_and_he_goes_down():
     """Untouched, the wave beats him down; after the death beat a fresh
     press of A is a new run: full health, the wave back where it began."""
     m = _fight_vm()
-    for f in range(900):
+    for f in range(1200):                # (P17: no blow lands while he reels)
         m.frame(0)
     assert _s32(_cell(m, "p_hp")) <= 0 and _cell(m, "f_dead") > 46
     assert m.vm.dmem[spec.DL_BASE] > 0, "no prompt after the death beat"
@@ -326,8 +330,7 @@ def test_a_blow_is_heard():
     m = _fight_vm()
     base, levels = _sym("demons"), []
     for f in range(400):
-        m.frame((spec.PAD_LEFT if TURN0 <= f < TURN0 + 8 else 0)
-                | (spec.PAD_X if f >= STRING0 and f % 9 == 0 else 0))
+        m.frame((spec.PAD_X if f >= STRING0 and f % 9 == 0 else 0))
         levels.append(blow_level(m))
         if m.vm.dmem[base + FIELDS.index("hp")] < 70:
             break
@@ -364,8 +367,7 @@ def test_the_uppercut_launches():
     m = _fight_vm()
     peak, landed = 0.0, False
     for f in range(480):
-        m.frame((spec.PAD_LEFT if TURN0 <= f < TURN0 + 8 else 0)
-                | ((spec.PAD_X | spec.PAD_A) if 322 <= f < 325 else 0))
+        m.frame(((spec.PAD_X | spec.PAD_A) if 322 <= f < 325 else 0))
         w = _wave(m)[0]
         peak = max(peak, w["py"] / 65536)
         if peak > 5 and w["py"] == 0:
@@ -398,8 +400,7 @@ def test_style_climbs_with_variety_and_draws_its_rank():
     as composed display-list glyphs, in C's colour."""
     m = _fight_vm()
     for f in range(STRING0 + 96):        # the string, then the haymaker: variety
-        m.frame((spec.PAD_LEFT if TURN0 <= f < TURN0 + 8 else 0)
-                | (spec.PAD_X if STRING0 <= f < STRING0 + 60 and f % 9 == 0 else 0)
+        m.frame((spec.PAD_X if STRING0 <= f < STRING0 + 60 and f % 9 == 0 else 0)
                 | (spec.PAD_Y if STRING0 + 66 <= f < STRING0 + 70 else 0))
     assert _cell(m, "s_rank") == 1, f"rank {_cell(m, 's_rank')} after the beating"
     assert _cell(m, "s_combo") >= 5
@@ -620,22 +621,31 @@ def test_down_walks_him_backward():
     assert abs(px) < 0.01 and pz < -1.2, (px, pz)
 
 
-def test_the_dpad_aims_the_strike_and_holds_the_steering():
-    """Left held into a jab: the steering turns until A goes down, then
-    freezes (the D-pad is choosing the aim); the strike launches facing a
-    quarter turn LEFT of the steering; when it is done the body faces its
-    steering again. The camera follows the steering throughout."""
-    L, A = spec.PAD_RIGHT, spec.PAD_X
+def test_the_pad_is_the_screen_and_a_blow_goes_where_it_points():
+    """P17: FREE, the d-pad is the screen's directions. Left held turns him
+    to screen-left in three frames and he jogs that way at once; Right then
+    is a step back the way he came, not a circle; the camera holds while he
+    runs across it. A blow with a direction held goes where it points on
+    screen (nobody is near enough to draw it), and he faces it."""
     m = _fight_vm()
-    seen = {}
-    for f in range(60):
-        m.frame((L if 10 <= f < 20 else 0) | (A if 12 <= f < 20 else 0))
-        seen[f] = (_cell(m, "yaw"), _cell(m, "head"), _cell(m, "anim"))
-    yaw = seen[12][0]
-    assert all(seen[f][0] == yaw for f in range(12, 20)), "steering turned under A"
-    launch = next(f for f in range(60) if seen[f][2] == 2)
-    assert seen[launch][1] == (yaw - 256) & 1023, "the strike did not face left"
-    assert seen[59][1] == yaw, "the body never faced its steering again"
+    m.frame(0)
+    cy = _cell(m, "cam_yaw")
+    x0 = _player(m)
+    for f in range(12):
+        m.frame(spec.PAD_LEFT)
+    assert _cell(m, "yaw") == (cy + 256) & 1023, "Left did not turn him to screen-left"
+    x1 = _player(m)
+    assert x1[0] - x0[0] < -0.7 and abs(x1[1] - x0[1]) < 0.05, f"he moved {x1} from {x0}"
+    assert _cell(m, "anim") == 5 and _cell(m, "cam_yaw") == cy, "the camera wheeled after him"
+    for f in range(6):
+        m.frame(spec.PAD_RIGHT)
+    assert _cell(m, "yaw") == (cy - 256) & 1023, "the reversal was not a step"
+    m = _fight_vm()
+    m.frame(0)
+    for f in range(8):
+        m.frame(spec.PAD_DOWN | (spec.PAD_X if f < 2 else 0))
+    launch = (cy + 512) & 1023
+    assert _cell(m, "head") == launch and _cell(m, "yaw") == launch, "the blow did not go down-screen"
 
 
 def test_the_aware_marker_has_hysteresis():
@@ -687,7 +697,7 @@ def test_the_small_sounds():
     assert heard and heard[0] == WHOOSH, "the jab's launch made no whoosh"
     m = _fight_vm()
     for f in range(345):
-        m.frame((spec.PAD_LEFT if TURN0 <= f < TURN0 + 8 else 0) | (spec.PAD_X if f == STRING0 + 2 else 0))
+        m.frame((spec.PAD_X if f == STRING0 + 2 else 0))
         if f > 322 and vol(m, 11) > 0:
             assert table(m) == WHOOSH, "a jab that landed whiffed"
     assert _wave(m)[0]["hp"] < 70, "fixture: the jab must land"
@@ -760,7 +770,7 @@ def test_the_air_combo_follows_strings_and_spikes():
     m = _fight_vm()
 
     def pad(f):
-        p = spec.PAD_LEFT if TURN0 <= f < TURN0 + 8 else 0
+        p = 0
         if 322 <= f < 325:
             p |= spec.PAD_X | spec.PAD_A
         if 358 <= f < 366:
@@ -771,8 +781,11 @@ def test_the_air_combo_follows_strings_and_spikes():
             p |= spec.PAD_Y
         return p
     top, lowest_combo, spiked = 0.0, 1e9, False
+    hp_at = _sym("demons") + FIELDS.index("hp")
     for f in range(560):
-        m.frame(pad(f))
+        if f == 440:                     # (P17: aloft, no ground fist reaches him now,
+            m.vm.dmem[hp_at] = 70        # and the string alone killed it -- the brute
+        m.frame(pad(f))                  # is topped up so the spike has a body to spike)
         w = _wave(m)[0]
         if f == 366:
             assert _cell(m, "f_acmb") > 0, "the jump-cancel did not follow"
@@ -787,61 +800,72 @@ def test_the_air_combo_follows_strings_and_spikes():
     assert _s32(_cell(m, "f_py")) == 0, "he never came down"
 
 
-def test_parkour_runs_turns_wide_quick_turns_and_threads():
-    """L+Up is PARKOUR (tear.py _parkour): the speed ramps logistically to
-    0.13, Down is a quick turn whose speed Up carries into the new heading
-    (a link in the chain), and running fast past the wave PAYS style
-    without a punch thrown."""
-    L, U, D = spec.PAD_L, spec.PAD_UP, spec.PAD_DOWN
+def test_the_sprint_ramps_steers_by_the_screen_and_threads():
+    """L held is the SPRINT (tear.py _parkour): the speed ramps logistically
+    to 0.13 (from the jog he may already be in), the pad on screen steers it
+    at a fixed rate -- so faster is WIDER -- and running fast past the wave
+    PAYS style without a punch thrown."""
+    L, U = spec.PAD_L, spec.PAD_UP
     m = _fight_vm()
     m.frame(0)
-    sp, paid = [], 0
+    sp, paid, yaws = [], 0, []
     for f in range(150):
-        m.frame(L | U | (spec.PAD_LEFT if 40 <= f < 60 else 0))   # through the wave
-        # (P16: the turn is twenty frames earlier -- he is at speed sooner)
+        m.frame(L | (spec.PAD_UP | spec.PAD_LEFT if 40 <= f < 60 else U))   # through the wave
         sp.append(_s32(_cell(m, "f_spd")) / 65536)
+        yaws.append(_cell(m, "yaw"))
         paid = max(paid, _cell(m, "s_pts"))
-    assert _cell(m, "f_sty") == 1, "L+Up did not enter parkour"
-    # (P16: the ramp is quicker -- 0.078 by the sixth frame where it was under
-    # 0.06 -- and still a ramp: he does not START at speed)
-    assert sp[0] < 0.06 < sp[5] < 0.10 and 0.12 < sp[-1] <= 0.13, \
+    assert _cell(m, "f_sty") == 1, "L did not sprint"
+    assert sp[0] < 0.06 < sp[5] < 0.11 and 0.12 < sp[-1] <= 0.13, \
         f"the ramp: {sp[0]:.3f}, {sp[5]:.3f} .. {sp[-1]:.3f}"
+    steps = [((b - a + 512) % 1024) - 512 for a, b in zip(yaws[40:60], yaws[41:61])]
+    assert 0 < max(steps) < 40, f"the sprint turned {max(steps)} a frame: not wide"
     assert paid > 0, "threading the wave paid nothing"
-    y0, c0 = _cell(m, "yaw"), _cell(m, "f_chain")
-    m.frame(L | D)
-    assert (_cell(m, "yaw") - y0) % 1024 == 512, "Down did not turn him about"
-    m.frame(L | U)
-    assert _s32(_cell(m, "f_spd")) / 65536 > 0.1, "the quick turn lost the speed"
-    assert _cell(m, "f_chain") == c0 + 1, "the quick turn was not a link"
 
 
-def test_boxing_steps_on_the_latched_cross():
-    """L+Down is BOXING (tear.py _boxing): left and right STEP across the
-    cross latched at entry -- he never turns -- at the heavy boxing pace."""
-    L, D, LF = spec.PAD_L, spec.PAD_DOWN, spec.PAD_LEFT
+def test_the_dance_faces_the_demon_and_circles_it():
+    """P17: R held is the DANCE. He faces the demon he locked, every frame,
+    and the pad steps him round it: Left circles (the range holds, the
+    bearing turns), Up closes in, Down backs off."""
+    R = spec.PAD_R
     m = _fight_vm()
-    m.frame(0)
-    for f in range(40):
-        m.frame(L | D if f < 5 else L | LF)
-    assert _cell(m, "f_sty") == 2 and _cell(m, "yaw") == 0, "boxing turned him"
-    vx = _s32(_cell(m, "f_vx")) / 65536
-    assert -0.08 < vx < -0.06, f"the left step runs at {vx:.3f} (left is -x)"
+    for f in range(30):
+        m.frame(R)
+    tgt = _cell(m, "f_tgt")
+    assert tgt and _cell(m, "f_sty") == 2, "R did not lock into the dance"
+
+    def rng_brg():
+        w, (px, pz) = _wave(m)[tgt - 1], _player(m)
+        dx, dz = w["x"] / 65536 - px, w["z"] / 65536 - pz
+        brg = int(round(np.arctan2(-dx, dz) * 1024 / (2 * np.pi))) & 1023
+        return (dx * dx + dz * dz) ** 0.5, brg
+    r0, b0 = rng_brg()
+    for f in range(30):
+        m.frame(R | spec.PAD_LEFT)
+    r1, b1 = rng_brg()
+    assert abs(((_cell(m, "yaw") - b1 + 512) % 1024) - 512) <= 12, "he did not face it"
+    assert abs(((b1 - b0 + 512) % 1024) - 512) > 60, "Left did not circle it"
+    for f in range(20):
+        m.frame(R | spec.PAD_DOWN)
+    r2, _ = rng_brg()
+    for f in range(20):
+        m.frame(R | spec.PAD_UP)
+    r3, _ = rng_brg()
+    assert r2 > r1 + 0.5 and r3 < r2 - 0.5, f"in and out: {r1:.2f} {r2:.2f} {r3:.2f}"
 
 
 def test_a_second_a_in_the_air_flips():
-    """A jump, then A again in the air: a forward tuck from the run (20
-    frames), a cartwheel to the side from the boxing stance (24) -- once a
-    jump, re-armed by the landing."""
-    L, U, D, LF, A = (spec.PAD_L, spec.PAD_UP, spec.PAD_DOWN, spec.PAD_LEFT,
-                      spec.PAD_A)
-    for pre, flip, kind, n in ((L | U, L | U | A, 0, 20), (L | D, L | LF | A, 2, 24)):
+    """A jump, then A again in the air: a forward tuck from the sprint (20
+    frames), a cartwheel to the side from the dance (24) -- once a jump,
+    re-armed by the landing. (P17: in the dance a jump is A ALONE -- with a
+    direction it is the dodge -- and the flip takes the direction.)"""
+    L, U, R, LF, A = spec.PAD_L, spec.PAD_UP, spec.PAD_R, spec.PAD_LEFT, spec.PAD_A
+    for pre, jump, flip, kind, n in ((L | U, L | U | A, L | U | A, 0, 20),
+                                     (R, R | A, R | LF | A, 2, 24)):
         m = _fight_vm()
         m.frame(0)
         frames = 0
         for f in range(80):
-            p = pre | (A if 20 <= f < 24 else 0)
-            if 30 <= f < 34:
-                p = flip
+            p = jump if 20 <= f < 24 else flip if 30 <= f < 34 else pre
             m.frame(p)
             if _cell(m, "f_evf"):
                 frames += 1
@@ -850,11 +874,12 @@ def test_a_second_a_in_the_air_flips():
         assert _cell(m, "f_py") == 0 and _cell(m, "f_flipu") == 0, "not landed and re-armed"
 
 
-def test_r_locks_plants_cycles_and_aims_the_gun():
+def test_r_locks_plants_and_aims_the_gun():
     """R locks the nearest living demon; held still 6 frames he PLANTS,
-    squared up to it; a right flick moves the lock by bearing and a left
-    one brings it back; and a shot, locked, hits the target from range."""
-    R, RT, LF, B = spec.PAD_R, spec.PAD_RIGHT, spec.PAD_LEFT, spec.PAD_B
+    squared up to it; and a shot, locked, hits the target from range. (P17:
+    the left/right flick that moved the lock is gone -- locked, Left and
+    Right circle.)"""
+    R, B = spec.PAD_R, spec.PAD_B
     m = _fight_vm()
     m.frame(0)
     for f in range(30):
@@ -866,16 +891,12 @@ def test_r_locks_plants_cycles_and_aims_the_gun():
     assert first == d2.index(min(d2)) + 1, "R did not lock the nearest"
     for f in range(8):
         m.frame(R)
-    w = wave[first - 1]
-    want = int(round(np.arctan2(-w["x"] / 65536, w["z"] / 65536) * 1024 / (2 * np.pi))) & 1023
-    assert abs(((_cell(m, "yaw") - want + 512) % 1024) - 512) <= 2, "the plant does not face it"
-    m.frame(R | RT)
-    m.frame(R)
-    assert _cell(m, "f_tgt") != first, "a right flick kept the lock"
-    m.frame(R | LF)
-    m.frame(R)
-    assert _cell(m, "f_tgt") == first, "a left flick did not bring it back"
-    hp0 = wave[first - 1]["hp"]
+    w = _wave(m)[first - 1]
+    px, pz = _player(m)
+    want = int(round(np.arctan2(-(w["x"] / 65536 - px), w["z"] / 65536 - pz) * 1024 / (2 * np.pi))) & 1023
+    assert abs(((_cell(m, "yaw") - want + 512) % 1024) - 512) <= 4, "the plant does not face it"
+    assert _cell(m, "f_plc") == 6, "he did not plant"
+    hp0 = w["hp"]
     for f in range(8):
         m.frame(R | B)
     for f in range(30):
@@ -883,39 +904,30 @@ def test_r_locks_plants_cycles_and_aims_the_gun():
     assert _wave(m)[first - 1]["hp"] < hp0, "the locked shot missed its target"
 
 
-def test_locked_styles_flip_pay_fence_and_meteor():
-    """Locked, Down in the run is FENCING and Up in the stance the PROWLER,
-    each flip a link that pays; fencing re-latches its cross onto the
-    target; Up with a direction from the stance runs METEOR at full speed
-    round it; and jump with a direction in the stance is a DODGE."""
-    L, R, U, D, LF, A = (spec.PAD_L, spec.PAD_R, spec.PAD_UP, spec.PAD_DOWN,
-                         spec.PAD_LEFT, spec.PAD_A)
+def test_the_sprint_locked_circles_as_meteor_and_the_dance_dodges():
+    """Sprinting locked (L and R), Left or Right runs METEOR at full speed
+    round the demon; Up runs straight at it. In the dance, jump with one
+    direction is a DODGE along that way, not a jump."""
+    L, R, U, LF, A = spec.PAD_L, spec.PAD_R, spec.PAD_UP, spec.PAD_LEFT, spec.PAD_A
     m = _fight_vm()
     m.frame(0)
     for f in range(20):
-        m.frame(0)
-    for f in range(10):
-        m.frame(R | L | D)
-    assert _cell(m, "f_sty") == 2
-    latch0 = _cell(m, "f_latch")
-    for f in range(20):
-        m.frame(R | L | LF)
-    assert _cell(m, "f_latch") != latch0, "fencing's cross did not follow the target"
-    pts, chain = _cell(m, "s_pts"), _cell(m, "f_chain")
+        m.frame(R)
     yaws = []
     for f in range(60):
-        m.frame(R | L | U | LF)
+        m.frame(R | L | LF)
         yaws.append(_cell(m, "yaw"))
-    assert _cell(m, "f_met") == 1, "Up with a direction did not run METEOR"
-    assert _cell(m, "f_chain") == chain + 1 and _cell(m, "s_pts") > pts, "the flip did not pay"
+    assert _cell(m, "f_sty") == 1 and _cell(m, "f_met") == 1, "L+R+Left did not run METEOR"
     assert _s32(_cell(m, "f_spd")) / 65536 > 0.12, "the meteor is not at speed"
     assert len(set(yaws[-20:])) > 10, "the meteor is not circling"
+    m.frame(R | L | U)
+    assert _cell(m, "f_met") == 0, "Up did not leave the circle"
     m = _fight_vm()
     m.frame(0)
     for f in range(10):
-        m.frame(R | L | D)
+        m.frame(R)
     for f in range(4):
-        m.frame(R | L | LF | A)
+        m.frame(R | LF | A)
     assert _cell(m, "f_evf") > 0 and _cell(m, "f_evk") == 6, "no dodge to the left"
     assert _cell(m, "f_py") == 0, "the dodge jumped"
 
@@ -942,7 +954,7 @@ def test_the_operator_takes_its_shots():
     m = _fight_vm()
     ys, hal = [], 0
     for f in range(460):
-        p = spec.PAD_LEFT if TURN0 <= f < TURN0 + 8 else 0
+        p = 0
         if 322 <= f < 325:
             p |= spec.PAD_A | spec.PAD_X
         if 358 <= f < 366:
@@ -954,21 +966,19 @@ def test_the_operator_takes_its_shots():
     assert max(ys) > 4, "the juggle shot did not rise with the body"
     m = _fight_vm()
     for f in range(400):
-        m.frame((spec.PAD_LEFT if TURN0 <= f < TURN0 + 8 else 0)
-                | (spec.PAD_Y if 330 <= f < 338 else 0))
+        m.frame((spec.PAD_Y if 330 <= f < 338 else 0))
         hal = max(hal, _cell(m, "cam_hal"))
     assert hal > 16, "the haymaker's connect took no align shot"
 
 
 def test_the_action_shot_frames_each_mode():
-    """tear.py _action_cam: the tank's follow stays three back and square;
-    Devil Trigger's comes in to 2.6 and leans on the right shoulder; boxing
-    pulls out to 4.0, fencing to 5.4 facing the target; locked in the run,
-    the PROWLER's own low shot takes over."""
-    L, R, U, D = spec.PAD_L, spec.PAD_R, spec.PAD_UP, spec.PAD_DOWN
-    for sched, dist, lean in ((lambda f: 0, 3.0, 0.0), (lambda f: L | U, 2.6, -0.5),
-                              (lambda f: L | D if f < 5 else L, 4.0, -0.12),
-                              (lambda f: R | L | D if f < 5 else R | L, 5.4, -0.12)):
+    """tear.py _action_cam, P17's stances: free, the follow stands 3.6 back
+    and square; the sprint comes in to 3.2 on the right shoulder; the dance
+    pulls out to 5.4 facing the target; locked in the sprint, the PROWLER's
+    own low shot takes over."""
+    L, R, U = spec.PAD_L, spec.PAD_R, spec.PAD_UP
+    for sched, dist, lean in ((lambda f: 0, 3.6, 0.0), (lambda f: L, 3.2, -0.3),
+                              (lambda f: R, 5.4, -0.12)):
         m = _fight_vm()
         m.frame(0)
         for f in range(80):
@@ -1112,8 +1122,7 @@ def test_the_huds_promise_is_kept():
     m = _fight_vm()
     worst = 0
     for f in range(483):
-        m.frame((spec.PAD_LEFT if TURN0 <= f < TURN0 + 8 else 0)
-                | (spec.PAD_X if f >= STRING0 and f % 9 == 0 else 0))
+        m.frame((spec.PAD_X if f >= STRING0 and f % 9 == 0 else 0))
         worst = max(worst, m.vm.dmem[spec.DL_BASE])
     assert worst > 0, "the route never drew the HUD"
     m.vm.dmem[_sym("s_pts")] = 16 * 5000
@@ -1291,23 +1300,24 @@ def test_he_leans_into_his_run_and_banks_into_his_turn():
     assert _body_angles(m)[1] == 0, "the bank did not ease out"
 
 
-def test_the_walk_is_a_planted_stride_at_sixty():
-    """The tank walk plays a 32-pose stride, one pose a frame (the stance
-    foot was solved, offline, to fall behind him by exactly the ground he
-    covers each frame -- so the pose MUST advance with every frame he
-    walks, or the foot slides)."""
-    walk = _const("POSE_WALK")
+def test_the_jog_strides_on_the_runs_poses():
+    """P17: free, he jogs on the run's poses at a jog's cadence -- the
+    stride clock advancing every frame he moves, a footfall about every
+    twenty frames -- and stands when the pad is let go. (The tank walk's
+    planted stride, P15, has no gait to play now: nothing walks slowly.)"""
     m = _fight_vm()
     m.frame(0)
-    seen = []
-    for f in range(40):
+    ph = []
+    for f in range(60):
         m.frame(spec.PAD_UP)
-        if _cell(m, "anim") == 1:
-            seen.append(_cell(m, "pose") - walk)
-    assert len(seen) >= 34, "he did not walk"
-    assert all(0 <= s < 32 for s in seen)
-    steps = {(b - a) % 32 for a, b in zip(seen, seen[1:])}
-    assert steps == {1}, f"the stride advanced by {sorted(steps)} a frame"
+        assert _cell(m, "anim") == 5
+        ph.append(_cell(m, "f_ph"))
+    steps = {b - a for a, b in zip(ph, ph[1:])}
+    assert len(steps) == 1 and steps.pop() > 0, "the stride clock stalled"
+    falls = sum(1 for a, b in zip(ph, ph[1:]) if (a >> 19) != (b >> 19))
+    assert 2 <= falls <= 4, f"{falls} footfalls in a second"
+    m.frame(0)
+    assert _cell(m, "anim") == 0 and _cell(m, "f_spd") == 0
 
 
 def test_the_haymaker_booms_and_the_run_has_feet():
@@ -1357,7 +1367,7 @@ def test_a_blow_sparks_where_it_lands():
     m = _fight_vm()
     hp, seen = 70, []
     for f in range(STRING0 + 40):        # (before the ring's own blows spark)
-        m.frame((spec.PAD_LEFT if TURN0 <= f < TURN0 + 8 else 0) | (spec.PAD_X if f == STRING0 + 2 else 0))
+        m.frame((spec.PAD_X if f == STRING0 + 2 else 0))
         s = sparks(m)
         if _wave(m)[0]["hp"] == hp:
             assert not s or seen, f"frame {f}: a spark with no blow landed"
@@ -1420,7 +1430,7 @@ def test_a_press_inside_the_freeze_is_thrown_when_it_ends():
     goes nowhere: nothing cancels the haymaker, and the buffer is ten
     frames against its thirty of recovery.)"""
     m = _fight_vm()
-    pads = lambda f: (spec.PAD_LEFT if TURN0 <= f < TURN0 + 8 else 0) \
+    pads = lambda f: 0 \
         | (spec.PAD_X if f == STRING0 + 2 else 0)
     at = _first(m, pads, lambda m: _cell(m, "f_stop") > 0 and _cell(m, "f_con") == 1, 320)
     assert at is not None and _cell(m, "f_mv") in (0, 1), "fixture: the first tap must land"
@@ -1478,8 +1488,10 @@ def test_the_camera_turns_and_does_not_whip():
     m = _fight_vm()
     cap, seen, total = _const("CAM_TURN"), [], 0
     prev = _cell(m, "cam_yaw")
-    for f in range(150):                 # turn his back on the ring, then lock
-        m.frame(spec.PAD_LEFT if f < 42 else spec.PAD_R if f >= 60 else 0)
+    for f in range(150):                 # lock the demon BEHIND him (slot 1)
+        if f == 60:
+            m.vm.dmem[_sym("f_tgt")] = 2
+        m.frame(spec.PAD_R if f >= 60 else 0)
         cy = _cell(m, "cam_yaw")
         d = ((cy - prev + 512) & 1023) - 512
         seen.append(abs(d))
@@ -1488,3 +1500,135 @@ def test_the_camera_turns_and_does_not_whip():
     assert max(seen) <= cap, f"the camera turned {max(seen)} in one frame"
     assert max(seen) == cap and total > 3 * cap, "fixture: the lock must ask for a long turn"
     assert seen[-1] == 0, "the camera never settled on the target"
+
+
+# ---- P17: the dance (docs/TND-PORT.md) --------------------------------------
+def _close_on(m, slot, pads=lambda f: spec.PAD_R, within=1.6, frames=400):
+    """Run until the demon in `slot` is within `within` of him."""
+    for f in range(frames):
+        m.frame(pads(f))
+        w, (px, pz) = _wave(m)[slot], _player(m)
+        if ((w["x"] / 65536 - px) ** 2 + (w["z"] / 65536 - pz) ** 2) ** 0.5 < within:
+            return f
+    return None
+
+
+def test_the_stinger_crosses_the_gap():
+    """Locked, Up and the haymaker: the STINGER -- the lunge two and a half
+    times over, five units to the demon, and the blow lands. Unlocked, the
+    same press is the haymaker's ordinary step."""
+    R, U, Y = spec.PAD_R, spec.PAD_UP, spec.PAD_Y
+    dist = []
+    for pre, tag in ((R, "locked"), (0, "free")):
+        m = _fight_vm()
+        for f in range(40):
+            m.frame(pre)
+        p0 = _player(m)
+        for f in range(40):
+            m.frame(pre | U * (pre != 0) | (Y if f < 3 else 0))
+        p1 = _player(m)
+        dist.append(((p1[0] - p0[0]) ** 2 + (p1[1] - p0[1]) ** 2) ** 0.5)
+        if tag == "locked":
+            assert min(w["hp"] for w in _wave(m)) < 70, "the stinger missed"
+    assert dist[0] > 4.0 and dist[0] > 2 * dist[1], f"travel: stinger {dist[0]:.2f}, free {dist[1]:.2f}"
+
+
+def test_lock_back_and_carve_is_the_launcher():
+    """DMC's High Time: locked, Down and a carve tap throw the rear uppercut
+    -- the launcher -- not the jab."""
+    R, D, X = spec.PAD_R, spec.PAD_DOWN, spec.PAD_X
+    _, thrown = _launches(lambda f: R | (D | X if 20 <= f < 22 else D if f >= 20 else 0), 40)
+    assert thrown == [6], f"threw {thrown} (6 is the rear uppercut)"
+
+
+def test_a_dodge_is_untouchable_and_a_close_call_pays():
+    """A fist that would have landed on a dodging body goes through him: no
+    damage, the swing spent -- and the close call pays style."""
+    R, LF, A = spec.PAD_R, spec.PAD_LEFT, spec.PAD_A
+    m = _fight_vm()
+    assert _close_on(m, 0, lambda f: 0, 1.6) is not None, "fixture: the brute must arrive"
+    # wait for its swing to reach its live frames' doorstep, then dodge
+    for f in range(200):
+        w = _wave(m)[0]
+        if w["st"] == 1 and w["mf"] >= 3:
+            break
+        m.frame(R if f > 0 else 0)
+    else:
+        raise AssertionError("fixture: the brute never swung")
+    hp, pts = _s32(_cell(m, "p_hp")), _cell(m, "s_pts")
+    for f in range(14):
+        m.frame(R | LF | A if f < 2 else R)
+    assert _s32(_cell(m, "p_hp")) == hp, "the dodge was hit"
+    assert _wave(m)[0]["con"] == 1 and _cell(m, "s_pts") > pts, "no close call"
+
+
+def test_a_point_blank_shot_staggers_a_long_one_chips():
+    """The plain shot chips a standing demon at range (P16); inside 1.8 it
+    staggers it as a fist does -- the gun is a close weapon too."""
+    R, B = spec.PAD_R, spec.PAD_B
+    m = _fight_vm()
+    assert _close_on(m, 0, lambda f: 0, 1.6) is not None
+    m.frame(R)
+    tgt = _cell(m, "f_tgt")
+    for f in range(20):
+        m.frame(R | (B if f < 2 else 0))
+        w = _wave(m)[tgt - 1]
+        if w["hp"] < 70:
+            break
+    assert w["hp"] < 70, "fixture: the shot must land"
+    assert w["hs"] > 0 and w["st"] == 2, "the point-blank shot did not stagger"
+
+
+def test_the_gun_goes_where_the_pad_points():
+    """Free, a shot with a direction held finds the demon nearest that line
+    on screen -- the one behind him, if the pad says so -- and he turns to
+    shoot it."""
+    m = _fight_vm()
+    m.frame(0)
+    for f in range(30):                      # (the ring stands off; the far side
+        m.frame(0)                           # one is slot 1, behind him)
+    for f in range(16):
+        m.frame(spec.PAD_DOWN | (spec.PAD_B if f < 2 else 0) if f < 3 else 0)
+    assert _cell(m, "f_aim") == 2, f"the shot went to {_cell(m, 'f_aim')}"
+    assert _wave(m)[1]["hp"] < 70, "the shot behind him missed"
+
+
+def test_the_dodge_cancels_a_swings_recovery():
+    """A swing's recovery is not a prison: a dodge cuts it short (a blow
+    already thrown is still thrown -- its windup and live frames hold)."""
+    R, LF, A, X = spec.PAD_R, spec.PAD_LEFT, spec.PAD_A, spec.PAD_X
+    m = _fight_vm()
+    for f in range(10):
+        m.frame(R)
+    m.frame(R | spec.PAD_Y)                  # the haymaker: 56 frames, 30 recovery
+    for f in range(4):
+        m.frame(R | spec.PAD_Y)
+    for f in range(30):                      # into its recovery
+        m.frame(R)
+    assert _cell(m, "anim") == 2, "fixture: still swinging"
+    m.frame(R | LF | A)
+    assert _cell(m, "anim") != 2 and _cell(m, "f_evf") > 0, "the dodge did not cancel it"
+
+
+def test_the_meter_cools_slowly_and_a_reeling_body_is_not_hit_again():
+    """P17: the style meter bleeds 0.25 a frame after a second idle and
+    0.75 after two (it was 0.6 and 2.2); and a fist does not land on him
+    while he is still reeling from the last."""
+    m = _fight_vm()
+    m.vm.dmem[_sym("s_pts")] = 300 * 16
+    for f in range(180):
+        m.frame(0)
+    pts = _cell(m, "s_pts")
+    assert pts == 300 * 16 - 4 * 60 - 12 * 60, f"bled to {pts / 16:.1f}"
+    m = _fight_vm()
+    hits = []
+    for f in range(900):
+        if _cell(m, "f_hs"):
+            hp_reeling = _s32(_cell(m, "p_hp"))
+            m.frame(0)
+            assert _s32(_cell(m, "p_hp")) == hp_reeling or _cell(m, "f_hs") == 0 \
+                or _s32(_cell(m, "p_hp")) <= 0, f"hit while reeling at frame {f}"
+        else:
+            m.frame(0)
+        if _cell(m, "f_dead"):
+            break

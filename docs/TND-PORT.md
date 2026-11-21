@@ -621,3 +621,74 @@ The telegraphs P15 added were never seen, because nothing ever swung.
 
 **Standing still costs more:** untouched, the first blow reaches him at
 frame 283 and he is down at 556 (nine seconds). It was 394 and 727.
+
+## P16 on glass, and the second tape (2026-11-20)
+
+The player's verdict on P16: "definitely more engaging and difficult,
+good". The tape (5 m 4 s, 18,223 frames) replays on the law from the save
+it started with and writes the save the Pocket wrote, word for word: best
+SSS, and the run count from 0 to 4. That is the first replay gate with a
+save that changed.
+
+| | first tape (P15 rules) | second tape (P16 rules) |
+|---|---:|---:|
+| hits taken | 0 | 39 |
+| deaths | 0 | 4 |
+| demon swings started / landed | 0 / 0 | 41 / 39 |
+| time at D | 6 s | 186 s |
+| rank drops to idle decay | 9 | 36 of 50 |
+| boxing stance | 4% | 44% |
+| jumps / flips and dodges | 6 / 3 | 76 / 48 |
+| time with no demon alive | 33 s | 0.2 s |
+
+- The demons fight back now, and **almost every swing lands**: 39 of 41.
+  The dodge had no invulnerability, and 7 blows landed on a body still
+  stunned from the one before.
+- The player found the boxing stance (L+Down) and lived in it, mostly
+  backflipping out of trouble.
+- The style meter bled faster than anyone could earn it.
+
+The player's direction: "focus on the movement, the feeling of the
+fighting, the camera angles -- dance with the enemies and feel like John
+Wick with the gun play and fighting", and "think heavier Devil May Cry".
+
+## P17: the dance (2026-11-20; not yet on glass)
+
+**Movement**
+
+| | was (the archive's tank) | is |
+|---|---|---|
+| the d-pad, free | Left/Right turn 12 a frame, Up/Down walk at 0.032 | the screen's eight directions: he turns to the one held (96 a frame) and jogs along it at 0.068 |
+| "the screen" | -- | the camera as it stood when the direction was pressed, so a held direction is a straight line |
+| L | the style grammar: L+Up the run, L+Down boxing | the sprint, steered by the pad on screen |
+| R | lock; Left/Right flick moved it | the dance: he faces the demon and the pad steps round it (Up in, Down out, Left and Right circle) |
+| L+R + Left/Right | (fencing, then Up+direction) | METEOR, the circle at full speed |
+| the quick turn, the locked style flips, boxing unlocked | | gone: a pad that means the screen turns him in three frames |
+
+**The fight**
+
+| | is |
+|---|---|
+| blows, free | go along the pad on screen (or his facing), then onto the demon nearest that line within 63 degrees and 3.2 units; he turns to it |
+| blows, locked | at the demon |
+| the gun, free | at the demon nearest the pad's line, out to 13 units: shoot the one behind you by pressing Down |
+| the gun, point blank | inside 1.8 the plain shot staggers as a fist does |
+| Stinger | locked, Up and the haymaker: the lunge x2.5, five units to the demon |
+| High Time | locked, Down and a carve tap: the rear uppercut, the launcher |
+| the dodge | locked, A and one direction, as before -- now **untouchable** for its 12 frames, and it **cancels a swing's recovery** |
+| a close call | a fist that would have landed on a dodge pays 30 style |
+| reeling, or aloft | no fist lands on him while he is still stunned, or more than 0.9 up |
+| the meter | bleeds 0.25 a frame after a second idle, 0.75 after two (was 0.6 after 0.75 s, 2.2 after 1.5 s) |
+
+**The camera:** free, it holds while he stands or runs across or toward
+it, and eases in behind him only while he runs away. Free 3.6 back
+(was 3.0), the sprint 3.2 on the shoulder, locked 5.4 wide.
+
+- Program memory went down: 7,885 words of 8,192 (P16 was 7,959). The
+  tank's walk and turn, the quick turn, the flick and the style grammar
+  paid for everything above. No new cells: the quick turn's and the
+  flick's became the dance's.
+- 68 tests: ten rewritten for the new scheme, eight new.
+- **Not done:** the walk's planted stride (P15) has no slow gait to play
+  any more -- the jog uses the run's poses at a jog's cadence. A dash
+  (DMC's Trickster) has no button of its own; the dodge is the closest.
