@@ -797,7 +797,7 @@ set_global_assignment -name VERILOG_FILE ../../pocket/card_apf.v
 set_global_assignment -name VERILOG_FILE ../../silicon/cram_burst.v
 set_global_assignment -name VERILOG_FILE ../../silicon/cram_fb.v
 
-set_global_assignment -name SEED 7
+set_global_assignment -name SEED 11
 set_global_assignment -name NUM_PARALLEL_PROCESSORS 4
 
 set_global_assignment -name VERILOG_FILE ../card_apf.v
