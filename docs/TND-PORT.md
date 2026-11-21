@@ -988,3 +988,46 @@ is merged into the game.
 game's program is 16,152 words of its 16,384-word page. The swarm must
 become one routine over an index before anything else is added above the
 base.
+
+## P21b: the base on glass, and the machine's unused parts (2026-11-21)
+
+**On glass**: eleven minutes in the first base, "the best so far". The
+tuner's notches, read from the tape's pad log (and matching the replay at
+its 5,000-frame mark), are the base's starts now: walk 0.066 (twice the
+archive's), ramp 0.73 (all but at once), turn 14, the quick turn 80 a frame
+(seven frames), the lens 2.0 behind and 1.65 up, and the wall's slide OFF --
+a wall leaves what runs along it and no more. The stride advances by the
+ground covered, so at twice the pace his feet stay planted.
+
+**The horde tape** (10m43s on the P20b cart, seen only now): 351 s in the
+game, one death 61 s after the plaza woke, ten of the district's thirty
+felled, the district never cleared. The boxer 44% of it, the tank 33%, the
+run 15% (44 s of it free), targeting 7%.
+
+**The arrow was wrong since P19**: its two ways -- to the district's plaza,
+to the core -- were swapped (a test for bit 27 that should have been 29).
+Asleep, a district's arrow led to its gate, not its plaza, at the ten
+street nodes of district 0 where the ways part. Fixed in the game and the
+base; the base has its test.
+
+**The machine's unused parts, in the base** (asked: "add the zeta
+subsystems we havent used to this layer"):
+
+- **The sky is the haze.** CLEAR_RGB is a constant of the machine, so the
+  sky cannot be cleared to another colour; but a face past the fog's far
+  end is exactly the fog's colour, whatever the district's. One triangle
+  rides the camera 60 out, wide enough that its screen clip is wholly
+  covered. (knob 9)
+- **OBJ_BLEND**: his shadow, a dark blot half through under him, and one
+  under the key -- weight on the street, and the key's hover read.
+- **OBJ_EDGE**: the jab's context shown -- the key outlined bone-white
+  when the jab would take it, the gate when it would unlock it. Free, the
+  spec says, and the meter agrees.
+- **GRADE_SRC**: a curve at the glass that sinks green and blue under red
+  -- off, or one of two weights. (knob 8; starts at 1)
+- Law against silicon on two routes through all of it: 484 frames, none
+  differ, 33 of them outlined. Peak 50% of the frame.
+- **Not yet, and why**: the PICK register and the visibility counts are
+  for the gun and for enemies -- the layers above. Textures and per-vertex
+  light are the base's next step: they change the pieces' mesh format
+  (a texel word a vertex) and want measuring first.

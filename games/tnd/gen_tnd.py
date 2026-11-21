@@ -1065,6 +1065,23 @@ def ground_mesh():
 
 
 GROUND_M = int(cart.data(ground_mesh(), "ground"))
+if BASE:
+    # P21b: THE SKY IS THE HAZE (the player: "the skybox the black rn to be
+    # the deepest color of the fog"). The frame clears to CLEAR_RGB, a
+    # constant of the machine; but a face past the fog's far end IS the fog's
+    # colour, whatever the district's. So the sky is one triangle riding the
+    # camera like the ground, 60 out: wide enough that the screen's clip of
+    # it is wholly covered (its box walks 1x), and behind everything.
+    SKY_M = int(cart.data(Mesh([int(round(c * ONE)) for v_ in (
+        (-120.0, -2.0, 60.0), (120.0, -2.0, 60.0), (0.0, 60.0, 60.0)) for c in v_],
+        [(0, 2, 1, 0)]), "sky"))
+    # P21b: HIS SHADOW (OBJ_BLEND's first use here): a dark blot under him,
+    # half through, so his weight sits on the street -- and one under the key
+    _sv = [(0.0, 0.01, 0.0)] + [(0.36 * np.cos(a_), 0.01, 0.27 * np.sin(a_))
+                                for a_ in np.arange(8) * np.pi / 4]
+    SHADOW_M = int(cart.data(Mesh([int(round(c * ONE)) for v_ in _sv for c in v_],
+                                  [(0, 1 + (k + 1) % 8, 1 + k, 6 << spec.BLEND_A_SHIFT)
+                                   for k in range(8)]), "shadow"))
 
 # THE AWARE MARKER (tear.py _AWARE): a small gold tetrahedron over every
 # demon that has you inside its frontal cone and so can swing -- the ones
@@ -1886,6 +1903,17 @@ FRIC = int(round(0.82 * ONE))                   # tear.py: body friction
 # knob, Up/Down turn it a notch) and the screen shows the knob and its notch
 # (50 is where it started). The tape carries every press home, so the replay
 # reads the values chosen -- no card trip a guess. (name, start, a notch)
+# THE STARTS ARE THE PLAYER'S (in a base build: BASE_SET), from eleven minutes on
+# glass on 2026-11-21 ("this feels the best so far") -- the notches he left
+# the first base at were walk +17, ramp +17, turn +2, quick turn +9, the
+# lens 5 nearer and 5 lower, and the wall's slide turned all the way off.
+# The game above the base keeps its own until the layer is merged.
+BASE_SET = dict(walk=int(0.032 * ONE) + 17 * int(0.002 * ONE),      # 0.066: twice the archive's
+                ramp=int(0.22 * ONE) + 17 * int(0.03 * ONE),        # 0.73: all but at once
+                turn=14, qturn=80,                                  # half round in 7 frames
+                camd=int(3.0 * ONE) - 5 * int(0.2 * ONE),           # 2.0 behind
+                camh=int(2.15 * ONE) - 5 * int(0.1 * ONE),          # 1.65 up
+                slide=0) if BASE else {}                            # a wall is a wall
 KNOBS = (("walk", WALK, int(0.002 * ONE)),            # 0 his pace
          ("ramp", int(0.22 * ONE), int(0.03 * ONE)),  # 1 how fast he gets to it (weight)
          ("turn", 12, 1),                             # 2 the tank's turn, a frame
@@ -1893,18 +1921,37 @@ KNOBS = (("walk", WALK, int(0.002 * ONE)),            # 0 his pace
          ("camd", int(3.0 * ONE), int(0.2 * ONE)),    # 4 the follow's distance
          ("camh", int(2.15 * ONE), int(0.1 * ONE)),   # 5 ...and its height
          ("slide", int(0.6 * ONE), int(0.1 * ONE)),   # 6 the least of his pace a wall leaves
-         ("pick", 18, 2))                             # 7 frames a pick-up commits him
+         ("pick", 18, 2),                             # 7 frames a pick-up commits him
+         ("grade", 1, 1),                             # 8 the glass's curve: 0 off, 1, 2 heavy
+         ("sky", 1, 1))                               # 9 the sky is the haze: 0 off
+KNOBS = tuple((k, BASE_SET.get(k, v), st_) for k, v, st_ in KNOBS)
 if BASE:
     KN = cart.data(Table([v for _, v, _ in KNOBS]), "knobs")
     KNOTCH = cart.var("knob_n", len(KNOBS))
     KSEL, KPV, KTUNE = (cart.var(k) for k in ("knob_sel", "knob_pv", "knob_on"))
-    WSPD, QT, KEY, PICK, KNEAR, KX, KZ = (cart.var(k) for k in (
-        "walk_v", "qturn_left", "key_held", "pick_t", "ctx_near", "ctx_x", "ctx_z"))
+    WSPD, QT, KEY, PICK, KNEAR, KX, KZ, WACC = (cart.var(k) for k in (
+        "walk_v", "qturn_left", "key_held", "pick_t", "ctx_near", "ctx_x", "ctx_z", "walk_acc"))
     KSTR1 = cart.data(Table([1, 0]), "str_k1")
     KSTR2 = cart.data(Table([2, 0, 0]), "str_k2")
 
 
 PICK_BOW = 96                    # the pick-up's bow: 34 degrees forward
+
+
+def _grade(gr, gg, gb, lift=0.0):
+    """a 32-level curve a channel: out = 255 * t ** gamma (sunk when > 1)"""
+    out = []
+    for i in range(32):
+        t = i / 31
+        r, g_, b_ = (min(255, int(round(255 * (lift + (1 - lift) * t) ** k))) for k in (gr, gg, gb))
+        out.append(r << 16 | g_ << 8 | b_)
+    return out
+
+
+if BASE:
+    GRADES = [cart.data(Table(_grade(*k)), f"grade{i}") for i, k in enumerate(
+        ((1.0, 1.22, 1.16), (1.08, 1.5, 1.4)))]
+    cart.boot(spec.EDGE_RGB, 0xFFF4D8)            # the outline: bone-white, on what the jab would take
 
 
 def knob(g, name):
@@ -2037,7 +2084,12 @@ if BASE:
     for bit, dv in ((spec.PAD_RIGHT, 1), (spec.PAD_LEFT, len(KNOBS) - 1)):
         ns = p.label("ksel")
         p.load(W["qy"]).push(bit).emit("and", f"jz {ns}")
-        p.load(KSEL).push(dv).emit("add").push(len(KNOBS) - 1).emit("and").store(KSEL)
+        p.load(KSEL).push(dv).emit("add", "dup").push(len(KNOBS)).emit("lt", f"jz {ns}_w")
+        p.emit(f"jmp {ns}_s")
+        p.mark(f"{ns}_w")
+        p.push(len(KNOBS)).emit("sub")
+        p.mark(f"{ns}_s")
+        p.store(KSEL)
         p.mark(ns)
     for k, (_, _, step) in enumerate(KNOBS):
         nk = p.label("knob")
@@ -2052,6 +2104,18 @@ if BASE:
         p.mark(nk)
     p.push(0).store(spec.REG_PAD)                 # (the game sees nothing meanwhile)
     p.mark(tn)
+    # P21b: THE GLASS'S CURVE (spec.GRADE_SRC, free at the scanout): the
+    # shadows sunk, the reds kept -- off, or one of two weights
+    gr_ = p.label("grade")
+    p.push(0)
+    knob(p, "grade").push(1).emit("lt", f"jz {gr_}_1", f"jmp {gr_}")     # < 1: off
+    p.mark(f"{gr_}_1")
+    p.emit("drop").push(int(GRADES[0]))
+    knob(p, "grade").push(2).emit("lt", f"jz {gr_}_2", f"jmp {gr_}")
+    p.mark(f"{gr_}_2")
+    p.emit("drop").push(int(GRADES[1]))
+    p.mark(gr_)
+    p.store(spec.GRADE_SRC)
     # no shoulders in the base; and a pick-up holds him, crouched, till it is done
     p.emit("load 1").push(0xFFFF & ~(spec.PAD_L | spec.PAD_R | spec.PAD_SELECT))
     p.emit("and").store(spec.REG_PAD)
@@ -2898,11 +2962,20 @@ if BASE:
     p.load(WSPD).emit("mulq").load(PX).emit("swap", "sub").store(PX)
     sin_of(p, 256)
     p.load(WSPD).emit("mulq").load(PZ).emit("add").store(PZ)
+    # (HIS FEET STAY PLANTED: the stride is 32 poses to 32 frames of the
+    # archive's pace, so the pose advances by the ground he covers, not by
+    # the frame -- at twice the pace, two poses)
+    p.load(WSPD).emit("dup").push(0).emit("lt", f"jz {wb}_ab")
+    p.push(0).emit("swap", "sub")
+    p.mark(f"{wb}_ab")
+    p.push32(int(ONE / 0.032)).emit("mulq").load(WACC).emit("add", "dup")
+    p.push(0xFFFF).emit("and").store(WACC)
+    p.emit("shr 16").store(W["dg"])                                    # poses, this frame
     p.push(int(0.004 * ONE)).load(WSPD).emit("lt", f"jz {wb}_b")       # forward
-    p.set(ANIM, 1).addi(AF, 1).emit(f"jmp {L['motion']}")
+    p.set(ANIM, 1).load(AF).load(W["dg"]).emit("add").store(AF).emit(f"jmp {L['motion']}")
     p.mark(f"{wb}_b")
     p.load(WSPD).push(-int(0.004 * ONE)).emit("lt", f"jz {wb}_s")      # back
-    p.set(ANIM, 1).addi(AF, -1).emit(f"jmp {L['motion']}")
+    p.set(ANIM, 1).load(AF).load(W["dg"]).emit("sub").store(AF).emit(f"jmp {L['motion']}")
     p.mark(f"{wb}_s")
     p.emit("load 1").push(spec.PAD_UP | spec.PAD_DOWN).emit("and", f"jz {wb}_z")
     p.emit(f"jmp {L['idle']}")
@@ -4254,6 +4327,12 @@ p.store(VIS["rz"])
 p.set(NOBJ, 0)
 p.object(NOBJ, GROUND_M, (f"load {spec.CAM_X}",), 0, (f"load {spec.CAM_Z}",),
          (f"load {spec.CAM_YAW}",), spec.OBJ_CULL)
+if BASE:
+    sk0 = p.label("sky")
+    knob(p, "sky").emit(f"jz {sk0}")
+    p.object(NOBJ, SKY_M, (f"load {spec.CAM_X}",), 0, (f"load {spec.CAM_Z}",),
+             (f"load {spec.CAM_YAW}",), spec.OBJ_CULL)
+    p.mark(sk0)
 def if_visible(cx, cy, cz, r, body):
     """body() only when the sphere can be on screen. cx/cz may be cells
     (tuples of ops) or constants; cy and r are constants."""
@@ -4354,7 +4433,11 @@ p.emit(f"call {L_VIS}", f"jz {gd_}")
 p.object(NOBJ, GATE_M,
          lambda h: h.load(CT["k"]).push(4).emit("add", "loadi"), 0,
          lambda h: h.load(CT["k"]).push(5).emit("add", "loadi"),
-         lambda h: h.load(CT["k"]).push(6).emit("add", "loadi"), 0)   # (both sides)
+         lambda h: h.load(CT["k"]).push(6).emit("add", "loadi"),
+         (lambda h: h.load(KNEAR).push(2).emit("eq").push(spec.OBJ_EDGE).emit("mul"))
+         if BASE else 0)                                              # (both sides; P21b:
+                                                                      # outlined when the
+                                                                      # jab would unlock it)
 p.mark(gd_)
 def flash_flags(hs, out):
     """out = FLASH while the blow is fresh -- the STRUCK body only: hitstop
@@ -4520,9 +4603,13 @@ if BASE:
               f"push {int(0.85 * ONE)}", "add"),                 # (it rises and drops)
              (f"load {int(KZ)}",),
              (f"load {spec.REG_FRAME}", "push 5", "mul", f"load {int(KNEAR)}", "push 4", "mul",
-              "push 1", "add", "mul", "push 1023", "and"),       # (in reach: it spins fast)
-             spec.OBJ_CULL)
+              "push 1", "add", "mul", "push 1023", "and"),       # (in reach: it spins fast,
+             (f"load {int(KNEAR)}", "push 1", "eq", f"push {spec.OBJ_EDGE}", "mul",   # outlined)
+              f"push {spec.OBJ_CULL}", "or"))
+    p.object(NOBJ, SHADOW_M, (f"load {int(KX)}",), 0, (f"load {int(KZ)}",), 0, spec.OBJ_BLEND)
     p.mark(kd_)
+    p.object(NOBJ, SHADOW_M, (f"load {int(PX)}",), 0, (f"load {int(PZ)}",),
+             (f"load {int(HEAD)}",), spec.OBJ_BLEND)
 # P15: the spark, last in the list, while its frames last
 sk_ = p.label("spark")
 p.load(int(SPK) + 3).emit(f"jz {sk_}")
@@ -4691,8 +4778,10 @@ p.load(CT["n"]).push(CS - 1).emit("and", f"shl {TSH}").push32(int(OXA * ONE))
 p.emit("sub").load(PZ).emit("sub").store(CT["z"])
 for k in range(4):                                       # ...+ the next street
     dx, dy, _ = city.DIRS[k]
-    p.load(CT["w"]).emit("shr 27").load(CT["c"]).push(27).emit("eq", f"jz {pt_}_s{k}")
-    p.emit("shr 2")                                      # (bits 29-30)
+    p.load(CT["w"]).emit("shr 27").load(CT["c"]).push(29).emit("eq", f"jz {pt_}_s{k}")
+    p.emit("shr 2")                                      # (bits 29-30: the plaza's way.
+                                                         # Until P21b this tested for 27,
+                                                         # and the two ways were swapped)
     p.mark(f"{pt_}_s{k}")
     p.push(3).emit("and").push(k).emit("eq", f"jz {pt_}_h{k}")
     if dy:

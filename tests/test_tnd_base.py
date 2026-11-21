@@ -69,6 +69,11 @@ class Base:
             self.d[self.sym(n)] = int(round(v * 65536)) & 0xFFFFFFFF
         self.d[self.sym("yaw")] = self.d[self.sym("cam_yaw")] = yaw & 1023
 
+    def knob(self, k):
+        """knob k as the game reads it (0 walk, 1 ramp, 2 turn, 3 quick turn,
+        4 the lens's distance, 5 its height, 6 slide, 7 pick-up frames)"""
+        return self.cell("knobs", k)
+
     def lens(self):
         (x, z), d = self.pos(), self.d
         return np.hypot(x - _s32(d[spec.CAM_X]) / 65536, z - _s32(d[spec.CAM_Z]) / 65536)
@@ -77,23 +82,29 @@ class Base:
 def test_the_tank_has_weight_and_the_lens_keeps_its_distance(text):
     """The walk eases up to its pace and back down (it was a switch), the
     quick turn is Down + A, A alone is still the back dodge -- and at the
-    start, the dead end's wall right behind him, the lens is the same 3.0
-    behind as it is in the open street."""
+    start, the dead end's wall right behind him, the lens is the same
+    distance behind as it is in the open street. (The pace, the ramp and
+    the distance are knobs: read from the cart, they are the player's.)"""
     b = Base(text)
-    b.run(0, 30)
-    assert abs(b.lens() - 3.0) < 0.05, f"the lens is {b.lens():.2f} behind at the wall"
+    pace, ramp, far = b.knob(0) / 65536, b.knob(1) / 65536, b.knob(4) / 65536
+    b.run(0, 120)                                # (the lens eases to its distance)
+    assert abs(b.lens() - far) < 0.05, f"the lens is {b.lens():.2f} behind at the wall, not {far}"
     steps, last = [], b.pos()
     for f in range(30):
         b.run(U, 1)
         p = b.pos()
         steps.append(np.hypot(p[0] - last[0], p[1] - last[1]))
         last = p
-    assert steps[0] < 0.4 * 0.032 and steps[4] < 0.9 * 0.032, f"no lean into the walk: {steps[:6]}"
-    assert abs(steps[-1] - 0.032) < 0.002, f"he never reached his pace: {steps[-1]:.4f}"
+    assert abs(steps[0] - ramp * pace) < 0.002 and steps[0] < pace, f"no lean into the walk: {steps[:4]}"
+    assert abs(steps[-1] - pace) < 0.002, f"he never reached his pace: {steps[-1]:.4f}"
     assert all(b2 >= a2 - 1e-6 for a2, b2 in zip(steps, steps[1:])), "the walk stuttered"
-    assert abs(b.lens() - 3.0) < 0.2
+    assert abs(b.lens() - far) < 0.2
+    af0 = b.cell("af")
+    b.run(U, 32)
+    assert abs((b.cell("af") - af0) - 32 * pace / 0.032) <= 1, "his feet slide: the stride left the ground"
+    last = b.pos()
     b.run(0, 1)
-    assert 0 < np.hypot(*np.subtract(b.pos(), last)) < 0.032, "he stopped dead"
+    assert 0 < np.hypot(*np.subtract(b.pos(), last)) < pace, "he stopped dead"
     b.run(0, 30)
     y0 = b.cell("yaw")
     for f in range(24):
@@ -108,15 +119,19 @@ def test_the_tank_has_weight_and_the_lens_keeps_its_distance(text):
 
 
 def test_a_wall_carries_him_and_the_shoulders_do_nothing(text):
-    """Walking into a street's wall ten degrees off dead on, he keeps most
-    of the slide knob's share of his pace along it (plainly, he crawled at
-    a sixth); dead on, he stops. L and R are not in the base."""
+    """Walking into a street's wall ten degrees off dead on, he keeps at
+    least the slide knob's share of his pace along it -- the player turned
+    that knob off on glass, so today a wall leaves what runs along it and
+    no more; dead on, he stops. L and R are not in the base."""
     b = Base(text)
     T, ox, oy, cm = b.const("CITY_TILE"), b.const("CITY_OXA"), b.const("CITY_OYA"), b.sym("city_map")
     n = next(n for n in range(256) if (b.d[cm + n] & 0xFF) == 0x11)       # a street along x
     cx, cz = oy - (n // 16) * T, (n % 16) * T - ox
-    for off, want in ((80, 0.6 * 0.032), (90, 0.0)):
+    for off in (80, 90):
         b = Base(text)
+        pace, slide = b.knob(0) / 65536, b.knob(6) / 65536
+        plain = pace * np.cos(np.radians(off))
+        want = slide * pace if pace / 8 < plain < slide * pace else plain
         b.put(cx, cz, 256 - int(off * 1024 / 360))
         b.run(U, 140)
         last = b.pos()
@@ -145,12 +160,12 @@ def test_the_jab_picks_up_the_key_and_unlocks_the_gate(text):
     b.put(kx, kz - 1.0, 0)
     b.run(0, 3)
     assert b.cell("ctx_near") == 1
-    p0 = b.pos()
     for f in range(12):
-        b.run((X if f < 7 else 0) | U, 1)
+        b.run(X if f < 7 else 0, 1)
     assert b.cell("key_held") == 1 and b.cell("pick_t") > 0, "the jab did not pick it up"
-    b.run(U, 4)
-    assert np.hypot(*np.subtract(b.pos(), p0)) < 0.2, "he walked off mid pick-up"
+    p0 = b.pos()
+    b.run(U, 6)
+    assert np.hypot(*np.subtract(b.pos(), p0)) < 0.05, "he walked off mid pick-up"
     b.run(0, 40)
     g = b.sym("gates")
     a = b.d[g]
@@ -185,3 +200,23 @@ def test_select_tunes_a_knob_and_shows_it(text):
     y0 = b.cell("yaw")
     b.run(LF, 4)
     assert (b.cell("yaw") - y0) % 1024 == 4 * (turn0 + 3), "the turn did not take its knob"
+
+
+def test_the_arrow_leads_to_the_key_then_to_the_gate(text):
+    """Where the way to the district's plaza (its key) and the way to the
+    core (its gate) part, the arrow takes the plaza's without the key and
+    the core's with it. (Until P21b the two were swapped, in the game too.)"""
+    b = Base(text)
+    T, ox, oy, cm = b.const("CITY_TILE"), b.const("CITY_OXA"), b.const("CITY_OYA"), b.sym("city_map")
+    w_of = lambda n: b.d[cm + n]                                        # noqa: E731
+    n = next(n for n in range(256) if (w_of(n) >> 23) & 15 == 0 and w_of(n) & 0xFF
+             and not w_of(n) & 0xAA and (w_of(n) >> 27) & 3 != (w_of(n) >> 29) & 3)
+    core, plaza = (w_of(n) >> 27) & 3, (w_of(n) >> 29) & 3
+    arrows = b.sym("arrows")
+    for key, side in ((0, plaza), (1, core)):
+        b.put(oy - (n // 16) * T, (n % 16) * T - ox, 256)              # facing north
+        b.d[b.sym("key_held")] = key
+        b.run(0, 30)
+        tri = [b.d[spec.DL_BASE + 1 + k] for k in range(7)]
+        shown = next(k for k in range(8) if [b.d[arrows + 7 * k + j] for j in range(7)] == tri)
+        assert shown == 2 * side, f"key {key}: the arrow shows way {shown}, not side {side}"
