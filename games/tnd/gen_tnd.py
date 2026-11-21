@@ -2065,6 +2065,9 @@ p.load(W["stop"]).store(F["tgt"])
 # operator's AIM shot, which waits for the plant, frames it)
 p.mark(f"{lk}_pl")
 p.set(F["plc"], 0)
+p.load(F["tgt"]).emit(f"jz {lk}_e")              # (R let go this frame: he keeps the
+                                                 # target's bearing -- the plant read
+                                                 # "slot -1" and spun him, on glass)
 p.load(F["sty"]).push(SQ_TARGET).emit("eq", f"jz {lk}_e")
 p.set(F["plc"], PLANT_HOLD)
 p.load(F["tgt"]).push(1).emit("sub").store(F["brg"]).emit(f"call {L_BRG}")
@@ -4239,6 +4242,31 @@ row(PMT, F["mv"], "reach2")
 p.emit("lt", f"jz {lab['noA']}")
 p.mark(f"{ag_}_hit")
 landed(PMT, F["mv"], False)
+# P18: THE SPARK WHERE IT HIT. It stood at his fist's point -- for the gun
+# that is his hand, a street away from the demon it hit. A shot's spark is
+# ON the demon at the height it struck (head 1.7, body 1.15, targeting's low
+# shot the legs at 0.55); a fist's is the contact, the struck height pulled
+# four tenths of the way from the demon toward his fist.
+spk = p.label("spk")
+p.push(int(1.15 * ONE)).load(W["head"]).push(int(0.55 * ONE)).emit("mul", "add")
+p.load(cur("py")).emit("add").store(W["oy"])               # the struck height
+p.push(MOVE["gun"] - 1).load(F["mv"]).emit("lt", f"jz {spk}_f")
+p.load(F["sty"]).push(SQ_TARGET).emit("eq", f"jz {spk}_g")
+p.load(F["aimh"]).push(2).emit("eq", f"jz {spk}_g")
+p.push(int(0.55 * ONE)).load(cur("py")).emit("add").store(W["oy"])
+p.mark(f"{spk}_g")                              # (on its FRONT, 0.45 out along its
+p.load(cur("h8")).emit("shr 8").store(W["dc"])  # facing -- at its centre the spark
+sin_of(p, cell=W["dc"])                          # was inside the body, and hidden)
+p.push(int(0.45 * ONE)).emit("mulq").load(cur("x")).emit("swap", "sub").store(int(SPK))
+p.load(W["oy"]).store(int(SPK) + 1)
+sin_of(p, 256, cell=W["dc"])
+p.push(int(0.45 * ONE)).emit("mulq").load(cur("z")).emit("add").store(int(SPK) + 2)
+p.emit(f"jmp {spk}")
+p.mark(f"{spk}_f")
+for k, (a, qc) in enumerate(((cur("x"), "qx"), (W["oy"], "qy"), (cur("z"), "qz"))):
+    p.load(W[qc]).load(a).emit("sub").push(int(0.4 * ONE)).emit("mulq").load(a).emit("add")
+    p.store(int(SPK) + k)
+p.mark(spk)
 p.load(cur("hp")).load(W["dmg"]).emit("sub").store(cur("hp"))
 p.load(W["stop"]).emit("dup", "dup").store(cur("stop")).store(F["stop"])
 p.store(F["shake"])

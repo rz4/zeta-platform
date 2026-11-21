@@ -1593,3 +1593,37 @@ def test_the_shot_does_not_move_him_and_a_dodge_is_untouchable():
         m.frame(spec.PAD_A if f < 2 else 0)
     assert _s32(_cell(m, "p_hp")) == hp, "the dodge was hit"
     assert _cell(m, "s_pts") > pts, "no close call"
+
+
+def test_letting_go_of_targeting_keeps_the_targets_bearing():
+    """On glass: releasing R spun him -- the plant read the lock on the frame
+    it was let go and turned him to "slot -1". The tank keeps facing where
+    the target was."""
+    m = _fight_vm()
+    for f in range(40):
+        m.frame(spec.PAD_R)
+    yaw = _cell(m, "yaw")
+    for f in range(5):
+        m.frame(0)
+    assert _cell(m, "yaw") == yaw, f"released, he turned from {yaw} to {_cell(m, 'yaw')}"
+
+
+def test_the_shots_spark_is_on_the_demon_it_hit():
+    """On glass: a shot's spark stood at his hand. It is on the demon, on its
+    front, at the height the shot struck (targeting's low shot: the legs)."""
+    spark = _sym("spark")
+    for aim_low in (False, True):
+        m = _fight_vm()
+        for f in range(40):
+            m.frame(spec.PAD_R | (spec.PAD_DOWN if aim_low and f == 20 else 0))
+        tgt = _cell(m, "f_tgt")
+        for f in range(12):
+            m.frame(spec.PAD_R | (spec.PAD_B if f < 2 else 0))
+            if m.vm.dmem[spark + 3]:
+                break
+        assert m.vm.dmem[spark + 3], "no spark"
+        w = _wave(m)[tgt - 1]
+        sx, sy, sz = (_s32(m.vm.dmem[spark + k]) / 65536 for k in range(3))
+        assert ((sx - w["x"] / 65536) ** 2 + (sz - w["z"] / 65536) ** 2) ** 0.5 < 0.6, \
+            "the spark is not on the demon"
+        assert (0.4 < sy < 0.7) if aim_low else (1.0 < sy < 1.9), f"the spark at height {sy:.2f}"
