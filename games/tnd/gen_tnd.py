@@ -1441,8 +1441,14 @@ F = {k: cart.var("f_" + k) for k in
 # archive spins it. (f_sty 0 tank, 1 parkour, 2 boxing; the targeted modes
 # -- prowler, fencing, meteor, the dodges -- come with the lock.)
 PACE = 0.6
-PK_TOP, PK_SEED = int(0.13 * ONE), int(0.13 * 0.35 * ONE)
-PK_GROWTH, PK_FR, PK_GRIP = int(0.09 * ONE), int(0.84 * ONE), int(0.34 * ONE)
+# P16: THE RUN GETS THERE. The ramp is not the logistic alone: the speed is
+# scrubbed toward the velocity each frame (below), which follows it at the
+# grip's 0.34, and together seed 0.35 / growth 0.09 took 79 frames to nine
+# tenths of top. On the tape the median run was 17 frames long and not one
+# frame of 874 was run at nine tenths. Seed 0.55 / growth 0.30 gets there
+# in about 19. The top, the grip and the scrub are unchanged.
+PK_TOP, PK_SEED = int(0.13 * ONE), int(0.13 * 0.55 * ONE)
+PK_GROWTH, PK_FR, PK_GRIP = int(0.30 * ONE), int(0.84 * ONE), int(0.34 * ONE)
 PK_INVTOP = int(ONE / 0.13 * ONE) >> 16                 # (1 / top, Q16)
 PK_TURN = int(round(0.085 * PACE * 1024 / (2 * np.pi)))  # yaw units a frame
 CHAIN_GRACE, CHAIN_SPEED2 = 26, int(0.10 * 0.10 * ONE)
@@ -1666,8 +1672,19 @@ L = {k: p.label(k) for k in ("dead", "frozen", "free", "walk", "idle",
                              "hurt", "launch", "turnd", "pm", "ph")}
 p.load(F["dead"]).emit(f"jz {L['dead']}_no", f"jmp {L['dead']}")
 p.mark(f"{L['dead']}_no")
+# P16: THE FREEZE STILL LISTENS. A landed blow stops the world for its
+# hitstop, and until now it stopped the buttons too: on the first tape of
+# real play (docs/TND-PORT.md, P16) a third of every press began inside a
+# freeze -- 39 of 116 on the haymaker's own button -- and was simply lost.
+# The grammar below is a subroutine now, run in the freeze as well: a press
+# in the stop is buffered and thrown the moment the body is free (the
+# buffer does not age while frozen). The jump is the one press that is not
+# buffered -- it fires on its first held frame -- so its count is held at
+# zero through the freeze and that frame comes when the world moves again.
+GEST = p.label("gest")
 p.load(F["stop"]).emit(f"jz {L['frozen']}_no")
-p.addi(F["stop"], -1).emit(f"jmp {L['frozen']}")
+p.addi(F["stop"], -1).emit(f"call {GEST}")
+p.set(GT["jump"], 0).emit(f"jmp {L['frozen']}")
 p.mark(f"{L['frozen']}_no")
 
 # ---- THE GRAMMAR (combat.Grammar, combat.resolve) ----------------------------
@@ -1708,6 +1725,8 @@ p.addi(F["ltap"], 1)
 p.load(F["buf"]).emit(f"jz {L['nobuf']}")
 p.addi(F["buf"], -1)
 p.mark(L["nobuf"])
+p.emit(f"call {GEST}", f"jmp {GEST}_end")
+p.mark(GEST)
 for b, bit in BTN:
     up, done = p.label("g_up"), p.label("g_d")
     if b in GTAP:
@@ -1782,6 +1801,8 @@ p.load(F["alt"]).push(1).emit("xor").store(F["alt"])
 choose(mv_cell_ops=(f"load {int(F['alt'])}",))    # 0 jab, 1 cross
 p.mark(L["tapd"])
 p.mark(L["notap"])
+p.emit("ret")
+p.mark(f"{GEST}_end")
 # THE JUMP: X's press, at once -- unless A is down (carve+jump launches)
 jp = p.label("jump")
 p.load(GT["jump"]).push(1).emit("eq", f"jz {jp}")
@@ -2593,6 +2614,7 @@ p.mark(nf_)
 # would keep closing while a small positive one stalled at 0 -- the camera
 # parked up to 2.8 degrees off on one side only. Inside 8 units it snaps.
 snap_l = p.label("snap")
+CAM_TURN = 36                   # units of 1024 a frame: 12.7 degrees
 T = cart.var("cam_d")
 # P12: the follow's yaw is his -- or, boxing, the latched cross; or, locked,
 # the bearing to the target (tear.py _action_cam's base_yaw)
@@ -2608,6 +2630,16 @@ p.mark(by_)
 p.load(W["oy"]).load(CY).emit("sub").push(512).emit("add")
 p.push(1023).emit("and").push(512).emit("sub").store(T)   # d in -512..511
 p.load(T).emit("shr 3", "dup", f"jz {snap_l}")
+# P16: ...and no faster than CAM_TURN a frame. An eighth of a half turn is
+# 22 degrees in one frame, and a new lock asks for exactly that: the tape
+# has a swing past 3 degrees a frame every 3.5 seconds.
+for lim, cmp_ in ((CAM_TURN, ("dup", f"push {CAM_TURN}", "lt")),
+                  (-CAM_TURN, (f"push {-CAM_TURN}", "over", "lt"))):
+    ok_ = p.label("camcap")
+    p.emit(*cmp_, f"jz {ok_}_c", f"jmp {ok_}")
+    p.mark(f"{ok_}_c")
+    p.emit("drop").push(lim)
+    p.mark(ok_)
 p.load(CY).emit("add").push(1023).emit("and").store(CY)
 p.emit(f"jmp {snap_l}_d")
 p.mark(snap_l)
@@ -2881,11 +2913,15 @@ p.store(VPC)
 # without atan2: the side you are on is the sign of facing x offset, and
 # the cone is cross^2 < tan^2(0.46) dot^2, dot > 0.
 DTURN = int(round(0.034 * 1024 / (2 * np.pi) * 256))  # heading is yaw << 8
-DWALK = int(0.020 * ONE)       # slower than his 0.032: distance is yours
+DWALK = int(0.028 * ONE)       # P16: was 0.020. Still slower than his 0.032, so
+                               # distance is still his to make -- but a ring
+                               # 7.8 out is under four seconds away, not five
 DREACH2 = int(1.5 ** 2 * ONE)  # closer than 1.5 they stop and square up
 DCONE = int(np.tan(0.46) ** 2 * ONE)
 CONE_OUT = int(np.tan(0.60) ** 2 * ONE)            # tear.py ENEMY_CONE_EXIT
-DREST = 74
+DREST = 54                     # P16: was 74. Squared up and in reach, it
+                               # swings in under a second; the last 24 frames
+                               # of the wait are TOLD (L_TELE, amber)
 DTEMP = {k: cart.var("dt_" + k) for k in
          ("ty", "fx", "fz", "dx", "dz", "cr", "dot", "s", "c")}
 
@@ -2898,15 +2934,33 @@ for d in range(3):
     p.emit(f"call {L_DMIND}")
     p.push(int(CUR)).store(CP["src"]).push(int(DS) + d * NF).store(CP["dst"])
     p.push(NF).store(CP["n"]).emit(f"call {L_COPY}")
-# all three gone: the next wave stands round the crossing (tear.py)
+# P16: THE FIGHT DOES NOT STOP. The wave came back only when all three
+# were gone, so every wave ended on the same two seconds of nothing -- 18%
+# of the tape's fight had no demon alive, and every rank the player lost
+# was lost to idle decay in that wait. A demon that is gone is replaced
+# at once, alone, at its own place on the ring (one slot a frame: the
+# mover carries one request; the lowest gone slot first). All three gone
+# together -- the retry, the quit -- still come back together, in the one
+# request, as they always did. f_wave counts arrivals: a ring, or a demon.
 nw = p.label("nowave")
-for d in range(3):
-    p.load(dslot(d, "st")).push(4).emit("eq")
-p.emit("and", "and", f"jz {nw}")
 p.load(spec.OVL_GO).emit(f"jz {nw}_go", f"jmp {nw}")   # (not on a frame that pages a scene
 p.mark(f"{nw}_go")                                      # in: its handshake has the mover)
-p.set(spec.DMA_SRC, int(SPAWN)).set(spec.DMA_DST, int(DS))
-p.set(spec.DMA_LEN, 3 * NF).set(spec.DMA_GO, 1)
+for d in range(3):
+    p.load(dslot(d, "st")).push(4).emit("eq")
+p.emit("and", "and", f"jz {nw}_one")
+p.set(spec.DMA_SRC, int(SPAWN)).set(spec.DMA_DST, int(DS)).set(spec.DMA_LEN, 3 * NF)
+p.emit(f"jmp {nw}_all")
+p.mark(f"{nw}_one")
+for d in range(3):
+    p.load(dslot(d, "st")).push(4).emit("eq", f"jz {nw}_{d}")
+    p.set(spec.DMA_SRC, int(SPAWN) + d * NF).set(spec.DMA_DST, int(DS) + d * NF)
+    p.emit(f"jmp {nw}_send")
+    p.mark(f"{nw}_{d}")
+p.emit(f"jmp {nw}")
+p.mark(f"{nw}_send")
+p.set(spec.DMA_LEN, NF)
+p.mark(f"{nw}_all")
+p.set(spec.DMA_GO, 1)
 p.addi(F["wave"], 1)
 p.mark(nw)
 
@@ -4190,7 +4244,21 @@ landed(PMT, F["mv"], False)
 p.load(cur("hp")).load(W["dmg"]).emit("sub").store(cur("hp"))
 p.load(W["stop"]).emit("dup", "dup").store(cur("stop")).store(F["stop"])
 p.store(F["shake"])
+# P16: THE GUN IS A CHIP, NOT A LEASH. Every blow stunned for its stop + 12
+# and broke a swing, the plain shot included -- and locked, the shot lands
+# at any range, eighteen frames apart. On the tape no demon ever swung: the
+# longest any stood ready was 20 of the 74 frames a swing needs. So the
+# plain shot on a body with its feet down takes its damage, its flinch
+# (the four frames of stop) and its style, and nothing else: it walks on
+# through the fire and its swing still comes. A body ALOFT is juggled by
+# shots as before, and the charged shot still stops anything.
+gch = p.label("gunchip")
+p.load(F["mv"]).push(MOVE["gun"]).emit("eq", f"jz {gch}_s")
+p.load(cur("py")).emit(f"jz {gch}")
+p.mark(f"{gch}_s")
 p.load(W["stop"]).push(12).emit("add").store(cur("hs"))
+p.set(ST, 2).set(MF, 0)                         # a hit stops a swing
+p.mark(gch)
 p.set(F["con"], 1).set(F["act"], 0).set(F["fight"], 1)
 sound_blow(W["head"])
 # STYLE: the blow pays its move's style x its variety x the combo
@@ -4217,7 +4285,6 @@ p.addi(SY["rp"], 1)
 p.load(SY["rp"]).push(5).emit("eq", f"jz {cm}_r")
 p.set(SY["rp"], 0)
 p.mark(f"{cm}_r")
-p.set(ST, 2).set(MF, 0)                         # a hit stops a swing
 # THE LAUNCHER sends it up, helpless the whole arc; any OTHER blow on a
 # body already aloft floors its rise to a nudge and refreshes its stun
 # (tear.py AIR_HIT_FLOAT / AIR_HIT_HANG) -- so a string keeps it there
@@ -4359,7 +4426,11 @@ p.load(t["dz"]).load(t["dz"]).emit("mulq", "add")
 p.push(DREACH2).emit("swap", "lt", f"jz {lab['near']}")
 p.load(t["fx"]).push(DWALK).emit("mulq").load(X).emit("add").store(X)
 p.load(t["fz"]).push(DWALK).emit("mulq").load(Z).emit("add").store(Z)
-p.set(MOV, 1).set(AI, 0)
+p.set(MOV, 1)                    # P16: ...and its wait is KEPT while it steps.
+# (It was zeroed here. A fighter who keeps moving -- every blow of his
+# lunges him forward -- made the ring step after him each time, and each
+# step started the wait again: scripted, two demons stood beside a string
+# for 760 frames and never swung. Off its nose still clears it, below.)
 p.emit(f"jmp {lab['clip']}")
 p.mark(lab["near"])
 p.load(F["dead"]).emit(f"jz {lab['nocone']}_l")      # nobody hits a corpse
@@ -4733,6 +4804,13 @@ p.emit("ret")
 # in the recovery, whatever it was. (w_k and w_s: free once he is drawn.)
 tl_ = p.label("tele")
 p.mark(L_TELE)
+# P16: ...and BEFORE it starts. A cross is five frames from its first to
+# its fist -- nobody dodges on that. The demon's wait is the tell: its last
+# 24 frames squared up and in reach show amber, and then the swing's own
+# frames go amber and red as before.
+p.push(DREST - 25).load(W["k"]).push(DF["ai"]).emit("add", "loadi", "lt", f"jz {tl_}_w")
+p.set(FK["aw"], 3)
+p.mark(f"{tl_}_w")
 p.load(W["k"]).push(DF["st"]).emit("add", "loadi").push(1).emit("eq", f"jz {tl_}")
 p.load(W["k"]).push(DF["mt"]).emit("add", "loadi")
 p.load(W["k"]).push(DF["mv"]).emit("add", "loadi").push(NMR).emit("mul", "add").store(W["s"])
@@ -4828,7 +4906,8 @@ for k, v in (("INTRO_PROG", INTRO_PROG), ("MAIN_PROG", MAIN_PROG), ("INTRO_LEN",
              ("PAUSE_PROG", PAUSE_PROG),
              ("BORROW_FRONT", FRONT_LO), ("BORROW_FRONT_N", B_FRONT),
              ("BORROW_END", END_LO), ("BORROW_END_N", B_END),
-             ("POSE_WALK", base["walk"]), ("POSE_LAND", base["land"])):
+             ("POSE_WALK", base["walk"]), ("POSE_LAND", base["land"]),
+             ("DREST", DREST), ("PK_TOP", PK_TOP), ("CAM_TURN", CAM_TURN)):
     cart.const(k, int(v))                       # (for the gates: tests/test_tnd.py)
 out = cart.write(OUT)
 print(cart.report())

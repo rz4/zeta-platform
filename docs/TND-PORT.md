@@ -571,3 +571,53 @@ integer and its animation is baked. So the port is a TRANSLATION held
 to the Zeta's gates, not an emulation held to the archive's numbers. The
 archive's GOZL reference traces (tick-exact jab and exchange) are worth
 keeping as design checks for P4, not as bit-exact goldens.
+
+## P16: what the first tape of real play asked for (2026-11-20; not yet on glass)
+
+The recorder's first tape (docs/ZETA0-FRONTIER.md, 18) was replayed with
+the game's own cells logged every frame. 181 seconds of fighting, 15
+waves, 44 kills.
+
+**What it showed**
+
+| | |
+|---|---|
+| hits taken | 0 (health never left 140) |
+| demon swings started | **0**: the longest any demon stood ready was 20 of the 74 frames a swing needed |
+| moves thrown | 356: gun 237, haymaker 39, every other fist 80 |
+| killing blows | haymaker 35 of 44 |
+| first hit after a wave spawned | a median 0.2 s, from a median 5.2 units |
+| time with no demon alive | 33 s (18%); every one of 9 rank drops was idle decay |
+| time frozen in hitstop | 48.5 s (27%); a third of all presses began in a freeze |
+| the walk | 0.5% of the fight; 43 runs, median 17 frames, never at nine tenths of top speed |
+| facing changed | on 2% of frames; Left and Right were pressed 10 times |
+| camera | a swing past 3 degrees a frame every 3.5 s, the largest 22 degrees in one frame |
+| unused | boxing 4%, dodge 0, quick turn 0, meteor 0, launchers 3, charged shots 2 |
+
+The telegraphs P15 added were never seen, because nothing ever swung.
+
+**What changed**
+
+| | was | is | why |
+|---|---|---|---|
+| The plain shot on a standing demon | stun (stop + 12) and breaks a swing | its damage, a four-frame flinch, its style | locked, it lands at any range every 18 frames: a leash |
+| A demon's wait before it swings | 74 frames, restarted by every step | 54 frames, kept while it steps | scripted, two demons stood beside a string for 760 frames |
+| The tell | amber for the swing's startup (5 frames for a cross) | amber for the last 24 frames of the wait as well | nobody dodges on five frames |
+| A demon's walk | 0.020 a frame | 0.028 (his is 0.032) | the ring is under four seconds away |
+| A fallen demon | the wave returns when all three are gone | replaced alone, at once, at its own place | no two seconds of nothing; no decay in a wait the game made |
+| Buttons during hitstop | not read | read and buffered (the jump aside) | 100 of 303 gun presses, 36 of 108 string presses |
+| The run | 79 frames to nine tenths of top speed | about 19 | a run lasts 17 frames |
+| The camera's turn | an eighth of the arc a frame (up to 22 degrees) | the same, capped at 12.7 degrees a frame | a new lock whipped it |
+
+- The charged shot still stops a demon, and a demon aloft is still
+  juggled by plain shots.
+- The retry and the quit bring the whole ring back in one request, as
+  before; `f_wave` counts arrivals now (a ring, or a demon).
+- 64 program words (7,895 to 7,959 of 8,192); no new cells.
+- **Not changed, on purpose, until a tape of this build exists:** the
+  haymaker (46 of a demon's 70 health, the longest reach, the most
+  style), the absence of any escalation, health that never returns, the
+  instant snap of his facing when he plants on a lock.
+
+**Standing still costs more:** untouched, the first blow reaches him at
+frame 283 and he is down at 556 (nine seconds). It was 394 and 727.

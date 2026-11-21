@@ -16,6 +16,13 @@ from zeta import cabinet, spec  # noqa: E402
 CART = Path(__file__).parents[1] / "games/tnd/tnd.zol"
 
 
+# THE ROUTE most of these tests walk: stand while the wave closes in, turn
+# onto the brute as it squares up, then work the string. Its two times are
+# the wave's arrival, which is the demons' walk (P16: 0.028 a frame, here
+# by frame 225; it was 0.020 and 315).
+TURN0, STRING0 = 210, 230
+
+
 def _fight_vm():
     """TND opens on its title; Start on the first frame begins the fight,
     which runs from the next -- so a test's frame f is the fight's f."""
@@ -244,11 +251,16 @@ def test_his_blows_land():
     """Turned onto the brute as it squares up, he works the string and it
     falls -- damage, a stun, and down."""
     m = _fight_vm()
+    stunned = False
     for f in range(560):
-        m.frame((spec.PAD_LEFT if 300 <= f < 308 else 0)
-                | (spec.PAD_X if f >= 320 and f % 9 == 0 else 0))
-    w = _wave(m)[0]
+        m.frame((spec.PAD_LEFT if TURN0 <= f < TURN0 + 8 else 0)
+                | (spec.PAD_X if f >= STRING0 and f % 9 == 0 else 0))
+        w = _wave(m)[0]
+        stunned |= w["st"] == 2 and w["hs"] > 0
+        if w["st"] >= 3:                 # (P16: it is replaced once it is gone,
+            break                        # so this looks at the frame it falls)
     assert w["hp"] <= 0 and w["st"] >= 3, f"the brute stands: {w['hp']} hp, st {w['st']}"
+    assert stunned, "it fell without ever being stunned"
 
 
 def test_their_blows_land_and_he_goes_down():
@@ -314,8 +326,8 @@ def test_a_blow_is_heard():
     m = _fight_vm()
     base, levels = _sym("demons"), []
     for f in range(400):
-        m.frame((spec.PAD_LEFT if 300 <= f < 308 else 0)
-                | (spec.PAD_X if f >= 320 and f % 9 == 0 else 0))
+        m.frame((spec.PAD_LEFT if TURN0 <= f < TURN0 + 8 else 0)
+                | (spec.PAD_X if f >= STRING0 and f % 9 == 0 else 0))
         levels.append(blow_level(m))
         if m.vm.dmem[base + FIELDS.index("hp")] < 70:
             break
@@ -352,7 +364,7 @@ def test_the_uppercut_launches():
     m = _fight_vm()
     peak, landed = 0.0, False
     for f in range(480):
-        m.frame((spec.PAD_LEFT if 300 <= f < 308 else 0)
+        m.frame((spec.PAD_LEFT if TURN0 <= f < TURN0 + 8 else 0)
                 | ((spec.PAD_X | spec.PAD_A) if 322 <= f < 325 else 0))
         w = _wave(m)[0]
         peak = max(peak, w["py"] / 65536)
@@ -385,9 +397,10 @@ def test_style_climbs_with_variety_and_draws_its_rank():
     adds to it, and the brute's beating reaches C (60) -- drawn top right
     as composed display-list glyphs, in C's colour."""
     m = _fight_vm()
-    for f in range(483):
-        m.frame((spec.PAD_LEFT if 300 <= f < 308 else 0)
-                | (spec.PAD_X if f >= 320 and f % 9 == 0 else 0))
+    for f in range(STRING0 + 96):        # the string, then the haymaker: variety
+        m.frame((spec.PAD_LEFT if TURN0 <= f < TURN0 + 8 else 0)
+                | (spec.PAD_X if STRING0 <= f < STRING0 + 60 and f % 9 == 0 else 0)
+                | (spec.PAD_Y if STRING0 + 66 <= f < STRING0 + 70 else 0))
     assert _cell(m, "s_rank") == 1, f"rank {_cell(m, 's_rank')} after the beating"
     assert _cell(m, "s_combo") >= 5
     n = m.vm.dmem[spec.DL_BASE]
@@ -674,7 +687,7 @@ def test_the_small_sounds():
     assert heard and heard[0] == WHOOSH, "the jab's launch made no whoosh"
     m = _fight_vm()
     for f in range(345):
-        m.frame((spec.PAD_LEFT if 300 <= f < 308 else 0) | (spec.PAD_X if f == 322 else 0))
+        m.frame((spec.PAD_LEFT if TURN0 <= f < TURN0 + 8 else 0) | (spec.PAD_X if f == STRING0 + 2 else 0))
         if f > 322 and vol(m, 11) > 0:
             assert table(m) == WHOOSH, "a jab that landed whiffed"
     assert _wave(m)[0]["hp"] < 70, "fixture: the jab must land"
@@ -747,7 +760,7 @@ def test_the_air_combo_follows_strings_and_spikes():
     m = _fight_vm()
 
     def pad(f):
-        p = spec.PAD_LEFT if 300 <= f < 308 else 0
+        p = spec.PAD_LEFT if TURN0 <= f < TURN0 + 8 else 0
         if 322 <= f < 325:
             p |= spec.PAD_X | spec.PAD_A
         if 358 <= f < 366:
@@ -784,11 +797,15 @@ def test_parkour_runs_turns_wide_quick_turns_and_threads():
     m.frame(0)
     sp, paid = [], 0
     for f in range(150):
-        m.frame(L | U | (spec.PAD_LEFT if 60 <= f < 80 else 0))   # through the wave
+        m.frame(L | U | (spec.PAD_LEFT if 40 <= f < 60 else 0))   # through the wave
+        # (P16: the turn is twenty frames earlier -- he is at speed sooner)
         sp.append(_s32(_cell(m, "f_spd")) / 65536)
         paid = max(paid, _cell(m, "s_pts"))
     assert _cell(m, "f_sty") == 1, "L+Up did not enter parkour"
-    assert sp[5] < 0.06 and 0.12 < sp[-1] <= 0.13, f"the ramp: {sp[5]:.3f} .. {sp[-1]:.3f}"
+    # (P16: the ramp is quicker -- 0.078 by the sixth frame where it was under
+    # 0.06 -- and still a ramp: he does not START at speed)
+    assert sp[0] < 0.06 < sp[5] < 0.10 and 0.12 < sp[-1] <= 0.13, \
+        f"the ramp: {sp[0]:.3f}, {sp[5]:.3f} .. {sp[-1]:.3f}"
     assert paid > 0, "threading the wave paid nothing"
     y0, c0 = _cell(m, "yaw"), _cell(m, "f_chain")
     m.frame(L | D)
@@ -925,7 +942,7 @@ def test_the_operator_takes_its_shots():
     m = _fight_vm()
     ys, hal = [], 0
     for f in range(460):
-        p = spec.PAD_LEFT if 300 <= f < 308 else 0
+        p = spec.PAD_LEFT if TURN0 <= f < TURN0 + 8 else 0
         if 322 <= f < 325:
             p |= spec.PAD_A | spec.PAD_X
         if 358 <= f < 366:
@@ -937,7 +954,7 @@ def test_the_operator_takes_its_shots():
     assert max(ys) > 4, "the juggle shot did not rise with the body"
     m = _fight_vm()
     for f in range(400):
-        m.frame((spec.PAD_LEFT if 300 <= f < 308 else 0)
+        m.frame((spec.PAD_LEFT if TURN0 <= f < TURN0 + 8 else 0)
                 | (spec.PAD_Y if 330 <= f < 338 else 0))
         hal = max(hal, _cell(m, "cam_hal"))
     assert hal > 16, "the haymaker's connect took no align shot"
@@ -1095,8 +1112,8 @@ def test_the_huds_promise_is_kept():
     m = _fight_vm()
     worst = 0
     for f in range(483):
-        m.frame((spec.PAD_LEFT if 300 <= f < 308 else 0)
-                | (spec.PAD_X if f >= 320 and f % 9 == 0 else 0))
+        m.frame((spec.PAD_LEFT if TURN0 <= f < TURN0 + 8 else 0)
+                | (spec.PAD_X if f >= STRING0 and f % 9 == 0 else 0))
         worst = max(worst, m.vm.dmem[spec.DL_BASE])
     assert worst > 0, "the route never drew the HUD"
     m.vm.dmem[_sym("s_pts")] = 16 * 5000
@@ -1123,9 +1140,12 @@ def _marker_flags(m):
 
 def test_a_swing_is_told_amber_then_red():
     """tear.py's _WINDUP and _DANGER: the marker over a demon is amber
-    through its swing's startup and red while the fist is live. Untouched,
-    the wave walks in and swings; both tints must be seen, the amber first,
-    and only while some demon is in those frames of a swing."""
+    through its swing's startup and red while the fist is live -- and
+    (P16) amber through the last 24 frames of its WAIT, because a cross is
+    five frames from its first to its fist and nobody dodges on that.
+    Untouched, the wave walks in and swings; both tints must be seen, the
+    amber at least 20 frames before the first swing starts, and only while
+    some demon is in those frames of a swing or of its wait."""
     amber = (31 << 27) | (19 << 22) | (9 << 17)
     red = (31 << 27) | (10 << 22) | (10 << 17)
     tint = lambda w: w & 0xFFFE0000
@@ -1133,15 +1153,20 @@ def test_a_swing_is_told_amber_then_red():
     first = {}
     for f in range(700):
         m.frame(0)
-        swinging = [w for w in _wave(m) if w["st"] == 1]
+        swinging = [w for w in _wave(m) if w["st"] == 1
+                    or (w["st"] == 0 and w["ai"] > _const("DREST") - 25)]
+        if any(w["st"] == 1 for w in _wave(m)):
+            first.setdefault("swing", f)
         for w in _marker_flags(m):
             if w & spec.OBJ_OTINT:
-                assert swinging, f"frame {f}: a tinted marker and nobody swinging"
+                assert swinging, f"frame {f}: a tinted marker and nobody about to swing"
                 first.setdefault(tint(w), f)
         if _cell(m, "f_dead"):
             break
     assert amber in first and red in first, f"tints seen: {[hex(t) for t in first]}"
     assert first[amber] < first[red], "the red came before the amber"
+    assert first[amber] <= first["swing"] - 20, \
+        f"the swing at {first['swing']} was told only from {first[amber]}"
 
 
 def test_a_landing_is_felt_and_heard():
@@ -1331,8 +1356,8 @@ def test_a_blow_sparks_where_it_lands():
 
     m = _fight_vm()
     hp, seen = 70, []
-    for f in range(360):
-        m.frame((spec.PAD_LEFT if 300 <= f < 308 else 0) | (spec.PAD_X if f == 322 else 0))
+    for f in range(STRING0 + 40):        # (before the ring's own blows spark)
+        m.frame((spec.PAD_LEFT if TURN0 <= f < TURN0 + 8 else 0) | (spec.PAD_X if f == STRING0 + 2 else 0))
         s = sparks(m)
         if _wave(m)[0]["hp"] == hp:
             assert not s or seen, f"frame {f}: a spark with no blow landed"
@@ -1347,3 +1372,119 @@ def test_a_blow_sparks_where_it_lands():
     px, pz = _player(m)
     assert 0.5 < y < 2.0, f"the spark is at height {y:.2f}"
     assert ((x - px) ** 2 + (z - pz) ** 2) ** 0.5 < 2.5, "the spark is nowhere near the blow"
+
+
+# ---- P16: what the first tape of real play asked for (docs/TND-PORT.md) -----
+def _first(m, pads, want, frames=400):
+    """Run `pads(f)` until `want(m)` is true; -> that frame (None: never)."""
+    for f in range(frames):
+        m.frame(pads(f))
+        if want(m):
+            return f
+    return None
+
+
+def test_the_plain_shot_chips_a_standing_demon_and_does_not_stop_it():
+    """Locked, the shot lands at any range -- and it used to stun, eighteen
+    frames apart, so nothing ever reached him. A plain shot on a demon with
+    its feet down takes its health and leaves it walking; the CHARGED shot
+    still stops it."""
+    R, B = spec.PAD_R, spec.PAD_B
+    m = _fight_vm()
+    hit = _first(m, lambda f: R | (B if 10 <= f < 18 else 0),
+                 lambda m: any(w["hp"] < 70 for w in _wave(m)), 80)
+    assert hit is not None, "fixture: the locked shot must land"
+    w = [w for w in _wave(m) if w["hp"] < 70][0]
+    assert w["st"] == 0 and w["hs"] == 0, f"the plain shot stunned: st {w['st']}, hs {w['hs']}"
+    assert w["stop"] > 0, "not even a flinch"
+    x0 = w["x"], w["z"]
+    for _ in range(12):
+        m.frame(R)
+    w2 = [v for v in _wave(m) if v["hp"] < 70][0]
+    assert (w2["x"], w2["z"]) != x0 and w2["mov"] == 1, "it did not walk on through the shot"
+    # the charged shot: held past the charge, then let go
+    m = _fight_vm()
+    hit = _first(m, lambda f: R | (B if 10 <= f < 44 else 0),
+                 lambda m: any(w["hp"] < 70 for w in _wave(m)), 120)
+    assert hit is not None, "fixture: the charged shot must land"
+    w = [w for w in _wave(m) if w["hp"] < 70][0]
+    assert w["st"] == 2 and w["hs"] > 0, "the charged shot no longer stops a demon"
+
+
+def test_a_press_inside_the_freeze_is_thrown_when_it_ends():
+    """A landed blow freezes the world for its hitstop, and it used to
+    freeze the buttons with it: a third of the tape's presses began in a
+    freeze and were lost. A tap wholly inside a jab's five frozen frames
+    is buffered, and cancels the jab's recovery into the haymaker the
+    moment the world moves. (A press in the haymaker's OWN freeze still
+    goes nowhere: nothing cancels the haymaker, and the buffer is ten
+    frames against its thirty of recovery.)"""
+    m = _fight_vm()
+    pads = lambda f: (spec.PAD_LEFT if TURN0 <= f < TURN0 + 8 else 0) \
+        | (spec.PAD_X if f == STRING0 + 2 else 0)
+    at = _first(m, pads, lambda m: _cell(m, "f_stop") > 0 and _cell(m, "f_con") == 1, 320)
+    assert at is not None and _cell(m, "f_mv") in (0, 1), "fixture: the first tap must land"
+    assert _cell(m, "f_stop") >= 4
+    for k in range(3):                               # the tap: down for two frames
+        assert _cell(m, "f_stop") > 0, "fixture: the tap left the freeze"
+        m.frame(spec.PAD_Y if k < 2 else 0)          # and up, all inside the stop
+    thrown = _first(m, lambda f: 0,
+                    lambda m: _cell(m, "anim") == 2 and _cell(m, "f_mv") == 4, 30)
+    assert thrown is not None, "the tap in the freeze was lost"
+
+
+def test_a_fallen_demon_is_replaced_alone():
+    """The wave used to return only when all three were gone: two seconds
+    of nothing after every wave, 18% of the tape's fight. One that falls
+    lies its beat, and on the frame it would be gone it stands at its own
+    place on the ring again -- while the other two never leave."""
+    m = _fight_vm()
+    m.frame(0)
+    born = _wave(m)[1]
+    base, n = _sym("demons"), len(FIELDS)
+    m.vm.dmem[base + 1 * n + FIELDS.index("st")] = 3          # the middle one falls
+    back = None
+    for f in range(200):
+        m.frame(0)
+        w = _wave(m)
+        assert w[0]["st"] < 3 and w[2]["st"] < 3, "another demon left with it"
+        if w[1]["st"] == 0:
+            back = f
+            break
+        assert w[1]["st"] in (3, 4) and _cell(m, "f_wave") == 0
+    assert back is not None and 100 < back < 125, f"back at {back}"
+    assert w[1]["hp"] == 70 and abs(w[1]["x"] - born["x"]) < 65536 * 0.2
+    assert _cell(m, "f_wave") == 1
+
+
+def test_the_run_reaches_its_speed_inside_a_short_run():
+    """On the tape the median run was 17 frames and not one of 874 running
+    frames was at nine tenths of top speed: the ramp took 79. It takes
+    about 19 now, and the top itself has not moved."""
+    m = _fight_vm()
+    L, U = spec.PAD_L, spec.PAD_UP
+    top = _const("PK_TOP")
+    at = _first(m, lambda f: L | U, lambda m: _cell(m, "f_spd") >= 0.9 * top, 60)
+    assert at is not None and at <= 22, f"nine tenths of top at frame {at}"
+    for _ in range(40):
+        m.frame(L | U)
+    assert top == int(0.13 * 65536) and 0.99 * top < _cell(m, "f_spd") <= top
+
+
+def test_the_camera_turns_and_does_not_whip():
+    """A new lock used to swing the camera an eighth of the arc in one
+    frame -- 22 degrees for a target behind him. It turns no faster than
+    CAM_TURN a frame, and still gets there."""
+    m = _fight_vm()
+    cap, seen, total = _const("CAM_TURN"), [], 0
+    prev = _cell(m, "cam_yaw")
+    for f in range(150):                 # turn his back on the ring, then lock
+        m.frame(spec.PAD_LEFT if f < 42 else spec.PAD_R if f >= 60 else 0)
+        cy = _cell(m, "cam_yaw")
+        d = ((cy - prev + 512) & 1023) - 512
+        seen.append(abs(d))
+        total += abs(d)
+        prev = cy
+    assert max(seen) <= cap, f"the camera turned {max(seen)} in one frame"
+    assert max(seen) == cap and total > 3 * cap, "fixture: the lock must ask for a long turn"
+    assert seen[-1] == 0, "the camera never settled on the target"
