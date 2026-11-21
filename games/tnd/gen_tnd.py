@@ -268,9 +268,14 @@ _pend += [0]
 _pend += [0] * (B_END - len(_pend))
 END_PAUSE = cart.cram(Table(_pend), "pause_end")
 # the images filled once everything is placed (the end of this file)
-INTRO_PROG = cart.cram(Table([0] * spec.OVL_MAX), "intro_prog")
-PAUSE_PROG = cart.cram(Table([0] * spec.OVL_MAX), "pause_prog")
-MAIN_PROG = cart.cram(Table([0] * spec.OVL_MAX), "main_prog")
+# A PROGRAM'S PAGE: the game, the intro and the pause each fit 8,192 words,
+# and an overlay copies exactly that much. (It was spec.OVL_MAX, which is
+# the whole of IMEM -- and IMEM grows to 32,768 words in the SRAM, frontier
+# 19: four times the copy for nothing.)
+PAGE = 8192
+INTRO_PROG = cart.cram(Table([0] * PAGE), "intro_prog")
+PAUSE_PROG = cart.cram(Table([0] * PAGE), "pause_prog")
+MAIN_PROG = cart.cram(Table([0] * PAGE), "main_prog")
 END_MAIN = cart.cram(Table([0] * B_END), "main_end")
 FRONT_MAIN = cart.cram(Table([0] * B_FRONT), "main_front")
 
@@ -1683,7 +1688,7 @@ p.set(TT, 0)
 p.set(spec.DMA_SRC, int(END_INTRO)).set(spec.DMA_DST, END_LO)
 p.set(spec.DMA_LEN, B_END).set(spec.DMA_GO, 1)
 p.set(spec.OVL_SRC, int(INTRO_PROG)).set(spec.OVL_DST, 0)
-p.set(spec.OVL_LEN, spec.OVL_MAX).set(spec.OVL_GO, 1)
+p.set(spec.OVL_LEN, PAGE).set(spec.OVL_GO, 1)
 p.set(spec.BG_SRC, 0).set(spec.CO_BASE, 1)
 p.rect(0, 0, 0, spec.W - 1, spec.H - 1, 0x000000, 16)
 p.emit(f"jmp {L_MUSIC}")
@@ -1699,7 +1704,7 @@ p.mark(f"{pa_}_go")
 p.set(spec.DMA_SRC, int(END_PAUSE)).set(spec.DMA_DST, END_LO)
 p.set(spec.DMA_LEN, B_END).set(spec.DMA_GO, 1)
 p.set(spec.OVL_SRC, int(PAUSE_PROG)).set(spec.OVL_DST, 0)
-p.set(spec.OVL_LEN, spec.OVL_MAX).set(spec.OVL_GO, 1)
+p.set(spec.OVL_LEN, PAGE).set(spec.OVL_GO, 1)
 p.mark(pa_)
 p.load(PX).store(AR["ox"]).load(PZ).store(AR["oz"])     # where he stood
 L = {k: p.label(k) for k in ("dead", "frozen", "free", "walk", "idle",
@@ -3180,7 +3185,7 @@ ix = q.label("ix")
 q.load(I_X).emit(f"jz {ix}")
 black(q)
 mover(q, DMA1, int(END_MAIN), END_LO, B_END)
-mover(q, OVL, int(MAIN_PROG), 0, spec.OVL_MAX)
+mover(q, OVL, int(MAIN_PROG), 0, PAGE)
 q.set(spec.CAM_Y, int(2.15 * ONE)).set(spec.CAM_PITCH, 20).set(spec.CAM_ROLL, 0)
 q.load(YAW).store(CY)
 q.emit(f"jmp {L_MUSIC}")
@@ -3281,7 +3286,7 @@ for b, _ in BTN:                                 # resuming: every button spent
 pz.set(spec.DMA_SRC, int(END_MAIN)).set(spec.DMA_DST, END_LO)
 pz.set(spec.DMA_LEN, B_END).set(spec.DMA_GO, 1)
 pz.set(spec.OVL_SRC, int(MAIN_PROG)).set(spec.OVL_DST, 0)
-pz.set(spec.OVL_LEN, spec.OVL_MAX).set(spec.OVL_GO, 1)
+pz.set(spec.OVL_LEN, PAGE).set(spec.OVL_GO, 1)
 pz.set(spec.DL_BASE, 0).emit(f"jmp {L_MUSIC}")
 pz.mark(f"{pc_}_dr")
 # the dim and the two words
@@ -5039,7 +5044,7 @@ def _imem(g):
         f.write("\n".join(g.lines()) + "\n")
     words = asm.assemble(f.name)["imem"]
     os.unlink(f.name)
-    assert len(words) <= spec.OVL_MAX, f"a program of {len(words)} words"
+    assert len(words) <= PAGE, f"a program of {len(words)} words"
     return words
 
 
@@ -5059,7 +5064,8 @@ for k, v in (("INTRO_PROG", INTRO_PROG), ("MAIN_PROG", MAIN_PROG), ("INTRO_LEN",
              ("BORROW_FRONT", FRONT_LO), ("BORROW_FRONT_N", B_FRONT),
              ("BORROW_END", END_LO), ("BORROW_END_N", B_END),
              ("POSE_WALK", base["walk"]), ("POSE_LAND", base["land"]),
-             ("DREST", DREST), ("PK_TOP", PK_TOP), ("CAM_TURN", CAM_TURN)):
+             ("DREST", DREST), ("PK_TOP", PK_TOP), ("CAM_TURN", CAM_TURN),
+             ("PAGE", PAGE)):
     cart.const(k, int(v))                       # (for the gates: tests/test_tnd.py)
 out = cart.write(OUT)
 print(cart.report())

@@ -571,7 +571,7 @@ def test_the_intro_plays_and_hands_back():
     cart = cabinet.load_cart(CART)
     m = cabinet.VirtualMachine(cart)
     boot = list(m.vm.dmem)
-    intro = _image(cart, _const("INTRO_PROG"), spec.OVL_MAX)
+    intro = _image(cart, _const("INTRO_PROG"), _const("PAGE"))
     m.frame(0)
     m.frame(0)
     assert list(m.vm.imem) == intro, "the title did not page in the intro"
@@ -1059,7 +1059,7 @@ def test_start_pauses_resumes_and_quits():
     put back and no button live (no stray jump or punch); Down then A
     QUITS to the title, the run reset, and the next fight a fresh wave."""
     cart = cabinet.load_cart(CART)
-    pause = _image(cart, _const("PAUSE_PROG"), spec.OVL_MAX)
+    pause = _image(cart, _const("PAUSE_PROG"), _const("PAGE"))
     m = cabinet.VirtualMachine(cart)
     m.frame(spec.PAD_START)
     boot = list(m.vm.dmem)

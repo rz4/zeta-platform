@@ -14,6 +14,7 @@
 .const DREST 54
 .const PK_TOP 8519
 .const CAM_TURN 36
+.const PAGE 8192
 
 ; boot state: the register cells
 .data 6 20
