@@ -927,6 +927,7 @@ DMN = ("cross", "lead_hook")
 MROW = ("start", "endact", "total", "dmg", "dmgh", "reach2", "stop",
         "knock", "lunge", "pose", "lift", "air", "cancels", "style", "fist")
 GRAV = 0.014                    # tear.py: the aerial system's own gravity
+JUGGLE_PEAK = 2.0               # P18: a launched body's feet top out at a flip's peak
 GRAVQ = int(round(GRAV * ONE))
 AIR_FLOAT = int(round(0.12 * ONE))   # tear.py AIR_HIT_FLOAT
 AIR_HANG = 26                        # tear.py AIR_HIT_HANG
@@ -941,6 +942,11 @@ def move_rows(rows, fists, pose_of=None, cancels=None):
         fist_words += [w for f in fists[k] for w in zq(f)]
         # a LAUNCHER keeps its target helpless the whole arc: up and down
         # is 2 lift / g frames, and a beat (tear.py _resolve_hits)
+        # P18: THE JUGGLE'S HEIGHT is his jump's. The archive's 0.45 threw a
+        # body seven units up, three times higher than any jump; a launcher
+        # now peaks at JUGGLE_PEAK, where a flip (2.0) meets it chest-high
+        if lift:
+            lift = (2 * GRAV * JUGGLE_PEAK) ** 0.5
         air = int(2 * lift / GRAV) + 6 if lift else 0
         out.append([int(su), int(su + ac), int(su + ac + rc), int(dmg),
                     int(dmg * 1.35), int(round(reach ** 2 * ONE)), int(stop),
@@ -1944,13 +1950,17 @@ p.emit(f"call {L_FOE}")                          # the jump-cancel: a body aloft
 p.load(F["foe"]).push(0).emit("lt", f"jz {jp}_c", f"jmp {jp}_p")
 p.mark(f"{jp}_c")
 p.set(F["acmb"], ACMB_F).set(F["pvy"], 0).set(F["uwin"], 0).set(F["py"], 1)
+p.set(ANIM, 0)                                   # P18: the follow CANCELS the launcher's
+                                                 # recovery -- a juggle at jump height is
+                                                 # over before the uppercut's 22 frames are
 p.emit(f"jmp {jp}")
 p.mark(f"{jp}_p")
 p.load(ANIM).push(2).emit("eq", f"jz {jp}_j", f"jmp {jp}")   # not mid-swing
 p.mark(f"{jp}_j")
 p.set(F["pvy"], JUMP_V0).set(F["py"], 1)
-p.load(F["sty"]).push(2).emit("eq", f"jz {jp}")   # P18: THE BOXER -- a direction with
-p.emit(f"jmp {jp}_f2")                            # the jump flips that way at once
+p.load(F["sty"]).emit(f"jz {jp}")                 # P18: THE BOXER and THE RUN -- a
+p.emit(f"jmp {jp}_f2")                            # direction with the jump flips that
+                                                  # way at once (targeting has no jump)
 # P10: THE FLIP -- a second A in the air, once a jump: forward from the run,
 # any of four ways from the boxing stance (the archive's one-axis rule)
 p.mark(f"{jp}_fl")
@@ -1958,25 +1968,25 @@ p.load(F["acmb"]).load(F["evf"]).emit("or").load(F["flipu"]).emit("or", f"jz {jp
 p.mark(f"{jp}_f1")
 p.load(ANIM).push(2).emit("eq", f"jz {jp}_f2", f"jmp {jp}")
 p.mark(f"{jp}_f2")
+# P18: ANY DIRECTION -- "the platformer feel: leap over crowds and land
+# where I want". The pad's eight ways (OCTANT), from the boxer's cross, or
+# in the run from the target -- Up flips OVER it. The shape is the last axis
+# held (a tuck forward, back, a cartwheel either side).
 fl_dir = W["qz"]
-p.set(fl_dir, -1)
-p.load(F["sty"]).push(1).emit("eq", f"jz {jp}_fb")
-held(spec.PAD_UP)                                   # the run: straight ahead only
-p.emit(f"jz {jp}")
-held(spec.PAD_LEFT | spec.PAD_RIGHT)
-p.emit(f"jz {jp}_f0", f"jmp {jp}")
-p.mark(f"{jp}_f0")
-p.set(fl_dir, 0).emit(f"jmp {jp}_go")
-p.mark(f"{jp}_fb")
-p.load(F["sty"]).push(2).emit("eq", f"jz {jp}")
-for bit, k in ((spec.PAD_UP, 0), (spec.PAD_DOWN, 1), (spec.PAD_LEFT, 2), (spec.PAD_RIGHT, 3)):
+held(15)
+p.emit(f"jz {jp}")                                # no direction: the plain jump
+p.load(YAW).store(W["oy"])
+p.load(F["sty"]).push(1).emit("eq", f"jz {jp}_fr")
+p.load(F["tgt"]).push(1).emit("sub").store(F["brg"]).emit(f"call {L_BRG}")
+p.load(F["brg"]).store(W["oy"])
+p.mark(f"{jp}_fr")
+p.set(fl_dir, 0)
+for bit, k in ((spec.PAD_DOWN, 1), (spec.PAD_LEFT, 2), (spec.PAD_RIGHT, 3)):
     nb = p.label("fd")
     held(bit)
     p.emit(f"jz {nb}")
-    p.load(fl_dir).push(0).emit("lt", f"jz {jp}")      # a second axis: no flip
     p.set(fl_dir, k)
     p.mark(nb)
-p.load(fl_dir).push(0).emit("lt", f"jz {jp}_go", f"jmp {jp}")
 p.mark(f"{jp}_go")
 p.load(fl_dir).store(F["evk"])
 for k, (spd_, n) in enumerate(FLIPS):                # the flip's speed and length
@@ -1984,15 +1994,9 @@ for k, (spd_, n) in enumerate(FLIPS):                # the flip's speed and leng
     p.load(fl_dir).push(k).emit("eq", f"jz {nk}")
     p.push(spd_).store(W["qy"]).set(F["evt"], n).set(F["evf"], n)
     p.mark(nk)
-# its direction: the stance's yaw (the run's facing, or the latch), turned
-# by the input -- forward 0, back 512, left +256, right -256
-p.push(0).store(W["qx"])
-for k, off in ((1, 512), (2, 256), (3, -256)):
-    nk = p.label("fo")
-    p.load(fl_dir).push(k).emit("eq", f"jz {nk}")
-    p.push(off).store(W["qx"])
-    p.mark(nk)
-p.load(YAW).load(W["qx"]).emit("add").push(1023).emit("and").store(W["qx"])
+# its direction: the frame (the cross, or the target) turned by the pad
+p.push(int(OCTANT)).emit("load 1").push(15).emit("and", "add", "loadi")
+p.load(W["oy"]).emit("add").push(1023).emit("and").store(W["qx"])
 sin_of(p, cell=W["qx"])
 p.load(W["qy"]).emit("mulq").push(0).emit("swap", "sub", "dup").store(F["evx"]).store(F["vx"])
 sin_of(p, 256, cell=W["qx"])
@@ -2104,6 +2108,11 @@ p.mark(f"{stn}_l")
 p.emit("dup").load(F["sty"]).emit("eq", f"jz {stn}_ch")
 p.emit("drop", f"jmp {stn}")
 p.mark(f"{stn}_ch")                              # a new stance
+p.load(F["sty"]).push(1).emit("and", f"jz {stn}_nr")    # P18: out of a locked one
+p.emit("dup").push(1).emit("and", f"jz {stn}_r", f"jmp {stn}_nr")   # (1, 3) into a free
+p.mark(f"{stn}_r")                               # one (0, 2): he faces where the
+p.load(F["cgr"]).store(YAW)                      # target was -- the boxer's cross too
+p.mark(f"{stn}_nr")
 p.emit("dup").store(F["sty"])
 p.emit("dup").push(2).emit("eq", f"jz {stn}_nb")
 p.load(YAW).store(F["latch"])                    # the boxer: this cross, held
@@ -2615,7 +2624,7 @@ p.load(F["latch"]).store(W["oy"])
 p.mark(f"{by_}_t")
 p.load(F["tgt"]).emit(f"jz {by_}")
 p.load(F["tgt"]).push(1).emit("sub").store(F["brg"]).emit(f"call {L_BRG}")
-p.load(F["brg"]).store(W["oy"])
+p.load(F["brg"]).emit("dup").store(W["oy"]).store(F["cgr"])   # (f_cgr: its last bearing)
 p.mark(by_)
 # P18: THE THREAT IS IN THE FRAME. On glass: "getting hit from behind is
 # annoying -- if I'm about to be attacked the camera pans just enough to
@@ -4570,8 +4579,10 @@ row(cur("mt"), MV, "reach2", const_table=False)
 p.emit("lt", f"jz {lab['noC']}")
 p.load(F["hs"]).emit(f"jz {lab['noC']}_h", f"jmp {lab['noC']}")   # NOT WHILE HE REELS
 p.mark(f"{lab['noC']}_h")                         # (7 of 39 blows on the second tape)
-p.push(int(0.9 * ONE)).load(F["py"]).emit("lt", f"jz {lab['noC']}_y", f"jmp {lab['noC']}")
-p.mark(f"{lab['noC']}_y")                         # ...nor aloft (his keys are on the ground)
+p.push(int(0.3 * ONE)).load(F["py"]).emit("lt", f"jz {lab['noC']}_y", f"jmp {lab['noC']}")
+p.mark(f"{lab['noC']}_y")                         # ...nor aloft, past 0.3 (his keys are on
+                                                  # the ground; and a leap over a crowd
+                                                  # must not be swatted from it)
 cc_ = p.label("close")                            # A DODGE IS UNTOUCHABLE: the fist
 p.load(F["evf"]).emit(f"jz {cc_}")                # goes through him, spent, and a
 p.set(cur("con"), 1)                              # close call pays

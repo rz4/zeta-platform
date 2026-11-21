@@ -397,9 +397,10 @@ def test_the_grammar_taps_on_release_and_holds_in_targeting():
 
 
 def test_the_uppercut_launches():
-    """A launcher sends its target up -- 0.45 a frame against the aerial
-    gravity of 0.014 is seven units -- helpless the whole arc, and down.
-    (P18: it ends the steady string, X X X X.)"""
+    """A launcher sends its target up -- P18: to the height of his flip
+    (2.0), where his jump meets it; the archive's seven units were out of
+    any jump's reach -- helpless the whole arc, and down. (It ends the
+    steady string, X X X X.)"""
     m = _fight_vm()
     assert _launch(m) is not None, "the string never launched it"
     peak, landed = 0.0, False
@@ -407,10 +408,10 @@ def test_the_uppercut_launches():
         m.frame(0)
         w = _wave(m)[0]
         peak = max(peak, w["py"] / 65536)
-        if peak > 5 and w["py"] == 0:
+        if peak > 1 and w["py"] == 0:
             landed = True
             break
-    assert peak > 6.5, f"the brute rose only {peak:.2f}"
+    assert 1.7 < peak < 2.2, f"the brute rose to {peak:.2f}"
     assert landed, "the brute never came down"
 
 
@@ -833,32 +834,39 @@ def test_a_is_the_dodge_the_way_the_pad_points():
 
 def test_the_air_combo_follows_strings_and_spikes():
     """The rear uppercut opens the jump-cancel; A then follows the body up
-    (P18: before it is a dodge), every air hit keeps it aloft and tops the
-    follow up, and the special from the air spikes it down."""
+    (P18: before it is a dodge, and it cuts the launcher's recovery), a
+    string lands on the body in the air, and the special from the air
+    spikes it down. (P18: the juggle is at jump height, so the string is
+    short and the special comes as soon as the string is done.)"""
     m = _fight_vm()
-    f0 = _launch(m)
-    assert f0 is not None
+    assert _launch(m) is not None
     hp_at = _sym("demons") + FIELDS.index("hp")
-    top, lowest_combo, spiked = 0.0, 1e9, False
-    for f in range(240):
+    top, spiked, air_hits, last_hp, y_at = 0.0, False, 0, None, None
+    for f in range(200):
+        w0 = _wave(m)[0]
         p = spec.PAD_A if f < 6 else 0
-        if 14 <= f < 56 and (f - 14) % 14 < 8:       # (three taps: the jab, the
-            p |= spec.PAD_X                           # cross, the lead hook)
-        if 100 <= f < 108:
+        if 12 <= f < 40 and (f - 12) % 12 < 6:        # (the jab, the cross, the hook)
+            p |= spec.PAD_X
+        if y_at is None and f >= 40 and _cell(m, "anim") != 2 and w0["py"] > 0:
+            y_at = f                                  # the string done: the special
+        if y_at is not None and f < y_at + 6:
             p |= spec.PAD_Y
-        if f == 80:
-            m.vm.dmem[hp_at] = 70            # (a body left to spike)
+        if f == 0:
+            m.vm.dmem[hp_at] = 70                     # (a body left to spike: the
+                                                      # string alone would kill it)
         m.frame(p)
+        w0 = _wave(m)[0]
         if f == 8:
             assert _cell(m, "f_acmb") > 0, "the jump-cancel did not follow"
-        if 20 <= f < 70:
-            top = max(top, _s32(_cell(m, "f_py")) / 65536)
-            lowest_combo = min(lowest_combo, _cell(m, "f_acmb"))
-        if _wave(m)[0]["vy"] <= -int(0.6 * 65536):
+        top = max(top, _s32(_cell(m, "f_py")) / 65536)
+        if last_hp is not None and w0["py"] > 0 and w0["hp"] < last_hp:
+            air_hits += 1
+        last_hp = w0["hp"]
+        if w0["vy"] <= -int(0.6 * 65536):
             spiked = True
-    assert top > 4, f"he rose only {top:.2f} with it"
-    assert lowest_combo > 0, "the follow lapsed mid-string"
-    assert spiked, "the aerial special did not spike it"
+    assert top > 1.2, f"he rose only {top:.2f} with it"
+    assert air_hits >= 1, "no blow landed on the body in the air"
+    assert spiked, f"the aerial special did not spike it (thrown at {y_at})"
     assert _s32(_cell(m, "f_py")) == 0, "he never came down"
 
 
@@ -1019,7 +1027,7 @@ def test_the_operator_takes_its_shots():
     for f in range(120):
         m.frame(spec.PAD_A if f < 6 else (spec.PAD_X if 14 <= f < 90 and (f - 14) % 14 < 8 else 0))
         ys.append(_s32(m.vm.dmem[spec.CAM_Y]) / 65536 - _s32(_cell(m, "f_py")) / 65536)
-    assert max(ys) > 4, "the juggle shot did not rise with the body"
+    assert max(ys) > 2.4, "the juggle shot did not rise with the body"
     m = _fight_vm()
     for f in range(400):
         m.frame((spec.PAD_LEFT if TURN0 <= f < TURN0 + 8 else 0)
@@ -1651,3 +1659,41 @@ def test_the_camera_turns_to_a_demon_about_to_strike():
         gaps.append(abs(((brg - cy + 512) % 1024) - 512))
     assert min(gaps) <= 128, f"no threat in view: gaps {gaps}"   # (45 degrees: on screen)
     assert abs(((cy - _cell(m, "yaw") + 512) % 1024) - 512) > 100, "the camera never left his back"
+
+
+def test_out_of_a_lock_he_faces_where_the_target_was():
+    """On glass: releasing targeting (or the run) into the boxer, he and the
+    camera face where the target was -- the boxer's cross is its bearing."""
+    for lock in (spec.PAD_R, RUN | spec.PAD_LEFT):
+        m = _fight_vm()
+        for f in range(30):
+            m.frame(lock)
+        brg = _cell(m, "f_cgr")
+        for f in range(30):
+            m.frame(BOX)
+        assert _cell(m, "f_sty") == 2
+        assert _cell(m, "yaw") == brg and _cell(m, "f_latch") == brg, "he did not face it"
+        assert abs(((_cell(m, "cam_yaw") - brg + 512) % 1024) - 512) <= 8, "the camera did not"
+
+
+def test_the_run_flips_any_way_and_over_the_target():
+    """On glass: "the jump flip should be possible no matter the direction --
+    leap over crowds and land where I want". In the run, A with any of the
+    eight ways flips that way from the target's frame -- Up flips over it,
+    clearing a head (1.9 up) and covering four units and more."""
+    for pad, kind in ((spec.PAD_UP, 0), (spec.PAD_DOWN | spec.PAD_LEFT, 2), (spec.PAD_RIGHT, 3)):
+        m = _fight_vm()
+        for f in range(20):
+            m.frame(spec.PAD_R)
+        for f in range(4):
+            m.frame(RUN)
+        p0, peak, kinds = _player(m), 0.0, set()
+        for f in range(60):
+            m.frame(RUN | ((spec.PAD_A | pad) if f < 2 else 0))
+            peak = max(peak, _s32(_cell(m, "f_py")) / 65536)
+            if _cell(m, "f_evf"):
+                kinds.add(_cell(m, "f_evk"))
+        (x, z) = _player(m)
+        assert kinds == {kind}, f"{pad}: the flip's shape {kinds}"
+        assert peak > 1.8 and ((x - p0[0]) ** 2 + (z - p0[1]) ** 2) ** 0.5 > 3.5, \
+            f"{pad}: peak {peak:.2f}"
