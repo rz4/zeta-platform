@@ -61,6 +61,9 @@ SONG = os.environ.get("TND_SONG") == "1"
 # cache 2,048, and the fight already lists 50 and projects 2,049. A local
 # build like TND_OMIT's, never a committed cart.
 STRESS = int(os.environ.get("TND_STRESS", "0"))
+# THE SWARM HOOK (P20b): TND_SWARM=1 starts the fight in the first plaza with
+# the whole swarm (district 4's eight) -- for metering. Local, never committed.
+SWARM_TEST = os.environ.get("TND_SWARM") == "1"
 SONG_CH = range(4, 11)          # the record's voices (the synth theme's, freed)
 SONG_VOL = 15                   # each voice's level at full bus (x bus / 256)
 OUT = Path(os.environ.get("TND_OUT", ROOT / "build" / "song" / "tnd.zol"
@@ -669,9 +672,12 @@ H_EDGE = 9.0                                 # every front at a tile's edge: so
 H_IN = (6.5, 8.0, 11.5, 13.5)                # the fronts between
 SHOP_H = 2.6                                 # a shop at the foot of every front
 WROWS = ((3.7, 4.6), (6.5, 7.4))             # the floors' windows
-TOWN = ((86, 48, 40), (104, 94, 82), (70, 68, 76), (58, 44, 36), (108, 86, 54))
-SHOPS = ((214, 160, 84), (30, 32, 40), (82, 78, 76), (30, 32, 40), (72, 48, 38))   # lit, glass, shutter, glass, door
-WIN_LIT, WIN_DARK = (190, 142, 74), (36, 36, 46)
+# P20b: DARK, as the crossroads was (the player: "i still like the asthetic
+# from the original, it should feel dark and demonic heavy fog") -- soot
+# and old brick, and the only light is ember
+TOWN = ((40, 26, 26), (48, 38, 36), (30, 26, 32), (54, 32, 26), (36, 30, 28))
+SHOPS = ((176, 58, 26), (16, 14, 18), (44, 40, 40), (16, 14, 18), (40, 24, 20))   # ember, glass, shutter, glass, door
+WIN_LIT, WIN_DARK = (196, 70, 30), (20, 18, 22)
 CLOSED, ARMS, OPEN = 0, 1, 2
 CSTEP = [CS, 1, -CS, -1]                     # N E S W, in node numbers
 
@@ -816,7 +822,7 @@ def piece_build(sides):
     return b
 
 
-CURB_C, LAMP_C = (128, 124, 122), (255, 206, 128)
+CURB_C, LAMP_C = (104, 100, 100), (255, 128, 52)
 SIDES = [node_sides(n) for n in range(CS * CS)]
 KINDS = sorted({canon(s)[0] for s in SIDES})
 PIECE_M = []
@@ -910,7 +916,10 @@ GATE_M = int(cart.data(_gb.mesh(), "gate"))
 # THE DISTRICTS' DUSK -- the opus, toward the core: black, white, yellow,
 # red (nigredo, albedo, citrinitas, rubedo). The fog takes the colour of
 # the district he stands in.
-_opus = [(0x40, 0x26, 0x48), (0x7A, 0x76, 0x82), (0x8C, 0x70, 0x26), (0x8E, 0x22, 0x1A)]
+_opus = [(0x4C, 0x1C, 0x2A), (0x6A, 0x24, 0x20), (0x76, 0x2E, 0x14), (0x8E, 0x16, 0x0C)]
+# (P20b: the opus kept, sunk into the crossroads' blood -- 0x6A2420 is the
+# second -- a haze a little LIGHTER than the soot walls, so it reads as
+# fog the street dissolves into, not as the dark)
 # (black is a bruise, not black: a black dusk sank every wall into the
 # sky -- measured on the first city frames, against the old 0x6A2420)
 
@@ -935,7 +944,7 @@ for k in range(8):                 # triangle a way, at the top of the screen
 _aw += [0] * spec.DL_STRIDE
 ARROWS = cart.data(Table(_aw), "arrows")
 CT_MAX = 12                     # pieces a frame, at most
-FOG_FROM, FOG_FULL = 8.0, 40.0   # P20: the haze (two nodes and a half)
+FOG_FROM, FOG_FULL = 2.0, 34.0   # P20b: a HEAVY haze, from his heels to two nodes on
 PIECE_CY, PIECE_R = 6.5, 13.5   # a piece's bounding sphere: centre height, radius
 PIECE_T = cart.data(Table(PIECE_M), "pieces")
 
@@ -973,7 +982,8 @@ def city_node(g, xcell, zcell):
 # 0.04, curbs, feet) must read nearer than the ground at the same pixel,
 # and a long face's interpolated depth over-reads -- so the ground is
 # lowered until it always loses, at a cost of under a sixteenth of fog.
-GROUND_Y = -0.2
+GROUND_Y = -0.6                  # (P20b: was -0.2; the near rings read true depth now)
+G_NEAR = 4.0
 
 
 def ground_mesh():
@@ -1011,11 +1021,14 @@ def ground_mesh():
         F.append((a, b, c, col))
     apex = v(0.0, 1.0)
     # the sides must clear the bottom screen corners (2.93 out, 1.98 wide)
-    w15 = (15 - 1.0) * 3.0 / (2.93 - 1.0)
-    l15, r15 = v(-w15, 15.0), v(w15, 15.0)
-    tri(apex, l15, r15)
-    rings = (15.0, 20.0, 27.0, 36.0, 60.0)   # past the end walls (47)
-    prev = (v(-half(15.0), 15.0), v(half(15.0), 15.0))
+    # (P20b: the haze starts at 2 now, so the near triangle stops at 4 and
+    # rings carry the fog's true depth from there -- one triangle to 15 drew
+    # a step in the fog where it met the rings)
+    w4 = (G_NEAR - 1.0) * 3.0 / (2.93 - 1.0)
+    l4, r4 = v(-w4, G_NEAR), v(w4, G_NEAR)
+    tri(apex, l4, r4)
+    rings = (G_NEAR, 7.0, 11.0, 15.0, 20.0, 27.0, 36.0, 60.0)   # past the fog (34)
+    prev = (l4, r4)
     for z in rings[1:]:
         cur = (v(-half(z), z), v(half(z), z))
         tri(prev[0], prev[1], cur[1])
@@ -1181,6 +1194,81 @@ CUR = cart.var("cur", NF)                        # the demon being thought
 SPN = cart.var("spn")                            # P19: demons sent, to place
 WOKE = cart.var("woke")                          # P19: the district's horde is up
 LEASH_FOG = int(FOG_FULL * ONE)                  # beyond this on an axis: unseen
+# ---- P20b: THE SWARM (the player: "the hordes should be overwhelming") ------
+# Three demons are all the object list holds (a demon is twelve objects of
+# 64). The horde around them is LESSER: one object each, a hunched charred
+# thing lurching out of the haze, as many as N_IMP, that rushes him, rings
+# him and claws -- and falls to any blow (a fist cleaves through all it
+# meets; a shot drops every one on its line). The fog hides how little
+# they are: the PS1's own trick. They come while a district is awake, more
+# the deeper the district, and drop where they stand when it is cleared.
+N_IMP = 8
+IMP_F = {k: i for i, k in enumerate(("x", "z", "ox", "oz", "st", "t", "yaw"))}
+IMPS = cart.var("imps", N_IMP * len(IMP_F))         # st 0 none, 1 up, 2 falling
+IACT = cart.var("imp_act")                           # his blow is live this frame
+IMP_BASE = cart.data(Table([8 if SWARM_TEST else 4]), "imp_base")   # the first district's
+                                                     # swarm (one more a district)
+IMP_SPD = int(0.072 * ONE)                           # a lurch: faster than his walk
+IMP_NEAR2 = int(0.95 ** 2 * ONE)                     # close enough: it stops
+IMP_CLAW2 = int(1.35 ** 2 * ONE)                     # in reach of its claws
+IMP_REACH2 = int(1.15 ** 2 * ONE)                    # in reach of his fist
+IMP_DMG, IMP_CD = 4, 46                              # a claw, and its wait
+IMP_FALL = 26                                        # frames it takes to go down
+IMP_RING = 1.1                                       # they ring him, not stack
+IMP_SPREAD = [int(round(a * 1024 / 360)) & 1023 for a in (-16, 16, -48, 48, -80, 80, -112, 112)]
+IMP_STYLE = 3                                        # a lesser kill's style
+IMP_LENS2 = int(2.5 ** 2 * ONE)                      # not drawn this near the lens
+IMP_SCALE = 0.75                                     # three quarters of his height
+IMP_HOME2 = int(10.0 ** 2 * ONE)                     # nearer than this, it goes for him
+
+
+def imp(i, k):
+    return int(IMPS) + i * len(IMP_F) + IMP_F[k]
+
+
+def imp_mesh():
+    """a lesser demon, hunched, horned, long-armed: archive space, facing +x"""
+    b = Build()
+    BODY, LIMB, HORN, EYE = (54, 18, 16), (34, 12, 12), (120, 96, 78), (255, 92, 30)
+
+    def beam(p0, p1, r0, r1, col):            # four sides between two squares
+        p0, p1 = np.array(p0, float), np.array(p1, float)
+        d = p1 - p0
+        u = np.cross(d, (0, 0, 1.0)) if abs(d[2]) < 0.9 * np.linalg.norm(d) else np.array((0, 1.0, 0))
+        u /= np.linalg.norm(u)
+        w = np.cross(u, d)
+        w /= np.linalg.norm(w)
+        ring = lambda c, r: [c + r * (a * u + bb * w) for a, bb in ((1, 1), (-1, 1), (-1, -1), (1, -1))]   # noqa: E731
+        A, B = ring(p0, r0), ring(p1, r1)
+        for k in range(4):
+            q = [A[k], A[(k + 1) % 4], B[(k + 1) % 4], B[k]]
+            n = (q[0] + q[1] + q[2] + q[3]) / 4 - (p0 + p1) / 2
+            b.quad(q, tuple(n), col)
+    for sy in (-1, 1):
+        beam((0.0, sy * 0.18, 0.0), (0.02, sy * 0.17, 0.62), 0.07, 0.10, LIMB)       # legs
+        beam((0.30, sy * 0.40, 1.18), (0.72, sy * 0.46, 0.32), 0.08, 0.05, LIMB)     # arms
+    # the torso, leaning in: a waist under broad shoulders thrown forward
+    lo = [(-0.18, -0.26, 0.60), (0.18, -0.26, 0.60), (0.18, 0.26, 0.60), (-0.18, 0.26, 0.60)]
+    hi = [(0.06, -0.40, 1.24), (0.46, -0.40, 1.24), (0.46, 0.40, 1.24), (0.06, 0.40, 1.24)]
+    for k in range(4):
+        q = [lo[k], lo[(k + 1) % 4], hi[(k + 1) % 4], hi[k]]
+        c = np.mean(np.array(q), 0) - np.array((0.13, 0, 0.92))
+        b.quad(q, tuple(c), BODY)
+    b.quad(hi, (0, 0, 1), BODY)
+    b.box(0.36, 0.66, -0.15, 0.15, 1.14, 1.44, BODY,
+          sides=((1, 0), (-1, 0), (0, 1), (0, -1)))                                # the head
+    for sy in (-1, 1):                                                              # its eyes
+        y0, y1 = sorted((sy * 0.04, sy * 0.11))
+        b.quad([(0.67, y0, 1.30), (0.67, y1, 1.30), (0.67, y1, 1.37), (0.67, y0, 1.37)],
+               (1, 0, 0), EYE)
+        for n in ((1, 0, 0), (-1, 0, 0)):                                          # horns,
+            b.quad([(0.50, sy * 0.08, 1.44), (0.58, sy * 0.14, 1.44),               # both
+                    (0.30, sy * 0.34, 1.86), (0.30, sy * 0.33, 1.86)], n, HORN)      # faces
+    b.v = [tuple(int(round(c * IMP_SCALE)) for c in v) for v in b.v]   # LESSER: smaller
+    return b.mesh()
+
+
+IMP_M = int(cart.data(imp_mesh(), "imp"))
 
 
 def dslot(d, f):
@@ -1233,8 +1321,8 @@ NOBJ = cart.var("nobj")
 cart.boot(spec.CAM_Y, int(2.15 * ONE))           # the archive's follow height
 cart.boot(spec.CAM_PITCH, 20)                    # ~0.12 rad DOWN: positive pitches down (the first cut had the sign backwards and put the horizon below centre)
 cart.boot(spec.FOG_RGB, 0x6A2420)             # the dusk the street dissolves into
-cart.boot(spec.FOG_NEAR, int(FOG_FROM * 512))   # P20: the town's haze is near:
-cart.boot(spec.FOG_SHIFT, 10)                   # from 8, full at 8 + 32 = 40 (the
+cart.boot(spec.FOG_NEAR, int(FOG_FROM * 512))   # P20b: the haze is HEAVY:
+cart.boot(spec.FOG_SHIFT, 10)                   # from 2, full at 2 + 32 = 34 (the
                                                 # crossroads' was 15 to 47)
 
 p = cart.program()
@@ -1852,7 +1940,11 @@ p.set(PX, START_X).set(PZ, START_Z).set(YAW, START_YAW).set(CY, START_YAW)
 p.set(WOKE, 0)
 for d in range(3):
     p.set(dslot(d, "st"), 4)
-p.set(GT["jump"], 100).set(GC["jump"], 1)     # the A that left the title is spent
+for i in range(N_IMP):
+    p.set(imp(i, "st"), 0)
+if SWARM_TEST:                                  # (the meter's hook: the fight in the
+    p.set(PX, int(3 * ONE)).set(PZ, int(3 * ONE))               # first plaza, the
+p.set(GT["jump"], 100).set(GC["jump"], 1)        # whole swarm up)     # the A that left the title is spent
 p.set(spec.DL_BASE, 0).set(int(S_SHOWN), 255)  # P14: the title's words go,
                                                # and the HUD draws afresh
 p.emit(f"jmp {L_MUSIC}")
@@ -2859,7 +2951,8 @@ RETRY_CELLS = ((PX, START_X), (PZ, START_Z), (YAW, START_YAW), (CY, START_YAW),
              (F["plc"], 0), (F["sec"], 0),
              (SY["n"], HORDE0), (SY["dx"], 0), (SY["dst"], 0),      # (the horde, anew)
              (SY["pts"], 0), (SY["combo"], 0), (SY["idle"], 0), (int(S_SHOWN), 255),
-             *((int(S_REC) + i, 255) for i in range(5)))
+             *((int(S_REC) + i, 255) for i in range(5)),
+             *((imp(i, "st"), 0) for i in range(N_IMP)))       # (P20b: no swarm)
 for c, v in RETRY_CELLS:
     p.set(c, v)
 for k in range(len(GATES)):                     # (P19: and every gate shut again)
@@ -2927,6 +3020,7 @@ for a, b in (("x", "fx"), ("y", "fy"), ("z", "fz")):
     p.load(W[a]).store(F[b])
 p.set(F["act"], 1)
 p.mark(nf_)
+p.load(F["act"]).store(IACT)                    # P20b: the swarm reads it after
 
 # ---- the camera: the archive's spring follow, in integers -------------------
 # CY eases an eighth of the shortest arc toward his yaw each frame. An
@@ -2937,7 +3031,14 @@ snap_l = p.label("snap")
 CAM_TURN = 36                   # units of 1024 a frame: 12.7 degrees
 THREAT_KEEP = 90                # P18: a threat is kept within 32 degrees of the line
 DREST = 54                      # a demon's wait, squared up, before it swings (P16)
-TOKENS = 2                      # demons that may be told or swinging at once
+# P20b: RELENTLESS, DEEPER IN (the player chose "the three attack together,
+# wait less, replace each other at once"). The first district keeps the
+# fight every mechanic was tuned on; from the second all three may attack
+# at once, and each district starts the wait REL_STEP frames in (to
+# REL_MAX: the 30-frame tell is never cut)
+REL_STEP, REL_MAX = 5, 20
+TOKENS = 2                      # demons that may be told or swinging at once (P20b:
+                                # all three past the first district, still on screen)
 # (HORDE0, HSTEP, CLEAR_FOR: with P18's first constants, the retry reads them)
 ONSCREEN_TAN2 = int(0.30 * ONE)  # on screen: within ~29 degrees of the lens's line
 T = cart.var("cam_d")
@@ -3379,6 +3480,137 @@ for d in range(3):
     p.mark(f"{ls}_off")
     p.load(SPN).push(1 << d).emit("or").store(SPN)
     p.mark(ls)
+# ---- P20b: THE SWARM, each frame (its constants with the demons' slots) -----
+L_ISP = [p.label(f"isp{k}") for k in range(4)]   # place one two streets on
+ICX, ICZ, IWK, IKILL = (cart.var(k) for k in ("imp_cx", "imp_cz", "imp_wake", "imp_kill"))
+ims = p.label("imps")
+p.set(IKILL, 0).set(IWK, 0)
+p.load(CT["n1"]).push(0).emit("lt", f"jz {ims}_on", f"jmp {ims}_end")   # (off the map)
+p.mark(f"{ims}_on")
+p.load(CT["n1"]).emit("shr 4", f"shl {TSH}").push32(int(OYA * ONE)).emit("swap", "sub").store(ICX)
+p.load(CT["n1"]).push(CS - 1).emit("and", f"shl {TSH}").push32(int(OXA * ONE))
+p.emit("sub").store(ICZ)
+p.load(WOKE).emit(f"jz {ims}_w")                       # awake, and his district
+p.load(CT["w1"]).emit("shr 23").push(15).emit("and").load(LVL).emit("eq").store(IWK)
+p.mark(f"{ims}_w")
+for i in range(N_IMP):
+    e = p.label("imp")
+    p.load(imp(i, "st")).emit(f"jz {e}_none")
+    p.load(imp(i, "st")).push(2).emit("eq", f"jz {e}_up")
+    # FALLING: down, then gone
+    p.addi(imp(i, "t"), 1)
+    p.load(imp(i, "t")).push(IMP_FALL).emit("lt", f"jz {e}_gone", f"jmp {e}")
+    p.mark(f"{e}_gone")
+    p.set(imp(i, "st"), 0).emit(f"jmp {e}")
+    # NONE: one comes out of the haze -- while the district is awake and his,
+    # four at first and one more a district, one every eight frames
+    p.mark(f"{e}_none")
+    p.load(IWK).emit(f"jz {e}")
+    p.push(i).load(LVL).load(IMP_BASE).emit("add", "lt", f"jz {e}")
+    p.load(spec.REG_FRAME).push(7).emit("and").push(i).emit("eq", f"jz {e}")
+    p.emit(f"call {L_ISP[i % 4]}")
+    for c, w in (("x", "bx"), ("ox", "bx"), ("z", "bz"), ("oz", "bz")):
+        p.load(W[w]).store(imp(i, c))
+    p.set(imp(i, "st"), 1).set(imp(i, "t"), IMP_CD // 2 + 3 * i).emit(f"jmp {e}")
+    # UP
+    p.mark(f"{e}_up")
+    p.load(IWK).emit(f"jz {e}_drop")                  # the district fell: so do they
+    # struck? any live blow: a fist through it, or a shot down its line
+    p.load(IACT).emit(f"jz {e}_nh")
+    p.push(MOVE["gun"] - 1).load(F["mv"]).emit("lt", f"jz {e}_fist")
+    sin_of(p, cell=HEAD)
+    p.store(W["s"])
+    sin_of(p, 256, cell=HEAD)
+    p.store(W["c"])                                   # fwd = (-s, c)
+    p.load(imp(i, "x")).load(PX).emit("sub").store(W["qx"])
+    p.load(imp(i, "z")).load(PZ).emit("sub").store(W["qz"])
+    p.load(W["qz"]).load(W["c"]).emit("mulq").load(W["qx"]).load(W["s"]).emit("mulq", "sub")
+    p.emit("dup").push(0).emit("swap", "lt", f"jz {e}_gn")            # ahead: 0 < along
+    p.push32(int(13 * ONE)).emit("lt", f"jz {e}_nh")                  # ...< 13
+    p.load(W["qx"]).load(W["c"]).emit("mulq").load(W["qz"]).load(W["s"]).emit("mulq", "add")
+    p.emit("dup", "mulq").push(int(0.7 ** 2 * ONE)).emit("lt", f"jz {e}_nh", f"jmp {e}_kill")
+    p.mark(f"{e}_gn")
+    p.emit("drop", f"jmp {e}_nh")
+    p.mark(f"{e}_fist")
+    for a, c in ((F["fx"], imp(i, "x")), (F["fz"], imp(i, "z"))):
+        p.load(a).load(c).emit("sub", "dup", "mulq")
+    p.load(F["fy"]).push(int(0.9 * IMP_SCALE * ONE)).emit("sub", "dup", "mulq", "add", "add")
+    p.push(IMP_REACH2).emit("lt", f"jz {e}_nh")
+    p.mark(f"{e}_kill")                               # it falls: style, a spark
+    p.load(SY["pts"]).push(IMP_STYLE * 16).emit("add").store(SY["pts"])
+    p.set(SY["idle"], 0).set(IKILL, 1)
+    p.load(imp(i, "x")).store(int(SPK)).push(int(0.8 * ONE)).store(int(SPK) + 1)
+    p.load(imp(i, "z")).store(int(SPK) + 2).set(int(SPK) + 3, SPARK_FOR)
+    p.mark(f"{e}_drop")
+    p.set(imp(i, "st"), 2).set(imp(i, "t"), 0).emit(f"jmp {e}")
+    p.mark(f"{e}_nh")
+    # too far (lost in the streets, or left behind): gone, to come again
+    for a, c in ((PX, imp(i, "x")), (PZ, imp(i, "z"))):
+        p.load(a).load(c).emit("sub", "dup").push(0).emit("lt", f"jz {e}_a{a}")
+        p.push(0).emit("swap", "sub")
+        p.mark(f"{e}_a{a}")
+        p.push32(int((FOG_FULL + 4) * ONE)).emit("swap", "lt", f"jz {e}_n{a}")
+        p.set(imp(i, "st"), 0).emit(f"jmp {e}")
+        p.mark(f"{e}_n{a}")
+    p.load(PX).load(imp(i, "x")).emit("sub", "dup", "mulq")
+    p.load(PZ).load(imp(i, "z")).emit("sub", "dup", "mulq", "add").store(W["d2"])
+    # it turns, every fourth frame: far off, to the middle of his junction
+    # (so it comes down the streets, not into their walls); near, to its
+    # place in the ring round him
+    p.load(spec.REG_FRAME).push(3).emit("and").push(i & 3).emit("eq", f"jz {e}_ft")
+    p.load(W["d2"]).push(IMP_HOME2).emit("lt", f"jz {e}_far")
+    # (the ring is the CAMERA's: its places spread across the front and the
+    # sides of the shot, never between the lens and him -- a crowd in view)
+    sin_of(p, IMP_SPREAD[i], cell=CY)
+    p.push(int(IMP_RING * ONE)).emit("mulq").load(PX).emit("swap", "sub").store(W["qx"])
+    sin_of(p, IMP_SPREAD[i] + 256, cell=CY)
+    p.push(int(IMP_RING * ONE)).emit("mulq").load(PZ).emit("add").store(W["qz"])
+    p.emit(f"jmp {e}_aim")
+    p.mark(f"{e}_far")
+    p.load(ICX).store(W["qx"]).load(ICZ).store(W["qz"])
+    p.mark(f"{e}_aim")
+    p.load(W["qx"]).load(imp(i, "x")).emit("sub").store(W["qx"])
+    p.load(W["qz"]).load(imp(i, "z")).emit("sub").store(W["qz"])
+    p.emit(f"call {L_YAW}")
+    p.load(F["brg"]).store(imp(i, "yaw"))
+    p.mark(f"{e}_ft")
+    # its claws
+    p.load(imp(i, "t")).emit(f"jz {e}_c")
+    p.addi(imp(i, "t"), -1).emit(f"jmp {e}_mv")
+    p.mark(f"{e}_c")
+    p.load(W["d2"]).push(IMP_CLAW2).emit("lt", f"jz {e}_mv")
+    p.set(imp(i, "t"), IMP_CD + 5 * i)
+    p.load(F["evf"]).load(F["dead"]).emit("or", f"jz {e}_hy", f"jmp {e}_mv")   # (a dodge:
+    p.mark(f"{e}_hy")                                                          # untouched)
+    p.push(int(0.3 * ONE)).load(F["py"]).emit("lt", f"jz {e}_hit", f"jmp {e}_mv")
+    p.mark(f"{e}_hit")
+    p.load(PHP).push(IMP_DMG).emit("sub").store(PHP)
+    p.load(F["shake"]).push(3).emit("lt", f"jz {e}_sk")
+    p.set(F["shake"], 3)
+    p.mark(f"{e}_sk")
+    p.push(0).load(PHP).emit("lt", f"jz {e}_dn", f"jmp {e}_mv")
+    p.mark(f"{e}_dn")                                 # he is down (C's own end)
+    p.set(F["dead"], 1).set(ANIM, 4).set(F["hs"], 0)
+    p.addi(int(CARDV) + 1, 1)
+    p.load(CARDF).push(2).emit("or").store(CARDF)
+    p.load(SY["pts"]).emit("shr 4").load(SY["best"]).emit("lt", f"jz {e}_bb", f"jmp {e}_mv")
+    p.mark(f"{e}_bb")
+    p.load(SY["pts"]).emit("shr 4").store(SY["best"])
+    # and it lurches on, unless it is on him; the street slides it
+    p.mark(f"{e}_mv")
+    p.load(W["d2"]).push(IMP_NEAR2).emit("lt", f"jz {e}_go", f"jmp {e}")
+    p.mark(f"{e}_go")
+    p.load(imp(i, "x")).store(imp(i, "ox")).load(imp(i, "z")).store(imp(i, "oz"))
+    sin_of(p, cell=imp(i, "yaw"))
+    p.push(IMP_SPD).emit("mulq").load(imp(i, "x")).emit("swap", "sub").store(imp(i, "x"))
+    sin_of(p, 256, cell=imp(i, "yaw"))
+    p.push(IMP_SPD).emit("mulq").load(imp(i, "z")).emit("add").store(imp(i, "z"))
+    keep_in_arena(imp(i, "x"), imp(i, "z"), imp(i, "ox"), imp(i, "oz"))
+    p.mark(e)
+p.load(IKILL).push(1).emit("eq", f"jz {ims}_end")   # one blow's sound for all it felled
+p.set(W["head"], 0)
+sound_blow(W["head"])
+p.mark(f"{ims}_end")
 # P16: THE FIGHT DOES NOT STOP. The wave came back only when all three
 # were gone, so every wave ended on the same two seconds of nothing -- 18%
 # of the tape's fight had no demon alive, and every rank the player lost
@@ -3990,6 +4222,42 @@ for d in range(3 if "demons" not in OMIT else 0):     # the demons, last
     if_visible((f"load {dslot(d, 'x')}",), 1.0, (f"load {dslot(d, 'z')}",), 1.6,
                draw_demon)
     p.mark(gone)
+# P20b: THE SWARM -- each up or falling, if there is room in the list and
+# it can be seen: lurching (a lean, a sway, a bob), or going down and under
+for i in range(N_IMP):
+    e = p.label("dimp")
+    p.load(imp(i, "st")).emit(f"jz {e}")
+    p.load(NOBJ).push(spec.OL_MAX - 2).emit("lt", f"jz {e}")   # (the spark's room)
+    for c, cam in (("x", spec.CAM_X), ("z", spec.CAM_Z)):
+        p.load(imp(i, c)).load(cam).emit("sub", "dup", "mulq")
+    p.emit("add").push(IMP_LENS2).emit("swap", "lt", f"jz {e}")   # (nearer: it would
+                                                                   # blot out the fight)
+
+    def body(i=i):
+        def y_ops(h):
+            fa = h.label("iy")
+            h.load(imp(i, "st")).push(2).emit("eq", f"jz {fa}_b")
+            h.load(imp(i, "t")).push(-int(0.035 * ONE)).emit("mul", f"jmp {fa}")
+            h.mark(f"{fa}_b")
+            h.load(spec.REG_FRAME).push(5).emit("mul").push(23 * i).emit("add")
+            h.push(31).emit("and").push(int(0.005 * ONE)).emit("mul")
+            h.mark(fa)
+
+        def ang_ops(h):
+            fa = h.label("ia")
+            h.load(imp(i, "st")).push(2).emit("eq", f"jz {fa}_b")
+            h.load(imp(i, "t")).push(10).emit("mul").push(40).emit("add", f"jmp {fa}")
+            h.mark(f"{fa}_b")
+            h.push(40)                                         # the lean
+            h.mark(fa)
+            h.emit("shl 10").load(imp(i, "yaw")).emit("or")
+            h.load(spec.REG_FRAME).push(6).emit("mul").push(41 * i).emit("add")
+            h.push(63).emit("and").push(32).emit("sub").push(1023).emit("and")
+            h.emit("shl 20", "or")                             # the sway
+        p.object(NOBJ, IMP_M, (f"load {imp(i, 'x')}",), y_ops, (f"load {imp(i, 'z')}",),
+                 ang_ops, spec.OBJ_CULL)
+    if_visible((f"load {imp(i, 'x')}",), 0.7, (f"load {imp(i, 'z')}",), 1.0, body)
+    p.mark(e)
 # P15: the spark, last in the list, while its frames last
 sk_ = p.label("spark")
 p.load(int(SPK) + 3).emit(f"jz {sk_}")
@@ -5163,7 +5431,7 @@ p.emit("lt", "and", f"jz {lab['nocone']}")      # ...and inside the cone
 p.addi(AI, 1)
 tk_ = p.label("token")                           # P18: into the tell only with a
 p.load(AI).push(DREST - 30).emit("eq", f"jz {tk_}")   # token, and on screen
-p.load(TOKC).push(TOKENS).emit("lt", f"jz {tk_}_h")   # (the camera's line, from
+p.load(TOKC).push(TOKENS).push(0).load(LVL).emit("lt", "add", "lt", f"jz {tk_}_h")   # (the camera's line, from
 sin_of(p, cell=CY)                               # its lens: dot > 0 and
 p.load(X).load(spec.CAM_X).emit("sub", "mulq").push(0).emit("swap", "sub")   # cross^2
 sin_of(p, 256, cell=CY)                          # < tan^2 dot^2)
@@ -5179,7 +5447,12 @@ p.mark(f"{tk_}_h")
 p.set(AI, DREST - 31)                            # held at the threshold
 p.mark(tk_)
 p.load(AI).push(DREST).emit("eq", f"jz {lab['clip']}")
-p.set(AI, 0).set(ST, 1).set(MF, 0).set(cur("con"), 0)
+hs0 = p.label("relw")                             # P20b: deeper, the next wait starts in
+p.load(LVL).push(REL_STEP).emit("mul", "dup").push(REL_MAX).emit("lt", f"jz {hs0}")
+p.emit("drop").push(REL_MAX)
+p.mark(hs0)
+p.store(AI)
+p.set(ST, 1).set(MF, 0).set(cur("con"), 0)
 p.set(SG["wt"], 0)                              # P13: its lunge, heard (the whoosh)
 p.load(ALT).store(MV)
 p.load(ALT).push(1).emit("xor").store(ALT)
@@ -5407,6 +5680,32 @@ p.push(1023).emit("and").store(W["dg"])
 p.emit("shr 1", "dup", f"jz {gz_}_x", f"jmp {gz_}_t")
 p.mark(f"{gz_}_x")
 p.emit("drop", "ret")
+
+# ISP: (P20b) where a lesser demon comes from -- two streets on from his
+# node, trying side s first: on down the street if it goes on, else round
+# its corner -> (w_bx, w_bz)
+for s0 in range(4):
+    p.mark(L_ISP[s0])
+    for t_ in range(4):
+        k = (s0 + t_) % 4
+        dx, dy, _ = city.DIRS[k]
+        nt = p.label("ispt")
+        p.load(CT["w1"]).emit(f"shr {2 * k}").push(3).emit("and", f"jz {nt}")
+        p.load(ICX).push32(int(-dy * TILE * ONE)).emit("add").store(W["bx"])
+        p.load(ICZ).push32(int(dx * TILE * ONE)).emit("add").store(W["bz"])
+        p.load(CT["n1"]).push(CSTEP[k] + int(CMAP)).emit("add", "loadi").store(W["qy"])
+        for j in (k, (k + 1) % 4, (k + 3) % 4):
+            jx, jy, _ = city.DIRS[j]
+            far = 9.0 if j == k else 7.0             # (20-25 off: deep in the haze)
+            nj = p.label("ispj")
+            p.load(W["qy"]).emit(f"shr {2 * j}").push(3).emit("and", f"jz {nj}")
+            p.load(W["bx"]).push32(int(-jy * far * ONE)).emit("add").store(W["bx"])
+            p.load(W["bz"]).push32(int(jx * far * ONE)).emit("add").store(W["bz"])
+            p.emit("ret")
+            p.mark(nj)
+        p.emit("ret")
+        p.mark(nt)
+    p.load(ICX).store(W["bx"]).load(ICZ).store(W["bz"]).emit("ret")
 
 # RSQRT: w_s = 1/sqrt(w_qx^2 + w_qz^2) by Newton, the square left in w_d2 --
 # no divide on this machine. r0 = 0.08 converges for ranges under ~21.

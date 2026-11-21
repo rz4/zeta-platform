@@ -889,6 +889,45 @@ clicking right shoulder to hold does the fast running without a target."
 - **Measured on silicon** (the same first 48 s of the P18 tape): peak 55%,
   median 30%, no frame over the ceiling, none dropped (the canyon city 52%,
   the crossroads 59%).
-- **Overwhelm, not yet**: three demons are real at once (the object list
-  holds 64; a demon is 12). Tight streets put the three in front of and
-  behind him; more at once is the next lever, and the next tape decides it.
+- **Overwhelm**: see P20b.
+
+## P20b: dark, demonic, and the horde (2026-11-21; not yet on glass)
+
+"the hordes should be overwhelming / i still like the asthetic from the
+original, it should feel dark and demonic heavy fog." Asked how (the
+object list holds 64; a demon is 12), the player chose two answers at once:
+a lesser swarm, and the three made relentless.
+
+- **The crossroads' look, kept dark**: soot and old brick fronts, black
+  glass, and the only light ember -- shopfronts, lit floors and lanterns
+  burn red-orange. The haze is HEAVY, from his heels (2) to full at 34, the
+  districts' opus sunk into the crossroads' blood (0x4C1C2A to 0x8E160C,
+  0x6A2420 among them): a little lighter than the walls, so the street
+  dissolves into red murk rather than into dark.
+- **The ground rides the camera in rings from 4** (was one triangle to
+  15): with the haze starting at 2, a triangle's linear depth stepped the
+  fog where it met the rings. True depth near the lens let the ground win
+  over the sidewalks, so the plane drops from -0.2 to -0.6 -- it is one
+  flat colour, so only its fog moves, by under a sixteenth.
+- **The swarm**: up to eight lesser demons, one object each (a hunched,
+  horned, long-armed thing, three quarters his height, ember eyes, 322
+  words), four in the first district and one more a district. They come
+  out of the haze two streets on, one every eight frames while the
+  district is awake and his; far off they make for his junction (so they
+  come down the streets), near they take a place in a ring round him that
+  is the CAMERA's (across the front and sides of the shot, never between
+  the lens and him). They lurch (a lean, a sway, a bob), claw for 4 every
+  46+ frames (a dodge is untouched), and fall to any blow: a fist cleaves
+  through every one it meets, a shot drops every one on its line. They
+  drop where they stand when the district is cleared. Not drawn within 2.5
+  of the lens; never past the list's room.
+- **The three, relentless -- deeper in**: from the second district all
+  three may attack at once (still only on screen), and each district
+  starts the next wait 5 frames in, to 20 (the 30-frame tell is never
+  cut). The first district keeps the fight every mechanic was tuned on.
+  District 3 against district 0, untouched for 600 frames: 17 swings
+  against 12, all three swinging together on 89 frames.
+- **Measured on silicon** (a local build that starts the fight in the
+  first plaza with all eight: TND_SWARM=1): peak 669,149 (77%), median 72%,
+  none over the ceiling, none dropped. The frame's vertices peak at 2,040
+  of the cache's 2,048.

@@ -52,7 +52,8 @@ def _fight_vm():
     P19: the story starts at START, the street empty; these tests are of
     the FIGHT, so this puts him where the fight is -- the first plaza's
     centre, facing as he always did, the three on their ring and awake:
-    the opening every mechanics test was written against."""
+    the opening every mechanics test was written against. P20b: and with
+    no swarm -- these measure the three; the swarm has its own test."""
     cart = cabinet.load_cart(CART)
     m = cabinet.VirtualMachine(cart)
     boot = list(m.vm.dmem)
@@ -63,6 +64,7 @@ def _fight_vm():
     ds = _sym("demons")
     d[ds:ds + 3 * len(FIELDS)] = boot[ds:ds + 3 * len(FIELDS)]
     d[_sym("woke")] = 1
+    d[_sym("imp_base")] = -16 & 0xFFFFFFFF
     return m
 
 
@@ -1943,6 +1945,44 @@ def test_the_free_run_is_l_and_r_twice():
     assert _cell(m, "f_sty") != 1, "a slow second press ran him"
 
 
+def _imps(m):
+    base, d = _sym("imps"), m.vm.dmem
+    return [dict(st=d[base + i * 7 + 4], x=_s32(d[base + i * 7]) / 65536,
+                 z=_s32(d[base + i * 7 + 1]) / 65536) for i in range(8)]
+
+
+def test_the_swarm_comes_out_of_the_haze():
+    """P20b, "the hordes should be overwhelming": the plaza wakes, and the
+    lesser demons come out of the fog down the streets -- four in the first
+    district -- on the street every frame, closing on him; standing still,
+    their claws take his health; a string of jabs fells them."""
+    m = _story_vm()
+    for f in range(10):
+        m.frame(0)
+    _put(m, 3.0, 3.0, 0)
+    far, near = [], []
+    for f in range(500):
+        m.frame(0)
+        up = [w for w in _imps(m) if w["st"] == 1]
+        for w in up:
+            assert _on_street(m, w["x"], w["z"]), f"frame {f}: one in a wall at {w}"
+        if f == 40:
+            far = [np.hypot(w["x"] - 3, w["z"] - 3) for w in up]
+    up = [w for w in _imps(m) if w["st"] == 1]
+    assert len(up) == 4, f"{len(up)} came, not four"
+    assert min(far) > 10, f"one came out of nowhere, {min(far):.1f} from him"
+    near = [np.hypot(w["x"] - 3, w["z"] - 3) for w in up]
+    assert max(near) < 5, f"they never closed on him: {near}"
+    assert _s32(_cell(m, "p_hp")) < 140, "their claws never landed"
+    felled = 0
+    for f in range(400):
+        m.frame((spec.PAD_X if f % 16 < 6 else 0) | (spec.PAD_LEFT if (f // 40) % 2 else 0))
+        if any(w["st"] == 2 for w in _imps(m)):
+            felled += 1
+            break
+    assert felled, "no jab ever felled one"
+
+
 def test_the_lens_stays_in_the_street():
     """On glass: "the camera goes wonky targeting down street alleys" --
     over the shoulder beside a wall, the lens stood inside the building.
@@ -1967,9 +2007,10 @@ def test_the_lens_stays_in_the_street():
 
 def test_attack_tokens_two_at_a_time_and_only_on_screen():
     """P18: "the camera keeps those enemies on screen as being the ones about
-    to attack." A demon's wait crosses into its tell only holding one of two
-    tokens, and only on screen. Untouched, and turning, over a long fight:
-    never more than two told or swinging, and no swing begun off screen."""
+    to attack." A demon's wait crosses into its tell only holding one of the
+    tokens, and only on screen (two in the first district; P20b, three past
+    it). Untouched, and turning, over a long fight: never more than two told
+    or swinging, and no swing begun off screen."""
     D = _const("DREST")
 
     def onscreen(m, w):
