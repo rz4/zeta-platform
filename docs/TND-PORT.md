@@ -758,3 +758,40 @@ while he reels or more than 0.9 up; the style meter cools at 0.25 then
 prowler's turn, fencing, the locked style flips, the Devil Trigger shot.
 
 Program memory 7,974 of 8,192 words (P16 7,959); no new cells. 66 tests.
+
+## P19: the city (planned 2026-11-21; on the SRAM build, frontier 19)
+
+The player's direction: expand the world; "plazas and streets"; take what
+serves from Terminal Limit's generator. `games/tnd/city.py` is that
+generator, ported and changed where measurement said so (its docstring
+and tests/test_city.py): a 16x16 spanning tree of streets, START and the
+CORE at the ends of its longest street, 6-8 districts in order along the
+route through numbered gates, danger 0..11 rising toward the core, and a
+2x2-node plaza at each district's heart.
+
+**No geometry streams.** The street a node shows is one of six PIECES --
+dead end, straight, corner, tee, crossing, plaza -- and the six meshes live
+in DMEM once, where the crossroads' 3,940 words are today. A node's piece
+is an OBJECT: the kind's mesh, placed at the node and turned a quarter
+turn at a time. The city itself is the map: a byte a node (its four ways,
+its district, plaza or not), 64 words for 16x16.
+
+**What is drawn:** the nodes within two streets of the one he stands on
+(walls hide the rest, and the fog takes everything past ~47 units), found
+by walking the map each frame -- about 5 to 9 pieces, the 20 objects the
+crossroads costs today.
+
+**BLOCK = 32 units**, a power of two: a position's node is a shift, as the
+VM has no divide. 16 nodes is 512 units across.
+
+**Steps**
+1. The six piece meshes (the crossroads' own builders: sidewalks,
+   facades, corner towers, lamps, paint), the map table, and the draw
+   window. Gate: the cart builds, the law renders a city frame.
+2. The arena test becomes the map's: a point is in the street if it lies
+   in its node's square, in one of its open arms, or anywhere in a plaza.
+   He, the demons and the lens (all three already ask L_ARENA).
+3. The horde lives in districts: a district's reserve from its danger,
+   spawns at its plaza; a gate is a wall until its district is cleared.
+4. A district's fog and light; the pointer to the next gate; then the
+   pause screen's map.
