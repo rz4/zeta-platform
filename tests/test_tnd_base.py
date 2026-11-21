@@ -71,7 +71,8 @@ class Base:
 
     def knob(self, k):
         """knob k as the game reads it (0 walk, 1 ramp, 2 turn, 3 quick turn,
-        4 the lens's distance, 5 its height, 6 slide, 7 pick-up frames)"""
+        4 the lens's distance, 5 its height, 6 slide, 7 pick-up frames, 8 the
+        grade, 9 the pick-up's bow)"""
         return self.cell("knobs", k)
 
     def lens(self):
@@ -162,10 +163,16 @@ def test_the_jab_picks_up_the_key_and_unlocks_the_gate(text):
     assert b.cell("ctx_near") == 1
     for f in range(12):
         b.run(X if f < 7 else 0, 1)
-    assert b.cell("key_held") == 1 and b.cell("pick_t") > 0, "the jab did not pick it up"
+        if b.cell("key_held"):
+            break
+    hold = b.knob(7)
+    assert b.cell("key_held") == 1 and b.cell("pick_t") == hold, "the jab did not pick it up"
     p0 = b.pos()
-    b.run(U, 6)
+    b.run(U, hold)
     assert np.hypot(*np.subtract(b.pos(), p0)) < 0.05, "he walked off mid pick-up"
+    assert 0 < b.cell("f_tilt") <= b.knob(9), "he did not bow to it"
+    b.run(U, 12)
+    assert np.hypot(*np.subtract(b.pos(), p0)) > 0.3, "the pick-up never let him go"
     b.run(0, 40)
     g = b.sym("gates")
     a = b.d[g]
@@ -220,3 +227,41 @@ def test_the_arrow_leads_to_the_key_then_to_the_gate(text):
         tri = [b.d[spec.DL_BASE + 1 + k] for k in range(7)]
         shown = next(k for k in range(8) if [b.d[arrows + 7 * k + j] for j in range(7)] == tri)
         assert shown == 2 * side, f"key {key}: the arrow shows way {shown}, not side {side}"
+
+
+def test_no_knob_can_break_him(text, monkeypatch):
+    """On the second base tape the pick-up's knob was turned to -10 frames;
+    the pick-up it began counted down from -10 for ever, and he stood bowed
+    until the tape ended. Every knob turned as far as it goes, down and
+    then up: he still picks up the key and comes out of it, still quick
+    turns half round and no more, still walks. (The paint is skipped: the
+    base reads nothing the paint answers, and this is 2,000 frames.)"""
+    from zeta import gpu
+    blank = np.zeros((spec.H, spec.W, 3), np.uint8)
+    monkeypatch.setattr(gpu, "render", lambda *a, **k: blank)
+    for way in (D, U):
+        b = Base(text)
+        for k in range(10):
+            for _ in range(60):
+                b.run(SEL | way, 1)
+                b.run(SEL, 1)
+            b.run(SEL | RT, 1)
+            b.run(SEL, 1)
+        b.run(0, 2)
+        kx, kz = b.cell("keypos") / 65536, b.cell("keypos", 1) / 65536
+        b.put(kx, kz - 1.0, 0)
+        b.run(0, 3)
+        for f in range(12):
+            b.run(X if f < 7 else 0, 1)
+        assert b.cell("key_held") == 1, "the jab did not pick it up"
+        b.run(0, 90)
+        assert b.cell("pick_t") == 0 and b.cell("f_tilt") == 0, \
+            f"he never came out of the pick-up (pick_t {b.cell('pick_t')})"
+        y0 = b.cell("yaw")
+        for f in range(80):
+            b.run(D | (A if f < 9 else 0), 1)
+        assert b.cell("qturn_left") == 0 and (b.cell("yaw") - y0) % 1024 == 512, "the quick turn broke"
+        b.run(0, 20)
+        p0 = b.pos()
+        b.run(U, 60)
+        assert np.hypot(*np.subtract(b.pos(), p0)) > 0.3, "he cannot walk"

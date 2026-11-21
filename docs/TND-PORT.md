@@ -1031,3 +1031,28 @@ subsystems we havent used to this layer"):
   for the gun and for enemies -- the layers above. Textures and per-vertex
   light are the base's next step: they change the pieces' mesh format
   (a texel word a vertex) and want measuring first.
+
+## P21c: the second base tape -- five gates, and a knob that hung him (2026-11-21)
+
+4m44s on the base with the player's starts: "this looks good, i think i
+crounch could be more subtle but I got into a glitch at the end". Five
+keys found and five gates unlocked in four minutes (district 5 of 7), the
+sixth key picked up -- and there he stood, bowed, for the last seventeen
+seconds.
+
+- **The glitch**: looking for a shorter pick-up he turned the pick knob
+  down past zero, to -10 frames. The pick-up it began counted down from
+  -10 for ever (the test was "is it zero", not "is it above zero"), holding
+  his pad at nothing and his body in its bow. Not a fault of the game's
+  rules: a tuning tool with no limits.
+- **Every knob has a least and a most** now, chosen so the game can play
+  at either; the pick-up and the quick turn count only while ABOVE zero.
+  tests/test_tnd_base.py turns every knob as far as it goes, both ways,
+  and then picks up, quick turns and walks.
+- **A subtler pick-up**: held 8 frames (was 18), bowed 14 degrees (was
+  34). The bow is knob 9; the sky (kept on, both sessions) is no longer a
+  knob. The heavy grade he chose is the start.
+- **A faster trace**: the VM without the paint replays a tape at ~145
+  frames a second (the paint is 90% of a law frame) -- sound for any cart
+  that reads nothing the paint answers (PICK, VIS), as TND does not. The
+  4m44s tape in two minutes.

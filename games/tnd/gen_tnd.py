@@ -1903,39 +1903,43 @@ FRIC = int(round(0.82 * ONE))                   # tear.py: body friction
 # knob, Up/Down turn it a notch) and the screen shows the knob and its notch
 # (50 is where it started). The tape carries every press home, so the replay
 # reads the values chosen -- no card trip a guess. (name, start, a notch)
-# THE STARTS ARE THE PLAYER'S (in a base build: BASE_SET), from eleven minutes on
-# glass on 2026-11-21 ("this feels the best so far") -- the notches he left
-# the first base at were walk +17, ramp +17, turn +2, quick turn +9, the
-# lens 5 nearer and 5 lower, and the wall's slide turned all the way off.
-# The game above the base keeps its own until the layer is merged.
+# THE STARTS ARE THE PLAYER'S (in a base build: BASE_SET), from his sessions
+# on glass on 2026-11-21 ("this feels the best so far"; then "this looks
+# good, i think i crounch could be more subtle"). The first base's notches
+# were left at walk +17, ramp +17, turn +2, quick turn +9, the lens 5 nearer
+# and 5 lower, the wall's slide all the way off; the second kept the heavy
+# grade and went looking for a shorter pick-up. The game above the base
+# keeps its own until the layer is merged.
 BASE_SET = dict(walk=int(0.032 * ONE) + 17 * int(0.002 * ONE),      # 0.066: twice the archive's
                 ramp=int(0.22 * ONE) + 17 * int(0.03 * ONE),        # 0.73: all but at once
                 turn=14, qturn=80,                                  # half round in 7 frames
                 camd=int(3.0 * ONE) - 5 * int(0.2 * ONE),           # 2.0 behind
                 camh=int(2.15 * ONE) - 5 * int(0.1 * ONE),          # 1.65 up
-                slide=0) if BASE else {}                            # a wall is a wall
-KNOBS = (("walk", WALK, int(0.002 * ONE)),            # 0 his pace
-         ("ramp", int(0.22 * ONE), int(0.03 * ONE)),  # 1 how fast he gets to it (weight)
-         ("turn", 12, 1),                             # 2 the tank's turn, a frame
-         ("qturn", 44, 4),                            # 3 the quick turn's, a frame
-         ("camd", int(3.0 * ONE), int(0.2 * ONE)),    # 4 the follow's distance
-         ("camh", int(2.15 * ONE), int(0.1 * ONE)),   # 5 ...and its height
-         ("slide", int(0.6 * ONE), int(0.1 * ONE)),   # 6 the least of his pace a wall leaves
-         ("pick", 18, 2),                             # 7 frames a pick-up commits him
-         ("grade", 1, 1),                             # 8 the glass's curve: 0 off, 1, 2 heavy
-         ("sky", 1, 1))                               # 9 the sky is the haze: 0 off
-KNOBS = tuple((k, BASE_SET.get(k, v), st_) for k, v, st_ in KNOBS)
+                slide=0,                                            # a wall is a wall
+                pick=8, grade=2) if BASE else {}
+# (name, start, a notch, least, most). THE LIMITS ARE THE GAME'S SAFETY: on
+# the second base tape the pick-up's knob was turned to -10 frames, and the
+# pick-up it began counted down from -10 for ever -- he stood bowed for the
+# last seventeen seconds. No knob can now reach a value the game cannot play.
+KNOBS = (("walk", WALK, int(0.002 * ONE), int(0.01 * ONE), int(0.12 * ONE)),            # 0 his pace
+         ("ramp", int(0.22 * ONE), int(0.03 * ONE), int(0.04 * ONE), ONE),              # 1 weight
+         ("turn", 12, 1, 2, 40),                                    # 2 the tank's turn, a frame
+         ("qturn", 44, 4, 8, 256),                                  # 3 the quick turn's, a frame
+         ("camd", int(3.0 * ONE), int(0.2 * ONE), ONE, 6 * ONE),    # 4 the follow's distance
+         ("camh", int(2.15 * ONE), int(0.1 * ONE), int(0.8 * ONE), 4 * ONE),   # 5 ...and its height
+         ("slide", int(0.6 * ONE), int(0.1 * ONE), 0, ONE),         # 6 the least a wall leaves him
+         ("pick", 18, 2, 0, 60),                                    # 7 frames a pick-up holds him
+         ("grade", 1, 1, 0, 2),                                     # 8 the glass's curve: 0 off, 2 heavy
+         ("bow", 40, 8, 0, 128))                                    # 9 how far he bows to pick up
+KNOBS = tuple((k, BASE_SET.get(k, v), st_, lo_, hi_) for k, v, st_, lo_, hi_ in KNOBS)
 if BASE:
-    KN = cart.data(Table([v for _, v, _ in KNOBS]), "knobs")
+    KN = cart.data(Table([k_[1] for k_ in KNOBS]), "knobs")
     KNOTCH = cart.var("knob_n", len(KNOBS))
     KSEL, KPV, KTUNE = (cart.var(k) for k in ("knob_sel", "knob_pv", "knob_on"))
     WSPD, QT, KEY, PICK, KNEAR, KX, KZ, WACC = (cart.var(k) for k in (
         "walk_v", "qturn_left", "key_held", "pick_t", "ctx_near", "ctx_x", "ctx_z", "walk_acc"))
     KSTR1 = cart.data(Table([1, 0]), "str_k1")
     KSTR2 = cart.data(Table([2, 0, 0]), "str_k2")
-
-
-PICK_BOW = 96                    # the pick-up's bow: 34 degrees forward
 
 
 def _grade(gr, gg, gb, lift=0.0):
@@ -1956,7 +1960,7 @@ if BASE:
 
 def knob(g, name):
     """push the knob: its cell in a base build, its constant in the game"""
-    i = [k for k, _, _ in KNOBS].index(name)
+    i = [k_[0] for k_ in KNOBS].index(name)
     return g.load(int(KN) + i) if BASE else g.push(KNOBS[i][1])
 
 
@@ -2091,15 +2095,15 @@ if BASE:
         p.mark(f"{ns}_s")
         p.store(KSEL)
         p.mark(ns)
-    for k, (_, _, step) in enumerate(KNOBS):
+    for k, (_, _, step, lo_, hi_) in enumerate(KNOBS):
         nk = p.label("knob")
         p.load(KSEL).push(k).emit("eq", f"jz {nk}")
         p.load(W["qy"]).push(spec.PAD_UP).emit("and", f"jz {nk}_d")
-        p.load(int(KNOTCH) + k).push(20).emit("lt", f"jz {nk}_d")
+        p.load(int(KN) + k).push32(step).emit("add").push32(hi_ + 1).emit("lt", f"jz {nk}_d")
         p.addi(int(KN) + k, step).addi(int(KNOTCH) + k, 1)
         p.mark(f"{nk}_d")
         p.load(W["qy"]).push(spec.PAD_DOWN).emit("and", f"jz {nk}")
-        p.push(-20).load(int(KNOTCH) + k).emit("lt", f"jz {nk}")
+        p.push32(lo_ - 1).load(int(KN) + k).push32(step).emit("sub", "lt", f"jz {nk}")
         p.addi(int(KN) + k, -step).addi(int(KNOTCH) + k, -1)
         p.mark(nk)
     p.push(0).store(spec.REG_PAD)                 # (the game sees nothing meanwhile)
@@ -2120,10 +2124,10 @@ if BASE:
     p.emit("load 1").push(0xFFFF & ~(spec.PAD_L | spec.PAD_R | spec.PAD_SELECT))
     p.emit("and").store(spec.REG_PAD)
     pk = p.label("pick")                          # (he bows to it -- the fold the
-    p.load(PICK).emit(f"jz {pk}_up")              # body already has, part way -- and
-    p.addi(PICK, -1).set(LANDT, LAND_FOR // 2 + 1)   # comes back up)
+    p.push(0).load(PICK).emit("lt", f"jz {pk}_up")   # body already has, part way -- and
+    p.addi(PICK, -1).set(LANDT, LAND_FOR // 2 + 1)   # comes back up; only ABOVE zero)
     p.push(0).store(spec.REG_PAD)
-    p.push(PICK_BOW).load(F["tilt"]).emit("sub", "shr 2").load(F["tilt"]).emit("add").store(F["tilt"])
+    knob(p, "bow").load(F["tilt"]).emit("sub", "shr 2").load(F["tilt"]).emit("add").store(F["tilt"])
     p.emit(f"jmp {pk}")
     p.mark(f"{pk}_up")
     p.load(F["tilt"]).emit("dup").push(3).emit("add", "shr 2", "sub").store(F["tilt"])
@@ -2734,7 +2738,7 @@ p.mark(stn)
 
 tk = p.label("turn")
 if BASE:                                           # P21: THE QUICK TURN (Down + A): half
-    p.load(QT).emit(f"jz {tk}_nq")                 # round, a knob's worth a frame, and
+    p.push(0).load(QT).emit("lt", f"jz {tk}_nq")   # round, a knob's worth a frame, and
     p.load(QT)                                     # nothing else turns him meanwhile
     knob(p, "qturn")
     p.emit("over", "over", "lt", f"jz {tk}_q1")
@@ -4328,11 +4332,8 @@ p.set(NOBJ, 0)
 p.object(NOBJ, GROUND_M, (f"load {spec.CAM_X}",), 0, (f"load {spec.CAM_Z}",),
          (f"load {spec.CAM_YAW}",), spec.OBJ_CULL)
 if BASE:
-    sk0 = p.label("sky")
-    knob(p, "sky").emit(f"jz {sk0}")
     p.object(NOBJ, SKY_M, (f"load {spec.CAM_X}",), 0, (f"load {spec.CAM_Z}",),
              (f"load {spec.CAM_YAW}",), spec.OBJ_CULL)
-    p.mark(sk0)
 def if_visible(cx, cy, cz, r, body):
     """body() only when the sphere can be on screen. cx/cz may be cells
     (tuples of ops) or constants; cy and r are constants."""
