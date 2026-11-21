@@ -977,3 +977,51 @@ half minutes. It is a floor on what play can cost, not a ceiling.
 whose theme is third-party and local; its cart sum names a file CI
 cannot rebuild. The tape library that judges silicon changes must be
 recorded on the committed cart.
+
+## 19. Program memory in the SRAM, behind an instruction cache (planned, measured)
+
+TND fills program memory: 8,151 of 8,192 words after P18. The player's
+next asks (on-screen affordances, attack tokens, a crowd fought through as
+a window over hundreds) do not fit, and "we've got to make deep games".
+Block RAM is full (308 of 308 M10K), so IMEM cannot simply grow.
+
+**Proposal:** the program lives in the Pocket's SRAM, the VM fetches through
+a small instruction cache, and the 8,192-word IMEM in block RAM goes away.
+
+**Measured first** (the law's own fetches, 2,400 frames of the player's
+10m44s P18 session): a median of 24,316 instructions a frame, 45,118 at
+the 99th percentile; 7,398 distinct words touched in all. A direct-mapped
+cache simulated over those fetches, a word costing 6 clocks from the SRAM
+(two halves, three clocks each, as the recorder runs it):
+
+| cache | line | misses/frame (max) | stall, worst frame | of the frame |
+|---:|---:|---:|---:|---:|
+| 512 words | 4 | 1,371 | 35,646 | 4.1% |
+| 1,024 words | 4 | 1,144 | 29,744 | 3.4% |
+| 2,048 words | 4 | 971 | 25,246 | 2.9% |
+| 4,096 words | 4 | 534 | 13,884 | 1.6% |
+
+The heaviest real-play frame uses 61% of the frame (section 18). A
+1,024-word cache costs at most 3.4% more and needs 4 M10K where IMEM holds
+about 26: some 22 blocks come back for scene capacity.
+
+**The shape:**
+- `IMEM_WORDS` 8,192 to 32,768 (128 KiB of the SRAM's 256). The tape moves
+  to the SRAM's top 64 KiB. PC and return addresses widen to 15 bits; the
+  24-bit immediate already reaches.
+- zvm fetches from a 1,024-word direct-mapped cache, 4-word lines; a miss
+  stalls the VM while one line (eight 16-bit reads) is fetched.
+- One SRAM controller in the console domain, arbitrating: a cache refill,
+  then the loader's and the overlay mover's IMEM writes (which invalidate
+  the cache), then the recorder.
+- The law is unchanged in behaviour: a cache changes when an instruction
+  arrives, never what it does. Machine 2 gets an SRAM model in the
+  harness; the meter then counts the stalls.
+- Costs to the format: the snapshot grows by 96 KiB of IMEM (157 to 255
+  KiB, about 2.5 s at the Pocket's save rate); each cart file's IMEM
+  section grows to the new size unless the file format learns to carry
+  only the program's length.
+
+**Gates, in order:** law and spec (every test, regen); machine 2 crossing
+bit-equal with the cache in the loop; a CI fit; glass (boot, play, a tape
+replayed exact, the recorder still writing).
