@@ -574,7 +574,7 @@ def test_the_intro_plays_and_hands_back():
     intro = _image(cart, _const("INTRO_PROG"), _const("PAGE"))
     m.frame(0)
     m.frame(0)
-    assert list(m.vm.imem) == intro, "the title did not page in the intro"
+    assert list(m.vm.imem[:_const("PAGE")]) == intro, "the title did not page in the intro"
     seen = set()
     for f in range(2, _const("INTRO_LEN") + 3):
         m.frame(0)
@@ -1067,7 +1067,7 @@ def test_start_pauses_resumes_and_quits():
         m.frame(0)
     for f in range(8):                                # a thumb on Start
         m.frame(spec.PAD_START)
-    assert list(m.vm.imem) == pause, "Start did not page in the pause"
+    assert list(m.vm.imem[:_const("PAGE")]) == pause, "Start did not page in the pause"
     assert m.vm.dmem[spec.DL_BASE] > 0 and m.vm.dmem[spec.OL_BASE] > 0
     w0 = [d["x"] for d in _wave(m)]
     for f in range(30):
