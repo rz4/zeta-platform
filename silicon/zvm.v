@@ -9,7 +9,9 @@
 // load/loadi. Fuel counts INSTRUCTIONS, exactly as vm.py counts them.
 `default_nettype none
 
-module zvm (
+module zvm #(
+    parameter PAW = 15                // program address width: spec.IMEM_BITS
+) (
     input  wire        clk,
     input  wire        rst_n,
     input  wire        start,        // pulse: run one frame from pc 0
@@ -21,19 +23,40 @@ module zvm (
     input  wire [13:0] ext_addr,
     input  wire [31:0] ext_wdata,
     output wire [31:0] ext_rdata,
-    // IMEM boot port
-    input  wire        prog_we,
-    input  wire [12:0] prog_addr,    // (8,192 words: build 105)
-    input  wire [31:0] prog_wdata
+    // THE PROGRAM IS IN THE SRAM (frontier 19): a miss asks zimem for its
+    // line, and the refill arrives a word at a time
+    output reg            ic_req,
+    output reg  [PAW-1:2] ic_line,
+    input  wire           ic_we,
+    input  wire [1:0]     ic_wo,
+    input  wire [31:0]    ic_wd,
+    input  wire           ic_done,
+    input  wire           ic_flush
 );
   `include "params.vh"
+  generate if (PAW != IMEM_BITS) begin : paw_check
+    PAW_must_equal_IMEM_BITS_from_params_vh u_fail();   // (an elaboration error)
+  end endgenerate
 
-  reg [31:0] imem [0:IMEM_WORDS-1];
+  // ---- THE INSTRUCTION CACHE (frontier 19) --------------------------------
+  // 1,024 words, direct-mapped, four-word lines: 256 lines, a 5-bit tag
+  // each. Measured on the law's own fetches over 2,400 frames of real play,
+  // the worst frame missed 1,144 times -- 29,744 clocks, 3.4% of a frame.
+  // A cache changes WHEN an instruction arrives, never what it does: the
+  // cross holds the result bit-equal to vm.py, which has no cache at all.
+  localparam CI = 10;                       // index bits: 1,024 words
+  (* ramstyle = "M10K" *) reg [31:0] cdata [0:(1 << CI)-1];
+  reg [PAW-CI-1:0] ctag [0:(1 << (CI-2))-1];
+  reg [(1 << (CI-2))-1:0] cval;             // valid bits: flops, cleared at once
+  reg [PAW-CI-1:0] tq;                      // the tag read beside iq
+  reg              vq;                      // ...and its valid bit
+  reg [PAW-1:0]    fa_r;                    // the address iq was fetched from
+  wire hit = vq && (tq == fa_r[PAW-1:CI]);
+  initial cval = {(1 << (CI-2)){1'b0}};
   reg [31:0] dmem [0:DMEM_WORDS-1];
 `ifdef ZETA_BAKE_CART
-  initial $readmemh("cart_imem.hex", imem);   // deploy bakes the cart in;
-  initial $readmemh("cart_dmem.hex", dmem);   // sim boots over the port
-`endif
+  initial $readmemh("cart_dmem.hex", dmem);   // deploy bakes the cart in;
+`endif                                        // sim boots over the port
   // ---- THE STACK DIET ----------------------------------------------------
   // The law's stack is 64 words deep, but a stack machine only ever touches
   // its top two: every op reads tos/nos and pushes or pops one (storei
@@ -50,9 +73,9 @@ module zvm (
   reg [31:0] fwd_d;                  // with the same cycle's push
   wire [31:0] below = fwd_v ? fwd_d : sq;
   reg [6:0]  sp;
-  reg [12:0] rstack [0:RSTACK_MAX-1];  // call/ret return addresses only;
+  reg [IMEM_BITS-1:0] rstack [0:RSTACK_MAX-1];  // call/ret return addresses only;
   reg [4:0]  rsp;                      // resets every frame, like vm.py's rs
-  reg [12:0] pc;
+  reg [IMEM_BITS-1:0] pc;
   reg [16:0] fuel;   // sized to FUEL's RANGE, not to its value
   reg [31:0] iq;                     // fetched instruction
   reg [31:0] dq;                     // DMEM port A data (VM loads)
@@ -60,8 +83,9 @@ module zvm (
   reg        ld_replace;             // pending load: 1 = loadi (replace tos)
   assign ext_rdata = eq;
 
-  localparam V_FETCH = 2'd0, V_EXEC = 2'd1, V_LOAD = 2'd2, V_ST2 = 2'd3;
-  reg [1:0] vst;
+  localparam V_FETCH = 3'd0, V_EXEC = 3'd1, V_LOAD = 3'd2, V_ST2 = 3'd3,
+             V_MISS = 3'd4;                 // waiting on a line from the SRAM
+  reg [2:0] vst;
 
   wire [7:0]  op  = iq[31:24];
   wire signed [31:0] imm = {{8{iq[23]}}, iq[23:0]};
@@ -73,18 +97,18 @@ module zvm (
   wire imm_bad_sh   = (imm < 0) || (imm > 31);
   wire jz_taken = (op == OP_JZ) && (sp != 0) && (tos == 32'd0);
   wire ret_taken = (op == OP_RET) && (rsp != 0);
-  wire [12:0] rtgt = rstack[rsp - 1'b1];
+  wire [IMEM_BITS-1:0] rtgt = rstack[rsp - 1'b1];
   // vm.py checks 0 <= pc < IMEM_WORDS after every step: running off the end
   // of IMEM this instruction is a trap (its effects still apply, as there)
-  wire pc_over = (pc == IMEM_WORDS[12:0] - 13'd1) &&
+  wire pc_over = (pc == IMEM_WORDS[IMEM_BITS-1:0] - 1'b1) &&
                  !(op == OP_HALT || op == OP_JMP || jz_taken ||
                    op == OP_CALL || ret_taken);
-  wire [12:0] pc_seq = pc + 1'b1;
+  wire [IMEM_BITS-1:0] pc_seq = pc + 1'b1;
 
   // synchronous read addresses, presented combinationally, latched each edge
-  wire [12:0] fetch_addr = (vst == V_EXEC && op == OP_JMP) ? imm[12:0] :
-                           (vst == V_EXEC && op == OP_CALL) ? imm[12:0] :
-                           (vst == V_EXEC && jz_taken)     ? imm[12:0] :
+  wire [IMEM_BITS-1:0] fetch_addr = (vst == V_EXEC && op == OP_JMP) ? imm[IMEM_BITS-1:0] :
+                           (vst == V_EXEC && op == OP_CALL) ? imm[IMEM_BITS-1:0] :
+                           (vst == V_EXEC && jz_taken)     ? imm[IMEM_BITS-1:0] :
                            (vst == V_EXEC && ret_taken)    ? rtgt :
                            (vst == V_EXEC)                 ? pc_seq :
                                                              pc;
@@ -97,7 +121,7 @@ module zvm (
   wire binop = (op == OP_ADD) || (op == OP_SUB) || (op == OP_MUL) ||
                (op == OP_MULQ) || (op == OP_AND) || (op == OP_OR) ||
                (op == OP_XOR) || (op == OP_LT) || (op == OP_EQ);
-  wire ex = running && (vst == V_EXEC) && (fuel != 0);
+  wire ex = running && (vst == V_EXEC) && (fuel != 0) && hit;
   wire do_push = ex && ((op == OP_PUSH && sp != STACK_MAX) ||
                         (op == OP_DUP  && sp != 0 && sp != STACK_MAX) ||
                         (op == OP_OVER && sp >= 2 && sp != STACK_MAX));
@@ -127,9 +151,9 @@ module zvm (
   // Port A is the VM's -- load/loadi read or store/storei write, never the
   // same cycle. Port B is the external port's -- GPU reads, boot/pad
   // writes, also never the same cycle by construction.
-  wire st_store  = running && vst == V_EXEC && fuel != 0 &&
+  wire st_store  = running && vst == V_EXEC && fuel != 0 && hit &&
                    op == OP_STORE  && !(imm_bad_addr || sp == 0);
-  wire st_storei = running && vst == V_EXEC && fuel != 0 &&
+  wire st_storei = running && vst == V_EXEC && fuel != 0 && hit &&
                    op == OP_STOREI && !(sp < 2 || tos_bad_addr);
   wire        a_we   = st_store || st_storei;
   wire [13:0] a_addr = a_we ? (st_store ? imm[13:0] : tos[13:0]) : dread_addr;
@@ -144,18 +168,28 @@ module zvm (
   end
 
   always @(posedge clk) begin
-    // IMEM: one write port (boot), one read port (fetch)
-    if (prog_we) imem[prog_addr] <= prog_wdata;
-    iq <= imem[fetch_addr];
+    // THE CACHE: a refill writes, the fetch reads (a simple dual port)
+    if (ic_we) cdata[{ic_line[CI-1:2], ic_wo}] <= ic_wd;
+    iq   <= cdata[fetch_addr[CI-1:0]];
+    tq   <= ctag[fetch_addr[CI-1:2]];
+    vq   <= cval[fetch_addr[CI-1:2]] && !(ic_we || ic_done || ic_flush);
+    fa_r <= fetch_addr;
+    if (ic_done) begin
+      ctag[ic_line[CI-1:2]] <= ic_line[PAW-1:CI];
+      cval[ic_line[CI-1:2]] <= 1'b1;
+      ic_req <= 1'b0;
+    end
+    if (ic_flush) cval <= {(1 << (CI-2)){1'b0}};
 
     if (!rst_n) begin
       running <= 1'b0; trapped <= 1'b0; sp <= 0; pc <= 0; fuel <= 0;
-      vst <= V_FETCH;
+      vst <= V_FETCH; ic_req <= 1'b0;
     end else if (start && !trapped && !running) begin
       running <= 1'b1; pc <= 0; sp <= 0; rsp <= 0; fuel <= FUEL[16:0];
       vst <= V_FETCH;                // one cycle to latch imem[0] into iq
     end else if (running) case (vst)
       V_FETCH: vst <= V_EXEC;
+      V_MISS:  if (ic_done) vst <= V_FETCH;   // the line is in: fetch it again
       V_LOAD: begin                  // dq now holds the loaded word
         t0 <= dq;                    // (the body write rides do_lpush)
         if (!ld_replace) begin t1 <= t0; sp <= sp + 1'b1; end
@@ -169,6 +203,9 @@ module zvm (
       end
       default: begin                 // V_EXEC: one vm.py loop iteration
         if (fuel == 0) begin running <= 1'b0; vst <= V_FETCH; end
+        else if (!hit) begin         // a miss: nothing happens, the line comes
+          ic_req <= 1'b1; ic_line <= fa_r[PAW-1:2]; vst <= V_MISS;
+        end
         else begin
           fuel <= fuel - 1'b1;
           pc <= pc_seq;
@@ -231,14 +268,14 @@ module zvm (
               else begin t0 <= t1; t1 <= t0; sp <= sp + 1'b1; end
             OP_JMP:
               if (imm < 0 || imm >= IMEM_WORDS) `TRAP
-              else pc <= imm[12:0];
+              else pc <= imm[IMEM_BITS-1:0];
             OP_JZ:
               if (sp == 0) `TRAP
               else begin
                 sp <= sp - 1'b1; t0 <= t1; t1 <= below;
                 if (tos == 32'd0) begin
                   if (imm < 0 || imm >= IMEM_WORDS) `TRAP
-                  else pc <= imm[12:0];
+                  else pc <= imm[IMEM_BITS-1:0];
                 end
               end
             OP_CALL:
@@ -246,7 +283,7 @@ module zvm (
               else begin
                 rstack[rsp[3:0]] <= pc_seq;
                 rsp <= rsp + 1'b1;
-                pc <= imm[12:0];
+                pc <= imm[IMEM_BITS-1:0];
               end
             OP_RET:                    // a stored address can only be out
               if (rsp == 0) `TRAP      // of range via a call at the last

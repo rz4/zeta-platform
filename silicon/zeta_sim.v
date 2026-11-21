@@ -58,6 +58,13 @@ module zeta_sim #(
     .c_req(sd_req), .c_save(sd_save), .c_slot(sd_slot), .c_off(sd_off), .c_len(sd_len),
     .c_we(sd_we), .c_data(sd_data), .c_done(sd_done));
 
+  // THE PROGRAM'S SRAM (frontier 19): the part, modelled; no guest here
+  wire [16:0] sr_a;
+  wire [15:0] sr_do, sr_di;
+  wire        sr_doe, sr_oe_n, sr_we_n;
+  sram_model u_sram (.clk(clk), .a(sr_a), .d(sr_do), .oe_n(sr_oe_n),
+                     .we_n(sr_we_n), .q(sr_di));
+
   zeta_top u_top (
     .clk(clk), .rst_n(rst_n), .core_en(core_en), .start(start), .pad(pad),
     .boot_we(boot_we), .boot_kind(boot_kind), .boot_done(1'b1),
@@ -65,6 +72,10 @@ module zeta_sim #(
     .frame_done(frame_done), .trapped(trapped), .busy(busy),
     .pad_stb(), .pad_word(),
     .boot_busy(boot_busy),
+    .sram_a(sr_a), .sram_do(sr_do), .sram_doe(sr_doe), .sram_di(sr_di),
+    .sram_oe_n(sr_oe_n), .sram_we_n(sr_we_n),
+    .g_req(1'b0), .g_gnt(), .g_a(17'd0), .g_do(16'd0), .g_doe(1'b0),
+    .g_oe_n(1'b1), .g_we_n(1'b1),
     .snd_tick(snd_tick), .snd_sample(snd_sample), .snd_busy(snd_busy),
     .sd_req(sd_req), .sd_save(sd_save), .sd_sw_we(), .sd_sw_a(),
     .sd_sw_d(), .sd_slot(sd_slot), .sd_off(sd_off),

@@ -67,6 +67,12 @@ module loaderglass_sim (
     .c_req(sd_req), .c_save(sd_save), .c_slot(sd_slot), .c_off(sd_off), .c_len(sd_len),
     .c_we(sd_we), .c_data(sd_data), .c_done(sd_done));
 
+  // the program's SRAM (frontier 19), modelled
+  wire [16:0] sr_a;
+  wire [15:0] sr_do, sr_di;
+  wire        sr_doe, sr_oe_n, sr_we_n;
+  sram_model u_sram (.clk(clk), .a(sr_a), .d(sr_do), .oe_n(sr_oe_n),
+                     .we_n(sr_we_n), .q(sr_di));
   zeta_glass u_glass (
     .clk(clk), .rst_n(rst_n), .core_en(cart_ready), .ce_in(1'b0),
     .pad(pad),
@@ -77,6 +83,10 @@ module loaderglass_sim (
     .snd_strobe(), .snd_sample(), .trapped(trapped),
     .pad_stb(), .pad_word(),
     .boot_busy(cl_busy),
+    .sram_a(sr_a), .sram_do(sr_do), .sram_doe(sr_doe), .sram_di(sr_di),
+    .sram_oe_n(sr_oe_n), .sram_we_n(sr_we_n),
+    .g_req(1'b0), .g_gnt(), .g_a(17'd0), .g_do(16'd0), .g_doe(1'b0),
+    .g_oe_n(1'b1), .g_we_n(1'b1),
     .c0_wait(wt0), .c1_wait(wt1),
     .c0_a(a0), .c0_dq_o(dqo0), .c0_dq_oe(oe0), .c0_dq_i(dqi0),
     .c0_clk_en(ck0), .c0_adv_n(adv0), .c0_cre(cre0),

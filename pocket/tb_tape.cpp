@@ -54,6 +54,7 @@ int main(int argc, char** argv) {
     dut = new Vzeta_tape;
     for (auto& w : mem) w = 0xA5A5;             // a part that powers up dirty
     dut->run = 0; dut->boot_we = 0; dut->pad_stb = 0; dut->rd_req = 0; dut->freeze = 0;
+    dut->g_gnt = 1;                             // (the console never holds it here)
     for (int i = 0; i < 8; i++) tick();
     char line[256];
     while (fgets(line, sizeof line, stdin)) {

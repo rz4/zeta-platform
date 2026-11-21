@@ -35,6 +35,21 @@ module zeta_top (
     output reg         busy,
     output wire        boot_busy,      // hold the loader: a segment word
                                        // is still going into CRAM
+    // THE PROGRAM'S SRAM (frontier 19, silicon/zimem.v): the console is its
+    // master; a guest (the Pocket's tape recorder) borrows it through g_*
+    output wire [16:0] sram_a,
+    output wire [15:0] sram_do,
+    output wire        sram_doe,
+    input  wire [15:0] sram_di,
+    output wire        sram_oe_n,
+    output wire        sram_we_n,
+    input  wire        g_req,
+    output wire        g_gnt,
+    input  wire [16:0] g_a,
+    input  wire [15:0] g_do,
+    input  wire        g_doe,
+    input  wire        g_oe_n,
+    input  wire        g_we_n,
     // sound: one sample per tick, from registers latched each frame
     input  wire        snd_tick,
     // the card port: a behavioral model in simulation, an APF adapter on
@@ -430,7 +445,8 @@ module zeta_top (
   wire       blit_take;
   reg [22:0] dma_addr;               // CRAM half-word cursor (23 bits:
                                      // two dies a chip, build 105)
-  reg [13:0] dma_dst;                // DMEM word cursor
+  reg [IMEM_BITS-1:0] dma_dst;       // DMEM word cursor -- or IMEM's, for an
+                                     // overlay: as wide as IMEM (frontier 19)
   reg [31:0] dma_left;               // cart words still to move
   reg [7:0]  dma_len;
   reg        dma_go, dma_hi;
@@ -475,7 +491,7 @@ module zeta_top (
   wire [22:0] boot_cram_addr = CRAM_CART_BASE[22:0] + {bc_addr[21:0], 1'b0};
   wire [31:0] boot_cram_data = bc_data;
   wire        boot_cram_busy;
-  assign      boot_busy = boot_cram || bc_we || boot_cram_busy;
+  assign      boot_busy = boot_cram || bc_we || boot_cram_busy || prog_busy;
   always @(posedge clk) begin
     bc_we <= 1'b0;
     if (rst_n && boot_cram) begin
@@ -496,7 +512,7 @@ module zeta_top (
                               ? (AUD_BASE[13:0] + {9'd0, audi} - 14'd1) :
                           (st == I_WF) ? A_FRAME :
                           (st == I_WP) ? A_PAD :
-                          dma_we       ? dma_dst :
+                          dma_we       ? dma_dst[13:0] :
                           (st == I_DCLR) ? (dma_two ? DMA2_GO[13:0]
                                                     : DMA_GO[13:0]) :
                           (st == I_OCLR) ? OVL_GO[13:0] :
@@ -576,16 +592,59 @@ module zeta_top (
 
   wire core_rst_n = rst_n && core_en;
 
-  zvm u_vm (
+  // ---- THE PROGRAM, IN THE SRAM (frontier 19) ----------------------------
+  // The loader's words go straight to zimem (the loader waits on boot_busy).
+  // An overlay arrives from CRAM in 64-word bursts far faster than the
+  // SRAM takes it, so its words queue in OFIFO and drain one at a time;
+  // the mover asks for its next burst only once the queue is empty.
+  wire        ic_req, ic_we, ic_done, ic_flush;
+  wire [IMEM_BITS-1:2] ic_line;
+  wire [1:0]  ic_wo;
+  wire [31:0] ic_wd;
+  wire        prog_busy;
+  (* ramstyle = "MLAB, no_rw_check" *) reg [31:0] ofifo [0:63];
+  reg  [6:0]  of_w = 7'd0, of_r = 7'd0;
+  reg  [IMEM_BITS-1:0] od_addr;      // where the next queued word lands
+  reg         od_we = 1'b0;          // a drained word, offered to zimem
+  reg         od_g = 1'b0;           // ...and the cycle after (zimem's busy
+  reg  [31:0] od_data;               // rises then: no second offer)
+  wire        of_empty = (of_w == of_r);
+  always @(posedge clk) begin
+    od_we <= 1'b0;
+    od_g  <= od_we;
+    if (dma_we && dma_imem) begin
+      ofifo[of_w[5:0]] <= dma_word;
+      of_w <= of_w + 7'd1;
+    end
+    if (!of_empty && !prog_busy && !od_we && !od_g) begin
+      od_data <= ofifo[of_r[5:0]];
+      od_we   <= 1'b1;
+      of_r    <= of_r + 7'd1;
+    end
+    if (od_we) od_addr <= od_addr + 1'b1;
+    if (st == I_OVL) od_addr <= o_dst[IMEM_BITS-1:0];
+  end
+  wire boot_prog = boot_we && (boot_kind == 2'd0);
+  zimem #(.PAW(IMEM_BITS)) u_imem (
+    .clk(clk),
+    .ic_req(ic_req), .ic_line(ic_line), .ic_we(ic_we), .ic_wo(ic_wo),
+    .ic_wd(ic_wd), .ic_done(ic_done), .ic_flush(ic_flush),
+    .prog_we(boot_prog || od_we),
+    .prog_addr(od_we ? od_addr : boot_addr[IMEM_BITS-1:0]),
+    .prog_wdata(od_we ? od_data : boot_data),
+    .prog_busy(prog_busy),
+    .g_req(g_req), .g_gnt(g_gnt), .g_a(g_a), .g_do(g_do), .g_doe(g_doe),
+    .g_oe_n(g_oe_n), .g_we_n(g_we_n),
+    .sram_a(sram_a), .sram_do(sram_do), .sram_doe(sram_doe), .sram_di(sram_di),
+    .sram_oe_n(sram_oe_n), .sram_we_n(sram_we_n));
+
+  zvm #(.PAW(IMEM_BITS)) u_vm (
     .clk(clk), .rst_n(core_rst_n),
     .start(st == I_VK), .running(vm_running), .trapped(trapped),
     .ext_we(ext_we), .ext_addr(ext_addr), .ext_wdata(ext_wdata),
     .ext_rdata(dl_data),
-    // IMEM's write port: the boot loader, or an overlay riding the
-    // mover's own burst into program space instead of data space
-    .prog_we((boot_we && !boot_kind) || (dma_we && dma_imem)),
-    .prog_addr(dma_imem ? dma_dst[12:0] : boot_addr[12:0]),
-    .prog_wdata(dma_imem ? dma_word : boot_data));
+    .ic_req(ic_req), .ic_line(ic_line), .ic_we(ic_we), .ic_wo(ic_wo),
+    .ic_wd(ic_wd), .ic_done(ic_done), .ic_flush(ic_flush));
 
   zseq u_seq (
     .clk(clk), .rst_n(core_rst_n),
@@ -868,14 +927,16 @@ module zeta_top (
         else if (!req_ok) st <= dma_two ? I_OVL : I_D2; // usable (spec)
         else begin
           dma_addr <= CRAM_CART_BASE[22:0] + {eff_dma[21:0], 1'b0};
-          dma_dst  <= d_dst[13:0];
+          dma_dst  <= {{(IMEM_BITS - 14){1'b0}}, d_dst[13:0]};
           dma_left <= d_len;
           dma_hi   <= 1'b0;
           dma_imem <= 1'b0;
           dma_ret  <= 1'b0;
           st <= I_DBURST;
         end
-      I_DBURST: begin                     // 64 words per request; the
+      I_DBURST: if (!dma_imem || (of_empty && !prog_busy && !od_we && !od_g)) begin
+                                          // (an overlay: once its queue drains)
+                                          // 64 words per request; the
         bh <= 8'd0;                       // fresh half-count per burst
         dma_len <= (dma_left >= 32'd64)   // splitter serves it legally
                    ? 8'd128 : {dma_left[6:0], 1'b0};
@@ -906,14 +967,16 @@ module zeta_top (
                  o_dst + o_len > IMEM_WORDS[31:0]) st <= I_OCLR;
         else begin
           dma_addr <= CRAM_CART_BASE[22:0] + {eff_ovl[21:0], 1'b0};
-          dma_dst  <= o_dst[13:0];
+          dma_dst  <= o_dst[IMEM_BITS-1:0];
           dma_left <= o_len;
           dma_hi   <= 1'b0;
           dma_imem <= 1'b1;
           dma_ret  <= 1'b1;
           st <= I_DBURST;
         end
-      I_OCLR: begin dma_imem <= 1'b0; st <= I_CARD; end
+      I_OCLR: if (of_empty && !prog_busy && !od_we && !od_g) begin
+        dma_imem <= 1'b0; st <= I_CARD;  // (the last queued word has landed)
+      end
 
       // ---- the card, at the mover's instant (spec.SD_*) ---------------
       // The wait is counted in FRAMES here, which is the whole of the

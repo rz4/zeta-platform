@@ -508,7 +508,7 @@ def run(cart: dict, cart_name: str, out: Path | None = None) -> int:
     # proves one artifact while shipping another is not a gate.
     template = ROOT / "pocket/template"
     rbf = template / "output_files/ap_core.rbf"
-    sources = [SIL / f for f in ("zvm.v", "zgpu.v", "zseq.v", "zsnd.v",
+    sources = [SIL / f for f in ("zvm.v", "zimem.v", "zgpu.v", "zseq.v", "zsnd.v",
                                  "zeta_top.v")]
     sources += [ROOT / "pocket/zeta_glass.v", ROOT / "pocket/zeta_tape.v",
                 ROOT / "silicon/gen/params.vh",

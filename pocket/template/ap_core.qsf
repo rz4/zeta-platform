@@ -784,6 +784,7 @@ set_global_assignment -name SEARCH_PATH ../../silicon/gen
 set_global_assignment -name SEARCH_PATH ../gen
 set_global_assignment -name VERILOG_MACRO "ZETA_BAKE_CART=1"
 set_global_assignment -name VERILOG_FILE ../../silicon/zvm.v
+set_global_assignment -name VERILOG_FILE ../../silicon/zimem.v
 set_global_assignment -name VERILOG_FILE ../../silicon/zgpu.v
 set_global_assignment -name VERILOG_FILE ../../silicon/zeta_top.v
 set_global_assignment -name VERILOG_FILE ../zeta_glass.v

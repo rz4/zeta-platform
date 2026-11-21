@@ -25,7 +25,7 @@ from . import clip, spec
 
 ROOT = Path(__file__).resolve().parents[1]
 SIL = ROOT / "silicon"
-RTL = ["zvm.v", "zseq.v", "zgpu.v", "zsnd.v", "zcard.v", "cram_burst.v",
+RTL = ["zvm.v", "zimem.v", "zseq.v", "zgpu.v", "zsnd.v", "zcard.v", "cram_burst.v",
        "cram_fb.v", "zeta_top.v"]
 
 
@@ -36,6 +36,7 @@ def gen_params() -> str:
         f"localparam TH = {spec.TILE_H}, TROWS = {spec.TILE_ROWS};",
         f"localparam [23:0] CLEAR_RGB = 24'h{spec.CLEAR_RGB:06X};",
         f"localparam IMEM_WORDS = {spec.IMEM_WORDS}, DMEM_WORDS = {spec.DMEM_WORDS};",
+        f"localparam IMEM_BITS = {spec.IMEM_BITS};",
         f"localparam FUEL = {spec.FUEL}, STACK_MAX = {spec.STACK_MAX}, "
         f"RSTACK_MAX = {spec.RSTACK_MAX};",
         f"localparam DL_BASE = {spec.DL_BASE}, DL_STRIDE = {spec.DL_STRIDE}, "
@@ -191,6 +192,7 @@ def build() -> Path:
     blob += (SIL / "zeta_sim.v").read_text()
     blob += (SIL / "cram_sync_chip.v").read_text()
     blob += (SIL / "card_model.v").read_text()
+    blob += (SIL / "sram_model.v").read_text()
     blob += (SIL / "server.cpp").read_text()
     tag = hashlib.sha256(blob.encode()).hexdigest()[:12]
     out = Path(tempfile.gettempdir()) / f"zeta-sdk-sim-{tag}"
@@ -207,7 +209,7 @@ def build() -> Path:
                       f"-DZ_TEX={spec.TEX_PAGES * spec.TEX_STRIDE} "
                       f"-DZ_AUD={spec.AUD_BASE}",
            str(SIL / "zeta_sim.v"), str(SIL / "cram_sync_chip.v"),
-           str(SIL / "card_model.v"),
+           str(SIL / "card_model.v"), str(SIL / "sram_model.v"),
            *[str(SIL / f) for f in RTL], str(SIL / "server.cpp")]
     r = subprocess.run(cmd, capture_output=True, text=True)
     if not sim.exists():
@@ -272,7 +274,7 @@ def build_glass() -> Path:
     (gen / "sinq_init.vh").write_text(gen_sinq())
     pocket = ROOT / "pocket"
     srcs = [pocket / "glass_sim.v", pocket / "zeta_glass.v",
-            SIL / "cram_sync_chip.v", SIL / "card_model.v",
+            SIL / "cram_sync_chip.v", SIL / "card_model.v", SIL / "sram_model.v",
             *(SIL / f for f in RTL)]
     blob = params + gen_sinq() + "".join(p.read_text() for p in srcs)
     blob += (pocket / "tb_glass.cpp").read_text()
@@ -337,7 +339,8 @@ def loader_check() -> int:
                "-GQUIET_LOG=8", "-GTMO_LOG=20",
                "-CFLAGS", f"-DSIG={spec.LOADER_SIG} "
                           f"-DSIG2={spec.LOADER_SIG2} "
-                          f"-DLOADER_BUILD={spec.LOADER_BUILD} -O2",
+                          f"-DLOADER_BUILD={spec.LOADER_BUILD} "
+                          f"-DZ_IMEM={spec.IMEM_WORDS} -O2",
                str(pocket / "cart_loader.v"), str(pocket / "tb_loader.cpp")]
         r = subprocess.run(cmd, capture_output=True, text=True)
         if not sim.exists():

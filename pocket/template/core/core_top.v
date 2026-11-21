@@ -285,13 +285,19 @@ assign port_tran_sd_dir = 1'b0;     // SD is input and not used
 // dram_* pins are driven by zeta_sdram_phy below -- no tie-off here.
 
 // THE SRAM: the tape (zeta_tape.v, below). Both byte lanes, always.
+// THE SRAM: the console's -- the program lives in its low 128 KiB (frontier
+// 19, silicon/zimem.v) -- and the tape recorder borrows it as a guest, in
+// the top 64 KiB (its own addresses lifted by 0x18000 half-words).
 wire [16:0] tape_sram_a;
 wire [15:0] tape_sram_do;
-wire        tape_sram_doe, tape_sram_oe_n, tape_sram_we_n;
-assign sram_a = tape_sram_a;
-assign sram_dq = tape_sram_doe ? tape_sram_do : {16{1'bZ}};
-assign sram_oe_n  = tape_sram_oe_n;
-assign sram_we_n  = tape_sram_we_n;
+wire        tape_sram_doe, tape_sram_oe_n, tape_sram_we_n, tape_g_req, tape_g_gnt;
+wire [16:0] con_sram_a;
+wire [15:0] con_sram_do;
+wire        con_sram_doe, con_sram_oe_n, con_sram_we_n;
+assign sram_a = con_sram_a;
+assign sram_dq = con_sram_doe ? con_sram_do : {16{1'bZ}};
+assign sram_oe_n  = con_sram_oe_n;
+assign sram_we_n  = con_sram_we_n;
 assign sram_ub_n  = 0;
 assign sram_lb_n  = 0;
 
@@ -615,6 +621,7 @@ zeta_tape #(.LOG_WORDS(14)) u_tape (
     .freeze(tape_freeze),
     .rd_req(tape_rd_req), .rd_addr(tape_rd_addr),
     .rd_data(tape_rd_data), .rd_ack(),
+    .g_req(tape_g_req), .g_gnt(tape_g_gnt),
     .sram_a(tape_sram_a), .sram_do(tape_sram_do), .sram_doe(tape_sram_doe),
     .sram_di(sram_dq),
     .sram_oe_n(tape_sram_oe_n), .sram_we_n(tape_sram_we_n));
@@ -634,6 +641,11 @@ zeta_glass #(.EXT_CE(1)) u_zeta (
     .snd_strobe(), .snd_sample(zeta_snd),
     .trapped(),
     .pad_stb(tape_pad_stb), .pad_word(tape_pad_word),
+    .sram_a(con_sram_a), .sram_do(con_sram_do), .sram_doe(con_sram_doe),
+    .sram_di(sram_dq), .sram_oe_n(con_sram_oe_n), .sram_we_n(con_sram_we_n),
+    .g_req(tape_g_req), .g_gnt(tape_g_gnt), .g_a(tape_sram_a | 17'h18000),
+    .g_do(tape_sram_do), .g_doe(tape_sram_doe), .g_oe_n(tape_sram_oe_n),
+    .g_we_n(tape_sram_we_n),
     .c0_wait(cram0_wait), .c1_wait(cram1_wait),
     .c0_a(cram0_a), .c0_dq_o(cram0_dq_o), .c0_dq_oe(cram0_oe),
     .c0_dq_i(cram0_dq),

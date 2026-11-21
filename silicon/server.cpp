@@ -10,6 +10,7 @@
 // ZW/ZH arrive as -D flags from zeta/silicon.py, which reads spec.py --
 // the single source of truth, as everywhere.
 #include <cstdio>
+#include <cstring>
 #include <cstdlib>
 #include "Vzeta_sim.h"
 #include "Vzeta_sim___024root.h"   // (ZDBGMEM's peeks, and ZETA_SEQHIST's)
@@ -81,8 +82,12 @@ static void load_state(const char* path) {
     ZSND(lfsr) = u32(o) & 0x7FFF; o += 4;
     r->zeta_sim__DOT__u_top__DOT__n_copy = u32(o) & 0xFF; o += 12;   // copied; staged
     r->zeta_sim__DOT__u_top__DOT__c_lat = u32(o) & 0xFF; o += 4;     // and counted are
-    for (int i = 0; i < Z_IMEM; i++, o += 4)                         // the card model's
-        r->zeta_sim__DOT__u_top__DOT__u_vm__DOT__imem[i] = u32(o);
+    for (int i = 0; i < Z_IMEM; i++, o += 4) {                       // the card model's;
+        r->zeta_sim__DOT__u_sram__DOT__mem[2 * i] = u32(o) & 0xFFFF;  // IMEM is in the
+        r->zeta_sim__DOT__u_sram__DOT__mem[2 * i + 1] = u32(o) >> 16; // SRAM (frontier 19)
+    }
+    memset(&r->zeta_sim__DOT__u_top__DOT__u_vm__DOT__cval, 0,         // ...and the cache
+           sizeof r->zeta_sim__DOT__u_top__DOT__u_vm__DOT__cval);     // forgets it all
     for (int i = 0; i < Z_DMEM; i++, o += 4)
         r->zeta_sim__DOT__u_top__DOT__u_vm__DOT__dmem[i] = u32(o);
     for (int c = 0; c < 16; c++, o += 4) ZSND(ph)[c] = u32(o) & 0xFFFFFF;

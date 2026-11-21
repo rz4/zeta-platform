@@ -57,6 +57,12 @@ module zeta_tape #(
     input  wire [LOG_WORDS-1:0] rd_addr,
     output reg  [31:0] rd_data,
     output reg         rd_ack,
+    // THE SRAM IS BORROWED (frontier 19): the program lives there now and
+    // the console owns it; the recorder asks (g_req, held through a job)
+    // and waits for the grant before each access. Its addresses are its
+    // own -- core_top lifts them into the SRAM's top 64 KiB.
+    output wire        g_req,
+    input  wire        g_gnt,
     // the SRAM (both byte lanes always)
     output reg  [16:0] sram_a,
     output reg  [15:0] sram_do,
@@ -151,6 +157,7 @@ module zeta_tape #(
   end
 
   wire rq_edge = rq_s[2] ^ rq_s[1];
+  assign g_req = (job != J_IDLE);
 
   always @(posedge clk) begin
     rq_s <= {rq_s[1:0], rd_req};
@@ -182,7 +189,7 @@ module zeta_tape #(
         else if (pend_rd) begin pend_rd <= rq_edge; job <= J_READ; end
       end
 
-      J_READ: begin                     // low half, then high: 3 beats each
+      J_READ: if (g_gnt) begin          // low half, then high: 3 beats each
         sram_doe <= 1'b0; sram_we_n <= 1'b1; sram_oe_n <= 1'b0;
         sram_a <= {{(16 - LOG_WORDS){1'b0}}, rd_addr, step[0]};
         ph <= ph + 3'd1;
@@ -198,7 +205,7 @@ module zeta_tape #(
         end
       end
 
-      default: begin                    // a write: five beats a half-word
+      default: if (g_gnt) begin         // a write: five beats a half-word
         sram_oe_n <= 1'b1;
         sram_a <= wa; sram_do <= wd; sram_doe <= 1'b1;
         sram_we_n <= !(ph == 3'd1 || ph == 3'd2);    // low for beats 2 and 3

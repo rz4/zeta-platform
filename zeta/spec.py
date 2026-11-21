@@ -34,10 +34,15 @@ def display_rgb(rgb24: int) -> tuple[int, int, int]:
     return tuple(out)
 
 # ---- memories & budgets --------------------------------------------------
-IMEM_WORDS = 8192               # instructions per cart. Doubled in build
+IMEM_WORDS = 32768              # instructions per cart. Doubled in build
                                 # 105: TND's fight filled 4,080 of 4,096
                                 # with the movement layer still to come
-                                # (16 more M10K of the 17 the fit left)
+                                # (16 more M10K of the 17 the fit left).
+                                # x4 for the SRAM (frontier 19): TND had
+                                # 41 of 8,192 left, and block RAM had no
+                                # more to give -- the program lives in
+                                # the Pocket's SRAM behind a cache now
+IMEM_BITS = 15                  # its address width (pc, return addresses)
 DMEM_WORDS = 16384              # 32-bit words of game state -- the
                                 # capacity amendment: 4x the mesh and
                                 # state room (BRAM is the currency the
@@ -1192,9 +1197,12 @@ LOADER_SIG2 = 11700             # a MIRROR of the signature, written into
                                 # delivers intact -- so the loader's
                                 # testimony survives even if the top of
                                 # memory does not
-LOADER_BUILD = 106              # bumped per bitstream: word +7 of the
+LOADER_BUILD = 107              # bumped per bitstream: word +7 of the
                                 # signature, so a cart can say WHICH core
                                 # it is running on.
+                                # (107 = the program in the SRAM behind a
+                                #  1,024-word cache, IMEM 32,768 words,
+                                #  the tape a guest in the SRAM's top 64 KiB)
                                 # (106 = the recorder, zeta_tape.v, and
                                 #  the SRAM's first use; the audio event
                                 #  list as two MLABs. A tape carries this
