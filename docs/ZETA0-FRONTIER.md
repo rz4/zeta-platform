@@ -1025,3 +1025,14 @@ about 26: some 22 blocks come back for scene capacity.
 **Gates, in order:** law and spec (every test, regen); machine 2 crossing
 bit-equal with the cache in the loop; a CI fit; glass (boot, play, a tape
 replayed exact, the recorder still writing).
+
+**WITNESSED ON THE POCKET (2026-11-21, build 107).** Fitted with seed 3
+(seed 7 missed the frame memory's pin path by 0.057 ns and a fast hold by
+0.008; seeds 3 and 19 met every corner, 11 did not): 17,469 ALMs, 281 of
+308 M10K -- IMEM gave back 27. On glass the player's verdict: "looks
+good". The core booted from the Pocket's menu, the film played into TND,
+the game ran with a main program of 8,181 words (past the old ceiling),
+and the recorder -- now the SRAM's guest -- wrote a 4m29s tape, build 107,
+carrying the staged cart's sum. On the desktop the cache cost TND's brawl
+route 24k clocks at its peak (60% of the frame, from 57%), as the model
+said.
