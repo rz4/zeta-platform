@@ -268,9 +268,14 @@ _pend += [0]
 _pend += [0] * (B_END - len(_pend))
 END_PAUSE = cart.cram(Table(_pend), "pause_end")
 # the images filled once everything is placed (the end of this file)
-INTRO_PROG = cart.cram(Table([0] * spec.OVL_MAX), "intro_prog")
-PAUSE_PROG = cart.cram(Table([0] * spec.OVL_MAX), "pause_prog")
-MAIN_PROG = cart.cram(Table([0] * spec.OVL_MAX), "main_prog")
+# A PROGRAM'S PAGE: the game, the intro and the pause each fit 8,192 words,
+# and an overlay copies exactly that much. (It was spec.OVL_MAX, which is
+# the whole of IMEM -- and IMEM grows to 32,768 words in the SRAM, frontier
+# 19: four times the copy for nothing.)
+PAGE = 8192
+INTRO_PROG = cart.cram(Table([0] * PAGE), "intro_prog")
+PAUSE_PROG = cart.cram(Table([0] * PAGE), "pause_prog")
+MAIN_PROG = cart.cram(Table([0] * PAGE), "main_prog")
 END_MAIN = cart.cram(Table([0] * B_END), "main_end")
 FRONT_MAIN = cart.cram(Table([0] * B_FRONT), "main_front")
 
@@ -1683,7 +1688,7 @@ p.set(TT, 0)
 p.set(spec.DMA_SRC, int(END_INTRO)).set(spec.DMA_DST, END_LO)
 p.set(spec.DMA_LEN, B_END).set(spec.DMA_GO, 1)
 p.set(spec.OVL_SRC, int(INTRO_PROG)).set(spec.OVL_DST, 0)
-p.set(spec.OVL_LEN, spec.OVL_MAX).set(spec.OVL_GO, 1)
+p.set(spec.OVL_LEN, PAGE).set(spec.OVL_GO, 1)
 p.set(spec.BG_SRC, 0).set(spec.CO_BASE, 1)
 p.rect(0, 0, 0, spec.W - 1, spec.H - 1, 0x000000, 16)
 p.emit(f"jmp {L_MUSIC}")
@@ -1699,7 +1704,7 @@ p.mark(f"{pa_}_go")
 p.set(spec.DMA_SRC, int(END_PAUSE)).set(spec.DMA_DST, END_LO)
 p.set(spec.DMA_LEN, B_END).set(spec.DMA_GO, 1)
 p.set(spec.OVL_SRC, int(PAUSE_PROG)).set(spec.OVL_DST, 0)
-p.set(spec.OVL_LEN, spec.OVL_MAX).set(spec.OVL_GO, 1)
+p.set(spec.OVL_LEN, PAGE).set(spec.OVL_GO, 1)
 p.mark(pa_)
 p.load(PX).store(AR["ox"]).load(PZ).store(AR["oz"])     # where he stood
 L = {k: p.label(k) for k in ("dead", "frozen", "free", "walk", "idle",
@@ -1958,9 +1963,10 @@ p.mark(f"{jp}_p")
 p.load(ANIM).push(2).emit("eq", f"jz {jp}_j", f"jmp {jp}")   # not mid-swing
 p.mark(f"{jp}_j")
 p.set(F["pvy"], JUMP_V0).set(F["py"], 1)
-p.load(F["sty"]).emit(f"jz {jp}")                 # P18: THE BOXER and THE RUN -- a
-p.emit(f"jmp {jp}_f2")                            # direction with the jump flips that
-                                                  # way at once (targeting has no jump)
+p.load(F["sty"]).push(2).emit("eq", f"jz {jp}")   # P18: THE BOXER -- a direction with
+p.emit(f"jmp {jp}_f2g")                           # the jump flips that way at once.
+                                                  # (The run jumps; its flip is the
+                                                  # second press -- below.)
 # P10: THE FLIP -- a second A in the air, once a jump: forward from the run,
 # any of four ways from the boxing stance (the archive's one-axis rule)
 p.mark(f"{jp}_fl")
@@ -1968,13 +1974,20 @@ p.load(F["acmb"]).load(F["evf"]).emit("or").load(F["flipu"]).emit("or", f"jz {jp
 p.mark(f"{jp}_f1")
 p.load(ANIM).push(2).emit("eq", f"jz {jp}_f2", f"jmp {jp}")
 p.mark(f"{jp}_f2")
+# P18: THE DOUBLE JUMP ("think Crash Bandicoot"): the second press in the
+# air flips the way the pad points -- or, with no direction, straight up
+# again, keeping the way he was going.
+held(15)
+p.emit(f"jz {jp}_dj", f"jmp {jp}_dir")
+p.mark(f"{jp}_f2g")                               # (the boxer, on the ground: no
+held(15)                                          # direction is the plain jump)
+p.emit(f"jz {jp}")
+p.mark(f"{jp}_dir")
 # P18: ANY DIRECTION -- "the platformer feel: leap over crowds and land
 # where I want". The pad's eight ways (OCTANT), from the boxer's cross, or
 # in the run from the target -- Up flips OVER it. The shape is the last axis
 # held (a tuck forward, back, a cartwheel either side).
 fl_dir = W["qz"]
-held(15)
-p.emit(f"jz {jp}")                                # no direction: the plain jump
 p.load(YAW).store(W["oy"])
 p.load(F["sty"]).push(1).emit("eq", f"jz {jp}_fr")
 p.load(F["tgt"]).push(1).emit("sub").store(F["brg"]).emit(f"call {L_BRG}")
@@ -2001,6 +2014,11 @@ sin_of(p, cell=W["qx"])
 p.load(W["qy"]).emit("mulq").push(0).emit("swap", "sub", "dup").store(F["evx"]).store(F["vx"])
 sin_of(p, 256, cell=W["qx"])
 p.load(W["qy"]).emit("mulq", "dup").store(F["evz"]).store(F["vz"])
+p.emit(f"jmp {jp}_up")
+p.mark(f"{jp}_dj")                                # straight up again, as he was going
+p.set(F["evk"], 0).set(F["evt"], FLIPS[0][1]).set(F["evf"], FLIPS[0][1])
+p.load(F["vx"]).store(F["evx"]).load(F["vz"]).store(F["evz"])
+p.mark(f"{jp}_up")
 p.set(F["pvy"], FLIP_V).set(F["flipu"], 1)
 p.mark(jp)
 
@@ -2190,12 +2208,17 @@ p.mark(f"{gf}_k")
 p.emit("drop").store(F["shake"])
 p.emit(f"jmp {L['motion']}")
 p.mark(f"{gf}_m")                               # a fist: its lunge, along HEAD
+row(PMT, F["mv"], "lunge")                      # (targeting's haymaker crosses the
+hy_ = p.label("hylunge")                        # gap to the target it is sure to
+p.load(F["mv"]).push(MOVE["special"]).emit("eq", f"jz {hy_}")   # hit: x2.5, five units)
+p.load(F["sty"]).push(SQ_TARGET).emit("eq", f"jz {hy_}")
+p.push(int(2.5 * ONE)).emit("mulq")
+p.mark(hy_)
+p.emit("dup").store(W["dmg"])
 sin_of(p, cell=HEAD)
-row(PMT, F["mv"], "lunge")
 p.emit("mulq").load(F["vx"]).emit("swap", "sub").store(F["vx"])   # fwd x = -sin
 sin_of(p, 256, cell=HEAD)
-row(PMT, F["mv"], "lunge")
-p.emit("mulq").load(F["vz"]).emit("add").store(F["vz"])
+p.load(W["dmg"]).emit("mulq").load(F["vz"]).emit("add").store(F["vz"])
 p.emit(f"jmp {L['motion']}")
 p.mark(f"{L['walk']}_q")
 p.load(YAW).store(HEAD)                       # no strike: he faces his steering
@@ -3162,7 +3185,7 @@ ix = q.label("ix")
 q.load(I_X).emit(f"jz {ix}")
 black(q)
 mover(q, DMA1, int(END_MAIN), END_LO, B_END)
-mover(q, OVL, int(MAIN_PROG), 0, spec.OVL_MAX)
+mover(q, OVL, int(MAIN_PROG), 0, PAGE)
 q.set(spec.CAM_Y, int(2.15 * ONE)).set(spec.CAM_PITCH, 20).set(spec.CAM_ROLL, 0)
 q.load(YAW).store(CY)
 q.emit(f"jmp {L_MUSIC}")
@@ -3263,7 +3286,7 @@ for b, _ in BTN:                                 # resuming: every button spent
 pz.set(spec.DMA_SRC, int(END_MAIN)).set(spec.DMA_DST, END_LO)
 pz.set(spec.DMA_LEN, B_END).set(spec.DMA_GO, 1)
 pz.set(spec.OVL_SRC, int(MAIN_PROG)).set(spec.OVL_DST, 0)
-pz.set(spec.OVL_LEN, spec.OVL_MAX).set(spec.OVL_GO, 1)
+pz.set(spec.OVL_LEN, PAGE).set(spec.OVL_GO, 1)
 pz.set(spec.DL_BASE, 0).emit(f"jmp {L_MUSIC}")
 pz.mark(f"{pc_}_dr")
 # the dim and the two words
@@ -4276,7 +4299,11 @@ for a, b in (("qx", "fx"), ("qy", "fy"), ("qz", "fz")):
 p.load(cur("py")).store(W["oy"])                 # struck where it is: aloft
 nearest((f"load {cur('kp')}",), X, Z, t["c"], t["s"])
 ag_ = p.label("aimgun")                          # P18: THE GUN lands on the
-p.push(MOVE["gun"] - 1).load(F["mv"]).emit("lt", f"jz {ag_}")   # demon its line met
+p.push(MOVE["gun"] - 1).load(F["mv"]).emit("lt")                # demon its line met --
+p.load(F["mv"]).push(MOVE["special"]).emit("eq")                # and in targeting the
+p.load(F["sty"]).push(SQ_TARGET).emit("eq", "and", "or", f"jz {ag_}")   # haymaker too
+                                                                # ("it needs to hit the
+                                                                # target every time")
 p.load(AIM).load(F["dmi"]).emit("eq", f"jz {lab['noA']}")        # (or its target),
 p.load(F["sty"]).push(SQ_TARGET).emit("eq", f"jz {ag_}_hit")     # at any range, and
 p.load(F["aimh"]).push(0).emit("eq").store(W["head"])           # no other -- and in
@@ -5017,7 +5044,7 @@ def _imem(g):
         f.write("\n".join(g.lines()) + "\n")
     words = asm.assemble(f.name)["imem"]
     os.unlink(f.name)
-    assert len(words) <= spec.OVL_MAX, f"a program of {len(words)} words"
+    assert len(words) <= PAGE, f"a program of {len(words)} words"
     return words
 
 
@@ -5037,7 +5064,8 @@ for k, v in (("INTRO_PROG", INTRO_PROG), ("MAIN_PROG", MAIN_PROG), ("INTRO_LEN",
              ("BORROW_FRONT", FRONT_LO), ("BORROW_FRONT_N", B_FRONT),
              ("BORROW_END", END_LO), ("BORROW_END_N", B_END),
              ("POSE_WALK", base["walk"]), ("POSE_LAND", base["land"]),
-             ("DREST", DREST), ("PK_TOP", PK_TOP), ("CAM_TURN", CAM_TURN)):
+             ("DREST", DREST), ("PK_TOP", PK_TOP), ("CAM_TURN", CAM_TURN),
+             ("PAGE", PAGE)):
     cart.const(k, int(v))                       # (for the gates: tests/test_tnd.py)
 out = cart.write(OUT)
 print(cart.report())

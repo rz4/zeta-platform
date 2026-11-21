@@ -170,11 +170,13 @@ def push(card: Path, staged: Path = STAGED) -> int:
         if dst.exists() and dst.name == TAPE_NAME \
                 and dst.stat().st_size == src.stat().st_size:
             continue
-        # the SAME file, not merely an equal-sized one with a newer date: a
-        # push back to an older build (same size, older stamp) was skipped
-        # as "already current" and left the newer game on the card
+        # the SAME file -- its stamp, or failing that its bytes -- not merely
+        # an equal-sized one with a newer date: a push back to an older build
+        # (same size, older stamp) was skipped as "already current" and left
+        # the newer game on the card
         if dst.exists() and dst.stat().st_size == src.stat().st_size \
-                and abs(dst.stat().st_mtime - src.stat().st_mtime) < 2:
+                and (dst.stat().st_mtime == src.stat().st_mtime
+                     or dst.read_bytes() == src.read_bytes()):
             continue
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, dst)
