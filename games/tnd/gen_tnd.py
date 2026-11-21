@@ -630,16 +630,15 @@ assert _err < 0.01, f"demon FK drifts {_err:.4f} units from the archive"
 # a few PIECES, each built once here and placed as an object at the node,
 # turned a quarter turn at a time (yaw 768 is a clockwise quarter: N -> E).
 #
-# A PIECE is a 32 x 32 tile in nine cells -- the junction, four edges, four
+# A PIECE is a 16 x 16 tile in nine cells -- the junction, four edges, four
 # corners, cut at the facade line FAC either side of the centre. Each side
 # of the node is CLOSED, an ARM (a street goes on) or OPEN (inside a plaza:
 # the square goes on). The junction is street; an edge is street when its
 # side is not closed; a corner only when both its sides are open. A wall
-# stands wherever street meets block, facing the street, with a sidewalk
-# at its foot. A block's height is one per block, so walls meet flush at
-# every corner; where a wall reaches the tile's edge it drops to SEAM_H for
-# its last 3 units (with a cap where it steps), so every neighbour meets it
-# at the same height whatever its own block stands at.
+# stands wherever street meets block, facing the street, on a raised
+# sidewalk. A wall is FRONTS -- cut where cells meet and mid-junction, each
+# its own height, colour, shop and windows -- and a front at the tile's edge
+# always stands H_EDGE, so a neighbour, whatever its piece, meets it flush.
 import importlib.util as _ilu                                 # noqa: E402
 _cs = _ilu.spec_from_file_location("tnd_city", Path(__file__).with_name("city.py"))
 city = _ilu.module_from_spec(_cs)
@@ -648,17 +647,31 @@ _cs.loader.exec_module(city)
 CITY_SEED = 666142
 CITY = city.generate(16, CITY_SEED)
 CS = CITY.size
-TILE = 32.0                                  # = city.BLOCK's role, a power of two
-assert TILE == 32.0                          # (a node is a shift: >> 21 in Q16)
+# P20: A TOWN, NOT A CANYON (the player, on glass: "still feels too
+# spacious ... the streets need the sidewalks like in the original. it
+# should feel more like a city, town ... a tighter experience, and feeling
+# overwhelmed at times"). The tile halves to 16: a block a few seconds'
+# walk, a plaza 25 across, the next corner always near. Urban design's
+# measures of a street that holds you -- ENCLOSURE (walls as high as the
+# street is wide, or higher), HUMAN SCALE (narrow fronts, a shop at the
+# foot of each), TRANSPARENCY (lit windows), COMPLEXITY (no two fronts
+# alike side by side) -- are what the pieces build now, on the crossroads'
+# own raised sidewalks with their curbs.
+TILE = 16.0                                  # = city.BLOCK's role, a power of two
+TSH = 20                                     # a node is a shift: Q16 >> TSH
+assert TILE * ONE == 1 << TSH
 HT = TILE / 2
-# THE CITY'S STREETS ARE TIGHT (the player, 2026-11-21: "tighter and less
-# wide"): 4.4 from the centreline to the curb, where the crossroads' arms
-# were 7.8 -- a lane 8.8 across, its walls 5.7 out, a body's centre kept
-# 3.7 from either. The tile stays 32, so the blocks between are deep and
-# the streets canyons; the plazas stay squares near 40 across.
-CITY_LANE = 4.4
-FAC = CITY_LANE + 1.3                        # the facade line
-SEAM, SEAM_H = 3.0, 8.0
+CITY_LANE = 3.4                              # the centreline to the curb
+FAC = CITY_LANE + 1.3                        # the facade line: 9.4 wall to wall
+CURB = 0.15                                  # the sidewalk stands this high
+H_EDGE = 9.0                                 # every front at a tile's edge: so
+                                             # neighbours always meet flush
+H_IN = (6.5, 8.0, 11.5, 13.5)                # the fronts between
+SHOP_H = 2.6                                 # a shop at the foot of every front
+WROWS = ((3.7, 4.6), (6.5, 7.4))             # the floors' windows
+TOWN = ((86, 48, 40), (104, 94, 82), (70, 68, 76), (58, 44, 36), (108, 86, 54))
+SHOPS = ((214, 160, 84), (30, 32, 40), (82, 78, 76), (30, 32, 40), (72, 48, 38))   # lit, glass, shutter, glass, door
+WIN_LIT, WIN_DARK = (190, 142, 74), (36, 36, 46)
 CLOSED, ARMS, OPEN = 0, 1, 2
 CSTEP = [CS, 1, -CS, -1]                     # N E S W, in node numbers
 
@@ -701,51 +714,31 @@ def piece_build(sides):
         return sides[0 if cy > 0 else 2] == OPEN and sides[1 if cx > 0 else 3] == OPEN
     span = {-1: (-HT, -FAC), 0: (-FAC, FAC), 1: (FAC, HT)}
     cells = [(cx, cy) for cx in (-1, 0, 1) for cy in (-1, 0, 1)]
-    # blocks: the unwalkable cells, joined by their sides
-    comp = {}
-    for c in cells:
-        if walkable(*c) or c in comp:
-            continue
-        stack, comp[c] = [c], c
-        while stack:
-            a = stack.pop()
-            for d in ((1, 0), (-1, 0), (0, 1), (0, -1)):
-                b = (a[0] + d[0], a[1] + d[1])
-                if b[0] in span and b[1] in span and not walkable(*b) and b not in comp:
-                    comp[b] = c
-                    stack.append(b)
-    roots = sorted(set(comp.values()))
-    seed_ = sum(s * 3 ** k for k, s in enumerate(sides))
-    height = {r: 8.0 + 4.5 * ((seed_ + 7 * i) % 3) for i, r in enumerate(roots)}
-    colour = {r: BCOL[(seed_ + i) % 4] for i, r in enumerate(roots)}
-    # walls: (axis, at, lo, hi, normal sign, root); axis 0 = a wall of
-    # constant x (normal along x), 1 = of constant y
+    seed_ = sum(s_ * 3 ** k for k, s_ in enumerate(sides))
+    # walls: (axis, at, lo, hi, normal sign); axis 0 = a wall of constant x
+    # (normal along x), 1 = of constant y; the normal faces the street
     segs = {}
     for a in cells:
         if not walkable(*a):
             continue
         for d in ((1, 0), (-1, 0), (0, 1), (0, -1)):
-            b = (a[0] + d[0], a[1] + d[1])
-            if not (b[0] in span and b[1] in span) or walkable(*b):
+            b_ = (a[0] + d[0], a[1] + d[1])
+            if not (b_[0] in span and b_[1] in span) or walkable(*b_):
                 continue
             if d[0]:
-                at = FAC * d[0]
-                lo, hi = span[a[1]]
-                key = (0, at, -d[0], comp[b])
+                key, (lo, hi) = (0, FAC * d[0], -d[0]), span[a[1]]
             else:
-                at = FAC * d[1]
-                lo, hi = span[a[0]]
-                key = (1, at, -d[1], comp[b])
+                key, (lo, hi) = (1, FAC * d[1], -d[1]), span[a[0]]
             segs.setdefault(key, []).append((lo, hi))
     walls = []
-    for (axis, at, sgn, r), spans in sorted(segs.items()):
+    for (axis, at, sgn), spans in sorted(segs.items()):
         spans.sort()
         cur = list(spans[0])
         for lo, hi in spans[1:] + [(None, None)]:
             if lo is not None and abs(lo - cur[1]) < 1e-6:
                 cur[1] = hi
                 continue
-            walls.append((axis, at, cur[0], cur[1], sgn, r))
+            walls.append((axis, at, cur[0], cur[1], sgn))
             if lo is not None:
                 cur = [lo, hi]
     b = Build()
@@ -755,71 +748,75 @@ def piece_build(sides):
 
     def nrm(axis, sgn):
         return (sgn, 0, 0) if axis == 0 else (0, sgn, 0)
-    for axis, at, lo, hi, sgn, r in walls:
-        h, col = height[r], colour[r]
-        stops = [lo, hi]
-        lo_seam, hi_seam = abs(lo + HT) < 1e-6, abs(hi - HT) < 1e-6
-        m0 = lo + SEAM if lo_seam else lo
-        m1 = hi - SEAM if hi_seam else hi
-        pieces = [(m0, m1, h)]
-        if lo_seam:
-            pieces.append((lo, m0, SEAM_H))
-        if hi_seam:
-            pieces.append((m1, hi, SEAM_H))
-        for u0, u1, hh in pieces:
-            b.quad([P(axis, at, u0, 0.12), P(axis, at, u1, 0.12),
-                    P(axis, at, u1, hh), P(axis, at, u0, hh)], nrm(axis, sgn), col)
-        # A TOWER BEHIND: the block rises again 3 back from its street wall,
-        # over the middle of a long wall, so the skyline steps as the
-        # crossroads' corner towers did (no roofs: the eye is never above 8)
-        if m1 - m0 > 9.0:
-            t0, t1, set_ = m0 + 3.0, m1 - 3.0, at - sgn * 3.0
-            th = h + 4.0 + 3.0 * ((int(abs(at) * 7 + lo * 3) + r[0] + 2 * r[1]) % 3)
-            b.quad([P(axis, set_, t0, h), P(axis, set_, t1, h),
-                    P(axis, set_, t1, th), P(axis, set_, t0, th)], nrm(axis, sgn), col)
-            for u, out in ((t0, -1), (t1, 1)):
+
+    def pick(seq, *k):
+        return seq[(seed_ * 7 + sum((i + 3) * int(round(v * 10)) for i, v in enumerate(k))) % len(seq)]
+    walk_w = FAC - CITY_LANE
+    for wi, (axis, at, lo, hi, sgn) in enumerate(walls):
+        # THE FRONTS: cut where the cells meet; one at a tile's edge stands
+        # H_EDGE, the rest vary. A front has its shop, and maybe a floor of
+        # windows lit or dark (two, if it stands tall)
+        cuts = sorted({lo, hi} | {c for c in (-FAC, FAC) if lo + 1e-6 < c < hi - 1e-6})
+        fronts = []
+        for u0, u1 in zip(cuts, cuts[1:]):
+            edge = abs(u0 + HT) < 1e-6 or abs(u1 - HT) < 1e-6
+            h = H_EDGE if edge else pick(H_IN, at, u0, sgn, wi)
+            fronts.append((u0, u1, h, pick(TOWN, at, u0, sgn), pick(SHOPS, at, u1, sgn),
+                           pick((WIN_LIT, None, WIN_LIT, None, None), u0, at, sgn, wi)))
+        for k, (u0, u1, h, col, shop, win) in enumerate(fronts):
+            zs = [CURB, SHOP_H]
+            if win is not None:
+                zs += [z for r in WROWS[:1 if h < 11 else 2] for z in r]
+            zs.append(h)
+            for j, (z0, z1) in enumerate(zip(zs, zs[1:])):
+                c = shop if j == 0 else (win if j % 2 == 0 else col)
+                b.quad([P(axis, at, u0, z0), P(axis, at, u1, z0),
+                        P(axis, at, u1, z1), P(axis, at, u0, z1)], nrm(axis, sgn), c)
+            # where the next front is lower, this one's side shows: a cap
+            if k + 1 < len(fronts) and fronts[k + 1][2] != h:
+                hn = fronts[k + 1][2]
+                out = 1 if h > hn else -1
                 n = (0, out, 0) if axis == 0 else (out, 0, 0)
-                b.quad([P(axis, set_, u, h), P(axis, set_ - sgn * 6.0, u, h),
-                        P(axis, set_ - sgn * 6.0, u, th), P(axis, set_, u, th)], n, col)
-        back = at - sgn * 6.0                      # the block's depth, behind
-        for u, out in ((m0, -1), (m1, 1)):
-            if (out < 0 and lo_seam or out > 0 and hi_seam) and h > SEAM_H:
-                n = (0, out, 0) if axis == 0 else (out, 0, 0)
-                b.quad([P(axis, at, u, SEAM_H), P(axis, back, u, SEAM_H),
-                        P(axis, back, u, h), P(axis, at, u, h)], n, col)
-        # the sidewalk at its foot, cut where it is long
-        walk_at = at - sgn * (FAC - CITY_LANE)
-        k = max(1, int(np.ceil((hi - lo) / 9.0)))
-        for i in range(k):
-            u0, u1 = lo + (hi - lo) * i / k, lo + (hi - lo) * (i + 1) / k
-            b.quad([P(axis, at, u0, 0.12), P(axis, walk_at, u0, 0.12),
-                    P(axis, walk_at, u1, 0.12), P(axis, at, u1, 0.12)],
-                   (0, 0, 1), SIDEWALK)
-    # A LAMP at the first corner of the junction that juts into the street
-    # (both its neighbours street, itself block): warm, on the sidewalk
+                b.quad([P(axis, at, u1, min(h, hn)), P(axis, at - sgn * 3.0, u1, min(h, hn)),
+                        P(axis, at - sgn * 3.0, u1, max(h, hn)), P(axis, at, u1, max(h, hn))],
+                       n, col if h > hn else fronts[k + 1][3])
+        # THE SIDEWALK at its foot, raised, with its curb to the road
+        walk_at = at + sgn * walk_w              # (toward the street: the normal)
+        for u0, u1 in zip(cuts, cuts[1:]):         # (cut at its fronts: a long
+            b.quad([P(axis, at, u0, CURB), P(axis, walk_at, u0, CURB),   # flat face's
+                    P(axis, walk_at, u1, CURB), P(axis, at, u1, CURB)],  # depth over-
+                   (0, 0, 1), SIDEWALK)                                    # reads, and
+            b.quad([P(axis, walk_at, u0, 0.0), P(axis, walk_at, u1, 0.0),  # loses to the
+                    P(axis, walk_at, u1, CURB), P(axis, walk_at, u0, CURB)],  # ground)
+                   nrm(axis, sgn), CURB_C)
+    # a jutting corner's pad joins its two sidewalks, curbed on both faces
     for cx, cy in ((1, 1), (-1, 1), (-1, -1), (1, -1)):
         if walkable(cx, 0) and walkable(0, cy) and not walkable(cx, cy):
-            x, y = cx * (FAC - 0.6), cy * (FAC - 0.6)
-            b.box(x - .07, x + .07, y - .07, y + .07, 0.12, 3.1, (18, 16, 18), top=False)
-            b.box(x - .22, x + .22, y - .22, y + .22, 3.0, 3.3, (255, 200, 120))
-            break
-    # the centreline down each street arm (through, on a straight)
-    straight = sides in ((ARMS, CLOSED, ARMS, CLOSED), (CLOSED, ARMS, CLOSED, ARMS))
-    for k, (dx, dy, _) in enumerate(city.DIRS):
-        if sides[k] != ARMS:
-            continue
-        a0, a1 = (-HT if straight else FAC), HT
-        if straight and k >= 2:
-            continue
-        if dx:
-            x0, x1 = sorted((dx * a0, dx * a1))
-            b.flat(x0, x1, -0.09, 0.09, 0.04, LINE, 2 if straight else 1, 1)
-        else:
-            y0, y1 = sorted((dy * a0, dy * a1))
-            b.flat(-0.09, 0.09, y0, y1, 0.04, LINE, 1, 2 if straight else 1)
+            x0, x1 = sorted((cx * CITY_LANE, cx * FAC))
+            y0, y1 = sorted((cy * CITY_LANE, cy * FAC))
+            b.flat(x0, x1, y0, y1, CURB, SIDEWALK)
+            xl, yl = cx * CITY_LANE, cy * CITY_LANE
+            b.quad([(xl, y0, 0), (xl, y1, 0), (xl, y1, CURB), (xl, y0, CURB)], (-cx, 0, 0), CURB_C)
+            b.quad([(x0, yl, 0), (x1, yl, 0), (x1, yl, CURB), (x0, yl, CURB)], (0, -cy, 0), CURB_C)
+    # A LANTERN on the first wall, at its middle, over the sidewalk: warm.
+    # (A pool of light under it read as a patch of mud: a flat colour has
+    # no falloff.)
+    if walls:
+        axis, at, lo, hi, sgn = walls[0]
+        u = (lo + hi) / 2
+        o0, o1 = at, at + sgn * 0.45
+
+        def L3(o, uu, z):
+            return P(axis, o, uu, z)
+        for z0, z1, c in ((3.1, 3.5, LAMP_C),):
+            b.quad([L3(o1, u - .22, z0), L3(o1, u + .22, z0), L3(o1, u + .22, z1),
+                    L3(o1, u - .22, z1)], nrm(axis, sgn), c)
+            b.quad([L3(o0, u - .22, z0), L3(o0, u + .22, z0), L3(o1, u + .22, z0),
+                    L3(o1, u - .22, z0)], (0, 0, -1), c)
     return b
 
 
+CURB_C, LAMP_C = (128, 124, 122), (255, 206, 128)
 SIDES = [node_sides(n) for n in range(CS * CS)]
 KINDS = sorted({canon(s)[0] for s in SIDES})
 PIECE_M = []
@@ -827,6 +824,8 @@ CITY_FACES = 0
 for kd in KINDS:
     _pb = piece_build(kd)
     CITY_FACES += len(_pb.f)
+    if os.environ.get("TND_PIECES"):
+        print("piece", kd, "v", len(_pb.v), "f", len(_pb.f), "words", 2 + 3 * len(_pb.v) + 2 * len(_pb.f))
     ms = _pb.meshes()
     assert len(ms) == 1, f"piece {kd} needs {len(ms)} meshes"
     PIECE_M.append(int(cart.data(ms[0], "piece_" + "".join(map(str, kd)))))
@@ -905,8 +904,8 @@ _gb = Build()                      # the gate: a wall of bars across the street,
 for i in range(7):                 # red and black, seen from both sides
     x0, x1 = -FAC + 2 * FAC * i / 7, -FAC + 2 * FAC * (i + 1) / 7
     col = (190, 28, 24) if i % 2 == 0 else (14, 10, 12)
-    _gb.quad([(x0, 0, 0.12), (x1, 0, 0.12), (x1, 0, 14), (x0, 0, 14)], (0, 1, 0), col)
-    _gb.quad([(x0, 0, 0.12), (x1, 0, 0.12), (x1, 0, 14), (x0, 0, 14)], (0, -1, 0), col)
+    _gb.quad([(x0, 0, 0.0), (x1, 0, 0.0), (x1, 0, 11), (x0, 0, 11)], (0, 1, 0), col)
+                                   # (one side: the gate is drawn unculled)
 GATE_M = int(cart.data(_gb.mesh(), "gate"))
 # THE DISTRICTS' DUSK -- the opus, toward the core: black, white, yellow,
 # red (nigredo, albedo, citrinitas, rubedo). The fog takes the colour of
@@ -936,7 +935,8 @@ for k in range(8):                 # triangle a way, at the top of the screen
 _aw += [0] * spec.DL_STRIDE
 ARROWS = cart.data(Table(_aw), "arrows")
 CT_MAX = 12                     # pieces a frame, at most
-PIECE_CY, PIECE_R = 8.5, 25.0   # a piece's bounding sphere: centre height, radius
+FOG_FROM, FOG_FULL = 8.0, 40.0   # P20: the haze (two nodes and a half)
+PIECE_CY, PIECE_R = 6.5, 13.5   # a piece's bounding sphere: centre height, radius
 PIECE_T = cart.data(Table(PIECE_M), "pieces")
 
 CT = {k: cart.var("ct_" + k) for k in ("n", "x", "z", "w", "c", "k", "n1", "w1", "bk")}
@@ -950,12 +950,12 @@ def city_node(g, xcell, zcell):
     g.emit("dup").push(0).emit("lt", f"jz {off}_a", "drop", f"jmp {off}")
     g.mark(f"{off}_a")
     g.emit("dup").push32(int(CS * TILE * ONE)).emit("lt", f"jz {off}_b")
-    g.emit("shr 21")
+    g.emit(f"shr {TSH}")
     g.push32(int((OYA + HT) * ONE)).load(xcell).emit("sub")         # v = ay
     g.emit("dup").push(0).emit("lt", f"jz {off}_c", "drop", "drop", f"jmp {off}")
     g.mark(f"{off}_c")
     g.emit("dup").push32(int(CS * TILE * ONE)).emit("lt", f"jz {off}_d")
-    g.emit("shr 21", "shl 4", "add", "dup").store(CT["n"])
+    g.emit(f"shr {TSH}", "shl 4", "add", "dup").store(CT["n"])
     g.push(int(CMAP)).emit("add", "loadi").store(CT["w"])
     g.emit(f"jmp {off}_e")
     g.mark(f"{off}_d")
@@ -1180,7 +1180,7 @@ SPAWN = cart.cram(Table(slots), "spawn")
 CUR = cart.var("cur", NF)                        # the demon being thought
 SPN = cart.var("spn")                            # P19: demons sent, to place
 WOKE = cart.var("woke")                          # P19: the district's horde is up
-LEASH_FOG = int(44 * ONE)                        # beyond this on an axis: unseen
+LEASH_FOG = int(FOG_FULL * ONE)                  # beyond this on an axis: unseen
 
 
 def dslot(d, f):
@@ -1233,8 +1233,9 @@ NOBJ = cart.var("nobj")
 cart.boot(spec.CAM_Y, int(2.15 * ONE))           # the archive's follow height
 cart.boot(spec.CAM_PITCH, 20)                    # ~0.12 rad DOWN: positive pitches down (the first cut had the sign backwards and put the horizon below centre)
 cart.boot(spec.FOG_RGB, 0x6A2420)             # the dusk the street dissolves into
-cart.boot(spec.FOG_NEAR, 15 * 512)              # archive _FOG_NEAR = 15 units
-cart.boot(spec.FOG_SHIFT, 10)                   # full at 15 + 32 = 47 (archive 46)
+cart.boot(spec.FOG_NEAR, int(FOG_FROM * 512))   # P20: the town's haze is near:
+cart.boot(spec.FOG_SHIFT, 10)                   # from 8, full at 8 + 32 = 40 (the
+                                                # crossroads' was 15 to 47)
 
 p = cart.program()
 L_SINE, L_ROT, L_FK = p.label("sine"), p.label("rot"), p.label("fk")
@@ -1648,6 +1649,9 @@ SLOW_LAUNCH = 40                # a launcher that lands: 40 of the fight's frame
                                 # (two seconds of glass, its hitstop and rise), and
                                 # the gun tracks the body in the air
 RUN_TURN = 48                   # the run's turn toward the pad: 17 degrees a frame
+RUN_DT = 20                     # P20: R's second press within this many frames
+FREE_TURN = 12                  # P20: the free run turns as the tank does
+RDT, FRUN = cart.data(Table([255]), "r_dt"), cart.var("f_frun")   # (long ago)
 GUN_CONE = 46                   # the free shot's line: 16 degrees either side
 GUN_AIM2 = int(13.0 ** 2 * ONE)
 CLOSE_CALL = 30                 # style, a fist dodged through
@@ -1870,16 +1874,16 @@ p.mark(f"{tl}_fight")
 # (SPN marks which); here it is moved to where he is. In a plaza, the same
 # ring round the plaza's own centre -- at the first plaza that is nothing
 # at all, the fight as it always was. In a street, down one of his node's
-# streets (each demon tries its own first), 22-30 units off: coming in.
+# streets (each demon tries its own first), two nodes on: coming in.
 sp_ = p.label("spn")
 p.load(SPN).emit(f"jz {sp_}", )
 city_node(p, PX, PZ)
 p.load(CT["n"]).push(0).emit("lt", f"jz {sp_}_on")
 p.set(SPN, 0).emit(f"jmp {sp_}")
 p.mark(f"{sp_}_on")
-p.load(CT["n"]).emit("shr 4", "shl 21").push32(int(OYA * ONE)).emit("swap", "sub")
+p.load(CT["n"]).emit("shr 4", f"shl {TSH}").push32(int(OYA * ONE)).emit("swap", "sub")
 p.store(CT["x"])                                   # the node's centre, zeta
-p.load(CT["n"]).push(CS - 1).emit("and", "shl 21").push32(int(OXA * ONE))
+p.load(CT["n"]).push(CS - 1).emit("and", f"shl {TSH}").push32(int(OXA * ONE))
 p.emit("sub").store(CT["z"])
 for d in range(3):
     sd = p.label("spd")
@@ -1902,12 +1906,24 @@ for d in range(3):
     p.emit(f"jmp {sd}_o")
     p.mark(f"{sd}_st")
     for t in range(4):
+        # P20: TWO STREETS ON -- the tile is 16 now, so a demon comes from
+        # the node past the next: on down the same street if it goes on,
+        # else round its corner; at a dead end, the dead end
         k = (d + t) % 4
         dx, dy, _ = city.DIRS[k]
-        far = int((22 + 4 * d) * ONE)
         p.load(CT["w"]).emit(f"shr {2 * k}").push(3).emit("and", f"jz {sd}_t{t}")
-        p.load(CT["x"]).push32(-dy * far).emit("add").store(dslot(d, "x"))
-        p.load(CT["z"]).push32(dx * far).emit("add").store(dslot(d, "z"))
+        p.load(CT["x"]).push32(int(-dy * TILE * ONE)).emit("add").store(dslot(d, "x"))
+        p.load(CT["z"]).push32(int(dx * TILE * ONE)).emit("add").store(dslot(d, "z"))
+        p.load(CT["n"]).push(CSTEP[k] + int(CMAP)).emit("add", "loadi").store(W["qy"])
+        for j in (k, (k + 1) % 4, (k + 3) % 4):
+            jx, jy, _ = city.DIRS[j]
+            far = (12.0 if j == k else 8.0) + 1.0 * d
+            nj = p.label("spj")
+            p.load(W["qy"]).emit(f"shr {2 * j}").push(3).emit("and", f"jz {nj}")
+            p.load(dslot(d, "x")).push32(int(-jy * far * ONE)).emit("add").store(dslot(d, "x"))
+            p.load(dslot(d, "z")).push32(int(jx * far * ONE)).emit("add").store(dslot(d, "z"))
+            p.emit(f"jmp {sd}_o")
+            p.mark(nj)
         p.emit(f"jmp {sd}_o")
         p.mark(f"{sd}_t{t}")
     p.mark(f"{sd}_o")
@@ -2224,6 +2240,7 @@ p.mark(f"{jp}_dir")
 fl_dir = W["qz"]
 p.load(YAW).store(W["oy"])
 p.load(F["sty"]).push(1).emit("eq", f"jz {jp}_fr")
+p.load(F["tgt"]).emit(f"jz {jp}_fr")              # (P20: the free run, his own way)
 p.load(F["tgt"]).push(1).emit("sub").store(F["brg"]).emit(f"call {L_BRG}")
 p.load(F["brg"]).store(W["oy"])
 p.mark(f"{jp}_fr")
@@ -2275,10 +2292,39 @@ row(PMT, F["mv"], "endact")
 p.emit("lt", f"jz {mvl}_c")
 p.set(cmt, 1)
 p.mark(f"{mvl}_c")
+# ---- P20: THE FREE RUN (the player, 2026-11-21: "left shoulder held and
+# double clicking right shoulder to hold does the fast running without a
+# target"). With L held, a second press of R within RUN_DT frames of the
+# first is the run with no lock -- held as long as both are. Steered as the
+# tank steers (Left/Right turn, Up drives), at the run's speed.
+fr_ = p.label("frun")
+p.load(RDT).push(255).emit("lt", f"jz {fr_}_s")
+p.addi(RDT, 1)                                   # frames since R last went down
+p.mark(f"{fr_}_s")
+held(spec.PAD_L)
+p.emit(f"jz {fr_}_no")
+held(spec.PAD_R)
+p.emit(f"jz {fr_}_no")
+p.load(PV).push(spec.PAD_R).emit("and", f"jz {fr_}_dn", f"jmp {fr_}")   # still held
+p.mark(f"{fr_}_dn")                              # R went down this frame, L held:
+p.load(RDT).push(RUN_DT).emit("lt", f"jz {fr_}_1")   # the second press?
+p.set(FRUN, 1)
+p.mark(f"{fr_}_1")
+p.set(RDT, 0).emit(f"jmp {fr_}")
+p.mark(f"{fr_}_no")
+p.set(FRUN, 0)
+held(spec.PAD_R)                                 # (R alone going down still
+p.emit(f"jz {fr_}")                              # starts the count)
+p.load(PV).push(spec.PAD_R).emit("and", f"jz {fr_}_z", f"jmp {fr_}")
+p.mark(f"{fr_}_z")
+p.set(RDT, 0)
+p.mark(fr_)
 # ---- P11: THE LOCK, held on R (f_tgt = its slot + 1; 0 is none) -----------
 lk = p.label("lock")
 held(spec.PAD_R)
 p.emit(f"jz {lk}_off")
+p.load(FRUN).emit(f"jz {lk}_on", f"jmp {lk}_off")   # P20: the free run locks nothing
+p.mark(f"{lk}_on")
 p.load(F["tgt"]).emit(f"jz {lk}_new")
 p.push(int(DS) + DF["st"] - NF).load(F["tgt"]).push(NF).emit("mul", "add")
 p.emit("loadi").push(3).emit("lt", f"jz {lk}_new", f"jmp {lk}_cy")   # still standing
@@ -2347,6 +2393,9 @@ p.mark(f"{lk}_e")
 stn = p.label("stance")
 p.load(cmt).emit(f"jz {stn}_c", f"jmp {stn}")
 p.mark(f"{stn}_c")
+p.push(1).load(FRUN).emit(f"jz {stn}_f", f"jmp {stn}_l")   # P20: the free run
+p.mark(f"{stn}_f")
+p.emit("drop")
 p.push(0).load(F["tgt"]).emit(f"jz {stn}_t")
 p.emit("drop").push(SQ_TARGET)
 p.mark(f"{stn}_t")
@@ -2467,6 +2516,17 @@ p.load(F["sty"]).push(1).emit("eq", f"jz {ev}_b")
 # PARKOUR: the quick turn, the logistic ramp, the fixed turn, grip and scrub
 # P18: THE RUN goes the way the pad points round the target -- Up at it,
 # Down away, Left and Right round it -- turning there at RUN_TURN a frame
+# P20: THE FREE RUN (no target) steers as the tank does: Left/Right turn
+# him at FREE_TURN, Up drives; nothing held, he coasts
+p.load(F["tgt"]).emit(f"jz {ev}_fr", f"jmp {ev}_lk")
+p.mark(f"{ev}_fr")
+p.if_pad(spec.PAD_LEFT, lambda q: q.addi(YAW, FREE_TURN))
+p.if_pad(spec.PAD_RIGHT, lambda q: q.addi(YAW, -FREE_TURN))
+p.load(YAW).push(1023).emit("and", "dup").store(YAW)
+p.store(F["cgr"])                                # (out of it, he keeps this way)
+held(spec.PAD_UP)
+p.emit(f"jmp {ev}_nd")
+p.mark(f"{ev}_lk")
 p.load(F["tgt"]).push(1).emit("sub").store(F["brg"]).emit(f"call {L_BRG}")
 p.emit("load 1").push(15).emit("and", "dup", f"jz {ev}_nd")
 p.push(int(OCTANT)).emit("add", "loadi").load(F["brg"]).emit("add")
@@ -3748,8 +3808,8 @@ def city_subs():
     g.mark(f"{ex}_new")
     g.load(CT["n"]).load(CT["c"]).push(int(CTLIST)).emit("add", "storei")
     g.addi(CT["c"], 1)
-    g.push32(int(OYA * ONE)).load(CT["n"]).emit("shr 4", "shl 21", "sub").store(CT["x"])
-    g.load(CT["n"]).push(CS - 1).emit("and", "shl 21").push32(int(OXA * ONE))
+    g.push32(int(OYA * ONE)).load(CT["n"]).emit("shr 4", f"shl {TSH}", "sub").store(CT["x"])
+    g.load(CT["n"]).push(CS - 1).emit("and", f"shl {TSH}").push32(int(OXA * ONE))
     g.emit("sub").store(CT["z"])
     g.load(CT["x"]).store(VIS["cx"]).load(CT["z"]).store(VIS["cz"])
     g.push(int(round((PIECE_CY - 2.15) * ONE))).store(VIS["cy"])
@@ -3810,7 +3870,7 @@ p.emit(f"call {L_VIS}", f"jz {gd_}")
 p.object(NOBJ, GATE_M,
          lambda h: h.load(CT["k"]).push(4).emit("add", "loadi"), 0,
          lambda h: h.load(CT["k"]).push(5).emit("add", "loadi"),
-         lambda h: h.load(CT["k"]).push(6).emit("add", "loadi"), spec.OBJ_CULL)
+         lambda h: h.load(CT["k"]).push(6).emit("add", "loadi"), 0)   # (both sides)
 p.mark(gd_)
 def flash_flags(hs, out):
     """out = FLASH while the blow is fresh -- the STRUCK body only: hitstop
@@ -4069,9 +4129,9 @@ p.load(WOKE).emit(f"jz {pt_}_asl", f"jmp {pt_}_w")       # (the fight: none)
 p.mark(f"{pt_}_asl")
 p.set(CT["c"], 29)                                       # ...or, asleep, its plaza
 p.mark(f"{pt_}_away")
-p.load(CT["n"]).emit("shr 4", "shl 21").push32(int(OYA * ONE)).emit("swap", "sub")
+p.load(CT["n"]).emit("shr 4", f"shl {TSH}").push32(int(OYA * ONE)).emit("swap", "sub")
 p.load(PX).emit("sub").store(CT["x"])                    # node centre - him
-p.load(CT["n"]).push(CS - 1).emit("and", "shl 21").push32(int(OXA * ONE))
+p.load(CT["n"]).push(CS - 1).emit("and", f"shl {TSH}").push32(int(OXA * ONE))
 p.emit("sub").load(PZ).emit("sub").store(CT["z"])
 for k in range(4):                                       # ...+ the next street
     dx, dy, _ = city.DIRS[k]
@@ -4734,7 +4794,7 @@ for cell, coord in ((AR["u"], "x"), (AR["v"], "y")):
         p.load(AR["z"]).push32(int((OXA + HT) * ONE)).emit("add")
     else:
         p.push32(int((OYA + HT) * ONE)).load(AR["x"]).emit("sub")
-    p.push32((1 << 21) - 1).emit("and").push32(1 << 20).emit("sub").store(cell)
+    p.push32((1 << TSH) - 1).emit("and").push32(1 << (TSH - 1)).emit("sub").store(cell)
 for cell, hi_side, lo_side, out in ((AR["u"], 1, 3, "x"), (AR["v"], 0, 2, "y")):
     t_ = p.label("aside")
     p.push(9).store(KP[out])                       # 9: inside on this axis
@@ -5636,7 +5696,8 @@ for k, v in (("INTRO_PROG", INTRO_PROG), ("MAIN_PROG", MAIN_PROG), ("INTRO_LEN",
              ("BORROW_END", END_LO), ("BORROW_END_N", B_END),
              ("POSE_WALK", base["walk"]), ("POSE_LAND", base["land"]),
              ("DREST", DREST), ("PK_TOP", PK_TOP), ("CAM_TURN", CAM_TURN),
-             ("PAGE", PAGE), ("DL_LEASE", DL_LEASE), ("CITY_OXA", OXA), ("CITY_OYA", OYA), ("AR_W", AR_W)):
+             ("PAGE", PAGE), ("DL_LEASE", DL_LEASE), ("CITY_OXA", OXA), ("CITY_OYA", OYA), ("AR_W", AR_W),
+             ("CITY_TILE", int(TILE))):
     cart.const(k, int(v))                       # (for the gates: tests/test_tnd.py)
 out = cart.write(OUT)
 print(cart.report())

@@ -845,3 +845,50 @@ VM has no divide. 16 nodes is 512 units across.
    spawns at its plaza; a gate is a wall until its district is cleared.
 4. A district's fog and light; the pointer to the next gate; then the
    pause screen's map.
+
+## P20: a town, and the free run (2026-11-21; not yet on glass)
+
+On glass, the city "is getting there" but "still feels too spacious ...
+the streets need the side walks like in the original. it should feel more
+like a city, town ... a tighter experience, and feeling overwhelmed at
+times." And a control the player designed: "left shoulder held and double
+clicking right shoulder to hold does the fast running without a target."
+
+- **The free run.** L held, R pressed twice within 20 frames and held:
+  the run with no lock, steered as the tank steers (Left/Right turn at the
+  tank's 12 a frame, Up drives, nothing held coasts), at the run's 0.13.
+  Letting go of either shoulder ends it, keeping his heading. One press of
+  R with L is still the locked run; a slow second press is not a double.
+- **The tile halves to 16.** A block is a few seconds' walk; START to the
+  first plaza is half what it was; the plaza is 25 wall to wall (was ~43).
+  The road is 3.4 to the curb, the walls 4.7 out (9.4 wall to wall, was
+  11.4), a body kept 2.7 from the centreline.
+- **What makes a street hold you** -- urban design's measures, and what
+  the pieces build for each:
+  - *enclosure*: walls as high as the street is wide or higher -- fronts
+    of 6.5 to 13.5 over a 9.4 street, and the haze near (8 to 40, was 15
+    to 47), so the street ahead closes in;
+  - *human scale*: narrow fronts, a shop at the foot of each -- every wall
+    cut into fronts at its cells, each with its own height, colour and
+    shopfront (lit, glass, shutter, door);
+  - *transparency*: lit windows -- two fronts in five carry a lit floor
+    (two, if tall);
+  - *complexity*: no two fronts alike side by side -- heights step, with a
+    cap where they do; a warm lantern on a wall of every piece.
+  A front at a tile's edge always stands 9.0, so pieces meet flush whatever
+  they are.
+- **The sidewalks are back**, the crossroads' own: raised 0.15, a curb face
+  to the road, a pad round every jutting corner. (The city's had been
+  built behind the walls -- the offset's sign was backwards since P19 --
+  which is why they never showed.)
+- **Demons come from two streets on**: a sent demon is placed at the node
+  past the next, on down the street if it goes on, else round its corner.
+- **Paid for in place**: the nine pieces are 3,074 words of DMEM against
+  the canyon pieces' 3,250 (no towers, no seam steps); the gate is drawn
+  unculled at half its faces.
+- **Measured on silicon** (the same first 48 s of the P18 tape): peak 55%,
+  median 30%, no frame over the ceiling, none dropped (the canyon city 52%,
+  the crossroads 59%).
+- **Overwhelm, not yet**: three demons are real at once (the object list
+  holds 64; a demon is 12). Tight streets put the three in front of and
+  behind him; more at once is the next lever, and the next tape decides it.

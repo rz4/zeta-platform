@@ -233,11 +233,12 @@ def _city(m):
 def _node_at(m, x, z):
     """(node, its map word, u, v in the tile) for zeta (x, z); node -1 off the map"""
     d, cmap, ox, oy, _ = _city(m)
-    u, v = z + ox + 16, -x + oy + 16
-    if not (0 <= u < 512 and 0 <= v < 512):
+    t = _const("CITY_TILE")
+    u, v = z + ox + t / 2, -x + oy + t / 2
+    if not (0 <= u < 16 * t and 0 <= v < 16 * t):
         return -1, 0, 0, 0
-    i, j = int(u // 32), int(v // 32)
-    return j * 16 + i, d[cmap + j * 16 + i], u - 32 * i - 16, v - 32 * j - 16
+    i, j = int(u // t), int(v // t)
+    return j * 16 + i, d[cmap + j * 16 + i], u - t * i - t / 2, v - t * j - t / 2
 
 
 def _on_street(m, x, z, slack=1e-3):
@@ -258,7 +259,8 @@ def _on_street(m, x, z, slack=1e-3):
 def _centre(m, n):
     """the zeta (x, z) of node n's centre"""
     _, _, ox, oy, _ = _city(m)
-    return oy - (n // 16) * 32, (n % 16) * 32 - ox
+    t = _const("CITY_TILE")
+    return oy - (n // 16) * t, (n % 16) * t - ox
 
 
 def _street_node(m, want, far=0.0):
@@ -1886,7 +1888,8 @@ def test_the_plaza_wakes_its_horde():
 def test_lost_demons_come_down_his_streets():
     """P19, the leash: three demons left in the first plaza while he stands
     in a street across town are placed again where fresh ones would be --
-    down his node's streets, 22-30 units out, on the street and apart."""
+    down his node's streets, two nodes on (P20: the tile is 16), on the
+    street and apart."""
     m = _fight_vm()
     n = _street_node(m, (1, 0, 1, 0), far=80)
     _put(m, *_centre(m, n), 256)
@@ -1897,9 +1900,47 @@ def test_lost_demons_come_down_his_streets():
         x, z = w["x"] / 65536, w["z"] / 65536
         assert _on_street(m, x, z), f"demon {i} placed in a wall at ({x:.1f}, {z:.1f})"
         nd = _node_at(m, x, z)[0]
-        assert nd in (n + 16, n - 16), f"demon {i} is in node {nd}, not down his streets ({n})"
+        hops = abs(nd % 16 - n % 16) + abs(nd // 16 - n // 16)
+        assert nd != n and hops <= 2 and nd not in (n + 1, n - 1), \
+            f"demon {i} is in node {nd}, not down his streets ({n})"
         seen.append((round(x, 1), round(z, 1)))
     assert len(set(seen)) == 3, f"demons placed on top of each other: {seen}"
+
+
+def test_the_free_run_is_l_and_r_twice():
+    """P20, the player's own design: "left shoulder held and double clicking
+    right shoulder to hold does the fast running without a target". With
+    thumb-length presses (9 frames down, 7 up), in the empty street at the
+    start: L, then R twice and held, runs him -- no lock, at the run's speed,
+    turning as the tank turns. Letting R go ends it; a slow second press
+    (30 frames on) is no double click."""
+    m = _story_vm()
+    L, R, U = spec.PAD_L, spec.PAD_R, spec.PAD_UP
+    for f in range(20):
+        m.frame(0)
+    for pad, n in ((L, 10), (L | R, 9), (L, 7)):
+        for f in range(n):
+            m.frame(pad)
+    assert _cell(m, "f_sty") != 1, "one press of R ran him"
+    x0, z0 = _player(m)
+    for f in range(60):
+        m.frame(L | R | U)
+        assert _cell(m, "f_tgt") == 0, "the free run locked a target"
+    assert _cell(m, "f_sty") == 1 and _s32(_cell(m, "f_spd")) > 0.12 * 65536, "no run"
+    x1, z1 = _player(m)
+    assert np.hypot(x1 - x0, z1 - z0) > 5, "he ran nowhere"
+    y0 = _cell(m, "yaw")
+    for f in range(10):
+        m.frame(L | R | U | spec.PAD_LEFT)
+    assert (_cell(m, "yaw") - y0) % 1024 == 120, "the run does not turn as the tank does"
+    for f in range(5):
+        m.frame(L)
+    assert _cell(m, "f_sty") == 2, "letting R go did not end the run"
+    assert _cell(m, "yaw") == (y0 + 120) % 1024, "out of the run he turned"
+    for pad, n in ((L | R, 9), (L, 30), (L | R | U, 30)):
+        for f in range(n):
+            m.frame(pad)
+    assert _cell(m, "f_sty") != 1, "a slow second press ran him"
 
 
 def test_the_lens_stays_in_the_street():
