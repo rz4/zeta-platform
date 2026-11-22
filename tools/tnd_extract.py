@@ -153,6 +153,28 @@ def _run2(t, fwd=28.0, back=50.0, elbow=98.0):
         pose[side + "ForeArm"] = [0, m * (elbow + 18.0 * s), 0]
     return bm._pose_and_skin(pose, root, None)
 seqs["run2"] = [frozen(_run2(f / 16.0)) for f in range(16)]
+# THE SLIDE (TND-PORT P27; the player chose it for Down in the run: "slide!!").
+# Feet first: the hips thrown back and dropped until the lowest of him is on
+# the ground, the lead leg out ahead, the rear folded under, the guard kept.
+# Four poses: two going down from the run's carriage, the slide, the slide.
+def _slide_seq():
+    a = bm._ARM_SOLUTION
+    arms = {"LeftArm": [0, a[0], a[1]], "LeftForeArm": [0, a[2], a[3]],
+            "RightArm": [0, a[4], a[5]], "RightForeArm": [0, a[6], a[7]]}
+    slide = dict(arms, **{
+        "Hips": [-38, 0, 0], "Spine": [-6, 0, 0], "Spine1": [4, 0, 0], "Neck": [18, 0, 0], "Head": [14, 0, 0],
+        "LeftUpLeg": [-48, 0, 6], "LeftLeg": [8, 0, 0], "LeftFoot": [-20, 0, 0],
+        "RightUpLeg": [-78, 0, -10], "RightLeg": [104, 0, 0], "RightFoot": [10, 0, 0]})
+    start = dict(bm._run_pose_dict(), **arms)
+    def at(t, drop):
+        pose = {k: [(1 - t) * x + t * y for x, y in zip(start.get(k, [0, 0, 0]), slide.get(k, [0, 0, 0]))]
+                for k in set(start) | set(slide)}
+        return frozen(bm._pose_and_skin(pose, np.array([0.0, -drop * t, 0.0]), None))
+    drop = 0.0
+    for _ in range(6):
+        drop += at(1.0, drop)[0][:, 2].min() - 0.03
+    return [at(t, drop) for t in (0.35, 0.7, 1.0, 1.0)]
+seqs["slide"] = _slide_seq()
 for d in ("fwd", "back", "left", "right"):
     seqs["kite_" + d] = [frozen(bm.boxing_kite_mesh(f / 16.0, d)) for f in range(16)]
 for name, kind, n in (("flip_fwd", "fwd", 20), ("flip_back", "back", 20),

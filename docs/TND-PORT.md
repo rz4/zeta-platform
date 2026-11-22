@@ -1269,3 +1269,22 @@ comedically fast, should look more intimidating."
   whatever the run's knob. Two walls, two jumps, to 4.2 up.
 - **Open, for the player**: Down in the run does nothing (he coasts). On
   the second tape Down was held 2% of the run.
+
+## P27: the slide (2026-11-21; not yet on glass)
+
+Asked what Down should do in the run (it did nothing; a skid turn, a hard
+brake and a slide were offered): "slide!!"
+
+- **Down, in the run, at speed and on the ground**: he goes down feet
+  first and slides the way he was heading, unsteered -- a little faster
+  than he ran (x 1.12), scrubbing 2.8% a frame -- for as long as Down is
+  held: 16 frames at least, 44 at most, 3.9 units held from a full run. He
+  comes up over 6 frames into the run at the speed the slide left him, or
+  to a stand. A wall stops it. Standing in the run, Down is still nothing.
+- **Its pose** is new, on the archive's rig (tools/tnd_extract.py,
+  "slide"): the hips thrown back and dropped until the lowest of him is on
+  the ground, the lead leg out ahead, the rear folded under, the guard
+  kept; two poses going down, the slide held. The layers' pose bank only.
+- The third tape of the layer (four minutes, to the last district) turned
+  no knob: the layer's starts are settled.
+- tests: 8 for the base, 7 for the layer.

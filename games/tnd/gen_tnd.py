@@ -107,6 +107,8 @@ SEQS = ("idle", "walk", "air", "jab", "cross", "lead_hook", "rear_hook", "specia
 # walk re-solved at a longer stride (0.75 a step, "walk2"), and slower than
 # the ground asks -- see the legs knob.
 CLIP_OF = {"run": "run2", "walk": "walk2"} if BASE else {}
+if BASE:
+    SEQS += ("slide",)           # P27: the run's slide (the layers only; four poses)
 
 
 def to_zeta(V):
@@ -1953,6 +1955,11 @@ WJ_KICK = int(0.30 * ONE)       # P25: the wall jump's push off the wall, a fram
                                 # the next wall is his -- in the run and the boxer alike
 WJ_COYOTE, WJ_MAX = 8, 2        # ...the frames a touch still counts, and how many an air
 WJ_FRAMES = 24                  # ...and how long it throws him (a flip's length the spin knows)
+# P27: THE SLIDE (the player, asked what Down should do in the run: "slide!!").
+SLIDE_MIN = int(0.09 * ONE)     # he must be running this fast to go down into one
+SLIDE_MAX, SLIDE_LEAST = 44, 16   # frames: the longest (Down held), and the least once begun
+SLIDE_BOOST, SLIDE_KEEP = int(1.12 * ONE), int(0.972 * ONE)   # it starts a little faster, and scrubs
+SLIDE_UP = 6                    # frames to come back up out of it
 RDT, FRUN = cart.data(Table([255]), "r_dt"), cart.var("f_frun")   # (long ago)
 GUN_CONE = 46                   # the free shot's line: 16 degrees either side
 GUN_AIM2 = int(13.0 ** 2 * ONE)
@@ -2135,6 +2142,7 @@ if BASE:
     # for how many frames more it still counts, and how many he has had
     WALLT, WALLA, WSX, WSZ, WTX, WTZ, WJN = (cart.var(k) for k in (
         "wall_t", "wall_axes", "wall_sx", "wall_sz", "wall_tx", "wall_tz", "wall_n"))
+    SLT, SLV, SLF = cart.var("slide_t"), cart.var("slide_v"), cart.var("slide_f")
     cart.boot(spec.LIGHT_DIR, 0x007F00)          # P22: straight down (see piece_light)
     cart.boot(spec.LIGHT_AMB, LIT_AMB0)         # (the title's street, before the game
     cart.boot(spec.LIGHT_DIF, 33 - LIT_AMB0)    # sets them a frame at a time)
@@ -3129,6 +3137,41 @@ p.load(F["sty"]).push(1).emit("eq", f"jz {ev}_b")
 p.load(F["tgt"]).emit(f"jz {ev}_fr", f"jmp {ev}_lk")
 p.mark(f"{ev}_fr")
 if L1:
+    # P27: THE SLIDE. Down, in the run, at speed and on the ground: he goes
+    # down feet first and slides the way he was heading -- a little faster
+    # than he ran, scrubbing off -- for as long as Down is held, SLIDE_LEAST
+    # frames at least and SLIDE_MAX at most; he does not steer it. He comes
+    # up into the run (or to a stand) at the speed the slide has left him.
+    # A wall stops it, as it stops him.
+    sd_ = p.label("slide")
+    p.load(SLT).emit(f"jz {sd_}_no")
+    p.addi(SLT, -1).addi(SLF, 1)                                   # sliding
+    held(spec.PAD_DOWN)
+    p.emit(f"jz {sd_}_rel", f"jmp {sd_}_on")
+    p.mark(f"{sd_}_rel")                                           # Down let go: up, once
+    p.push(SLIDE_LEAST).load(SLF).emit("lt", f"jz {sd_}_on")       # the least is done
+    p.push(SLIDE_UP).load(SLT).emit("lt", f"jz {sd_}_on")          # (SLIDE_UP < left: cut to it)
+    p.set(SLT, SLIDE_UP)
+    p.mark(f"{sd_}_on")
+    p.load(SLV).push(SLIDE_KEEP).emit("mulq", "dup").store(SLV).store(F["spd"])
+    sin_of(p)
+    p.load(SLV).emit("mulq").push(0).emit("swap", "sub").store(F["vx"])
+    sin_of(p, 256)
+    p.load(SLV).emit("mulq").store(F["vz"])
+    p.set(ANIM, 7).emit(f"jmp {L['motion']}")
+    p.mark(f"{sd_}_no")
+    held(spec.PAD_DOWN)                                            # a fresh Down, running fast
+    p.emit(f"jz {sd_}")
+    p.load(PV).push(spec.PAD_DOWN).emit("and", f"jz {sd_}_e", f"jmp {sd_}")
+    p.mark(f"{sd_}_e")
+    p.push(SLIDE_MIN).load(F["spd"]).emit("lt", f"jz {sd_}")
+    p.load(F["py"]).emit(f"jz {sd_}_g", f"jmp {sd_}")
+    p.mark(f"{sd_}_g")
+    p.set(SLT, SLIDE_MAX).set(SLF, 0)
+    p.load(F["spd"]).push(SLIDE_BOOST).emit("mulq").store(SLV)
+    p.emit(f"jmp {sd_}_on")
+    p.mark(sd_)
+if L1:
     p.if_pad(spec.PAD_LEFT, lambda q: knob(q.load(YAW), "runturn").emit("add").store(YAW))
     p.if_pad(spec.PAD_RIGHT, lambda q: knob(q.load(YAW), "runturn").emit("sub").store(YAW))
 else:
@@ -3472,6 +3515,18 @@ for k, seq in enumerate(("flip_fwd", "flip_back", "flip_cart", "flip_cart",
 p.emit("drop")
 p.mark(fp)
 gp_ = p.label("gaitpose")
+if L1:
+    sp7 = p.label("slidepose")
+    p.load(ANIM).push(7).emit("eq", f"jz {sp7}")
+    p.load(SLF).emit("shr 1")                                       # going down: a pose two frames
+    p.load(SLT).push(SLIDE_UP).emit("lt", f"jz {sp7}_d")            # ...or coming up, by what is left
+    p.emit("drop").load(SLT).emit("shr 1")
+    p.mark(f"{sp7}_d")
+    p.emit("dup").push(3).emit("swap", "lt", f"jz {sp7}_c")         # 3 < it: the slide itself
+    p.emit("drop").push(3)
+    p.mark(f"{sp7}_c")
+    p.push(base["slide"]).emit("add").store(POSE).emit(f"jmp {L['pd']}")
+    p.mark(sp7)
 p.load(ANIM).push(5).emit("eq", f"jz {gp_}_k")
 p.load(F["ph"]).emit("shr 16").push(15).emit("and").push(base["run"]).emit("add")
 p.store(POSE).emit(f"jmp {L['pd']}")

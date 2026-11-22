@@ -261,3 +261,42 @@ def test_a_wall_in_the_air_is_a_wall_to_jump_from(text):
     for f in range(30):
         g.run(L | U | (A if f < 8 else 0), 1)
     assert g.cell("wall_n") == 0
+
+
+def test_down_in_the_run_is_the_slide(text):
+    """P27, the player's choice for Down in the run: "slide!!". Running, a
+    press of Down takes him down feet first: he slides on the way he was
+    heading, unsteered, scrubbing speed, for as long as Down is held (and no
+    longer than its most), then comes up into the run. A tap is a short
+    slide, never less than its least. Standing in the run, Down is nothing."""
+    g = Game(text)
+    g.click_twice(U)
+    g.run(L | U, 50)
+    y0, p0 = g.cell("yaw"), g.pos()
+    slid, speeds = 0, []
+    for f in range(80):
+        last = g.pos()
+        g.run(L | D | (LF if f < 20 else 0), 1)
+        if g.cell("anim") == 7:
+            slid += 1
+            speeds.append(np.hypot(*np.subtract(g.pos(), last)))
+    assert 38 <= slid <= 46, f"held, the slide lasted {slid} frames"
+    assert g.cell("yaw") == y0, "the slide was steered"
+    assert speeds[2] > speeds[-8] > 0.02, f"the slide did not scrub its speed: {speeds[2]:.3f} -> {speeds[-8]:.3f}"
+    assert np.hypot(*np.subtract(g.pos(), p0)) > 3.0, "the slide went nowhere"
+    assert g.cell("f_sty") == 1 and g.cell("anim") != 7, "he never came up"
+    g.run(L, 40)                                   # run down to a stand, in the run
+    g.run(L | D, 12)
+    assert g.cell("slide_t") == 0 and g.cell("anim") == 0, "Down at a stand slid him"
+    g.run(0, 20)                                   # about (a quick turn), for room to run
+    for f in range(30):
+        g.run(D | (A if f < 9 else 0), 1)
+    g.run(0, 10)
+    g.click_twice(U)
+    g.run(L | U, 40)
+    slid = 0
+    for f in range(60):
+        g.run(L | (D if f < 4 else U), 1)
+        slid += g.cell("anim") == 7
+    assert 16 <= slid <= 26, f"a tap of Down slid {slid} frames"
+    assert g.cell("anim") == 5, "out of the slide, Up did not run him"
