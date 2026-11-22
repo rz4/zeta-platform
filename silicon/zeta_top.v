@@ -703,7 +703,7 @@ module zeta_top (
     .m_act(seq_m_act), .m_blk(seq_m_blk), .m_skp(seq_m_skp),
     .tile_y0(tile_y0), .first_pass(tpass == 6'd0),
     .rd_addr(seq_addr), .rd_data(seq_cart ? mesh_q : dl_data),
-    .rd_cart(seq_cart), .rd_obj(seq_obj), .cm_ok(cm_ok),
+    .rd_cart(seq_cart), .rd_obj(seq_obj), .cm_ok(cm_ok), .rd_dmem(dl_data),
     .lod_flat((f_lod[31] || f_lod > 32'hFFFF) ? 16'd0 : f_lod[15:0]),
     .tri_rdy(tq_rdy), .tri_go(tri_go), .seq_item(seq_item), .seq_skip(seq_skip),
     .seq_skip_n(seq_skip_n),

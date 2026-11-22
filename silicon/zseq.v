@@ -48,6 +48,11 @@ module zseq (
     output reg         rd_cart,
     output wire [5:0]  rd_obj,
     input  wire        cm_ok,
+    // ...and DMEM's own word, unmuxed, for the one long path a read feeds:
+    // the lit normal's three multiplies. A cart mesh is never lit, so that
+    // path need not wait for the store's answer (the first fit that placed
+    // failed there: zmesh's RAM -> nlev, a nanosecond over).
+    input  wire [31:0] rd_dmem,
     // triangle handshake to the rasterizer
     input  wire        tri_rdy,
     output reg         tri_go,
@@ -292,9 +297,9 @@ module zseq (
   // multiplies a frame instead of one a vertex, and exact rather than
   // approximate, because dif * max(0, N.L) == max(0, N.(L*dif)) for a
   // gain that cannot be negative.
-  wire signed [7:0]  nn_x = rd_data[23:16];
-  wire signed [7:0]  nn_y = rd_data[15:8];
-  wire signed [7:0]  nn_z = rd_data[7:0];
+  wire signed [7:0]  nn_x = rd_dmem[23:16];
+  wire signed [7:0]  nn_y = rd_dmem[15:8];
+  wire signed [7:0]  nn_z = rd_dmem[7:0];
   wire signed [23:0] ndot = $signed({{16{nn_x[7]}}, nn_x}) * $signed({{10{l_x[13]}}, l_x})
                           + $signed({{16{nn_y[7]}}, nn_y}) * $signed({{10{l_y[13]}}, l_y})
                           + $signed({{16{nn_z[7]}}, nn_z}) * $signed({{10{l_z[13]}}, l_z});
