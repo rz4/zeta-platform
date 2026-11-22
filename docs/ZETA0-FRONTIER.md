@@ -1235,3 +1235,27 @@ one of these builds, the plain one included -- the cart's meshes add none):
 the plain build, the streams' fetch and the loader's walk in it. A body
 far out of view still costs its transform and its face walk: the game's
 own view cull belongs on the enemies as it is on the town.)
+
+**Fitted** (2026-11-22, four runs on CI; seed 3, the frontier's):
+
+| run | what it said |
+|---|---|
+| 45058233664 | 99,937 ALMs, 541%: two of the store's memories were written from two statements in one block (a word's low half, then its high) and were built from registers -- 112,000 of them |
+| 45063239914 | the logic is small (zmesh 242 ALUTs, 108 registers) but 320 M10K of 308: vertices as 4,610 halves and faces 2,562 deep do not pack |
+| 45065195927 | placed -- 17,611 ALMs (95%), 299 M10K -- and a nanosecond over at both slow corners: the store's RAM -> its mux -> the lit normal's three multiplies -> `nlev` (a cart mesh is never lit; the path only existed) |
+| 45067440312 | **PASS, every corner**: 17,761 ALMs placed of 18,480 (96%), 299 of 308 M10K |
+
+| corner | setup | hold |
+|---|---:|---:|
+| slow 85C | +0.223 | +0.287 |
+| slow 0C | +0.156 | +0.284 |
+| fast 85C | +5.419 | +0.094 |
+| fast 0C | +5.739 | +0.009 |
+
+So drawing from the cart costs about 300 placed ALMs and 18 blocks over the
+frontier's 17,469 and 281, and the margins are thin (the frontier's own
+were +0.9 setup and +0.09 hold). The store is the block RAM's shape now --
+2,048 vertices as 48-bit words, 2,048 faces -- and the law says the same
+(spec.CM_VMAX, CM_FMAX). Nine blocks are left: the 2,048-vertex frame
+store cannot be doubled beside this (it is about 17) without finding
+blocks elsewhere. Not yet on glass.
