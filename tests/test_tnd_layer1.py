@@ -138,6 +138,14 @@ def test_l_twice_is_the_run_with_momentum_and_a_trailing_lens(text):
     assert lag_lens[-1] > 30, f"the lens does not trail ({lag_lens[-1]})"
     g.run(L | U, 90)
     assert abs((g.cell("yaw") - g.d[spec.CAM_YAW] + 512) % 1024 - 512) <= 1, "the lens never came round"
+    g.run(L, 40)                                 # the run held, nothing driven: he stands
+    assert g.cell("f_sty") == 1 and g.cell("anim") == 0, \
+        f"stationary in the run he is not standing (anim {g.cell('anim')})"
+    p0 = g.pos()
+    g.run(L, 20)
+    assert np.hypot(*np.subtract(g.pos(), p0)) < 0.05, "standing, he drifted"
+    g.run(L | U, 3)
+    assert g.cell("anim") == 5, "driven again, he did not run"
     g.run(0, 30)
     assert g.cell("f_sty") == 0, "letting go did not end the run"
     g.run(L, 9)

@@ -1161,3 +1161,38 @@ it to L and gives it a page of knobs.
 - **Measured on silicon** (boxing, jumping, flipping, then ten seconds of
   running with turns and flips): peak 57%, median 49%, none dropped.
 - tests/test_tnd_layer1.py: five tests, about half a minute in parallel.
+
+## P24b: standing in the run; and the light, one level a face (2026-11-21)
+
+- **"when stationary the player should be in the standing position"**: the
+  run held with nothing driven and his speed run down (under 0.02), he
+  stands as the tank stands, and the pad drives him again at once.
+- **The smooth light came out in green and pink.** A render of the
+  standing run showed patches of wrong hue on the sidewalk by the lens.
+  The pick register named the faces: plain sidewalk, corners lit 76, 76,
+  55 -- drawn (16, 24, 14) where (17, 16, 15) was meant. The machine steps
+  a colour across a face from one of its corners in 1/256ths of a level a
+  pixel, each channel on its own (CFP = 8). A face cut by the near plane
+  has that corner thousands of pixels off the screen, so each channel's
+  rounding has grown to whole levels by the glass, and the channels part:
+  hue. A limit of the machine, law and silicon alike.
+- **So the light is one level a face.** Each face takes the mean of its
+  corners' light, and corners are shared only between faces at one level:
+  no step across a face, nothing to round, exact. The glow now climbs a
+  wall band by band and lies on the sidewalk a segment at a time. It costs
+  corners (a piece is 109 to 187 vertices, 66 to 110 before), paid for by
+  the demons' clip table, which the layers do not use. LIGHTING THE GAME
+  ABOVE THE LAYERS IS NOW A REAL BUDGET: the lit pieces are 6,700 words,
+  the unlit 3,100, and the game has 63 free.
+- **Overlapping sidewalks**: at an inside corner two walls' sidewalks lay
+  one on the other; at different levels they would fight for every pixel.
+  The wall across now gives the corner to the wall along.
+- **P22's open mismatch, narrowed, still open.** One level a face did NOT
+  close it (43 of 337 frames on the street route, as before), nor did the
+  overlaps. With EVERY face at one same level, 29 pixels still differ on
+  the frame tried, along the edges of lit faces cut by the near plane:
+  law and silicon draw a cut lit face's EDGE a pixel apart, where unlit
+  they agree to the bit on the same geometry. So the fault is in the lit
+  path's clipping, not in the light's arithmetic. The silicon's picture is
+  what the glass shows, and it is sound; the replay's may differ from it
+  on those pixels.

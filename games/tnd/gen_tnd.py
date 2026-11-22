@@ -620,7 +620,7 @@ for c in CLIPS:
     for f in range(len(R)):
         for name, joints, *_ in PARTS:
             clipw.append(euler(MZ @ R[f, JN.index(joints[0])] @ MZ.T))
-CLIPT = cart.data(Table(clipw), "demon_clips")
+CLIPT = cart.data(Table(clipw[:1] if BASE else clipw), "demon_clips")   # (no demon moves in the base)
 CLIPN = {c: len(DEM["R_" + c]) for c in CLIPS}
 
 # THE BAKE CHECKS ITSELF: the run-time chain, done here in floats with the
@@ -813,6 +813,15 @@ def piece_build(sides):
         # THE SIDEWALK at its foot, raised, with its curb to the road
         walk_at = at + sgn * walk_w              # (toward the street: the normal)
         scuts = sorted(set(cuts) | ({ul} if ul is not None else set()))
+        if BASE and axis == 1:
+            # (P24: at an inside corner two walls' sidewalks lay one on the
+            # other. Unlit they were one colour and it did not show; lit,
+            # each at its own level, they fought for every pixel -- and law
+            # and silicon settled the fight differently. The wall across
+            # gives the corner to the wall along.)
+            s_lo = -CITY_LANE if abs(lo + FAC) < 1e-6 else lo
+            s_hi = CITY_LANE if abs(hi - FAC) < 1e-6 else hi
+            scuts = sorted({s_lo, s_hi} | {c for c in scuts if s_lo < c < s_hi})
         for u0, u1 in zip(scuts, scuts[1:]):       # (cut at its fronts: a long
             b.quad([P(axis, at, u0, CURB), P(axis, walk_at, u0, CURB),   # flat face's
                     P(axis, walk_at, u1, CURB), P(axis, at, u1, CURB)],  # depth over-
@@ -896,26 +905,46 @@ def piece_light(b):
             dmin = min(_tri_dist(p_, tri) for tri in fires)
             v_ += LIT_GLOW / (1.0 + (dmin / LIT_GLOW_R) ** 2)
         t.append(min(0.85, v_))
-    verts = list(b.v)
-    own = {}                                   # a burning face's own corners, fully lit
-    faces = []
+    # ONE LEVEL A FACE (P24). The first lit base carried the light smoothly
+    # across each face, corner to corner -- and where a face ran past the
+    # lens and was cut by the near plane, it came out in patches of green
+    # and pink. The machine steps a colour across a face from one corner in
+    # 1/256ths of a level a pixel, each channel on its own; a cut face's
+    # corner lies thousands of pixels off the screen, so each channel's
+    # rounding had grown to whole levels by the time it reached the glass
+    # (and law and silicon rounded apart: P22's open mismatch). A face whose
+    # corners all carry ONE level has no step at all, and is exact. So each
+    # face takes the mean of its corners' light, and corners are shared
+    # only between faces at the same level.
+    verts, key, tl, faces = [], {}, [], []
     gain = 32 / LIT_AMB0
-    for a_, b_, c_, col in b.f:
+
+    def vid(i, level):
+        q = int(round(min(1.0, max(0.0, level)) * 127))
+        if (i, q) not in key:
+            key[i, q] = len(verts)
+            verts.append(b.v[i])
+            tl.append(q << 8)
+        return key[i, q]
+    fs = list(b.f)
+    k = 0
+    while k < len(fs):
+        grp = [fs[k]]                          # a quad is two faces sharing a side
+        if k + 1 < len(fs) and fs[k + 1][3] == fs[k][3] and len(set(fs[k][:3]) & set(fs[k + 1][:3])) == 2:
+            grp.append(fs[k + 1])
+        col = fs[k][3]
         if col in burn:
-            ids = []
-            for i in (a_, b_, c_):
-                if i not in own:
-                    own[i] = len(verts)
-                    verts.append(b.v[i])
-                    t.append(1.0)
-                ids.append(own[i])
-            faces.append((*ids, col))
+            level = 1.0
         else:
+            cs = {i for fc in grp for i in fc[:3]}
+            level = sum(t[i] for i in cs) / len(cs)
             ch = [min(255, int(((col >> sh) & 255) * gain)) for sh in (16, 8, 0)]
-            faces.append((a_, b_, c_, ch[0] << 16 | ch[1] << 8 | ch[2]))
+            col = ch[0] << 16 | ch[1] << 8 | ch[2]
+        for a_, b_, c_, _ in grp:
+            faces.append((vid(a_, level), vid(b_, level), vid(c_, level), col))
+        k += len(grp)
     assert len(verts) <= spec.MESH_NV_MAX and len(faces) <= spec.MESH_NF_MAX, (len(verts), len(faces))
-    normals = [int(round(min(1.0, max(0.0, v_)) * 127)) << 8 for v_ in t]
-    return Mesh([c for v_ in verts for c in v_], faces, colors=normals)
+    return Mesh([c for v_ in verts for c in v_], faces, colors=tl)
 
 
 CURB_C, LAMP_C = (104, 100, 100), (255, 128, 52)
@@ -1893,6 +1922,7 @@ SLOW_LAUNCH = 40                # a launcher that lands: 40 of the fight's frame
 RUN_TURN = 48                   # the run's turn toward the pad: 17 degrees a frame
 RUN_DT = 20                     # P20: R's second press within this many frames
 FREE_TURN = 12                  # P20: the free run turns as the tank does
+RUN_STAND = int(0.02 * ONE)     # P24: under this speed, in the run, he stands
 RDT, FRUN = cart.data(Table([255]), "r_dt"), cart.var("f_frun")   # (long ago)
 GUN_CONE = 46                   # the free shot's line: 16 degrees either side
 GUN_AIM2 = int(13.0 ** 2 * ONE)
@@ -3077,6 +3107,13 @@ p.push(int(0.7 * ONE)).emit("mulq")
 p.load(F["spd"]).push(int(0.3 * ONE)).emit("mulq", "add").store(F["spd"])
 p.mark(f"{ev}_ph")
 p.load(F["spd"]).push(int(4 * ONE)).emit("mulq").load(F["ph"]).emit("add").store(F["ph"])   # (a 4-unit stride)
+if BASE:
+    # (the player: "when stationary the player should be in the standing
+    # position" -- the run held but nothing driven, his speed run down:
+    # he STANDS, as the tank stands, till the pad drives him again)
+    p.load(F["spd"]).push(RUN_STAND).emit("lt", f"jz {ev}_rn")
+    p.set(ANIM, 0).emit(f"jmp {L['motion']}")
+    p.mark(f"{ev}_rn")
 p.set(ANIM, 5).emit(f"jmp {L['motion']}")
 # BOXING: the four steps on the latched cross, and he faces it
 p.mark(f"{ev}_b")
