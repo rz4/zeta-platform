@@ -1196,3 +1196,45 @@ it to L and gives it a page of knobs.
   path's clipping, not in the light's arithmetic. The silicon's picture is
   what the glass shows, and it is sound; the replay's may differ from it
   on those pixels.
+
+## P25: the layer on glass -- the walk's slabs, a runner's arms, the wall jump (2026-11-21)
+
+Twenty minutes of layer 1 on glass (the tape: 71,006 frames, to the last
+district in under four minutes; the run 51% of it, the tank 29%, the boxer
+20%; 147 jumps, 120 flips). "theres a few visual graphics bugs on the
+edges of the screen, also the running animation, the arms dont swing like
+how a runner would swing there arms. would be cool if we could do a wall
+jump."
+
+- **The knobs he left are the layer's starts**, read off the tape and
+  checked against the build word for word: the run 1.4x (0.18 a frame)
+  and quicker to build, turning as the tank's 12, gripping more than twice
+  as hard (0.74: less drift than the archive's run), the lenses a notch
+  nearer (the run's 3.2, the boxer's 2.6), the run's trailing longer
+  (0.07), the boxer stepping half again as fast, the jump a little lower,
+  and the two clicks given 40 frames -- the most the knob allowed, so its
+  ceiling is 60 now.
+- **The bugs at the edges** were P24b's light, found in frames of his own
+  tape: one level a face made each stretch of sidewalk its own grey, and
+  by a lit shop a pale one -- hard-edged slabs along the bottom and sides
+  of the screen wherever the walk ran under the lens; and dark glass,
+  under the grade, was a black rectangle in the wall. The walk is ONE
+  level everywhere now (the light is the walls'), and dark glass is a dark
+  colour, not a hole. (Law and silicon drew four moments of the tape alike
+  to the pixel: what he saw was the picture, not the glass.)
+- **A runner's arms.** The archive's run pumps the arm nearly straight
+  through 140 degrees with the elbow bent across the body: the hand goes
+  over his head. Re-posed on the archive's own rig (tools/tnd_extract.py,
+  the clip "run2"): the same stride and trunk, the upper arm swung 28
+  degrees ahead and 50 behind, the elbow bent FORWARD to a right angle,
+  closing as the hand comes up. The layers play run2; the game keeps the
+  archive's until the merge.
+- **The wall jump.** In the air, a step the street refuses is a wall
+  touched, remembered eight frames. A then kicks him off it: thrown
+  straight back at 0.20 a frame (in the run, across the street before he
+  is down), keeping what he had along the wall, his heading mirrored in
+  it, up with the flip's rise and its tuck. Twice an air -- a street is
+  two walls to climb between -- and a landing makes the count new.
+- **Measured on silicon** (the layer's route): peak 64% (57% before the
+  light was one level a face: more corners), median 51%, none dropped.
+- tests: 8 for the base, 6 for the layer.

@@ -114,6 +114,24 @@ seqs["air"] = [frozen(bm.air_mesh(0.16 - k * 0.16 / 3)) for k in range(7)]
 # -- and the fencing slips, over their own frames at 60 Hz. (The flip's SPIN
 # is the renderer's in the archive, and the cart's here: these are shapes.)
 seqs["run"] = [frozen(bm.run_mesh(f / 16.0)) for f in range(16)]
+# THE RUN WITH A RUNNER'S ARMS (TND-PORT P25; the player, on glass: "the
+# arms dont swing like how a runner would swing there arms"). run_mesh pumps
+# the arm nearly straight through 140 degrees, its elbow bent about the
+# forearm's THIRD component -- which folds it ACROSS the body, so the hand
+# passes over his head. Here the same stride (legs, trunk, bound: the
+# archive's own _run_cycle) carries a sprinter's arms: the upper arm swung
+# 28 degrees ahead and 50 behind, the elbow bent FORWARD (the forearm's
+# second component) to about a right angle, closing as the hand comes up
+# and opening as it goes back. A second clip, so the first stays the
+# archive's own.
+def _run2(t, fwd=28.0, back=50.0, elbow=98.0):
+    pose, root = bm._run_cycle(t, bm._run_pose_dict())
+    for side, m, ph in (("Right", 1.0, t % 1.0), ("Left", -1.0, (t + 0.5) % 1.0)):
+        s = np.sin(2.0 * np.pi * ph)
+        pose[side + "Arm"] = [0, m * (fwd if s > 0 else back) * s, m * 90.0]
+        pose[side + "ForeArm"] = [0, m * (elbow + 18.0 * s), 0]
+    return bm._pose_and_skin(pose, root, None)
+seqs["run2"] = [frozen(_run2(f / 16.0)) for f in range(16)]
 for d in ("fwd", "back", "left", "right"):
     seqs["kite_" + d] = [frozen(bm.boxing_kite_mesh(f / 16.0, d)) for f in range(16)]
 for name, kind, n in (("flip_fwd", "fwd", 20), ("flip_back", "back", 20),

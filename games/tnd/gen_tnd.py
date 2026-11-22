@@ -94,6 +94,15 @@ SEQS = ("idle", "walk", "air", "jab", "cross", "lead_hook", "rear_hook", "specia
         "flip_fwd", "flip_back", "flip_cart",
         "dodge_fwd", "dodge_back", "dodge_left", "dodge_right",
         "land")                 # P15: the touchdown's squash
+# P25: THE RUN'S ARMS (the player, on glass: "the arms dont swing like how a
+# runner would swing there arms"). The archive's run pumps the arm nearly
+# straight through 140 degrees with the elbow bent ACROSS the body -- the
+# hand passes over his head. The layers play the same stride re-posed on
+# the archive's own rig (tools/tnd_extract.py, "run2"): the elbow bent
+# forward to a right angle, the upper arm swung 28 degrees ahead and 50
+# behind, close in to his sides. (The game's cart keeps the archive's
+# until the layers merge.)
+CLIP_OF = {"run": "run2"} if BASE else {}
 
 
 def to_zeta(V):
@@ -331,7 +340,7 @@ DEDUPE = False
 bank, base, slot, seen = [], {}, [], {}
 for s in SEQS:
     base[s] = len(slot)
-    for V, S in zip(d["V_" + s], d["S_" + s]):
+    for V, S in zip(d["V_" + CLIP_OF.get(s, s)], d["S_" + CLIP_OF.get(s, s)]):
         w = pose_span(V, S)
         k = tuple(w) if DEDUPE else len(slot)
         if k not in seen:
@@ -864,6 +873,7 @@ def piece_build(sides):
 LIT_AMB0 = 13                    # P22: the level the town's own dark sits at (of 32)
 LIT_GLOW, LIT_GLOW_R = 0.45, 1.6   # what a burning face throws on what is by it, and how far
 LIT_LAMP, LIT_LAMP_R = 1.3, 2.4    # the lantern's, by the inverse square
+LIT_WALK = 0.12                    # the sidewalks', everywhere the same
 
 
 def _tri_dist(p_, tri):
@@ -890,8 +900,14 @@ def piece_light(b):
     Faces that do not burn are stored at their LIT colour (x 32 / AMB0), so
     in the town's dark they show as they did.
     -> the mesh, for the object list with OBJ_LIT"""
-    burn = {rgb(shade(c_, n_)) for c_ in (SHOPS[0], WIN_LIT, LAMP_C)
-            for n_ in ((1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1))}
+    _ns = ((1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1))
+    burn = {rgb(shade(c_, n_)) for c_ in (SHOPS[0], WIN_LIT, LAMP_C) for n_ in _ns}
+    # (P25: THE WALK IS ONE LEVEL EVERYWHERE. A level a face made each stretch
+    # of sidewalk its own grey, and by a lit shop a pale one -- hard-edged
+    # slabs along the bottom and sides of the screen wherever the walk ran
+    # under the lens: the player's "visual graphics bugs on the edges of the
+    # screen". The light is the walls'; the walk stays dark stone.)
+    walk = {rgb(shade(c_, n_)) for c_ in (SIDEWALK, CURB_C) for n_ in _ns}
     V = [np.array(v_, float) / ONE for v_ in b.v]              # zeta; distances are the same
     lamp = getattr(b, "lamp", None)
     lampz = None if lamp is None else W(*lamp)
@@ -935,6 +951,8 @@ def piece_light(b):
         col = fs[k][3]
         if col in burn:
             level = 1.0
+        elif col in walk:
+            level = LIT_WALK
         else:
             cs = {i for fc in grp for i in fc[:3]}
             level = sum(t[i] for i in cs) / len(cs)
@@ -950,6 +968,9 @@ def piece_light(b):
 CURB_C, LAMP_C = (104, 100, 100), (255, 128, 52)
 if BASE:                         # (P22: lit, the walk is darker stone -- at full it was white)
     SIDEWALK, CURB_C = (80, 74, 76), (90, 84, 86)
+    # (P25: and dark glass is not a hole -- under the grade (16, 14, 18) was
+    # a black rectangle in the wall)
+    SHOPS = tuple((30, 27, 34) if c_ == (16, 14, 18) else c_ for c_ in SHOPS)
 SIDES = [node_sides(n) for n in range(CS * CS)]
 KINDS = sorted({canon(s)[0] for s in SIDES})
 PIECE_M = []
@@ -1923,6 +1944,9 @@ RUN_TURN = 48                   # the run's turn toward the pad: 17 degrees a fr
 RUN_DT = 20                     # P20: R's second press within this many frames
 FREE_TURN = 12                  # P20: the free run turns as the tank does
 RUN_STAND = int(0.02 * ONE)     # P24: under this speed, in the run, he stands
+WJ_KICK = int(0.20 * ONE)       # P25: the wall jump's push off the wall, a frame (in the run,
+                                # across a street before he is down: the next wall is his)
+WJ_COYOTE, WJ_MAX = 8, 2        # ...the frames a touch still counts, and how many an air
 RDT, FRUN = cart.data(Table([255]), "r_dt"), cart.var("f_frun")   # (long ago)
 GUN_CONE = 46                   # the free shot's line: 16 degrees either side
 GUN_AIM2 = int(13.0 ** 2 * ONE)
@@ -2070,16 +2094,22 @@ KNOBS = (("walk", WALK, int(0.002 * ONE), int(0.01 * ONE), int(0.12 * ONE)),    
 KNOBS = tuple((k, BASE_SET.get(k, v), st_, lo_, hi_) for k, v, st_, lo_, hi_ in KNOBS)
 # LAYER 1'S PAGE: the left shoulder. (The base's knobs are settled in a
 # layer-1 build -- they read as the constants the player left them at.)
-KNOBS_L1 = (("run", ONE, int(0.08 * ONE), int(0.5 * ONE), int(2.5 * ONE)),     # 0 the run's pace (x 0.13)
-            ("runacc", int(0.30 * ONE), int(0.03 * ONE), int(0.03 * ONE), int(0.9 * ONE)),   # 1 how fast it builds
-            ("runturn", 9, 1, 3, 24),                              # 2 its turn, a frame (the tank's is 14)
-            ("grip", int(0.34 * ONE), int(0.04 * ONE), int(0.06 * ONE), ONE),   # 3 how soon he goes where he faces
-            ("runcam", int(3.4 * ONE), int(0.2 * ONE), ONE, 8 * ONE),   # 4 the run's lens, behind
-            ("trail", int(0.10 * ONE), int(0.01 * ONE), int(0.02 * ONE), int(0.25 * ONE)),   # 5 how soon it comes round
-            ("boxcam", int(2.8 * ONE), int(0.2 * ONE), ONE, 6 * ONE),   # 6 the boxer's lens, behind
-            ("boxstep", int(0.016 * 0.6 * ONE), 60, 200, 2000),    # 7 the boxer's step
-            ("jump", int(round(0.186 * ONE)), int(0.01 * ONE), int(0.08 * ONE), int(0.4 * ONE)),   # 8 the jump
-            ("dclick", 20, 2, 6, 40))                              # 9 frames between the two clicks
+# (The values are the PLAYER'S, from twenty minutes of the layer on glass,
+# 2026-11-21, read off the tape: the run 1.4x and quicker to build, turning
+# as the tank's 12, gripping more than twice as hard -- less drift than the
+# archive's -- the lenses a notch nearer and the run's trailing longer, the
+# boxer stepping half again as fast, the jump a little lower, and the two
+# clicks allowed two thirds of a second, the most the knob gave.)
+KNOBS_L1 = (("run", ONE + 5 * int(0.08 * ONE), int(0.08 * ONE), int(0.5 * ONE), int(2.5 * ONE)),   # 0 the run's pace (x 0.13)
+            ("runacc", int(0.30 * ONE) + 3 * int(0.03 * ONE), int(0.03 * ONE), int(0.03 * ONE), int(0.9 * ONE)),   # 1 how fast it builds
+            ("runturn", 12, 1, 3, 24),                             # 2 its turn, a frame (the tank's is 14)
+            ("grip", int(0.34 * ONE) + 10 * int(0.04 * ONE), int(0.04 * ONE), int(0.06 * ONE), ONE),   # 3 how soon he goes where he faces
+            ("runcam", int(3.4 * ONE) - int(0.2 * ONE), int(0.2 * ONE), ONE, 8 * ONE),   # 4 the run's lens, behind
+            ("trail", int(0.10 * ONE) - 3 * int(0.01 * ONE), int(0.01 * ONE), int(0.02 * ONE), int(0.25 * ONE)),   # 5 how soon it comes round
+            ("boxcam", int(2.8 * ONE) - int(0.2 * ONE), int(0.2 * ONE), ONE, 6 * ONE),   # 6 the boxer's lens, behind
+            ("boxstep", int(0.016 * 0.6 * ONE) + 6 * 60, 60, 200, 2000),   # 7 the boxer's step
+            ("jump", int(round(0.186 * ONE)) - 2 * int(0.01 * ONE), int(0.01 * ONE), int(0.08 * ONE), int(0.4 * ONE)),   # 8 the jump
+            ("dclick", 40, 2, 6, 60))                              # 9 frames between the two clicks
 SETTLED = {k_[0]: k_[1] for k_ in KNOBS + KNOBS_L1}
 if L1:
     KNOBS = KNOBS_L1
@@ -2090,6 +2120,10 @@ if BASE:
     WSPD, QT, KEY, PICK, KNEAR, KX, KZ, WACC, LFLASH = (cart.var(k) for k in (
         "walk_v", "qturn_left", "key_held", "pick_t", "ctx_near", "ctx_x", "ctx_z", "walk_acc",
         "light_flash"))
+    # P25: THE WALL JUMP's memory -- which way a wall stopped him in the air,
+    # for how many frames more it still counts, and how many he has had
+    WALLT, WALLA, WSX, WSZ, WTX, WTZ, WJN = (cart.var(k) for k in (
+        "wall_t", "wall_axes", "wall_sx", "wall_sz", "wall_tx", "wall_tz", "wall_n"))
     cart.boot(spec.LIGHT_DIR, 0x007F00)          # P22: straight down (see piece_light)
     cart.boot(spec.LIGHT_AMB, LIT_AMB0)         # (the title's street, before the game
     cart.boot(spec.LIGHT_DIF, 33 - LIT_AMB0)    # sets them a frame at a time)
@@ -2719,6 +2753,32 @@ p.emit(f"jmp {jp}_f2g")                           # the jump flips that way at o
 # P10: THE FLIP -- a second A in the air, once a jump: forward from the run,
 # any of four ways from the boxing stance (the archive's one-axis rule)
 p.mark(f"{jp}_fl")
+if L1:
+    # P25: THE WALL JUMP (the player: "would be cool if we could do a wall
+    # jump"). A in the air with a wall just touched: he kicks off it -- thrown
+    # straight back from the wall at WJ_KICK, keeping what he had along it,
+    # turned to face the way he is thrown (his heading mirrored in the
+    # wall), up again with the flip's rise and its tuck. Twice an air, so a
+    # narrow street is two walls to climb between, and no more.
+    wj_ = p.label("walljump")
+    p.load(WALLT).emit(f"jz {wj_}")
+    p.load(WJN).push(WJ_MAX).emit("lt", f"jz {wj_}")
+    p.addi(WJN, 1).set(WALLT, 0)
+    p.load(F["vx"]).store(F["evx"]).load(F["vz"]).store(F["evz"])
+    p.load(WALLA).push(1).emit("and", f"jz {wj_}_z")
+    p.push(0).load(WSX).push(WJ_KICK).emit("mul", "sub").store(F["evx"])
+    p.push(0).load(YAW).emit("sub").push(1023).emit("and").store(YAW)
+    p.mark(f"{wj_}_z")
+    p.load(WALLA).push(2).emit("and", f"jz {wj_}_g")
+    p.push(0).load(WSZ).push(WJ_KICK).emit("mul", "sub").store(F["evz"])
+    p.push(512).load(YAW).emit("sub").push(1023).emit("and").store(YAW)
+    p.mark(f"{wj_}_g")
+    p.load(F["evx"]).store(F["vx"]).load(F["evz"]).store(F["vz"])
+    p.load(YAW).emit("dup").store(F["latch"]).store(F["cgr"])
+    p.set(F["evk"], 0).set(F["evt"], FLIPS[0][1]).set(F["evf"], FLIPS[0][1])
+    p.set(F["pvy"], FLIP_V).set(F["flipu"], 1)
+    p.emit(f"jmp {jp}")
+    p.mark(wj_)
 p.load(F["acmb"]).load(F["evf"]).emit("or").load(F["flipu"]).emit("or", f"jz {jp}_f1", f"jmp {jp}")
 p.mark(f"{jp}_f1")
 p.load(ANIM).push(2).emit("eq", f"jz {jp}_f2", f"jmp {jp}")
@@ -3322,6 +3382,8 @@ p.load(F["py"]).load(F["pvy"]).emit("add").store(F["py"])
 p.push(0).load(F["py"]).emit("lt", f"jz {av}_land", f"jmp {av}_e")
 p.mark(f"{av}_land")
 p.set(F["py"], 0).set(F["pvy"], 0).set(F["flipu"], 0)   # (a landing re-arms the flip)
+if L1:
+    p.set(WJN, 0).set(WALLT, 0)                           # (...and the wall jumps)
 # P15: THE LANDING, FELT (tear.py 2757: "a dead touchdown reads as cartoony
 # no matter how the arc above it is shaped"). The frame shakes and the
 # ground answers -- the step's own thud, since a sound of its own is 24
@@ -3504,7 +3566,28 @@ p.push(SPAN).store(spec.DMA_LEN)
 p.set(spec.DMA_GO, 1)
 p.mark(pd_)
 
+if L1:
+    p.load(PX).store(WTX).load(PZ).store(WTZ)     # (where the step would have put him)
 keep_in_arena(PX, PZ, AR["ox"], AR["oz"])
+if L1:
+    # P25: THE WALL, REMEMBERED. In the air, a step the street refused is a
+    # wall touched: which axis (or both), and which way he was going on it --
+    # good for WJ_COYOTE frames.
+    wd_ = p.label("walltouch")
+    p.load(WALLT).emit(f"jz {wd_}_n")
+    p.addi(WALLT, -1)
+    p.mark(f"{wd_}_n")
+    p.load(F["py"]).emit(f"jz {wd_}")
+    p.load(PX).load(WTX).emit("eq").push(1).emit("xor")
+    p.load(PZ).load(WTZ).emit("eq").push(1).emit("xor").push(2).emit("mul", "or", "dup", f"jz {wd_}_d")
+    p.store(WALLA).set(WALLT, WJ_COYOTE)
+    for t_, o_, s_ in ((WTX, AR["ox"], WSX), (WTZ, AR["oz"], WSZ)):
+        p.push(0).load(t_).load(o_).emit("sub", "lt")           # going up the axis
+        p.load(t_).load(o_).emit("sub").push(0).emit("lt", "sub").store(s_)   # ...or down: +1, -1
+    p.emit(f"jmp {wd_}")
+    p.mark(f"{wd_}_d")
+    p.emit("drop")
+    p.mark(wd_)
 # (P21 gave the base a softened slide along walls, on a knob; the player
 # turned it all the way off on glass -- "a wall is a wall" -- and P22 took
 # it out. The archive's slide, above, is the base's.)
