@@ -586,7 +586,9 @@ for i in range(3):
         if name == "head":
             T.append(DEM[f"b{i}_spike_tris"])
             C.append(DEM[f"b{i}_spike_cols"])
-        meshes[mk] = cart.data(part_mesh(np.concatenate(T), np.concatenate(C)),
+        meshes[mk] = cart.data(Mesh([0, 0, 0, ONE // 8, 0, 0, 0, ONE // 8, 0], [(0, 1, 2, 0)])
+                               if BASE else            # (no demon stands in the base)
+                               part_mesh(np.concatenate(T), np.concatenate(C)),
                                f"demon{i}_{mk}")
     DMESH.append(meshes)
 
@@ -777,6 +779,13 @@ def piece_build(sides):
             h = H_EDGE if edge else pick(H_IN, at, u0, sgn, wi)
             fronts.append((u0, u1, h, pick(TOWN, at, u0, sgn), pick(SHOPS, at, u1, sgn),
                            pick((WIN_LIT, None, WIN_LIT, None, None), u0, at, sgn, wi)))
+        # (P22, the base: the first wall carries the lantern, and is cut
+        # under it -- light is a thing the corners carry, so there must be
+        # corners where the light is)
+        ul = (lo + hi) / 2 if BASE and wi == 0 else None
+
+        def ucut(u0, u1):
+            return [u0, ul, u1] if ul is not None and u0 + 1e-6 < ul < u1 - 1e-6 else [u0, u1]
         for k, (u0, u1, h, col, shop, win) in enumerate(fronts):
             zs = [CURB, SHOP_H]
             if win is not None:
@@ -784,8 +793,10 @@ def piece_build(sides):
             zs.append(h)
             for j, (z0, z1) in enumerate(zip(zs, zs[1:])):
                 c = shop if j == 0 else (win if j % 2 == 0 else col)
-                b.quad([P(axis, at, u0, z0), P(axis, at, u1, z0),
-                        P(axis, at, u1, z1), P(axis, at, u0, z1)], nrm(axis, sgn), c)
+                us = ucut(u0, u1)
+                for ua, ub in zip(us, us[1:]):
+                    b.quad([P(axis, at, ua, z0), P(axis, at, ub, z0),
+                            P(axis, at, ub, z1), P(axis, at, ua, z1)], nrm(axis, sgn), c)
             # where the next front is lower, this one's side shows: a cap
             if k + 1 < len(fronts) and fronts[k + 1][2] != h:
                 hn = fronts[k + 1][2]
@@ -796,7 +807,8 @@ def piece_build(sides):
                        n, col if h > hn else fronts[k + 1][3])
         # THE SIDEWALK at its foot, raised, with its curb to the road
         walk_at = at + sgn * walk_w              # (toward the street: the normal)
-        for u0, u1 in zip(cuts, cuts[1:]):         # (cut at its fronts: a long
+        scuts = sorted(set(cuts) | ({ul} if ul is not None else set()))
+        for u0, u1 in zip(scuts, scuts[1:]):       # (cut at its fronts: a long
             b.quad([P(axis, at, u0, CURB), P(axis, walk_at, u0, CURB),   # flat face's
                     P(axis, walk_at, u1, CURB), P(axis, at, u1, CURB)],  # depth over-
                    (0, 0, 1), SIDEWALK)                                    # reads, and
@@ -827,10 +839,83 @@ def piece_build(sides):
                     L3(o1, u - .22, z1)], nrm(axis, sgn), c)
             b.quad([L3(o0, u - .22, z0), L3(o0, u + .22, z0), L3(o1, u + .22, z0),
                     L3(o1, u - .22, z0)], (0, 0, -1), c)
+        b.lamp = np.array(L3(o1, u, 3.3), float)
+        # (P22 tried the pool on the road again, as a lit fan: at a distance
+        # it had its falloff at last, but the machine carries light across a
+        # face in SCREEN space, and under the lens the fan was a flat pale
+        # slab. The lantern lights its wall and the sidewalk under it.)
     return b
 
 
+LIT_AMB0 = 13                    # P22: the level the town's own dark sits at (of 32)
+LIT_GLOW, LIT_GLOW_R = 0.45, 1.6   # what a burning face throws on what is by it, and how far
+LIT_LAMP, LIT_LAMP_R = 1.3, 2.4    # the lantern's, by the inverse square
+
+
+def _tri_dist(p_, tri):
+    """the distance from p_ to a triangle, near enough: to its corners, the
+    middles of its sides and its middle"""
+    a_, b_, c_ = tri
+    pts = (a_, b_, c_, (a_ + b_) / 2, (b_ + c_) / 2, (c_ + a_) / 2, (a_ + b_ + c_) / 3)
+    return min(float(np.linalg.norm(p_ - q_)) for q_ in pts)
+
+
+def piece_light(b):
+    """P22, THE BASE IS LIT (spec.OBJ_LIT). The machine lights a vertex by
+    its normal against ONE direction, and does not turn the normal with the
+    object -- so with the light straight down, a vertex's 'normal' is simply
+    HOW LIT IT IS, whatever way its piece is turned: (0, t * 127, 0) reads
+    level = AMB + DIF * t. Baked here, a corner at a time:
+      what BURNS (a lit shop, a lit floor, the lantern) has corners of its
+        own, fully lit;
+      every other corner takes the glow of the burning faces near it
+        (falling off with distance), the lantern's light by the inverse
+        square, and the street's own level, which lifts the foot of every
+        wall a little -- so a shop's glow climbs the wall over it and lies
+        on the sidewalk at its foot;
+    Faces that do not burn are stored at their LIT colour (x 32 / AMB0), so
+    in the town's dark they show as they did.
+    -> the mesh, for the object list with OBJ_LIT"""
+    burn = {rgb(shade(c_, n_)) for c_ in (SHOPS[0], WIN_LIT, LAMP_C)
+            for n_ in ((1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1))}
+    V = [np.array(v_, float) / ONE for v_ in b.v]              # zeta; distances are the same
+    lamp = getattr(b, "lamp", None)
+    lampz = None if lamp is None else W(*lamp)
+    fires = [[V[i] for i in fc[:3]] for fc in b.f if fc[3] in burn]
+    t = []
+    for i, p_ in enumerate(V):
+        v_ = 0.10 * max(0.0, 1.0 - p_[1] / 5.0)
+        if lampz is not None:
+            v_ += LIT_LAMP / (1.0 + float(np.sum((p_ - lampz) ** 2)) / LIT_LAMP_R ** 2)
+        if fires:
+            dmin = min(_tri_dist(p_, tri) for tri in fires)
+            v_ += LIT_GLOW / (1.0 + (dmin / LIT_GLOW_R) ** 2)
+        t.append(min(0.85, v_))
+    verts = list(b.v)
+    own = {}                                   # a burning face's own corners, fully lit
+    faces = []
+    gain = 32 / LIT_AMB0
+    for a_, b_, c_, col in b.f:
+        if col in burn:
+            ids = []
+            for i in (a_, b_, c_):
+                if i not in own:
+                    own[i] = len(verts)
+                    verts.append(b.v[i])
+                    t.append(1.0)
+                ids.append(own[i])
+            faces.append((*ids, col))
+        else:
+            ch = [min(255, int(((col >> sh) & 255) * gain)) for sh in (16, 8, 0)]
+            faces.append((a_, b_, c_, ch[0] << 16 | ch[1] << 8 | ch[2]))
+    assert len(verts) <= spec.MESH_NV_MAX and len(faces) <= spec.MESH_NF_MAX, (len(verts), len(faces))
+    normals = [int(round(min(1.0, max(0.0, v_)) * 127)) << 8 for v_ in t]
+    return Mesh([c for v_ in verts for c in v_], faces, colors=normals)
+
+
 CURB_C, LAMP_C = (104, 100, 100), (255, 128, 52)
+if BASE:                         # (P22: lit, the walk is darker stone -- at full it was white)
+    SIDEWALK, CURB_C = (80, 74, 76), (90, 84, 86)
 SIDES = [node_sides(n) for n in range(CS * CS)]
 KINDS = sorted({canon(s)[0] for s in SIDES})
 PIECE_M = []
@@ -842,7 +927,8 @@ for kd in KINDS:
         print("piece", kd, "v", len(_pb.v), "f", len(_pb.f), "words", 2 + 3 * len(_pb.v) + 2 * len(_pb.f))
     ms = _pb.meshes()
     assert len(ms) == 1, f"piece {kd} needs {len(ms)} meshes"
-    PIECE_M.append(int(cart.data(ms[0], "piece_" + "".join(map(str, kd)))))
+    PIECE_M.append(int(cart.data(piece_light(_pb) if BASE else ms[0],
+                                 "piece_" + "".join(map(str, kd)))))
 # THE ORIGIN IS THE FIRST DISTRICT'S PLAZA: its centre (the corner its four
 # nodes share) is world (0, 0), where the crossroads' square was -- so the
 # fight begins in an open square half again as wide, the ring of three
@@ -1061,6 +1147,11 @@ def ground_mesh():
         tri(prev[0], prev[1], cur[1])
         tri(prev[0], cur[1], cur[0])
         prev = cur
+    if BASE:                                  # (P22: lit, at the town's own dark)
+        g_ = 32 / LIT_AMB0
+        lc = rgb(tuple(min(255, int(c_ * g_)) for c_ in shade(ASPHALT, (0, 0, 1))))
+        return Mesh([int(round(c * ONE)) for p_ in V for c in p_],
+                    [(a_, b_, c_, lc) for a_, b_, c_, _ in F], colors=[0] * len(V))
     return Mesh([int(round(c * ONE)) for p_ in V for c in p_], F)
 
 
@@ -1915,7 +2006,6 @@ BASE_SET = dict(walk=int(0.032 * ONE) + 17 * int(0.002 * ONE),      # 0.066: twi
                 turn=14, qturn=80,                                  # half round in 7 frames
                 camd=int(3.0 * ONE) - 5 * int(0.2 * ONE),           # 2.0 behind
                 camh=int(2.15 * ONE) - 5 * int(0.1 * ONE),          # 1.65 up
-                slide=0,                                            # a wall is a wall
                 pick=8, grade=2) if BASE else {}
 # (name, start, a notch, least, most). THE LIMITS ARE THE GAME'S SAFETY: on
 # the second base tape the pick-up's knob was turned to -10 frames, and the
@@ -1927,7 +2017,7 @@ KNOBS = (("walk", WALK, int(0.002 * ONE), int(0.01 * ONE), int(0.12 * ONE)),    
          ("qturn", 44, 4, 8, 256),                                  # 3 the quick turn's, a frame
          ("camd", int(3.0 * ONE), int(0.2 * ONE), ONE, 6 * ONE),    # 4 the follow's distance
          ("camh", int(2.15 * ONE), int(0.1 * ONE), int(0.8 * ONE), 4 * ONE),   # 5 ...and its height
-         ("slide", int(0.6 * ONE), int(0.1 * ONE), 0, ONE),         # 6 the least a wall leaves him
+         ("light", LIT_AMB0, 1, 4, 24),                            # 6 the town's own dark (of 32)
          ("pick", 18, 2, 0, 60),                                    # 7 frames a pick-up holds him
          ("grade", 1, 1, 0, 2),                                     # 8 the glass's curve: 0 off, 2 heavy
          ("bow", 40, 8, 0, 128))                                    # 9 how far he bows to pick up
@@ -1936,8 +2026,12 @@ if BASE:
     KN = cart.data(Table([k_[1] for k_ in KNOBS]), "knobs")
     KNOTCH = cart.var("knob_n", len(KNOBS))
     KSEL, KPV, KTUNE = (cart.var(k) for k in ("knob_sel", "knob_pv", "knob_on"))
-    WSPD, QT, KEY, PICK, KNEAR, KX, KZ, WACC = (cart.var(k) for k in (
-        "walk_v", "qturn_left", "key_held", "pick_t", "ctx_near", "ctx_x", "ctx_z", "walk_acc"))
+    WSPD, QT, KEY, PICK, KNEAR, KX, KZ, WACC, LFLASH = (cart.var(k) for k in (
+        "walk_v", "qturn_left", "key_held", "pick_t", "ctx_near", "ctx_x", "ctx_z", "walk_acc",
+        "light_flash"))
+    cart.boot(spec.LIGHT_DIR, 0x007F00)          # P22: straight down (see piece_light)
+    cart.boot(spec.LIGHT_AMB, LIT_AMB0)         # (the title's street, before the game
+    cart.boot(spec.LIGHT_DIF, 33 - LIT_AMB0)    # sets them a frame at a time)
     KSTR1 = cart.data(Table([1, 0]), "str_k1")
     KSTR2 = cart.data(Table([2, 0, 0]), "str_k2")
 
@@ -2201,6 +2295,30 @@ p.load(CT["n"]).push(0).emit("lt", f"jz {du_}_on", f"jmp {du_}")
 p.mark(f"{du_}_on")
 p.load(CT["w"]).emit("shr 23").push(15).emit("and").push(int(DUSK)).emit("add", "loadi")
 p.store(spec.FOG_RGB)
+if BASE:
+    # P22: THE LIGHT, each frame. The town's own dark is the light knob's
+    # level, a notch darker a district toward the core (to 3 of 32); what
+    # burns stays at full (DIF takes up what AMB gives away). The lanterns
+    # GUTTER: now and then, for two frames, a little less. And a FLASH --
+    # the gate unlocked, the key taken -- lifts the dark and lets it fall.
+    lt_ = p.label("light")
+    knob(p, "light").load(CT["w"]).emit("shr 23").push(15).emit("and", "sub")
+    p.emit("dup").push(3).emit("lt", f"jz {lt_}_a")
+    p.emit("drop").push(3)
+    p.mark(f"{lt_}_a")
+    p.load(LFLASH).emit("add", "dup").push(32).emit("swap", "lt", f"jz {lt_}_b")   # 32 < it
+    p.emit("drop").push(32)
+    p.mark(f"{lt_}_b")
+    p.emit("dup").store(spec.LIGHT_AMB)
+    p.push(33).emit("swap", "sub")                                # what is left, to the top
+    p.load(spec.REG_FRAME).emit("shr 1").push32(2654435761).emit("mul", "shr 24")
+    p.push(63).emit("and").push(2).emit("lt", f"jz {lt_}_g")      # the gutter
+    p.push(3).emit("sub")
+    p.mark(f"{lt_}_g")
+    p.store(spec.LIGHT_DIF)
+    p.load(LFLASH).emit(f"jz {lt_}")
+    p.addi(LFLASH, -1)
+    p.mark(lt_)
 # THE AMBUSH: a district's horde wakes when he walks into its plaza
 p.load(CT["w"]).push(0xAA).emit("and", f"jz {du_}")
 p.load(CT["w"]).emit("shr 23").push(15).emit("and").load(LVL).emit("eq", f"jz {du_}")
@@ -2413,9 +2531,9 @@ if BASE:
     p.load(ANIM).push(2).emit("eq", f"jz {cx_}_a", f"jmp {cx_}")   # (mid-swing: a jab)
     p.mark(f"{cx_}_a")
     p.load(KNEAR).push(1).emit("eq", f"jz {cx_}_g")
-    p.set(KEY, 1).emit(f"jmp {cx_}_do")                            # the key: his
+    p.set(KEY, 1).set(LFLASH, 6).emit(f"jmp {cx_}_do")             # the key: his
     p.mark(f"{cx_}_g")                                             # the gate: open
-    p.set(KEY, 0).addi(LVL, 1)
+    p.set(KEY, 0).addi(LVL, 1).set(LFLASH, 20)
     for half in (0, 2):
         p.load(LVL).push(GT_N).emit("mul").push(int(GATE_T) - GT_N + half).emit("add")
         p.emit("dup", "loadi").push(int(CMAP)).emit("add", "dup", "loadi")
@@ -3273,45 +3391,9 @@ p.set(spec.DMA_GO, 1)
 p.mark(pd_)
 
 keep_in_arena(PX, PZ, AR["ox"], AR["oz"])
-if BASE:
-    # P21: A WALL CARRIES HIM ALONG IT. Walking into a wall kept only the part
-    # of his step that ran along it -- at a shallow angle, a crawl (a third of
-    # the walking on the first town tape was slowed so, 149 frames stopped).
-    # Now a wall leaves him at least the slide knob's share of his pace along
-    # it; dead on (under an eighth of his pace along it) he still stops.
-    sl_ = p.label("slide")
-    p.load(ANIM).push(1).emit("eq", f"jz {sl_}")
-    p.load(WSPD).emit("dup").push(0).emit("lt", f"jz {sl_}_a")
-    p.push(0).emit("swap", "sub")
-    p.mark(f"{sl_}_a")
-    p.emit("dup").store(W["dmg"])
-    knob(p, "slide").emit("mulq").store(W["stop"])
-    p.load(W["dmg"]).emit("shr 3").store(W["dg"])
-    for pos, old, opos, oold, ax, oax in ((PX, AR["ox"], PZ, AR["oz"], "x", "z"),
-                                          (PZ, AR["oz"], PX, AR["ox"], "z", "x")):
-        nx = p.label("sl")
-        p.load(opos).load(oold).emit("eq", f"jz {nx}")           # the other axis: stopped
-        p.load(pos).load(old).emit("sub", "dup").store(W["d2"])
-        p.emit("dup").push(0).emit("lt", f"jz {nx}_p")
-        p.push(0).emit("swap", "sub")
-        p.mark(f"{nx}_p")
-        p.emit("dup").load(W["stop"]).emit("lt", f"jz {nx}_d")
-        p.load(W["dg"]).emit("swap", "lt", f"jz {nx}")
-        p.push(0).load(W["d2"]).emit("lt", f"jz {nx}_m")
-        p.load(old).load(W["stop"]).emit("add", f"jmp {nx}_s")
-        p.mark(f"{nx}_m")
-        p.load(old).load(W["stop"]).emit("sub")
-        p.mark(f"{nx}_s")
-        p.emit("dup").store(AR[ax])
-        p.load(opos).store(AR[oax])
-        p.emit(f"call {L_ARENA}", f"jz {nx}_r")
-        p.store(pos).emit(f"jmp {sl_}")
-        p.mark(f"{nx}_r")
-        p.emit("drop", f"jmp {sl_}")
-        p.mark(f"{nx}_d")
-        p.emit("drop")
-        p.mark(nx)
-    p.mark(sl_)
+# (P21 gave the base a softened slide along walls, on a knob; the player
+# turned it all the way off on glass -- "a wall is a wall" -- and P22 took
+# it out. The archive's slide, above, is the base's.)
 
 # his trig, for his keys and his fist: the BODY's facing
 sin_of(p, 256, cell=HEAD)
@@ -4330,7 +4412,7 @@ p.store(VIS["rz"])
 # ---- the object list --------------------------------------------------------
 p.set(NOBJ, 0)
 p.object(NOBJ, GROUND_M, (f"load {spec.CAM_X}",), 0, (f"load {spec.CAM_Z}",),
-         (f"load {spec.CAM_YAW}",), spec.OBJ_CULL)
+         (f"load {spec.CAM_YAW}",), spec.OBJ_CULL | (spec.OBJ_LIT if BASE else 0))
 if BASE:
     p.object(NOBJ, SKY_M, (f"load {spec.CAM_X}",), 0, (f"load {spec.CAM_Z}",),
              (f"load {spec.CAM_YAW}",), spec.OBJ_CULL)
@@ -4385,7 +4467,7 @@ def city_subs():
              .push(int(PIECE_T)).emit("add", "loadi"),
              (f"load {int(CT['x'])}",), 0, (f"load {int(CT['z'])}",),
              lambda h: h.load(CT["w"]).emit("shr 8").push(1023).emit("and"),
-             spec.OBJ_CULL)
+             spec.OBJ_CULL | (spec.OBJ_LIT if BASE else 0))
     g.mark(ex)
     g.emit("ret")
     # CRING: the nodes CT n1's streets reach, but back the way it came (bk)

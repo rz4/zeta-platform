@@ -1056,3 +1056,46 @@ seconds.
   frames a second (the paint is 90% of a law frame) -- sound for any cart
   that reads nothing the paint answers (PICK, VIS), as TND does not. The
   4m44s tape in two minutes.
+
+## P22: the base is lit (2026-11-21; not yet on glass)
+
+"lighting then i think we can discuss the next layer advanced movement."
+
+- **What the machine gives**: one light direction and two levels for the
+  whole frame (LIGHT_DIR, LIGHT_AMB, LIGHT_DIF), and a word a vertex that
+  OBJ_LIT reads as a normal: level = AMB + DIF * max(0, N.L), carried
+  across the face. The normal is NOT turned with the object.
+- **So the light is baked a corner at a time**: with the light straight
+  down, a vertex's "normal" (0, t, 0) is simply how lit it is, whatever
+  way its piece is turned. What burns -- a lit shop, a lit floor of
+  windows, the lantern -- has corners of its own at full; every other
+  corner takes the glow of the burning faces near it, the lantern's light
+  by the inverse square, and the street's own level at the foot of every
+  wall. A shop's glow climbs the wall over it and lies on the sidewalk at
+  its foot; fronts shade from a lit neighbour into the dark. The first
+  wall is cut under its lantern so there are corners where the light is.
+- **Stored lit**: faces that do not burn are stored at their lit colour
+  (x 32/13), so in the town's own dark they show as they did.
+- **Each frame**: the town's dark is the light knob's level (knob 6; the
+  wall's slide, which the player had turned off, gave up its place and its
+  code), a notch darker a district toward the core -- 13 at the start, 7
+  in the last -- with what burns kept at full. The lanterns gutter (two
+  frames, three levels, about once a second). A flash lifts the dark when
+  a gate unlocks (20 levels, dying over a third of a second) and a little
+  when the key is taken.
+- **The pool on the road, tried again and taken out again**: as a lit fan
+  it had its falloff at a distance, but the machine carries light across a
+  face in screen space, and under the lens the fan was a flat pale slab.
+- **Room**: the base carries no demon meshes now (3,000 words), which is
+  where the corners' words came from. The game above the base has 63
+  words free: lighting the game is a budget question for the merge.
+- **Measured**: peak 55% of the frame on the street route (50% unlit).
+- **LAW AND SILICON DISAGREE, by a level, where a lit face is clipped**:
+  on the street route 42 of 337 frames differ -- one 5-bit level (rarely
+  three) on the pixels of a lit face cut by the near plane (the sidewalk
+  beside the lens; at the start, the sidewalk at the wall behind him).
+  Unlit, the same routes were bit-equal, and the plaza route still is. It
+  cannot be seen and no game state reads it, but the cross gate's promise
+  is bit-equality: a platform fault in how the clipper carries a vertex's
+  light, law or RTL, to be run down. (The lit witness cart has no clipped
+  face.)

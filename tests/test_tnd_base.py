@@ -71,8 +71,8 @@ class Base:
 
     def knob(self, k):
         """knob k as the game reads it (0 walk, 1 ramp, 2 turn, 3 quick turn,
-        4 the lens's distance, 5 its height, 6 slide, 7 pick-up frames, 8 the
-        grade, 9 the pick-up's bow)"""
+        4 the lens's distance, 5 its height, 6 the town's dark, 7 pick-up
+        frames, 8 the grade, 9 the pick-up's bow)"""
         return self.cell("knobs", k)
 
     def lens(self):
@@ -120,19 +120,18 @@ def test_the_tank_has_weight_and_the_lens_keeps_its_distance(text):
 
 
 def test_a_wall_carries_him_and_the_shoulders_do_nothing(text):
-    """Walking into a street's wall ten degrees off dead on, he keeps at
-    least the slide knob's share of his pace along it -- the player turned
-    that knob off on glass, so today a wall leaves what runs along it and
-    no more; dead on, he stops. L and R are not in the base."""
+    """A wall is a wall: walking into a street's wall ten degrees off dead
+    on, he keeps what of his step runs along it and no more (P21's softened
+    slide was a knob, and the player turned it off); dead on, he stops. L
+    and R are not in the base."""
     b = Base(text)
     T, ox, oy, cm = b.const("CITY_TILE"), b.const("CITY_OXA"), b.const("CITY_OYA"), b.sym("city_map")
     n = next(n for n in range(256) if (b.d[cm + n] & 0xFF) == 0x11)       # a street along x
     cx, cz = oy - (n // 16) * T, (n % 16) * T - ox
     for off in (80, 90):
         b = Base(text)
-        pace, slide = b.knob(0) / 65536, b.knob(6) / 65536
-        plain = pace * np.cos(np.radians(off))
-        want = slide * pace if pace / 8 < plain < slide * pace else plain
+        pace = b.knob(0) / 65536
+        want = pace * np.cos(np.radians(off))
         b.put(cx, cz, 256 - int(off * 1024 / 360))
         b.run(U, 140)
         last = b.pos()
@@ -265,3 +264,32 @@ def test_no_knob_can_break_him(text, monkeypatch):
         p0 = b.pos()
         b.run(U, 60)
         assert np.hypot(*np.subtract(b.pos(), p0)) > 0.3, "he cannot walk"
+
+
+def test_the_town_is_lit(text):
+    """P22: the pieces and the ground are drawn lit (OBJ_LIT), their corners
+    carrying how lit they are; the town's own dark is the light knob's level
+    and a notch darker a district toward the core, with what burns kept at
+    full; unlocking a gate flashes and the flash dies away."""
+    b = Base(text)
+    b.run(0, 3)
+    d = b.d
+    lit = [k for k in range(d[spec.OL_BASE])
+           if d[spec.OL_BASE + 1 + k * spec.OL_STRIDE + 5] & spec.OBJ_LIT]
+    assert len(lit) >= 3, "the street is not drawn lit"
+    piece = d[b.sym("pieces")]                       # a piece: its corners' light
+    nv = d[piece]
+    ts = [(d[piece + 2 + 3 * nv + k] >> 8) & 255 for k in range(nv)]
+    assert max(ts) == 127 and min(ts) < 30, f"no light and dark in a piece: {min(ts)}..{max(ts)}"
+    amb0 = b.knob(6)
+    assert d[spec.LIGHT_AMB] == amb0 and d[spec.LIGHT_AMB] + d[spec.LIGHT_DIF] in (33, 30)
+    T, ox, oy, cm = b.const("CITY_TILE"), b.const("CITY_OXA"), b.const("CITY_OYA"), b.sym("city_map")
+    n = next(n for n in range(256) if (d[cm + n] >> 23) & 15 == 4 and d[cm + n] & 0xFF)
+    b.put(oy - (n // 16) * T, (n % 16) * T - ox, 0)
+    b.run(0, 3)
+    assert d[spec.LIGHT_AMB] == amb0 - 4, "district 4 is not darker"
+    d[b.sym("light_flash")] = 20
+    b.run(0, 1)
+    assert d[spec.LIGHT_AMB] > amb0, "no flash"
+    b.run(0, 30)
+    assert d[spec.LIGHT_AMB] == amb0 - 4, "the flash did not die away"
