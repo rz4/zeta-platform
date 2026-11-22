@@ -430,7 +430,36 @@ if CARTMESH:
         RDESC = cart.data(Table([len(halves[0][1]) | len(halves[0][2]) << 16, _o[0], int(FSTR[0]), _o[1], CM_SHIFT,
                                  len(halves[1][1]) | len(halves[1][2]) << 16, _o[2], int(FSTR[1]), _o[3], CM_SHIFT]),
                           "rival_desc")
-        RIV_T = cart.var("rival_t")
+    RIV_T = cart.var("rival_t") if L3 else None
+    # THE SIZES BELOW HIM (the experiment's head-count; build/tiers, cut from
+    # the archive's full-resolution body by its own pipeline): each a single
+    # mesh, its own idle in the cart, one face stream a size. TND_CROWD names
+    # who stands up the street: "elite:1,common:2,horde:4".
+    TIER_FILE = {"elite": "440", "common": "300", "horde": "190"}
+    CROWD = [(k_.split(":")[0], int(k_.split(":")[1])) for k_ in
+             filter(None, os.environ.get("TND_CROWD", "").split(","))] if L3 else []
+    TIER, ENEMY = {}, []
+    for name_, count_ in CROWD:
+        if name_ == "rival" or name_ in TIER:
+            continue
+        t_ = np.load(ROOT / "build" / "tiers" / f"pose_{TIER_FILE[name_]}.npz")
+        tri_ = [(int(a), int(c), int(b)) if FLIP else (int(a), int(b), int(c)) for a, b, c in t_["F"]]
+        h_ = (np.ones(len(tri_), bool), np.arange(int(t_["F"].max()) + 1), tri_)
+        fs_ = cart.cram(Table([a | b << 10 | c << 20 for a, b, c in tri_]), f"{name_}_faces")
+        ps_ = [half_streams(V_, S_, h_) for V_, S_ in zip(t_["V_idle"], t_["S_idle"])]
+        TIER[name_] = dict(nv=len(h_[1]), nf=len(tri_), faces=int(fs_), lv=len(ps_[0][0]), span=len(ps_[0][0]) + len(ps_[0][1]),
+                           bank=int(cart.cram(Table([x for st in ps_ for part in st for x in part]), f"{name_}_poses")),
+                           n=len(ps_))
+    _slot = 0
+    for name_, count_ in CROWD:
+        for _ in range(0 if name_ == "rival" else count_):
+            T_ = TIER[name_]
+            ENEMY.append(dict(T=T_, phase=(_slot * 13) % T_["n"],
+                              dx=int(((_slot % 4) - 1.5) * 1.5 * ONE), dz=-int((4.5 + 1.6 * (_slot // 4)) * ONE),
+                              desc=int(cart.data(Table([T_["nv"] | T_["nf"] << 16, T_["bank"], T_["faces"],
+                                                        T_["bank"] + T_["lv"], CM_SHIFT]), f"enemy{_slot}"))))
+            _slot += 1
+    RIVAL = RIVAL and (not CROWD or any(k_ == "rival" for k_, _ in CROWD))
 NPOSE = {s: len(d["V_" + s]) for s in SEQS}
 if DEDUPE:
     _sl = slot + [0] * (len(slot) & 1)
@@ -4378,12 +4407,13 @@ if CARTMESH:                                 # the pose is where its streams are
         if step_:
             p.push(step_).emit("add")
     p.emit("drop")
-    if RIVAL:                                # ...and the rival's: the guard, on his own clock
+    if L3:                                   # the others' clock: two frames a pose, the idle's sixty
         rv_ = p.label("rival")
         p.addi(RIV_T, 1).load(RIV_T).push(2 * NPOSE["idle"]).emit("lt", f"jz {rv_}_w", f"jmp {rv_}")
         p.mark(f"{rv_}_w")
         p.set(RIV_T, 0)
         p.mark(rv_)
+    if RIVAL:                                # the rival's pose: the guard, from the player's own bank
         p.load(RIV_T).emit("shr 1").push(base["idle"]).emit("add").push(SPAN).emit("mul").push(int(BANK)).emit("add")
         for cell_, step_ in ((int(RDESC) + 1, CM_LEN[0]), (int(RDESC) + 3, CM_LEN[1]),
                              (int(RDESC) + 6, CM_LEN[2]), (int(RDESC) + 8, 0)):
@@ -4391,6 +4421,15 @@ if CARTMESH:                                 # the pose is where its streams are
             if step_:
                 p.push(step_).emit("add")
         p.emit("drop")
+    for e_ in ENEMY:                         # each of the crowd: its own place in its size's idle
+        en_ = p.label("enemy")
+        p.load(RIV_T).emit("shr 1").push(e_["phase"]).emit("add")
+        p.emit("dup").push(e_["T"]["n"]).emit("lt", f"jz {en_}_w", f"jmp {en_}")
+        p.mark(f"{en_}_w")
+        p.push(e_["T"]["n"]).emit("sub")
+        p.mark(en_)
+        p.push(e_["T"]["span"]).emit("mul").push(e_["T"]["bank"]).emit("add")
+        p.emit("dup").store(e_["desc"] + 1).push(e_["T"]["lv"]).emit("add").store(e_["desc"] + 3)
 else:
     pd_ = p.label("posedma")                     # (P13: not on a frame that pages a
     p.load(spec.OVL_GO).emit(f"jz {pd_}_go")     # scene in -- its handshake has the
@@ -5896,7 +5935,10 @@ for m in ((UPPER, LOWER) if "player" not in OMIT else ()):
              (f"load {int(PFLAGS)}",) + ((f"push {spec.OBJ_CART}", "or") if CARTMESH else ()))
 if CARTMESH and RIVAL:
     for m in (int(RDESC), int(RDESC) + spec.CMESH_WORDS):
-        p.object(NOBJ, m, START_X, 0, START_Z - int(5 * ONE), 0, spec.OBJ_CART)
+        p.object(NOBJ, m, START_X, 0, START_Z - int((3.0 if CROWD else 5.0) * ONE), 0, spec.OBJ_CART)
+if CARTMESH:
+    for e_ in ENEMY:
+        p.object(NOBJ, e_["desc"], START_X + e_["dx"], 0, START_Z + e_["dz"], 0, spec.OBJ_CART | spec.OBJ_CULL)
 for d in range(3 if "demons" not in OMIT else 0):     # the demons, last
     for f, c in (("x", "x"), ("z", "z"), ("cf", "cf")):
         p.load(dslot(d, f)).store(FK[c])

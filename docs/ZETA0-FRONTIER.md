@@ -1091,3 +1091,38 @@ and the face walk reading indices and colours from where the streams
 landed. Its cost is unmeasured until it is fitted. With bodies out of
 DMEM, the frame's 2,048-vertex store becomes the head-count's limit, and
 DMEM (52 M10K) could give some of itself to it.
+
+**How many fit** (2026-11-22). The sizes below the player, cut from the
+archive's full-resolution body by its own pipeline (tear-charkit; the tier
+files are local, build/tiers): the rival 459 vertices / 737 triangles (the
+player's own), an elite 243 / 369, a common 172 / 252, the horde 109 / 150.
+
+*On the silicon* (a cart that stands N of one size in ranks 3 to 11 units
+before a lens like the game's, one more every four frames; static bodies
+in DMEM standing in for the cart's, the same geometry):
+
+| a body | inside the vertex store | past it |
+|---|---:|---:|
+| the rival (a second player, beside him) | about 6% of the frame | -- |
+| an elite | 27,000 clocks, 2.9% | 69,000, 8% |
+| a common | 18,000, 2.1% | 46,000, 5.3% |
+| the horde | 11,500, 1.3% | 23,000, 2.7% |
+
+About 75 clocks a triangle, near or far: setup, not fill. And the cliff is
+the frame's 2,048-vertex store (zseq VB_CACHE): past it every further body
+is re-transformed in each band and costs two to three times as much.
+
+Layer 3's own frame is at most 12 objects of 64 and 1,012 vertices (median
+766), peaking at 56% of the frame. So TODAY'S ceiling is about 1,000
+vertices of enemies, any of: nine of the horde; six commons; four elites;
+the rival and three commons; an elite, two commons and four of the horde
+-- each about 68% of the frame by these costs. Three of those stand on the
+street in the law (TND_CROWD, each body on its own clock in its own idle):
+1,862 to 1,904 vertices a frame, 15 to 19 objects, 3,277 or more words of
+DMEM still free.
+
+With the store doubled (it is about 17 M10K; 27 are free -- unfitted), time
+is the limit: to 90% of the frame, about twenty-six of the horde, or
+sixteen commons, or the rival with two elites, four commons and ten of the
+horde. Estimates from the per-body costs, not a metered scene; the cart's
+streams' own fetch is not in them.
