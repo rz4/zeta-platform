@@ -1586,3 +1586,72 @@ fight's compared, frame for frame.
   without. The air takes nothing now.
 - tests: 8 base, 7 layer 1, 31 layer 2 (the dilation scripts are five of
   them); the full cart is byte-identical.
+
+## P34: the gun -- a sight, a bullet, a cylinder (2026-11-22; not yet on glass)
+
+The player: "next we work on the gunplay, make it feel more tactical too"
+(too: as the movement now is -- "accurate prediction of where I'll land or
+be"). The tape of P32 already said how he shoots: 208 presses of B in eight
+minutes, 155 of them taps; most in the boxer with Y held beside it and the
+pad pointing the shot (Up, Up+Left, Down, Left, Right); 117 volleys of
+three. Until now a shot was a pose, a crack and a shake: nothing left the
+gun and nothing was hit. Layer 2 only; behind L2.
+
+- **The sight.** B down, the line the shot WILL take is drawn: its way
+  the launch's own (the pad's from his steering; no pad, his body's), from
+  the gun (half a unit ahead of him, a seventh to his right), to where
+  that line leaves the street -- the town's own test of a wall, a unit at
+  a time and halved back to an eighth (L_RAY). A red bead a round along
+  it, and a red point on the place it lands; white-hot once the shot is
+  charged. Nothing is aimed for him.
+- **The bullet.** On the shot's frame a round leaves along that same line
+  (the same routine: what was shown is what is hit) at two units a frame
+  of the fight -- a street crossed in five, and in slowed time seen to
+  cross it -- and lands in a burst on the wall's face with a thud; the
+  charged shot shakes the lens when it lands. Thirteen units out, it is
+  gone.
+- **The gun is drawn while B is down.** The five frames a shot took to
+  come up AFTER the release are spent during the hold (a frame of draw a
+  frame down, the gun coming up in his hand as he stands): held five
+  frames, the bullet leaves the frame after he lets go -- in slowed time
+  that was fifteen frames of glass between letting go and the shot. His
+  body comes round to the shot's way as it does to a blow's, while he
+  holds.
+- **The aim.** A tap leaves the lens where it is. B held past the hold
+  knob -- time slowed for the shot -- the lens comes round behind his
+  BODY and looks down the sight, so a shot to the side or behind is a
+  shot he can see land; it stays 24 frames after the release, and comes
+  back to his steering.
+- **The cylinder** (knob 9, "mag": six; 0 never runs dry). The last round
+  fired, the gun is 24 frames from full and B is no shot (no sight: no
+  shot); a terminator thrown fills it at once -- the fists load the gun.
+  The sight's beads are the rounds left. It is the one thing here he did
+  not ask for: on the tape one hold had 48 shots in it.
+- **The key is a thing a shot can meet** (for the targeting to come: "we
+  can use the item as a target"): on the gun's line and within 0.45 of
+  it, nearer than the wall, and not fired over from the air. Struck, it
+  rings, leaps and is outlined. A miss by half a unit is a miss.
+- **Found on the way: the lens trembled after every plain shot.** P30's
+  "a terminator's weight shakes the lens" computed (hitstop - 5) >> 2 for
+  every move; the plain shot's hitstop is 4, so its shake was -1, and the
+  lens counts a shake down to zero -- from -1, for ever: a twentieth of a
+  unit side to side every frame until his next fist. A shot's kick is its
+  own now (3 frames, the charged one 7, on the shot's frame).
+- **Found by the sight's test: a shot let go a frame before the pad went
+  five degrees wide.** The gun fires as B comes up; on that frame no
+  button was down, so with Left still held the tank turned a notch before
+  the shot left. A blow waiting to be thrown now holds his steering too.
+- The crack is on the shot's frame (it was the launch's). The layer's dead
+  rhythm code is out of its build (99 words); the game is 15,822 of
+  16,384.
+- **Measured on silicon** (the sim; a gun route on the street -- taps, a
+  volley, two aimed shots, shots inside a held Y): peak 550,655 clocks
+  (64% of the frame), median 51%, none dropped. A shot at the key from a
+  placed state -- the sight, the bullet, the burst, the key struck: 100
+  frames, law and silicon the same on every one. (The street route differs
+  on 232 of 335 frames from its second frame, before any shot: the lit
+  faces' open mismatch, not the gun's.)
+- tests: 44 layer 2 (the sight and the bullet in five ways, the draw, the
+  cylinder, the key on and off the line, the aim's lens, and a sixth
+  dilation script for the gun). Layers 0 and 1 build byte-identical to
+  P33's; the full cart is byte-identical.

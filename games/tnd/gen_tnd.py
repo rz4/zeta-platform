@@ -1287,6 +1287,32 @@ AWARE_M = int(cart.data(tetra_mesh(0.10, (255, 210, 80)), "aware"))
 SPARK_M = int(cart.data(tetra_mesh(0.09 if L2 else 0.20, (255, 244, 214)), "spark_m"))
 SPARK_FOR = 6
 SPK = cart.var("spark", 4)
+if L2:
+    # P34: THE GUN'S LINE, SEEN. The sight is a row of red beads from him to
+    # where the shot will land -- as many beads as rounds in the gun -- and a
+    # red point ON that place (white-hot when the shot is charged). The
+    # bullet is a streak a unit and a half long, lying along its way.
+    GUN_RANGE = 13.0                # (the archive's reach for a shot)
+    BULLET_V = int(2.0 * ONE)       # a frame of the fight: a street crossed in five
+    RELOAD = 24                     # frames the empty gun takes to be full again
+    GUN_Y = int(0.95 * ONE)         # the gun's height (his hand's, in the clip)...
+    GUN_F, GUN_R = int(0.5 * ONE), int(0.14 * ONE)   # ...and its place: ahead of him, to his right
+    AIM_LINGER = 24                 # frames the aim's lens stays after the shot (to see it land)
+    KEY_R = int(0.45 * ONE)         # the key, as a thing a shot can meet
+    SHOT_W = int((FAC - 0.05) * ONE)   # a shot stops at the wall's face
+    DRAW_MAX = 9                    # (the charged shot's start: it is let go a frame before)
+    BEAD_M = int(cart.data(tetra_mesh(0.05, (255, 48, 36)), "bead_m"))
+    DOT_M = int(cart.data(tetra_mesh(0.16, (255, 48, 36)), "dot_m"))
+    HOT_M = int(cart.data(tetra_mesh(0.22, (255, 244, 214)), "hot_m"))   # (and where a bullet lands)
+    SPKM = cart.data(Table([SPARK_M]), "spark_mesh")   # which spark: a fist's point, a bullet's burst
+    BK = {k: i for i, k in enumerate(("ex", "ez", "dx", "dz", "rem", "y", "yaw", "hit"))}
+    _bl, _br = 0.75, 0.035
+    _bv = [(0, 0, 2 * _bl), (0, 0, 0), (_br, 0, 0.4), (-0.5 * _br, 0.87 * _br, 0.4), (-0.5 * _br, -0.87 * _br, 0.4)]
+    BULLET_M = int(cart.data(Mesh([int(round(c * ONE)) for v in _bv for c in v],
+                                  [(e, a, b, rgb((255, 236 - 40 * (k % 2), 150)))
+                                   for e in (0, 1) for k, (a, b) in enumerate(((2, 3), (3, 4), (4, 2)))]),
+                             "bullet_m"))
+    INVN = cart.data(Table([int(round(ONE / (n + 1))) for n in range(13)]), "inv_n")
 AWARE_LIFT = int(1.62 * ONE)
 
 # ---- P6: THE TITLE -- the archive's own start screen, baked -----------------
@@ -2109,6 +2135,8 @@ SLOWFALL = int(round(0.03 * ONE))
 SLAM = int(round(0.62 * ONE))
 L_FOE = p.label("foe")
 L_STEER, L_LINE = p.label("steer"), p.label("line")
+if L2:
+    L_RAY, L_LAND = p.label("ray"), p.label("land")
 PHP = cart.data(Table([140]), "p_hp")
 FRIC = int(round(0.82 * ONE))                   # tear.py: body friction
 # ---- P21: THE BASE LAYER'S KNOBS. The feel of the tank is tuned ON GLASS: in
@@ -2175,7 +2203,8 @@ KNOBS_L2 = (("pivot", 176, 16, 128, 512),      # 0 his body's turn into a blow's
             ("sjump", int(round(3.0 / 22 * ONE)), int(0.01 * ONE), int(0.05 * ONE), int(0.4 * ONE)),   # 5 the boxer's strafe jump, a frame (x 22: 3.0 units)
             ("fcam", int(1.3 * ONE), int(0.1 * ONE), int(0.6 * ONE), 4 * ONE),   # 6 time slowed: the lens, this far back
             ("wander", int(0.08 * ONE), int(0.01 * ONE), int(0.01 * ONE), ONE),  # 7 the boxer's lens: its share of the way, a frame
-            ("dodge", int(0.20 * ONE), int(0.01 * ONE), int(0.08 * ONE), int(0.4 * ONE)))   # 8 the dodge, a frame (x 12: 2.4 units)
+            ("dodge", int(0.20 * ONE), int(0.01 * ONE), int(0.08 * ONE), int(0.4 * ONE)),   # 8 the dodge, a frame (x 12: 2.4 units)
+            ("mag", 6, 1, 0, 12))              # 9 rounds in the gun (0: it never runs dry)
 SETTLED = {k_[0]: k_[1] for k_ in KNOBS + KNOBS_L1 + KNOBS_L2}
 SETTLED["ramp"] = BASE_SET.get("ramp", int(0.22 * ONE))      # (weight: left at 0.73)
 if LAYER == 1:
@@ -2209,6 +2238,19 @@ if BASE:
     # press is "fresh" against, in the fight's own time
     PVF = cart.var("prevpad_f")
     PVE = PVF if L2 else PV     # (the fight's edges: the run's click, the slide's Down)
+    if L2:
+        # P34: THE GUN. How far it is drawn (frames B has been down, to its
+        # shot's first frame), the rounds gone from it and its reload's
+        # clock; the key, struck; the line a shot takes (RAY: its way, how
+        # far, what it meets and where); and the bullets in the air (where
+        # each will land, its way, how far it has left to go).
+        DRAW, SHOTS, RLD, KHIT, BNX = (cart.var(k) for k in (
+            "gun_draw", "gun_shots", "gun_reload", "key_hit", "bul_next"))
+        RAY = {k: cart.var("ray_" + k) for k in ("dx", "dz", "len", "hit", "x", "z", "step", "ox", "oz")}
+        AIMT = cart.var("aim_linger")
+        BUL = [{k: cart.var(f"bul{i}_{k}") for k in ("ex", "ez", "dx", "dz", "rem", "y", "yaw", "hit")}
+               for i in range(2)]
+        assert int(BUL[1]["ex"]) == int(BUL[0]["ex"]) + 8 and int(BUL[0]["hit"]) == int(BUL[0]["ex"]) + 7
     cart.boot(spec.LIGHT_DIR, 0x007F00)          # P22: straight down (see piece_light)
     cart.boot(spec.LIGHT_AMB, LIT_AMB0)         # (the title's street, before the game
     cart.boot(spec.LIGHT_DIF, 33 - LIT_AMB0)    # sets them a frame at a time)
@@ -2358,6 +2400,9 @@ for i in range(N_IMP):
 if BASE:
     for c_ in (KEY, PICK, QT, WSPD, KNEAR, TURNED, SJD, FOCB, SLOWON, AHOLD, APEND, EVW):
         p.set(c_, 0)
+    if L2:
+        for c_ in (DRAW, SHOTS, RLD, KHIT, AIMT, BUL[0]["rem"], BUL[1]["rem"]):
+            p.set(c_, 0)
     p.set(WR, ONE)
 if SWARM_TEST:                                  # (the meter's hook: the fight in the
     p.set(PX, int(3 * ONE)).set(PZ, int(3 * ONE))               # first plaza, the
@@ -2661,6 +2706,43 @@ p.load(F["stop"]).emit(f"jz {L['frozen']}_no")
 p.addi(F["stop"], -1).emit(f"call {GEST}")
 p.set(GT["jump"], 0).emit(f"jmp {L['frozen']}")
 p.mark(f"{L['frozen']}_no")
+if L2:
+    # P34: THE GUN IS DRAWN WHILE B IS DOWN (the player: "next we work on the
+    # gunplay, make it feel more tactical too"). The shot is B's release, as
+    # ever -- but the five frames a shot took to come up after it are now
+    # spent while the button is held: a frame of draw for each frame down,
+    # and the shot starts that far in. Held five frames, it fires the frame
+    # after he lets go. (Let go, the gun comes down as it came up.)
+    gd_ = p.label("gundraw")
+    held(spec.PAD_B)
+    p.emit(f"jz {gd_}_u")
+    p.load(DRAW).push(DRAW_MAX).emit("lt", f"jz {gd_}")
+    p.addi(DRAW, 1).emit(f"jmp {gd_}")
+    p.mark(f"{gd_}_u")
+    p.load(DRAW).emit(f"jz {gd_}")
+    p.addi(DRAW, -1)
+    p.mark(gd_)
+    # THE CYLINDER: the mag knob's rounds. The last one gone, it is RELOAD
+    # frames before the gun is full again -- or a terminator thrown fills it
+    # at once (the launch): the fists load the gun.
+    rl_ = p.label("reload")
+    p.load(RLD).emit(f"jz {rl_}")
+    p.addi(RLD, -1)
+    p.load(RLD).emit(f"jz {rl_}_d", f"jmp {rl_}")
+    p.mark(f"{rl_}_d")
+    p.set(SHOTS, 0)
+    p.mark(rl_)
+    # THE BULLETS FLY in the fight's time (slowed, they are seen to), and
+    # land where the sight said they would
+    for k_, B_ in enumerate(BUL):
+        nb = p.label("bul")
+        p.load(B_["rem"]).emit(f"jz {nb}")
+        p.load(B_["rem"]).push32(BULLET_V).emit("sub", "dup").push(1).emit("lt", f"jz {nb}_f")
+        p.emit("drop").set(B_["rem"], 0)
+        p.set(W["k"], k_).emit(f"call {L_LAND}", f"jmp {nb}")
+        p.mark(f"{nb}_f")
+        p.store(B_["rem"])
+        p.mark(nb)
 
 # ---- THE GRAMMAR (combat.Grammar, combat.resolve) ----------------------------
 # Four actions on the face buttons: A carve (the string), B special, X jump,
@@ -2760,6 +2842,9 @@ for b, bit in BTN:
         ns = p.label("g_ns")          # charged shot past CHARGE frames held
         p.load(GC[b]).emit(f"jz {ns}_c", f"jmp {ns}")
         p.mark(f"{ns}_c")
+        if L2:                        # (P34: reloading, there is no shot)
+            p.load(RLD).emit(f"jz {ns}_m", f"jmp {ns}")
+            p.mark(f"{ns}_m")
         p.push(CHARGE - 1).load(GT[b]).emit("lt", f"jz {ns}_p")
         choose(MOVE["gun_charged"])
         p.addi(F["sec"], 1).emit(f"jmp {ns}")        # (P18: a shot in the string)
@@ -2829,36 +2914,36 @@ if L2:
     # signature"). X is a jab, every time, the press's own frame; the launch
     # counts it. No rhythm is read.
     choose(MOVE["jab"])
-    p.emit(f"jmp {L['notap']}")
-rh = p.label("rhythm")
-p.load(F["buf"]).emit(f"jz {rh}_q")               # a blow of the string still waiting
-p.load(F["bmv"]).push(MOVE["special"]).emit("eq", f"jz {rh}_b", f"jmp {rh}_q")   # in the
-p.mark(f"{rh}_b")                                 # buffer: this tap is the same beat
-p.load(F["bmv"]).push(MOVE["gun"]).emit("lt", f"jz {rh}_q", f"jmp {L['notap']}")
-p.mark(f"{rh}_q")
-p.push(0)
-p.push(STEADY).load(F["ltap"]).emit("lt", f"jz {rh}_c")
-p.emit("drop").push(1)
-p.push(PAUSE).load(F["ltap"]).emit("lt", f"jz {rh}_c")
-p.set(F["c3"], 0)                                 # too long: a new string
-p.mark(f"{rh}_c")
-p.push(SEC_MAX).load(F["sec"]).emit("lt", f"jz {rh}_s")
-p.set(F["c3"], 0)                                 # too many shots: lost
-p.mark(f"{rh}_s")
-p.store(W["dc"])                                  # (in code: memory has no room for
-rd_ = p.label("rdone")                            # a table)
-for st_, ((ms, ns_), (mw, nw_)) in CMB.items():
-    nx = p.label("rs")
-    p.load(F["c3"]).push(st_).emit("eq", f"jz {nx}")
-    p.load(W["dc"]).emit(f"jz {nx}_s")
-    p.push(mw).set(F["c3"], nw_).emit(f"jmp {rd_}")
-    p.mark(f"{nx}_s")
-    p.push(ms).set(F["c3"], ns_).emit(f"jmp {rd_}")
-    p.mark(nx)
-p.push(0).set(F["c3"], 1)                         # the jab opens a string
-p.mark(rd_)
-choose(mv_cell_ops=())
-p.set(F["ltap"], 0).set(F["sec"], 0)
+else:
+    rh = p.label("rhythm")
+    p.load(F["buf"]).emit(f"jz {rh}_q")               # a blow of the string still waiting
+    p.load(F["bmv"]).push(MOVE["special"]).emit("eq", f"jz {rh}_b", f"jmp {rh}_q")   # in the
+    p.mark(f"{rh}_b")                                 # buffer: this tap is the same beat
+    p.load(F["bmv"]).push(MOVE["gun"]).emit("lt", f"jz {rh}_q", f"jmp {L['notap']}")
+    p.mark(f"{rh}_q")
+    p.push(0)
+    p.push(STEADY).load(F["ltap"]).emit("lt", f"jz {rh}_c")
+    p.emit("drop").push(1)
+    p.push(PAUSE).load(F["ltap"]).emit("lt", f"jz {rh}_c")
+    p.set(F["c3"], 0)                                 # too long: a new string
+    p.mark(f"{rh}_c")
+    p.push(SEC_MAX).load(F["sec"]).emit("lt", f"jz {rh}_s")
+    p.set(F["c3"], 0)                                 # too many shots: lost
+    p.mark(f"{rh}_s")
+    p.store(W["dc"])                                  # (in code: memory has no room for
+    rd_ = p.label("rdone")                            # a table)
+    for st_, ((ms, ns_), (mw, nw_)) in CMB.items():
+        nx = p.label("rs")
+        p.load(F["c3"]).push(st_).emit("eq", f"jz {nx}")
+        p.load(W["dc"]).emit(f"jz {nx}_s")
+        p.push(mw).set(F["c3"], nw_).emit(f"jmp {rd_}")
+        p.mark(f"{nx}_s")
+        p.push(ms).set(F["c3"], ns_).emit(f"jmp {rd_}")
+        p.mark(nx)
+    p.push(0).set(F["c3"], 1)                         # the jab opens a string
+    p.mark(rd_)
+    choose(mv_cell_ops=())
+    p.set(F["ltap"], 0).set(F["sec"], 0)
 p.mark(L["notap"])
 p.emit("ret")
 p.mark(f"{GEST}_end")
@@ -3238,6 +3323,12 @@ if L2:
     # makes the pad its blow's way, in slowed time as in running time -- or
     # Left + A, slowed, dodged AND turned him. Only a button held past the
     # knob lets him steer.
+    # P34: ...nor with a blow waiting to be thrown. The gun fires as B comes
+    # UP, and on that frame the button was no longer down: with Left still
+    # held the tank turned a notch before the shot left -- five degrees off
+    # the line the sight had just shown.
+    p.load(F["buf"]).emit(f"jz {tk}_nb", f"jmp {tk}")
+    p.mark(f"{tk}_nb")
     p.push(0)
     for cell_ in (GT["carve"], GT["special"], GT["shoot"], AHOLD):
         p.push(0).load(cell_).emit("lt")                          # down...
@@ -3267,7 +3358,39 @@ if L2:
     # goes) -- along the blow's way. One impulse; the clip's feet are
     # planted to it.
     lg_ = p.label("lunge")
-    p.push(MOVE["gun"] - 1).load(F["mv"]).emit("lt", f"jz {lg_}_f", f"jmp {lg_}")
+    p.push(MOVE["gun"] - 1).load(F["mv"]).emit("lt", f"jz {lg_}_f")
+    # P34: THE SHOT IS A BULLET. On the shot's first frame a round leaves the
+    # gun along his body's way, from where he stands: RAY says where that
+    # line meets a wall (or the key), and the bullet flies there at BULLET_V
+    # a frame of the fight. Out of rounds, the hammer falls on nothing.
+    p.load(AF)
+    row(PMT, F["mv"], "start")
+    p.emit("eq", f"jz {lg_}")
+    knob(p, "mag")
+    p.emit(f"jz {lg_}_s")                                  # (0: it never runs dry)
+    p.load(SHOTS)
+    knob(p, "mag")
+    p.emit("lt", f"jz {lg_}")
+    p.addi(SHOTS, 1).load(SHOTS)
+    knob(p, "mag")
+    p.emit("lt", f"jz {lg_}_e", f"jmp {lg_}_s")
+    p.mark(f"{lg_}_e")
+    p.set(RLD, RELOAD)                                     # the last round: it reloads
+    p.mark(f"{lg_}_s")
+    p.load(HEAD).store(W["head"]).emit(f"call {L_RAY}")
+    p.push(1).load(BNX).emit("sub", "dup").store(BNX)      # the other slot
+    p.push(len(BK)).emit("mul").push(int(BUL[0]["ex"])).emit("add").store(W["k"])
+    for name, ops in (("ex", (f"load {int(RAY['x'])}",)), ("ez", (f"load {int(RAY['z'])}",)),
+                      ("dx", (f"load {int(RAY['dx'])}",)), ("dz", (f"load {int(RAY['dz'])}",)),
+                      ("rem", (f"load {int(RAY['len'])}", "push 2", "add")),
+                      ("y", (f"load {int(F['py'])}", f"push {GUN_Y}", "add")),
+                      ("yaw", (f"load {int(HEAD)}",)),
+                      ("hit", (f"load {int(F['mv'])}", f"push {MOVE['gun']}", "sub", "push 4", "mul",
+                               f"load {int(RAY['hit'])}", "add"))):
+        p.emit(*ops).load(W["k"]).push(BK[name]).emit("add", "storei")
+    p.set(SG_T["nt"], 0)                                   # the crack, and the kick:
+    p.push(3).load(F["mv"]).push(MOVE["gun"]).emit("sub").push(4).emit("mul", "add").store(F["shake"])
+    p.emit(f"jmp {lg_}")                                   # 3 frames, the charged one 7
     p.mark(f"{lg_}_f")
     steer_head(p, PIVT)
     p.load(AF).push(int(LDT)).load(F["mv"]).emit("add", "loadi", "eq", f"jz {lg_}")
@@ -3314,7 +3437,15 @@ if L2:
     p.set(F["mv"], MOVE["rear_uppercut"])
     p.mark(f"{ct_}_z")
     p.set(F["c3"], 0)
+    p.set(SHOTS, 0).set(RLD, 0)                   # (P34: a terminator loads the gun)
     p.mark(ct_)
+    gp_ = p.label("gunpre")                       # P34: a shot starts as far in as the
+    p.push(MOVE["gun"] - 1).load(F["mv"]).emit("lt", f"jz {gp_}")   # gun is drawn (to the
+    row(PMT, F["mv"], "start")                    # frame before it fires)
+    p.push(1).emit("sub").load(DRAW).emit("over", "over", "swap", "lt", f"jz {gp_}_m", "swap")
+    p.mark(f"{gp_}_m")
+    p.emit("drop").store(AF)
+    p.mark(gp_)
 gf = p.label("gunface")
 # P18: WHERE THE ATTACK GOES -- the way the pad points from his facing,
 # snapped there, all three attacks alike (the gun too: "never the pad" is
@@ -3398,6 +3529,24 @@ if L2:
     # round to his steering at the pivot knob's turn; the run, a dodge or a
     # flip, at once. (Held still by a string's lock, the pad is not movement.)
     tn_ = p.label("turned")
+    # P34: B DOWN, HIS BODY COMES ROUND TO THE SHOT'S WAY as it does to a
+    # blow's -- the pad's, from his steering; no pad, where it faces -- so
+    # the gun is seen to point where the sight does before he lets go.
+    dr_ = p.label("drawturn")
+    held(spec.PAD_B)
+    p.emit(f"jz {dr_}")
+    p.load(F["sty"]).push(1).emit("eq").load(F["evf"]).emit("or", f"jz {dr_}_t", f"jmp {dr_}")
+    p.mark(f"{dr_}_t")
+    p.load(HEAD).store(PIVT)
+    held(15)
+    p.emit(f"jz {dr_}_n")
+    p.push(int(OCTANT)).emit("load 1").push(15).emit("and", "add", "loadi")
+    p.load(YAW).emit("add").push(1023).emit("and").store(PIVT)
+    p.mark(f"{dr_}_n")
+    p.set(TURNED, 1)
+    steer_head(p, PIVT)
+    p.emit(f"jmp {tn_}")
+    p.mark(dr_)
     p.load(TURNED).emit(f"jz {tn_}_p")
     p.load(F["sty"]).push(1).emit("eq").load(F["evf"]).emit("or", f"jz {tn_}_m")
     p.set(TURNED, 0).emit(f"jmp {tn_}_p")
@@ -3917,6 +4066,14 @@ p.load(ANIM).push(1).emit("eq", f"jz {L['pi']}")
 p.load(AF).push(NPOSE["walk"] - 1).emit("and").push(base["walk"]).emit("add")  # 60 Hz: PLANTED
 p.store(POSE).emit(f"jmp {L['pd']}")
 p.mark(L["pi"])
+if L2:                                       # P34: standing, the gun as far up as
+    dp_ = p.label("drawpose")                # it is drawn (the shot's own first poses)
+    p.load(DRAW).emit(f"jz {dp_}")
+    p.load(DRAW).emit("dup").push(4).emit("swap", "lt", f"jz {dp_}_c")
+    p.emit("drop").push(4)
+    p.mark(f"{dp_}_c")
+    p.push(base["gun"]).emit("add").store(POSE).emit(f"jmp {L['pd']}")
+    p.mark(dp_)
 p.addi(IDLE, 1)                              # (the idle at 30 Hz: a pose
 p.load(IDLE).push(2 * NPOSE["idle"]).emit("lt", f"jz {L['iw']}")   # held two)
 p.load(IDLE).emit("shr 1").push(base["idle"]).emit("add").store(POSE)
@@ -4096,7 +4253,12 @@ if L2:
     p.emit("eq", f"jz {sk2}")
     for k_, c_ in enumerate(("fx", "fy", "fz")):
         p.load(F[c_]).store(int(SPK) + k_)
-    p.set(int(SPK) + 3, SPARK_FOR)
+    p.set(int(SPK) + 3, SPARK_FOR).set(SPKM, SPARK_M)
+    # (P34: a shot's kick is its own. This line gave the plain shot a shake
+    # of -1, which the lens then counted DOWN from: after every plain shot
+    # the lens trembled a twentieth of a unit a frame until his next blow.)
+    p.push(MOVE["gun"] - 1).load(F["mv"]).emit("lt", f"jz {sk2}_f", f"jmp {sk2}")
+    p.mark(f"{sk2}_f")
     row(PMT, F["mv"], "stop")                     # (P30: and a terminator's weight shakes
     p.push(5).emit("sub", "shr 2").store(F["shake"])   # the lens: 2, 2, the haymaker 5)
     p.mark(sk2)
@@ -4134,6 +4296,20 @@ p.load(F["tgt"]).emit(f"jz {by_}")
 p.load(F["tgt"]).push(1).emit("sub").store(F["brg"]).emit(f"call {L_BRG}")
 p.load(F["brg"]).emit("dup").store(W["oy"]).store(F["cgr"])   # (f_cgr: its last bearing)
 p.mark(by_)
+if L2:
+    # P34: THE AIM. B held past the hold knob -- time slowed for the shot --
+    # the lens comes round behind his BODY and looks down the sight: a shot
+    # aimed to the side or behind is a shot he can see land. (A tap leaves
+    # the lens where it is.) Let go, it comes back to his steering.
+    # ...once the shot has landed (AIM_LINGER frames).
+    al_ = p.label("aimlens")
+    knob(p, "hold").load(GT["shoot"]).emit("lt", f"jz {al_}_n")
+    p.set(AIMT, AIM_LINGER + 1)
+    p.mark(f"{al_}_n")
+    p.load(AIMT).emit(f"jz {al_}")
+    p.addi(AIMT, -1)
+    p.load(HEAD).store(W["oy"])
+    p.mark(al_)
 # P18: THE THREAT IS IN THE FRAME. On glass: "getting hit from behind is
 # annoying -- if I'm about to be attacked the camera pans just enough to
 # have the enemy in view." The most urgent demon -- swinging, or in the
@@ -5505,22 +5681,86 @@ if BASE:
     p.load(LVL).push(len(GATES)).emit("lt", f"jz {kd_}")
     p.object(NOBJ, KEY_M, (f"load {int(KX)}",),
              (f"load {spec.REG_FRAME}", "push 3", "mul", "push 63", "and", "push 400", "mul",
-              f"push {int(0.85 * ONE)}", "add"),                 # (it rises and drops)
+              f"push {int(0.85 * ONE)}", "add")                  # (it rises and drops)
+             + ((f"load {int(KHIT)}", "push 1100", "mul", "add") if L2 else ()),   # (P34: struck, it leaps)
              (f"load {int(KZ)}",),
              (f"load {spec.REG_FRAME}", "push 5", "mul", f"load {int(KNEAR)}", "push 4", "mul",
               "push 1", "add", "mul", "push 1023", "and"),       # (in reach: it spins fast,
-             (f"load {int(KNEAR)}", "push 1", "eq", f"push {spec.OBJ_EDGE}", "mul",   # outlined)
+             (f"load {int(KNEAR)}", "push 1", "eq")
+             + ((f"load {int(KHIT)}", "push 0", "eq", "push 1", "xor", "or") if L2 else ())
+             + (f"push {spec.OBJ_EDGE}", "mul",                                       # outlined)
               f"push {spec.OBJ_CULL}", "or"))
     p.object(NOBJ, SHADOW_M, (f"load {int(KX)}",), 0, (f"load {int(KZ)}",), 0, spec.OBJ_BLEND)
     p.mark(kd_)
     p.object(NOBJ, SHADOW_M, (f"load {int(PX)}",), (f"load {int(GYC)}",), (f"load {int(PZ)}",),
              (f"load {int(HEAD)}",), spec.OBJ_BLEND)
+if L2:
+    # P34: THE SIGHT (the player, of the movement: "I should be able to have
+    # accurate prediction of where I'll land or be" -- and the gun "more
+    # tactical too"). B down, the line the shot WILL take is drawn: its way
+    # the pad's from his steering (no pad: his body's) -- what the launch
+    # does -- and its end where RAY says that line meets the town. A bead
+    # for each round in the gun, spaced evenly along it, and a point on the
+    # place it lands: red, and white-hot once the shot is charged.
+    sg_ = p.label("sight")
+    p.load(KHIT).emit(f"jz {sg_}_k")
+    p.addi(KHIT, -1)
+    p.mark(f"{sg_}_k")
+    p.load(F["py"]).push(GUN_Y).emit("add").store(W["oy"])
+    p.load(GT["shoot"]).emit(f"jz {sg_}")
+    p.load(GC["shoot"]).load(RLD).emit("or", f"jz {sg_}_c", f"jmp {sg_}")
+    p.mark(f"{sg_}_c")
+    p.load(HEAD).store(W["head"])
+    held(15)
+    p.emit(f"jz {sg_}_h")
+    p.push(int(OCTANT)).emit("load 1").push(15).emit("and", "add", "loadi")
+    p.load(YAW).emit("add").push(1023).emit("and").store(W["head"])
+    p.mark(f"{sg_}_h")
+    p.emit(f"call {L_RAY}")
+    p.push(6)
+    knob(p, "mag")
+    p.emit(f"jz {sg_}_n", "drop")
+    knob(p, "mag")
+    p.load(SHOTS).emit("sub")
+    p.mark(f"{sg_}_n")
+    p.store(W["k"])
+    p.push(0).load(W["k"]).emit("lt", f"jz {sg_}_d")
+    p.push(int(INVN)).load(W["k"]).emit("add", "loadi").load(RAY["len"]).emit("mulq").store(W["d2"])
+    for me, d_, at, st_ in ((RAY["ox"], "dx", "bx", "qx"), (RAY["oz"], "dz", "bz", "qz")):
+        p.load(RAY[d_]).load(W["d2"]).emit("mulq").store(W[st_]).load(me).store(W[at])
+    p.mark(f"{sg_}_l")
+    for at, st_ in (("bx", "qx"), ("bz", "qz")):
+        p.load(W[at]).load(W[st_]).emit("add").store(W[at])
+    p.object(NOBJ, BEAD_M, (f"load {int(W['bx'])}",), (f"load {int(W['oy'])}",),
+             (f"load {int(W['bz'])}",), (f"load {spec.REG_FRAME}", "push 37", "mul", "push 1023", "and"), 0)
+    p.addi(W["k"], -1).load(W["k"]).emit(f"jz {sg_}_d", f"jmp {sg_}_l")
+    p.mark(f"{sg_}_d")
+    p.load(RAY["hit"]).emit(f"jz {sg_}")
+
+    def dot_mesh(h):
+        dm = h.label("dotm")
+        h.push(DOT_M).push(CHARGE - 1).load(GT["shoot"]).emit("lt", f"jz {dm}")
+        h.emit("drop").push(HOT_M)
+        h.mark(dm)
+    p.object(NOBJ, dot_mesh, (f"load {int(RAY['x'])}",), (f"load {int(W['oy'])}",),
+             (f"load {int(RAY['z'])}",),
+             (f"load {spec.REG_FRAME}", "push 29", "mul", "push 1023", "and", "dup", "shl 10", "or"), 0)
+    p.mark(sg_)
+    for B_ in BUL:                              # the bullets: each a streak along its way
+        nb = p.label("dbul")
+        p.load(B_["rem"]).emit(f"jz {nb}")
+        p.object(NOBJ, BULLET_M,
+                 (f"load {int(B_['ex'])}", f"load {int(B_['dx'])}", f"load {int(B_['rem'])}", "mulq", "sub"),
+                 (f"load {int(B_['y'])}",),
+                 (f"load {int(B_['ez'])}", f"load {int(B_['dz'])}", f"load {int(B_['rem'])}", "mulq", "sub"),
+                 (f"load {int(B_['yaw'])}",), 0)
+        p.mark(nb)
 # P15: the spark, last in the list, while its frames last
 sk_ = p.label("spark")
 p.load(int(SPK) + 3).emit(f"jz {sk_}")
 p.addi(int(SPK) + 3, -1)
 for turn in (0, 1):
-    p.object(NOBJ, SPARK_M, (f"load {int(SPK)}",), (f"load {int(SPK) + 1}",),
+    p.object(NOBJ, (f"load {int(SPKM)}",) if L2 else SPARK_M, (f"load {int(SPK)}",), (f"load {int(SPK) + 1}",),
              (f"load {int(SPK) + 2}",),
              (f"load {int(SPK) + 3}", f"push {150 + 21 * turn}", "mul",
               f"push {turn * 300}", "add", "push 1023", "and",
@@ -6199,7 +6439,9 @@ p.load(ANIM).push(2).emit("eq", f"jz {sw}_w")
 p.push(MOVE["gun"] - 1).load(F["mv"]).emit("lt", f"jz {sw}_w0")
 p.load(AF).emit(f"jz {sw}_wg", f"jmp {sw}_w")
 p.mark(f"{sw}_wg")
-p.set(SG["nt"], 0).emit(f"jmp {sw}_w")
+if not L2:                                   # (P34, layer 2: on the shot's frame, where it is fired)
+    p.set(SG["nt"], 0)
+p.emit(f"jmp {sw}_w")
 p.mark(f"{sw}_w0")
 p.load(F["con"]).emit(f"jz {sw}_w1", f"jmp {sw}_w")
 p.mark(f"{sw}_w1")
@@ -7093,6 +7335,89 @@ p.emit("drop").push(0).load(W["dg"]).emit("sub")
 p.mark(lo_)
 p.load(YAW).emit("add").push(1023).emit("and").store(YAW)
 p.emit("ret")
+
+if L2:
+    # P34: RAY -- the line a shot takes from where he stands, along w_head:
+    # ray_len how far it goes (GUN_RANGE at most), ray_hit what stops it (0
+    # nothing, 1 a wall, 2 the key), (ray_x, ray_z) where. The town's own
+    # test of the street (L_ARENA, at the wall's face), a unit at a time and
+    # then halved back to an eighth -- the SAME line for the sight and for
+    # the bullet, so what is shown is what is hit. Nothing is aimed for him.
+    ry = p.label("ray")
+    p.mark(L_RAY)
+    sin_of(p, cell=W["head"])
+    p.push(0).emit("swap", "sub").store(RAY["dx"])           # forward x = -sin
+    sin_of(p, 256, cell=W["head"])
+    p.store(RAY["dz"])
+    # (from the gun: half a unit ahead of him and a seventh to his right --
+    # he comes no nearer a wall than that, so it is always in the street)
+    for o_, me, a_, b_, sg in (("ox", PX, "dx", "dz", "add"), ("oz", PZ, "dz", "dx", "sub")):
+        p.load(RAY[a_]).push(GUN_F).emit("mulq").load(RAY[b_]).push(GUN_R).emit("mulq", sg)
+        p.load(me).emit("add").store(RAY[o_])
+    p.set(AWC, SHOT_W).set(RAY["len"], 0).set(RAY["hit"], 0).set(RAY["step"], ONE)
+    p.mark(f"{ry}_l")
+    p.load(RAY["len"]).load(RAY["step"]).emit("add").store(RAY["len"])
+    p.push32(int(GUN_RANGE * ONE)).load(RAY["len"]).emit("lt", f"jz {ry}_t")
+    p.push32(int(GUN_RANGE * ONE)).store(RAY["len"]).emit(f"jmp {ry}_d")
+    p.mark(f"{ry}_t")
+    for c_, me, d_ in ((AR["x"], RAY["ox"], "dx"), (AR["z"], RAY["oz"], "dz")):
+        p.load(RAY[d_]).load(RAY["len"]).emit("mulq").load(me).emit("add").store(c_)
+    p.emit(f"call {L_ARENA}", f"jz {ry}_o", f"jmp {ry}_l")
+    p.mark(f"{ry}_o")                                        # off the street: back, and halve
+    p.load(RAY["len"]).load(RAY["step"]).emit("sub").store(RAY["len"])
+    p.load(RAY["step"]).emit("shr 1").store(RAY["step"]).set(RAY["hit"], 1)
+    p.push(ONE >> 4).load(RAY["step"]).emit("lt", f"jz {ry}_d", f"jmp {ry}_l")
+    p.mark(f"{ry}_d")
+    # THE KEY (the player: "we can use the item as a target"): lying in its
+    # plaza, on the line and nearer than the wall, it is what the shot meets
+    p.load(KEY).emit(f"jz {ry}_k", f"jmp {ry}_e")
+    p.mark(f"{ry}_k")
+    p.load(LVL).push(len(GATES)).emit("lt", f"jz {ry}_e")
+    p.push(int(0.9 * ONE)).load(F["py"]).emit("lt", f"jz {ry}_g", f"jmp {ry}_e")   # (fired from the air: over it)
+    p.mark(f"{ry}_g")
+    p.load(KX).load(RAY["ox"]).emit("sub").store(W["qx"]).load(KZ).load(RAY["oz"]).emit("sub").store(W["qz"])
+    p.load(W["qx"]).load(RAY["dx"]).emit("mulq").load(W["qz"]).load(RAY["dz"]).emit("mulq", "add")
+    p.store(W["d2"])                                         # how far along the line
+    p.push(0).load(W["d2"]).emit("lt", f"jz {ry}_e")
+    p.load(W["d2"]).load(RAY["len"]).emit("lt", f"jz {ry}_e")
+    p.load(W["qx"]).load(RAY["dz"]).emit("mulq").load(W["qz"]).load(RAY["dx"]).emit("mulq", "sub")
+    p.emit("dup").push(KEY_R).emit("lt", f"jz {ry}_x")       # ...and how far off it
+    p.push(-KEY_R).emit("swap", "lt", f"jz {ry}_e")
+    p.load(W["d2"]).store(RAY["len"]).set(RAY["hit"], 2)
+    p.emit(f"jmp {ry}_e")
+    p.mark(f"{ry}_x")
+    p.emit("drop")
+    p.mark(f"{ry}_e")
+    for c_, me, d_ in ((RAY["x"], RAY["ox"], "dx"), (RAY["z"], RAY["oz"], "dz")):
+        p.load(RAY[d_]).load(RAY["len"]).emit("mulq").load(me).emit("add").store(c_)
+    p.set(AWC, AR_W)
+    p.emit("ret")
+
+    # P34: LAND -- bullet w_k has come to the end of its line. A wall or the
+    # key: the burst there, and the thud; the charged shot shakes the lens;
+    # the key rings and leaps. (Out of range it is simply gone.)
+    ld = p.label("landed")
+    p.mark(L_LAND)
+    p.load(W["k"]).push(len(BK)).emit("mul").push(int(BUL[0]["ex"])).emit("add").store(W["k"])
+
+    def bf(name):
+        p.load(W["k"]).push(BK[name]).emit("add", "loadi")
+    bf("hit")
+    p.push(3).emit("and", f"jz {ld}")
+    for k_, name in enumerate(("ex", "y", "ez")):
+        bf(name)
+        p.store(int(SPK) + k_)
+    p.set(int(SPK) + 3, SPARK_FOR).set(SPKM, HOT_M)
+    p.set(int(PLAYD["step"]) + 1, int(SND_STEP)).set(SG["st"], 0)
+    bf("hit")
+    p.push(4).emit("and", f"jz {ld}_c")
+    p.set(F["shake"], 4)
+    p.mark(f"{ld}_c")
+    bf("hit")
+    p.push(3).emit("and").push(2).emit("eq", f"jz {ld}")
+    p.set(KHIT, 40).set(SG["gt"], 0).set(SG["gr"], 3)
+    p.mark(ld)
+    p.emit("ret")
 
 # P18: LINE -- the free shot's demon: the live one nearest the line w_head,
 # within GUN_CONE of it and 13 units -> f_aim (its slot + 1, or 0). A shot
