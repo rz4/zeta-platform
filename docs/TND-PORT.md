@@ -1331,7 +1331,7 @@ version of each.
 - **Measured on silicon** (strings in every direction): peak 58%, median
   49%, none dropped. tests: 8 base, 7 layer 1, 7 layer 2.
 
-## P29: shadow boxing again -- placed, and posed (2026-11-21; not yet on glass)
+## P29: shadow boxing again -- placed, and posed (2026-11-21; on glass: reworked in P30)
 
 The player, on glass, of P28: "we need major improvements on the shadow
 boxing, the directional snappiness was important because the intention
@@ -1376,3 +1376,71 @@ jab input. all the punches should posed tactically".
 - **Not remeasured on silicon**: same vertex counts, one more small
   object for 6 frames; P28 measured 58%. tests: 8 base, 7 layer 1, 8
   layer 2; the full cart is byte-identical.
+
+## P30: the count, the hold, and the boxer's feet (2026-11-22; not yet on glass)
+
+The player, on glass, of P29: "The boxing model needs better footwork and
+the jabs turn the player, it shouldn't. Let's make a fun rythm system with
+the jab button and the special. essentially the number of times we press
+the jab it builds to a special terminator. each button can get held
+keeping the string, slowing time and releasing. for specials the same, but
+the damage output is higher and harder hitting. A player could in theory
+just button mash fast, and still get combos to work, not working off a
+specific time signature." And: "the slow motion gives time to think."
+Asked: the pad with a punch -- "Always straight; d-pad is footwork"; the
+ladder -- hook, uppercut, haymaker; the footwork -- all three (moving in
+the stance, the feet during punches, the standing guard).
+
+- **The tape** (9m30 of layer 2; 788 blows, 45% with the pad held): both
+  pivot knobs turned to their floor, the lunge down a notch (0.9, kept).
+  A thumb's X is down 7 frames at the median, 11 at the 95th centile;
+  the fastest mash is a press every 9.
+- **A blow goes where he faces.** No blow turns him, by a unit, on any
+  frame. The pad at the launch is the blow's STEP, given with its lunge:
+  Up in (0.81 for a jab against 0.39), Down out (0.42 back, no lunge),
+  Left and Right 0.42 off the line. The tank's turn and walk are held
+  through a blow and for 10 frames after one while a count stands, so a
+  pad held for the steps does not creep his heading between them.
+- **The count.** X is a jab, every time, and the jab thrown is counted
+  (to three). Y ends the string with what the count has earned: none or
+  one, the lead hook; two, the rear uppercut; three or more, the
+  haymaker. No beat is read. The count stands while a blow is out, while
+  a button is held, and 40 frames after (the keep knob). A jab gives way
+  to the next blow once it has landed (7 frames: a 9-frame mash throws
+  and lands every one); a terminator is thrown and ends.
+- **The press's own frame.** The grammar waited out a 3-frame chord
+  window before a tap was a tap; layer 2 has no chords. A jab pressed
+  lands 4 frames later (it was 7).
+- **A button held slows time.** Past 14 frames down (the hold knob; over
+  any tap on the tape) the fight -- his own blow too -- runs one frame in
+  three (the slow knob), on the freeze path the full game's FOCUS uses,
+  and the glass sinks to a third curve; let go and it runs. Nothing else
+  moves in this layer, so his own blow is what shows it. It hits no
+  harder for being held: held is for thinking.
+- **The drive.** A blow's lunge came with its launch: the haymaker slid
+  1.3 units while still winding back. Now on its own frame -- the jab's
+  1, the hook's 6, the uppercut's 8, the haymaker's 13 -- so he winds up
+  where he stands and goes with the blow. A terminator's landing shakes
+  the lens (2, 2, 5 frames).
+- **The feet** (tools/tnd_extract.py, the P30 engine).
+  The stance: the archive's guard stood 0.57 long and 0.20 wide with the
+  rear leg straight out behind -- a lunge. Now 0.40 by 0.30, sat into the
+  knees; the guard rocks its weight and bounces ("guard2", every layer's
+  standing pose). The stance's steps are a bounce, the near foot down
+  first, never crossing ("hop_*"; the archive's barely lifted a foot).
+  A strike's feet are PLANTED IN THE WORLD: the lunge is an impulse then
+  x0.82 a frame, so a planted foot goes back under him exactly as far as
+  he has gone and the stepping foot lands where he will end -- the lead
+  foot down with the jab's fist, the rear dragged up after; past his
+  reach a foot drags. Five ways a strike (as it is, in, out, left,
+  right), 20 clips; each foot moves in the world once, by exactly what he
+  travels (the bake prints it).
+- **CRAM.** 580 more poses did not fit beside the recorded song
+  (4,063,248 words); layer 2 keeps one pose each of the cross, the rear
+  hook and the lead uppercut, which its strings cannot throw.
+- **Knobs**: 0 the step, 1 the lunge, 2 keep, 3 hold, 4 slow.
+- **Not done**: the count is not shown on the glass; the stepped clips
+  are baked for the knobs' defaults (off them the feet slide by the
+  difference); layers 0 and 1 play the new clips with the old launch-frame
+  lunge. Not remeasured on silicon (no new geometry; P28: 58%).
+  tests: 8 base, 7 layer 1, 9 layer 2; the full cart is byte-identical.

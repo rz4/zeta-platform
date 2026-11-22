@@ -192,18 +192,34 @@ for d in ("fwd", "back", "left", "right"):
 # will land ... all the punches should posed tactically"). The archive's jab
 # travels 25-30 degrees off his facing line. These are KEYS over each
 # strike's own frames: where the fist IS (two-bone IK puts it there exactly),
-# how the trunk is turned and leaned, where his weight is, and both feet
-# planted. Every one lands on his centre line (y = 0): what he faces is what
-# he hits. "name2" clips, so the archive's own stay beside them; P_name2 is
+# how the trunk is turned and leaned, and where his weight is. Every one
+# lands on his centre line (y = 0): what he faces is what he hits. P_name is
 # the fist's path, for the cart's hit and its spark.
+#
+# THE BOXER'S FEET (P30; the player: "The boxing model needs better
+# footwork"). One engine for the guard, the stance's steps and the strikes.
+# A strike's feet are planted IN THE WORLD: the cart moves him by the blow's
+# lunge (an impulse on the blow's own frame, then x0.82 a frame) and by the
+# pad's step, so a planted foot goes back under him exactly as far as he has
+# gone and the stepping foot lands where he will end -- five ways a strike:
+# as it is (_n), stepped in (_u), out (_d), left (_l), right (_r). DELAY,
+# LUNGE, STEP_I, FRICTION and LUNGE_KNOB are the cart's own numbers
+# (games/tnd/gen_tnd.py: LUNGE_AT, p_moves, the step and lunge knobs).
 extra = {}
 G = bm._guard_pose_dict()
 _g = frozen(bm._pose_and_skin(G, np.zeros(3), None))[0]
-FOOT = {w: _g[anat.leg(w).foot].mean(0) for w in ("lead", "rear")}
-FIST = {w: _g[anat.arm(w).knuckles].mean(0) for w in ("lead", "rear")}
+FOOT0 = {w: _g[anat.leg(w).foot].mean(0) for w in ("lead", "rear")}
+# THE STANCE. The archive's guard stands 0.57 long and 0.20 wide with the
+# rear leg straight out behind him: a lunge. A boxer's is shorter, wider,
+# and sat down into the knees.
+STANCE = dict(lead=(-0.02, 0.03, 0.0), rear=(0.17, -0.07, -0.05), sit=(0.03, 0.0, -0.025))
+FOOT = {w: FOOT0[w] + np.asarray(STANCE[w]) for w in ("lead", "rear")}
+SIT = np.asarray(STANCE["sit"])
+FRICTION, LUNGE_KNOB = 0.82, 0.9
 def sm(u): return u * u * (3 - 2 * u)
+REST = dict(twist=0.0, lean=0.0, shift=(0.0, 0.0, 0.0), fist=None, s=0.0, lead_foot=(0.0, 0.0, 0.0),
+            rear_foot=(0.0, 0.0, 0.0), other=None, so=0.0, head=0.0)
 def interp(keys, f):
-    """keys: [(frame, {name: value}), ...] -> the values at frame f, eased key to key"""
     ks = sorted(keys, key=lambda k: k[0])
     if f <= ks[0][0]: return dict(ks[0][1])
     for (f0, a), (f1, b) in zip(ks, ks[1:]):
@@ -211,50 +227,110 @@ def interp(keys, f):
             u = sm((f - f0) / (f1 - f0)) if f1 > f0 else 1.0
             return {k: np.asarray(a[k], float) * (1 - u) + np.asarray(b[k], float) * u for k in a}
     return dict(ks[-1][1])
-REST = dict(twist=0.0, lean=0.0, shift=(0.0, 0.0, 0.0), fist=None, s=0.0, lead_foot=(0.0, 0.0, 0.0),
-            rear_foot=(0.0, 0.0, 0.0), other=None, so=0.0, head=0.0)
-def frame(k, arm, pole=None):
-    """one pose: k = the keys' values. twist: the trunk turned (+ = to his left),
-    lean: forward, shift: (forward, left, up) of his whole weight, fist: where the
-    striking fist is (s: how far the IK has taken it there from the guard),
-    other: the other fist's place if it leaves the guard, feet: steps from the guard's"""
+def frame(k, arm=None, pole=None):
     pose = dict(G)
     tw, ln = float(k["twist"]), float(k["lean"])
     pose["Hips"] = [G["Hips"][0], G["Hips"][1] + 0.35 * tw, G["Hips"][2]]
     pose["Spine"] = [G["Spine"][0] + 0.6 * ln, G["Spine"][1] + 0.40 * tw, G["Spine"][2]]
     pose["Spine1"] = [G["Spine1"][0] + 0.4 * ln, G["Spine1"][1] + 0.25 * tw, G["Spine1"][2]]
-    pose["Neck"] = [G["Neck"][0] + float(k["head"]), G["Neck"][1] - 0.55 * tw, G["Neck"][2]]   # eyes stay on the line
-    sh = np.asarray(k["shift"], float)
+    pose["Neck"] = [G["Neck"][0] + float(k["head"]), G["Neck"][1] - 0.55 * tw, G["Neck"][2]]
+    sh = SIT + np.asarray(k["shift"], float)
     plant = [(w, tuple(FOOT[w] + np.asarray(k[w + "_foot"], float) - sh), 1.0) for w in ("lead", "rear")]
     def repose(Vt, skel_, angles):
         body = anat.pose(angles)
-        if float(k["s"]) > 0:
+        if arm and float(k["s"]) > 0:
             a = anat.arm(arm)
             bm._reach_arm(Vt, a, body, np.asarray(k["fist"], float) - sh, a.outward if pole is None else np.asarray(pole, float), float(k["s"]))
-        if k.get("other") is not None and float(k["so"]) > 0:
+        if arm and k.get("other") is not None and float(k["so"]) > 0:
             o = anat.arm("rear" if arm == "lead" else "lead")
             bm._reach_arm(Vt, o, body, np.asarray(k["other"], float) - sh, o.outward, float(k["so"]))
     faces, cols = bm._pose_and_skin(pose, np.zeros(3), plant, repose)
-    V, C = frozen((np.asarray(faces) + sh, cols))
-    return V, C
-def build(n, keys, arm, pole=None):
-    keys = [(f, dict(REST, **{kk: vv for kk, vv in v.items()})) for f, v in keys]
-    # a key that names no fist keeps the last one named (so the IK eases out along it)
-    last = FIST[arm]
+    return frozen((np.asarray(faces) + sh, cols))
+_n = frame(dict(REST))[0]
+FIST = {w: _n[anat.arm(w).knuckles].mean(0) for w in ("lead", "rear")}
+# ---- the guard: ready, not frozen
+def guard(n=60):
+    out = []
+    for f in range(n):
+        t = 2 * np.pi * f / n
+        k = dict(REST, shift=(0.018 * np.sin(t), 0.0, 0.012 * np.cos(2 * t) - 0.012), twist=2.5 * np.sin(t),
+                 lean=1.5 * np.cos(2 * t), head=-1.0 * np.cos(2 * t))
+        out.append(frame(k))
+    return out
+# ---- the stance's step: a boxer's bounce, the near foot down first, never crossing
+HOP = {"fwd": (1, 0), "back": (-1, 0), "left": (0, 1), "right": (0, -1)}
+def hop(direction, n=16, reach=0.13, lift=0.05):
+    u = np.array(HOP[direction], float)
+    first = "lead" if (u[0] > 0 or u[1] > 0) else "rear"
+    out = []
+    for f in range(n):
+        t = f / n
+        k = dict(REST)
+        for w in ("lead", "rear"):
+            tt = (t - (0.0 if w == first else 0.12)) % 1.0
+            if tt < 0.30:   o, z = reach * (1 - 2 * tt / 0.30), 0.0             # down: back under him
+            else:
+                v = (tt - 0.30) / 0.70
+                o, z = reach * (2 * sm(v) - 1), lift * np.sin(np.pi * v)       # up: forward again
+            k[w + "_foot"] = (u[0] * o, u[1] * o, z)
+        c = np.cos(2 * np.pi * (t - 0.2))
+        k["shift"] = (0.012 * u[0], 0.012 * u[1], -0.022 * c - 0.004)          # he sinks on the plant, rises in the air
+        k["lean"] = 2.5 * u[0] + 1.5 * c
+        out.append(frame(k))
+    return out
+# ---- the strikes
+DELAY = {"jab": 1, "lead_hook": 6, "rear_uppercut": 8, "special": 13}          # the frame the cart gives the lunge
+LUNGE = {"jab": 0.078, "lead_hook": 0.125, "rear_uppercut": 0.085, "special": 0.23}
+STEP_I = 0.075                                                                  # the pad's step, as an impulse
+FEET = {"jab": ((0, 4), (3, 9)), "lead_hook": ((5, 10), (9, 16)),
+        "rear_uppercut": ((7, 12), (11, 18)), "special": ((12, 18), (17, 27))}  # (lift, land): first foot, second
+WAYS = {"n": (1, 0, 0), "u": (1, 1, 0), "d": (0, -1, 0), "l": (1, 0, 1), "r": (1, 0, -1)}   # (lunge?, step fwd, step left)
+REACH = 0.34
+def travel(move, way):
+    lg, sf, sl = WAYS[way]
+    return np.array([lg * LUNGE[move] * LUNGE_KNOB + sf * STEP_I, sl * STEP_I, 0.0]) / (1 - FRICTION)
+def gone(move, way, f):
+    d = DELAY[move]
+    return travel(move, way) * (1 - FRICTION ** (f - d + 1)) if f >= d else np.zeros(3)
+def feet_of(move, way, f):
+    T = travel(move, way)
+    first = "lead" if (abs(T[0]) >= abs(T[1]) and T[0] >= 0) or (abs(T[1]) > abs(T[0]) and T[1] > 0) else "rear"
+    out = {}
+    for w in ("lead", "rear"):
+        a, b = FEET[move][0 if w == first else 1]
+        if f <= a:   o, z = -gone(move, way, f), 0.0
+        elif f >= b: o, z = T - gone(move, way, f), 0.0
+        else:
+            v = (f - a) / (b - a)
+            o0, o1 = -gone(move, way, a), T - gone(move, way, b)
+            o, z = o0 * (1 - sm(v)) + o1 * sm(v), (0.06 if w == first else 0.035) * np.sin(np.pi * v)
+        r = np.linalg.norm(o)
+        if r > REACH: o = o * REACH / r                                        # past his reach: it drags
+        out[w] = np.array([o[0], o[1], z])
+    return out
+def strike(move, way, sp):
+    keys = [(f, dict(REST, **v)) for f, v in sp["keys"]]
+    arm = sp["arm"]; last = FIST[arm]
     for f, v in keys:
         if v["fist"] is None: v["fist"] = last
         last = v["fist"]
         if v["other"] is None: v["other"] = FIST["rear" if arm == "lead" else "lead"]
-    out = [frame(interp(keys, f), arm, pole) for f in range(n)]
-    V = np.array([o[0] for o in out])
-    fist = np.array([v[anat.arm(arm).knuckles].mean(0) for v in V])
-    return V, np.array([o[1] for o in out]), fist
-STRIKES = {
+    Vs, Ss = [], []
+    for f in range(sp["n"]):
+        k = interp(keys, f)
+        ft = feet_of(move, way, f)
+        k["lead_foot"], k["rear_foot"] = ft["lead"], ft["rear"]
+        spread = np.linalg.norm((ft["lead"] - ft["rear"])[:2])
+        k["shift"] = np.asarray(k["shift"], float) + np.array([0, 0, -0.22 * max(0.0, spread - 0.12)])   # a long stance sits lower
+        V, C = frame(k, arm, sp.get("pole"))
+        Vs.append(V); Ss.append(C)
+    Vs = np.array(Vs)
+    return Vs, np.array(Ss), np.array([v[anat.arm(arm).knuckles].mean(0) for v in Vs])
+STRIKE_KEYS = {
  "jab": {
   "n": 16,
   "arm": "lead",
   "land": 4,
-  "want": "(0.70, 0, 1.22)",
   "keys": [
    [
     0,
@@ -263,17 +339,12 @@ STRIKES = {
    [
     1,
     {
-     "twist": -6,
+     "twist": -5,
      "lean": 2,
-     "shift": [
-      0.02,
-      0,
-      0
-     ],
      "fist": [
-      0.38,
+      0.4,
       0.03,
-      1.19
+      1.18
      ],
      "s": 0.5
     }
@@ -286,7 +357,7 @@ STRIKES = {
      "shift": [
       0.07,
       0,
-      -0.01
+      0.0
      ],
      "fist": [
       0.7,
@@ -294,12 +365,7 @@ STRIKES = {
       1.22
      ],
      "s": 1.0,
-     "lead_foot": [
-      0.05,
-      0,
-      0
-     ],
-     "head": 4
+     "head": 3
     }
    ],
    [
@@ -310,7 +376,7 @@ STRIKES = {
      "shift": [
       0.07,
       0,
-      -0.01
+      0.0
      ],
      "fist": [
       0.7,
@@ -318,18 +384,13 @@ STRIKES = {
       1.22
      ],
      "s": 1.0,
-     "lead_foot": [
-      0.05,
-      0,
-      0
-     ],
-     "head": 4
+     "head": 3
     }
    ],
    [
     9,
     {
-     "twist": -8,
+     "twist": -7,
      "lean": 3,
      "shift": [
       0.04,
@@ -337,39 +398,17 @@ STRIKES = {
       0
      ],
      "fist": [
-      0.42,
+      0.44,
       0.03,
-      1.19
+      1.18
      ],
-     "s": 0.6,
-     "lead_foot": [
-      0.05,
-      0,
-      0
-     ]
+     "s": 0.6
     }
    ],
    [
     12,
     {
-     "twist": 0,
-     "lean": 0,
-     "shift": [
-      0.01,
-      0,
-      0
-     ],
-     "fist": [
-      0.3,
-      0.07,
-      1.15
-     ],
-     "s": 0.0,
-     "lead_foot": [
-      0.02,
-      0,
-      0
-     ]
+     "s": 0.0
     }
    ],
    [
@@ -382,7 +421,6 @@ STRIKES = {
   "n": 34,
   "arm": "lead",
   "land": 11,
-  "want": "(0.44, 0, 1.25)",
   "keys": [
    [
     0,
@@ -413,7 +451,7 @@ STRIKES = {
      "twist": 10,
      "lean": 3,
      "shift": [
-      0.02,
+      0.01,
       0.02,
       -0.03
      ],
@@ -431,7 +469,7 @@ STRIKES = {
      "twist": -30,
      "lean": 5,
      "shift": [
-      0.05,
+      0.03,
       -0.02,
       -0.02
      ],
@@ -449,7 +487,7 @@ STRIKES = {
      "twist": -44,
      "lean": 5,
      "shift": [
-      0.05,
+      0.03,
       -0.03,
       -0.02
      ],
@@ -467,14 +505,14 @@ STRIKES = {
      "twist": -12,
      "lean": 2,
      "shift": [
-      0.02,
+      0.01,
       -0.01,
       0
      ],
      "fist": [
-      0.32,
+      0.34,
       0.02,
-      1.18
+      1.16
      ],
      "s": 0.5
     }
@@ -482,11 +520,6 @@ STRIKES = {
    [
     30,
     {
-     "fist": [
-      0.29,
-      0.07,
-      1.15
-     ],
      "s": 0.0
     }
    ],
@@ -500,7 +533,6 @@ STRIKES = {
   "n": 39,
   "arm": "rear",
   "land": 13,
-  "want": "(0.40, 0, 1.34)",
   "pole": [
    0.0,
    -0.5,
@@ -519,7 +551,7 @@ STRIKES = {
      "shift": [
       -0.02,
       -0.03,
-      -0.12
+      -0.11
      ],
      "fist": [
       0.14,
@@ -537,7 +569,7 @@ STRIKES = {
      "shift": [
       0.0,
       -0.01,
-      -0.11
+      -0.1
      ],
      "fist": [
       0.26,
@@ -553,7 +585,7 @@ STRIKES = {
      "twist": 26,
      "lean": 1,
      "shift": [
-      0.06,
+      0.03,
       0.0,
       0.02
      ],
@@ -572,7 +604,7 @@ STRIKES = {
      "twist": 32,
      "lean": 0,
      "shift": [
-      0.06,
+      0.03,
       0.0,
       0.04
      ],
@@ -591,14 +623,14 @@ STRIKES = {
      "twist": 8,
      "lean": 2,
      "shift": [
-      0.02,
+      0.01,
       0,
       0
      ],
      "fist": [
-      0.24,
+      0.26,
       -0.1,
-      1.22
+      1.2
      ],
      "s": 0.5
     }
@@ -606,11 +638,6 @@ STRIKES = {
    [
     35,
     {
-     "fist": [
-      0.21,
-      -0.12,
-      1.19
-     ],
      "s": 0.0
     }
    ],
@@ -624,7 +651,6 @@ STRIKES = {
   "n": 56,
   "arm": "rear",
   "land": 20,
-  "want": "(0.72, 0, 1.24)",
   "pole": [
    0.0,
    -1.0,
@@ -660,7 +686,7 @@ STRIKES = {
     }
    ],
    [
-    15,
+    14,
     {
      "twist": -46,
      "lean": -5,
@@ -686,12 +712,12 @@ STRIKES = {
    [
     20,
     {
-     "twist": 34,
+     "twist": 38,
      "lean": 16,
      "shift": [
-      0.14,
+      0.15,
       0.02,
-      -0.04
+      -0.02
      ],
      "fist": [
       0.72,
@@ -699,11 +725,6 @@ STRIKES = {
       1.24
      ],
      "s": 1.0,
-     "lead_foot": [
-      0.08,
-      0,
-      0
-     ],
      "other": [
       0.22,
       0.16,
@@ -719,9 +740,9 @@ STRIKES = {
      "twist": 52,
      "lean": 22,
      "shift": [
-      0.16,
+      0.15,
       0.04,
-      -0.08
+      -0.07
      ],
      "fist": [
       0.5,
@@ -729,11 +750,6 @@ STRIKES = {
       0.98
      ],
      "s": 1.0,
-     "lead_foot": [
-      0.08,
-      0,
-      0
-     ],
      "other": [
       0.22,
       0.16,
@@ -749,37 +765,22 @@ STRIKES = {
      "twist": 16,
      "lean": 8,
      "shift": [
-      0.08,
+      0.06,
       0.02,
       -0.03
      ],
      "fist": [
-      0.3,
+      0.32,
       -0.02,
-      1.15
+      1.12
      ],
-     "s": 0.6,
-     "lead_foot": [
-      0.06,
-      0,
-      0
-     ]
+     "s": 0.6
     }
    ],
    [
     50,
     {
-     "fist": [
-      0.21,
-      -0.12,
-      1.19
-     ],
-     "s": 0.0,
-     "lead_foot": [
-      0.02,
-      0,
-      0
-     ]
+     "s": 0.0
     }
    ],
    [
@@ -789,10 +790,14 @@ STRIKES = {
   ]
  }
 }
-for _n, _sp in STRIKES.items():
-    _Vs, _Ss, _fist = build(_sp["n"], [(f, v) for f, v in _sp["keys"]], _sp["arm"], _sp.get("pole"))
-    seqs[_n + "2"] = [(v, c) for v, c in zip(_Vs, _Ss)]
-    extra["P_" + _n + "2"] = _fist
+seqs["guard2"] = guard()
+for _d in HOP:
+    seqs["hop_" + _d] = hop(_d)
+for _m, _sp in STRIKE_KEYS.items():
+    for _w in WAYS:
+        _Vs, _Ss, _fist = strike(_m, _w, _sp)
+        seqs[_m + "_" + _w] = [(v, c) for v, c in zip(_Vs, _Ss)]
+        extra["P_" + _m + "_" + _w] = _fist
 # the swings, at the game's own timing: the clip stretched over the move's
 # startup + active + recovery, as tear.py draws it (t = frame / (total-1))
 for mv in ("jab", "cross", "lead_hook", "rear_hook", "special",

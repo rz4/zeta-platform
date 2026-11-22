@@ -73,10 +73,11 @@ SWARM_TEST = os.environ.get("TND_SWARM") == "1"
 #                 the lens backs off and he squares up; L clicked twice and
 #                 held is the RUN -- the fastest, with momentum, the lens
 #                 trailing; A jumps in either, and A again flips.
-#   TND_LAYER=2   + SHADOW BOXING (P28, the player's): the strike goes the
-#                 way the pad points and he PIVOTS there with weight -- no
-#                 snap -- and stays facing it; Y is the heavy version of
-#                 what X would have thrown.
+#   TND_LAYER=2   + SHADOW BOXING (P30, the player's): every blow goes
+#                 where he faces, and the pad steps it (in, out, off the
+#                 line); X is a jab and counts, Y ends the string with what
+#                 the count earned (hook, uppercut, haymaker); a button
+#                 held slows time and keeps the string.
 LAYER = int(os.environ.get("TND_LAYER", "9"))
 BASE = LAYER in (0, 1, 2)        # the base's own rules (the layers stand on them)
 L1 = LAYER in (1, 2)             # the left shoulder
@@ -113,11 +114,22 @@ SEQS = ("idle", "walk", "air", "jab", "cross", "lead_hook", "rear_hook", "specia
 # the ground asks -- see the legs knob.
 # P29: THE STRIKES, AUTHORED (tools/tnd_extract.py STRIKES): the jab, the
 # lead hook, the rear uppercut and the haymaker, each landing on his centre
-# line. Their fist paths (P_name2) are the layers' hit points too.
-CLIP_OF = {"run": "run2", "walk": "walk2", "jab": "jab2", "lead_hook": "lead_hook2",
-           "rear_uppercut": "rear_uppercut2", "special": "special2"} if BASE else {}
+# line. Their fist paths (P_name) are the layers' hit points too.
+# P30: THE BOXER'S FEET (the player: "The boxing model needs better
+# footwork"). A boxer's stance -- shorter, wider, sat into the knees -- with
+# a guard that is ready, not frozen ("guard2"); the stance's steps as a
+# bounce, the near foot down first, never crossing ("hop_*"); and every
+# strike's feet PLANTED IN THE WORLD through its lunge, in five ways: as it
+# is ("_n"), and stepped in, out, left and right ("_u _d _l _r").
+STRIKES = ("jab", "lead_hook", "rear_uppercut", "special")
+WAYS = "nudlr"                  # no pad, Up, Down, Left, Right
+CLIP_OF = dict({"run": "run2", "walk": "walk2", "idle": "guard2"},
+               **{"kite_" + k_: "hop_" + k_ for k_ in ("fwd", "back", "left", "right")},
+               **{k_: k_ + "_n" for k_ in STRIKES}) if BASE else {}
 if BASE:
     SEQS += ("slide",)           # P27: the run's slide (the layers only; four poses)
+if L2:
+    SEQS += tuple(f"{k_}_{w_}" for k_ in STRIKES for w_ in WAYS[1:])
 
 
 def to_zeta(V):
@@ -353,9 +365,13 @@ assert SPAN <= spec.DMA_MAX, f"pose span {SPAN} exceeds DMA_MAX"
 # the switch.)
 DEDUPE = False
 bank, base, slot, seen = [], {}, [], {}
+# (P30: layer 2's strings cannot throw the cross, the rear hook or the lead
+# uppercut; their clips make room in CRAM for the stepped strikes -- one
+# pose each stays, so every base is still a pose.)
+UNTHROWN = ("cross", "rear_hook", "lead_uppercut") if L2 else ()
 for s in SEQS:
     base[s] = len(slot)
-    for V, S in zip(d["V_" + CLIP_OF.get(s, s)], d["S_" + CLIP_OF.get(s, s)]):
+    for V, S in list(zip(d["V_" + CLIP_OF.get(s, s)], d["S_" + CLIP_OF.get(s, s)]))[:1 if s in UNTHROWN else None]:
         w = pose_span(V, S)
         k = tuple(w) if DEDUPE else len(slot)
         if k not in seen:
@@ -1348,6 +1364,10 @@ _UPPER = _bits("gun", "special")
 CANCELS = {"jab": _LIGHT, "cross": _LIGHT, "lead_hook": _HOOK, "rear_hook": _HOOK,
            "special": 0, "lead_uppercut": _UPPER, "rear_uppercut": _UPPER,
            "gun": _LIGHT, "gun_charged": _bits("special")}
+if L2:                          # P30: a jab gives way to the next blow; a terminator
+    CANCELS = dict(CANCELS, lead_hook=0, rear_hook=0, lead_uppercut=0, rear_uppercut=0)   # is thrown, and ends
+
+
 def _fist_path(k, n):
     """the fist's place on each active frame: the authored clip's own, where
     the layers play one (so the hit IS where the drawn fist is)"""
@@ -2149,11 +2169,11 @@ KNOBS_L1 = (("run", 81262, int(0.08 * ONE), int(0.5 * ONE), int(2.5 * ONE)),    
             ("jump", 12190, int(0.01 * ONE), int(0.08 * ONE), int(0.4 * ONE)),   # 8 the jump
             ("dclick", 44, 2, 6, 60))                              # 9 frames between the two clicks
 # LAYER 2'S PAGE: the strikes.
-KNOBS_L2 = (("pivot", 176, 16, 32, 512),       # 0 his body's turn into a jab's way, a frame (512: at once)
-            ("pivoth", 128, 16, 32, 512),      # 1 ...into a hook's, an uppercut's, the haymaker's
-            ("lunge", ONE, int(0.1 * ONE), 0, 3 * ONE),   # 2 how far a strike carries him (x its own)
-            ("steady", 14, 2, 4, 40),          # 3 frames after a blow a tap still keeps the string
-            ("pause", 55, 5, 20, 120))         # 4 ...and how long a wait may be
+KNOBS_L2 = (("step", int(0.075 * ONE), int(0.0075 * ONE), 0, int(0.2 * ONE)),   # 0 the pad's step with a blow
+            ("lunge", 58983, int(0.1 * ONE), 0, 3 * ONE),   # 1 how far a strike carries him (x its own; the player's)
+            ("keep", 40, 4, 8, 160),           # 2 frames after a blow the string still stands
+            ("hold", 14, 2, 6, 40),            # 3 frames a button is down before time slows
+            ("slow", 3, 1, 2, 6))              # 4 ...to one frame in this many
 SETTLED = {k_[0]: k_[1] for k_ in KNOBS + KNOBS_L1 + KNOBS_L2}
 SETTLED["ramp"] = BASE_SET.get("ramp", int(0.22 * ONE))      # (weight: left at 0.73)
 if LAYER == 1:
@@ -2172,8 +2192,8 @@ if BASE:
     WALLT, WALLA, WSX, WSZ, WTX, WTZ, WJN = (cart.var(k) for k in (
         "wall_t", "wall_axes", "wall_sx", "wall_sz", "wall_tx", "wall_tz", "wall_n"))
     SLT, SLV, SLF = cart.var("slide_t"), cart.var("slide_v"), cart.var("slide_f")
-    # P28: the strike's pivot -- turning (1) to where it goes; and Y's heavy hand
-    PIVOT, PIVT = cart.var("pivot_on"), cart.var("pivot_to")
+    # P30: the way the pad stepped the blow (0 none, 1 in, 2 out, 3 left, 4 right)
+    STEPD = cart.var("step_dir")
     cart.boot(spec.LIGHT_DIR, 0x007F00)          # P22: straight down (see piece_light)
     cart.boot(spec.LIGHT_AMB, LIT_AMB0)         # (the title's street, before the game
     cart.boot(spec.LIGHT_DIF, 33 - LIT_AMB0)    # sets them a frame at a time)
@@ -2193,8 +2213,18 @@ def _grade(gr, gg, gb, lift=0.0):
 
 if BASE:
     GRADES = [cart.data(Table(_grade(*k)), f"grade{i}") for i, k in enumerate(
-        ((1.0, 1.22, 1.16), (1.08, 1.5, 1.4)))]
+        ((1.0, 1.22, 1.16), (1.08, 1.5, 1.4)) + (((1.45, 2.2, 2.0),) if L2 else ()))]   # (the third: time, slowed)
     cart.boot(spec.EDGE_RGB, 0xFFF4D8)            # the outline: bone-white, on what the jab would take
+
+
+if L2:
+    # P30: each blow's own lunge frame (its drive, not its wind-up), and its
+    # poses the five ways the pad can step it
+    LUNGE_AT = {"jab": 1, "cross": 1, "lead_hook": 6, "rear_hook": 6, "special": 13,
+                "lead_uppercut": 8, "rear_uppercut": 8}
+    LDT = cart.data(Table([LUNGE_AT.get(n_, 0) for n_ in PMN]), "lunge_at")
+    SVT = cart.data(Table([base.get(f"{n_}_{w_}", base[n_]) for n_ in PMN for w_ in WAYS]), "step_poses")
+    TURN_LOCK = 10              # frames after a string's blow the pad still does not turn or walk him
 
 
 def knob(g, name):
@@ -2298,7 +2328,7 @@ for d in range(3):
 for i in range(N_IMP):
     p.set(imp(i, "st"), 0)
 if BASE:
-    for c_ in (KEY, PICK, QT, WSPD, KNEAR, PIVOT):
+    for c_ in (KEY, PICK, QT, WSPD, KNEAR, STEPD):
         p.set(c_, 0)
 if SWARM_TEST:                                  # (the meter's hook: the fight in the
     p.set(PX, int(3 * ONE)).set(PZ, int(3 * ONE))               # first plaza, the
@@ -2361,6 +2391,11 @@ if BASE:
     p.mark(f"{gr_}_2")
     p.emit("drop").push(int(GRADES[1]))
     p.mark(gr_)
+    if L2:                                        # (time slowed: the glass sinks)
+        knob(p, "hold").load(GT["carve"]).emit("lt")
+        knob(p, "hold").load(GT["special"]).emit("lt", "or", f"jz {gr_}_s")
+        p.emit("drop").push(int(GRADES[2]))
+        p.mark(f"{gr_}_s")
     p.store(spec.GRADE_SRC)
     # no shoulders in the base; and a pick-up holds him, crouched, till it is done
     p.emit("load 1").push(0xFFFF & ~((0 if L1 else spec.PAD_L) | spec.PAD_R | spec.PAD_SELECT))
@@ -2534,11 +2569,20 @@ fc = p.label("focus")
 GEST = p.label("gest")                           # (the grammar, below)
 p.load(F["slow"]).emit(f"jz {fc}_n", f"jmp {fc}_s")   # (counted in the fight's
 p.mark(f"{fc}_n")                                     # time: on running frames)
-p.load(F["sty"]).push(SQ_TARGET).emit("eq", f"jz {fc}_o")
-p.push(FOCUS_HOLD).load(GT["carve"]).emit("lt")
-p.push(FOCUS_HOLD).load(GT["special"]).emit("lt", "or", f"jz {fc}_o")
+if L2:
+    # P30: A BUTTON HELD SLOWS TIME (the player: "each button can get held
+    # keeping the string, slowing time and releasing ... the slow motion
+    # gives time to think"). Past the hold knob's frames the fight -- his own
+    # blow too -- runs one frame in the slow knob's; let go, and it runs.
+    knob(p, "hold").load(GT["carve"]).emit("lt")
+    knob(p, "hold").load(GT["special"]).emit("lt", "or", f"jz {fc}_o")
+else:
+    p.load(F["sty"]).push(SQ_TARGET).emit("eq", f"jz {fc}_o")
+    p.push(FOCUS_HOLD).load(GT["carve"]).emit("lt")
+    p.push(FOCUS_HOLD).load(GT["special"]).emit("lt", "or", f"jz {fc}_o")
 p.mark(f"{fc}_s")
-p.load(F["skip"]).push(1).emit("add", "dup").push(SLOW_EVERY).emit("lt", f"jz {fc}_w")
+p.load(F["skip"]).push(1).emit("add", "dup")
+(knob(p, "slow") if L2 else p.push(SLOW_EVERY)).emit("lt", f"jz {fc}_w")
 p.store(F["skip"]).emit(f"jmp {fc}")
 p.mark(f"{fc}_w")
 p.emit("drop")
@@ -2591,16 +2635,6 @@ CMB = {1: ((1, 2), (2, 4)),                      # jab, then: cross / (wait) lea
        2: ((2, 3), (3, 0)),                      # jab cross, then: lead hook / (wait) rear hook
        3: ((6, 0), (6, 0)),                      # ...the rear uppercut, the launcher
        4: ((6, 0), (6, 0))}                      # (state 0, or a new string: the jab)
-if L2:
-    # P29: THE STRINGS ARE THE PLAYER'S: "two combo jab jab, three combo jab
-    # jab left hiok, jab jab wait right upper cut. hay maker is the special
-    # button with no previous jab input."
-    #   X X            jab, jab
-    #   X X X          jab, jab, the left (lead) hook
-    #   X X - X        jab, jab, (wait) the right (rear) uppercut
-    #   Y              the haymaker -- when no string is on
-    CMB = {1: ((0, 2), (0, 2)),                  # a jab thrown: the second jab
-           2: ((2, 0), (6, 0))}                  # two: the lead hook / (wait) the rear uppercut
 TAP_MAX, CHORD_SLOP = 9, 3
 CHARGE = 26                     # combat.resolve: a shot held this long is charged
 MOVE = {n: i for i, n in enumerate(PMN)}
@@ -2624,6 +2658,17 @@ p.mark(f"{lt_}_s")                                # thrown (not the special, not
 p.load(F["mv"]).push(MOVE["gun"]).emit("lt", f"jz {lt_}")   # the clock stands at zero
 p.set(F["ltap"], 0)
 p.mark(lt_)
+if L2:
+    # P30: THE STRING STANDS while a blow is out, while a button is held, and
+    # for the keep knob's frames after -- no beat to hit: mashed or slow, the
+    # count is the count.
+    kp_ = p.label("keep")
+    p.load(GT["carve"]).load(GT["special"]).emit("or", f"jz {kp_}_n")
+    p.set(F["ltap"], 0)
+    p.mark(f"{kp_}_n")
+    knob(p, "keep").load(F["ltap"]).emit("lt", f"jz {kp_}")
+    p.set(F["c3"], 0)
+    p.mark(kp_)
 p.load(F["buf"]).emit(f"jz {L['nobuf']}")
 p.addi(F["buf"], -1)
 p.load(F["buf"]).emit(f"jz {L['nobuf']}_x", f"jmp {L['nobuf']}")   # P18: a blow that
@@ -2644,7 +2689,7 @@ for b, bit in BTN:
         p.mark(f"{hd}_c")
         p.load(F["sty"]).push(SQ_TARGET).emit("eq", f"jz {hd}_t", f"jmp {done}")
         p.mark(f"{hd}_t")                                  # (P18: targeting holds it --
-        p.load(GT[b]).push(CHORD_SLOP + 1).emit("eq", f"jz {done}")   # FOCUS -- and it
+        p.load(GT[b]).push(1 if L2 else CHORD_SLOP + 1).emit("eq", f"jz {done}")   # FOCUS -- and it
         p.set(GTAP[b], 1).set(GC[b], 1)                    # fires on release) (spent)
     p.emit(f"jmp {done}")
     p.mark(up)
@@ -2686,19 +2731,8 @@ def chord(a, b, move):
 # (P18: no chords -- the launchers come from the rhythm, and A is the dodge)
 # the special: its own tap
 sp = p.label("g_sp")
-if L2:
-    # P29: Y IS THE HAYMAKER, WHEN NO STRING IS ON (no jab thrown, or the last
-    # one longer ago than a wait may be). In a string Y is not read: the
-    # player's strings are X's.
-    p.load(GTAP["special"]).emit(f"jz {sp}")
-    p.load(F["c3"]).emit(f"jz {sp}_go")                       # no string: throw it
-    knob(p, "pause").load(F["ltap"]).emit("lt", f"jz {sp}")   # a string, still on: not read
-    p.mark(f"{sp}_go")
-    p.set(F["c3"], 0)
-    choose(MOVE["special"])
-else:
-    p.load(GTAP["special"]).emit(f"jz {sp}")
-    choose(MOVE["special"])
+p.load(GTAP["special"]).emit(f"jz {sp}")          # (P30, layer 2: Y is the string's
+choose(MOVE["special"])                           # TERMINATOR -- which, the launch says)
 p.mark(sp)
 # the carve string
 p.load(GTAP["carve"]).emit(f"jz {L['notap']}")
@@ -2732,6 +2766,14 @@ if BASE:
 #   X - X X        jab, (wait) lead hook, rear uppercut
 #   X X - X        jab, cross, (wait) rear hook
 # Shots may fill a wait; more than SEC_MAX of them and the string is lost.
+if L2:
+    # P30: THE COUNT (the player: "the number of times we press the jab it
+    # builds to a special terminator ... A player could in theory just button
+    # mash fast, and still get combos to work, not working off a specific time
+    # signature"). X is a jab, every time, the press's own frame; the launch
+    # counts it. No rhythm is read.
+    choose(MOVE["jab"])
+    p.emit(f"jmp {L['notap']}")
 rh = p.label("rhythm")
 p.load(F["buf"]).emit(f"jz {rh}_q")               # a blow of the string still waiting
 p.load(F["bmv"]).push(MOVE["special"]).emit("eq", f"jz {rh}_b", f"jmp {rh}_q")   # in the
@@ -2739,9 +2781,9 @@ p.mark(f"{rh}_b")                                 # buffer: this tap is the same
 p.load(F["bmv"]).push(MOVE["gun"]).emit("lt", f"jz {rh}_q", f"jmp {L['notap']}")
 p.mark(f"{rh}_q")
 p.push(0)
-(knob(p, "steady") if L2 else p.push(STEADY)).load(F["ltap"]).emit("lt", f"jz {rh}_c")
+p.push(STEADY).load(F["ltap"]).emit("lt", f"jz {rh}_c")
 p.emit("drop").push(1)
-(knob(p, "pause") if L2 else p.push(PAUSE)).load(F["ltap"]).emit("lt", f"jz {rh}_c")
+p.push(PAUSE).load(F["ltap"]).emit("lt", f"jz {rh}_c")
 p.set(F["c3"], 0)                                 # too long: a new string
 p.mark(f"{rh}_c")
 p.push(SEC_MAX).load(F["sec"]).emit("lt", f"jz {rh}_s")
@@ -3097,9 +3139,12 @@ if BASE:                                           # P21: THE QUICK TURN (Down +
     p.mark(f"{tk}_nq")
 p.load(F["sty"]).emit(f"jz {tk}_t", f"jmp {tk}")   # (the styles steer themselves)
 p.mark(f"{tk}_t")
-if L2:                                             # (P28: nor through a strike: it is thrown)
-    p.load(ANIM).push(2).emit("eq", f"jz {tk}_sw", f"jmp {tk}")
-    p.mark(f"{tk}_sw")
+if L2:                                             # (P28: nor through a strike: it is thrown;
+    p.load(ANIM).push(2).emit("eq", f"jz {tk}_sw", f"jmp {tk}")   # P30: nor between a
+    p.mark(f"{tk}_sw")                             # string's blows -- the pad was their step)
+    p.load(F["c3"]).emit(f"jz {tk}_sl")
+    p.push(TURN_LOCK).load(F["ltap"]).emit("lt", f"jz {tk}")
+    p.mark(f"{tk}_sl")
 p.emit("load 1").push(spec.PAD_A | spec.PAD_B | spec.PAD_X | spec.PAD_Y)
 p.emit("and", f"jz {tk}_go", f"jmp {tk}")
 p.mark(f"{tk}_go")
@@ -3114,21 +3159,44 @@ p.mark(tk)
 
 # ---- a swing owns the body until its frames are done --------------------------
 p.load(ANIM).push(2).emit("eq", f"jz {L['free']}")
-if L2:
-    pv_ = p.label("pivot")                        # the body comes round, the clock running
-    p.load(PIVOT).emit(f"jz {pv_}")
-    p.load(PIVT).store(W["head"])
-    knob(p, "pivot")
-    p.push(MOVE["cross"]).load(F["mv"]).emit("lt", f"jz {pv_}_r")   # past the cross: heavy
-    p.emit("drop")
-    knob(p, "pivoth")
-    p.mark(f"{pv_}_r")
-    p.store(W["dg"]).emit(f"call {L_STEER}")
-    p.load(YAW).store(HEAD)
-    p.load(YAW).load(PIVT).emit("eq", f"jz {pv_}")
-    p.set(PIVOT, 0)
-    p.mark(pv_)
 p.addi(AF, 1)
+if L2:
+    # P30: THE BLOW'S DRIVE. Its lunge comes on its own frame -- with the
+    # drive, not the wind-up (the haymaker winds back where he stands, then
+    # goes) -- and THE PAD'S STEP with it: Up steps him in, Down out (and no
+    # lunge), Left and Right off the line. He does not turn: the blow goes
+    # where he faces. One impulse; the clip's feet are planted to it.
+    lg_ = p.label("lunge")
+    p.load(AF).push(int(LDT)).load(F["mv"]).emit("add", "loadi", "eq", f"jz {lg_}")
+    row(PMT, F["mv"], "lunge")
+    knob(p, "lunge").emit("mulq")
+    p.load(STEPD).push(1).emit("eq", f"jz {lg_}_u")
+    knob(p, "step").emit("add")
+    p.mark(f"{lg_}_u")
+    p.load(STEPD).push(2).emit("eq", f"jz {lg_}_d")
+    p.emit("drop").push(0)
+    knob(p, "step").emit("sub")
+    p.mark(f"{lg_}_d")
+    p.emit("dup").store(W["dmg"])
+    sin_of(p, cell=HEAD)
+    p.emit("mulq").load(F["vx"]).emit("swap", "sub").store(F["vx"])   # fwd x = -sin
+    sin_of(p, 256, cell=HEAD)
+    p.load(W["dmg"]).emit("mulq").load(F["vz"]).emit("add").store(F["vz"])
+    p.push(0)                                                          # his left is his facing + 256
+    p.load(STEPD).push(3).emit("eq", f"jz {lg_}_l")
+    p.emit("drop")
+    knob(p, "step")
+    p.mark(f"{lg_}_l")
+    p.load(STEPD).push(4).emit("eq", f"jz {lg_}_r")
+    p.emit("drop").push(0)
+    knob(p, "step").emit("sub")
+    p.mark(f"{lg_}_r")
+    p.emit("dup").store(W["dmg"])
+    sin_of(p, 256, cell=HEAD)
+    p.emit("mulq").load(F["vx"]).emit("swap", "sub").store(F["vx"])
+    sin_of(p, 512, cell=HEAD)
+    p.load(W["dmg"]).emit("mulq").load(F["vz"]).emit("add").store(F["vz"])
+    p.mark(lg_)
 p.load(AF)
 row(PMT, F["mv"], "total")
 p.emit("lt", f"jz {L['free']}_end")
@@ -3148,6 +3216,24 @@ p.load(F["buf"]).emit(f"jz {L['walk']}_q")
 # LAUNCH: the buffered move, and its lunge as ONE impulse (tear.py _launch)
 p.load(F["bmv"]).store(F["mv"])
 p.set(ANIM, 2).set(AF, 0).set(F["con"], 0).set(F["buf"], 0)
+if L2:
+    # P30: THE COUNT BUILDS TO THE TERMINATOR. A jab thrown is one more; Y
+    # ends the string with what the count has earned -- none or one: the
+    # lead hook; two: the rear uppercut; three or more: the haymaker.
+    ct_ = p.label("count")
+    p.load(F["mv"]).push(MOVE["jab"]).emit("eq", f"jz {ct_}_y")
+    p.load(F["c3"]).push(3).emit("lt", f"jz {ct_}")
+    p.addi(F["c3"], 1).emit(f"jmp {ct_}")
+    p.mark(f"{ct_}_y")
+    p.load(F["mv"]).push(MOVE["special"]).emit("eq", f"jz {ct_}")
+    p.load(F["c3"]).push(2).emit("lt", f"jz {ct_}_2")
+    p.set(F["mv"], MOVE["lead_hook"]).emit(f"jmp {ct_}_z")
+    p.mark(f"{ct_}_2")
+    p.load(F["c3"]).push(2).emit("eq", f"jz {ct_}_z")
+    p.set(F["mv"], MOVE["rear_uppercut"])
+    p.mark(f"{ct_}_z")
+    p.set(F["c3"], 0)
+    p.mark(ct_)
 gf = p.label("gunface")
 # P18: WHERE THE ATTACK GOES -- the way the pad points from his facing,
 # snapped there, all three attacks alike (the gun too: "never the pad" is
@@ -3161,24 +3247,22 @@ p.emit(f"call {L_BRG}")
 p.load(F["brg"]).store(HEAD).emit(f"jmp {gf}_g")
 p.mark(f"{gf}_p")
 if L2:
-    # P29: HE TURNS TO IT, AT ONCE. (P28 held the blow at its wind-up until he
-    # had turned -- a side cost 7 frames, behind him 14 -- and the player:
-    # "the directional snappiness was important because the intention is to
-    # place the jab exactly where we want it".) The blow goes the way the pad
-    # points THE FRAME IT IS THROWN: its clock runs, its lunge is along that
-    # way, and it lands on its own frame whichever way that is. His body
-    # comes round to it inside the wind-up -- the pivot knob's turn a frame,
-    # half a circle in three -- so there is no frame he is not somewhere on
-    # the way; and he STAYS facing it. (The gun still snaps: not this layer's.)
-    p.set(PIVOT, 0)
+    # P30: THE BLOW GOES WHERE HE FACES (the player, of P29: "the jabs turn
+    # the player, it shouldn't" -- and, asked, "Always straight; d-pad is
+    # footwork"). The pad at the launch is the blow's STEP, latched here and
+    # given with its lunge (the swing, above). (The gun still snaps: not this
+    # layer's.)
     p.push(MOVE["gun"] - 1).load(F["mv"]).emit("lt", f"jz {gf}_pf", f"jmp {gf}_ps")
     p.mark(f"{gf}_pf")
-    p.push(int(OCTANT)).emit("load 1").push(15).emit("and", "add", "loadi")
-    p.load(YAW).emit("add").push(1023).emit("and", "dup").store(PIVT)
-    p.store(HEAD)                                  # (for the lunge, below: along it)
-    p.load(PIVT).load(YAW).emit("eq", f"jz {gf}_pv", f"jmp {gf}_g")
-    p.mark(f"{gf}_pv")
-    p.set(PIVOT, 1).emit(f"jmp {gf}_g")
+    p.load(YAW).store(HEAD)
+    p.set(STEPD, 0)
+    for bit_, k_ in ((spec.PAD_RIGHT, 4), (spec.PAD_LEFT, 3), (spec.PAD_DOWN, 2), (spec.PAD_UP, 1)):
+        ns_ = p.label("stepd")
+        held(bit_)
+        p.emit(f"jz {ns_}")
+        p.set(STEPD, k_)
+        p.mark(ns_)
+    p.emit(f"jmp {L['motion']}")
     p.mark(f"{gf}_ps")
 p.push(int(OCTANT)).emit("load 1").push(15).emit("and", "add", "loadi")
 p.load(YAW).emit("add").push(1023).emit("and").store(HEAD)
@@ -3205,8 +3289,6 @@ p.emit("drop").store(F["shake"])
 p.emit(f"jmp {L['motion']}")
 p.mark(f"{gf}_m")                               # a fist: its lunge, along HEAD
 row(PMT, F["mv"], "lunge")                      # (targeting's haymaker crosses the
-if L2:
-    knob(p, "lunge").emit("mulq")
 hy_ = p.label("hylunge")                        # gap to the target it is sure to
 p.load(F["mv"]).push(MOVE["special"]).emit("eq", f"jz {hy_}")   # hit: x2.5, five units)
 p.load(F["sty"]).push(SQ_TARGET).emit("eq", f"jz {hy_}")
@@ -3217,11 +3299,6 @@ sin_of(p, cell=HEAD)
 p.emit("mulq").load(F["vx"]).emit("swap", "sub").store(F["vx"])   # fwd x = -sin
 sin_of(p, 256, cell=HEAD)
 p.load(W["dmg"]).emit("mulq").load(F["vz"]).emit("add").store(F["vz"])
-if L2:                                            # (pivoting: drawn where he has got to)
-    pvh = p.label("pivhead")
-    p.load(PIVOT).emit(f"jz {pvh}")
-    p.load(YAW).store(HEAD)
-    p.mark(pvh)
 p.emit(f"jmp {L['motion']}")
 p.mark(f"{L['walk']}_q")
 p.load(YAW).store(HEAD)                       # no strike: he faces his steering
@@ -3389,6 +3466,10 @@ if BASE:
     if L1:                                        # (out of the run: its speed, and the
         p.load(F["spd"]).push(int(0.8 * ONE)).emit("mulq").store(F["spd"])   # lean it gives him, die away)
     p.push(0)
+    if L2:                                        # (P30: between a string's blows he stands)
+        p.load(F["c3"]).emit(f"jz {wb}_sl")
+        p.push(TURN_LOCK).load(F["ltap"]).emit("lt", f"jz {wb}_e")
+        p.mark(f"{wb}_sl")
     p.load(QT).emit(f"jz {wb}_t", f"jmp {wb}_e")          # (mid quick turn: he stands)
     p.mark(f"{wb}_t")
     p.emit("load 1", f"push {spec.PAD_UP}", "and", f"jz {wb}_d")
@@ -3658,7 +3739,10 @@ p.mark(f"{ap}_hi")
 p.push(base["air"]).emit("add").store(POSE).emit(f"jmp {L['pd']}")
 p.mark(ap)
 p.load(ANIM).push(2).emit("eq", f"jz {L['pm']}")
-row(PMT, F["mv"], "pose")
+if L2:                                            # (P30: the blow's clip, the way it was stepped)
+    p.push(int(SVT)).load(F["mv"]).push(len(WAYS)).emit("mul", "add").load(STEPD).emit("add", "loadi")
+else:
+    row(PMT, F["mv"], "pose")
 p.load(AF).emit("add").store(POSE).emit(f"jmp {L['pd']}")
 p.mark(L["pm"])
 # P15: THE TOUCHDOWN'S KNEES. Standing or walking out of a landing he
@@ -3852,6 +3936,8 @@ if L2:
     for k_, c_ in enumerate(("fx", "fy", "fz")):
         p.load(F[c_]).store(int(SPK) + k_)
     p.set(int(SPK) + 3, SPARK_FOR)
+    row(PMT, F["mv"], "stop")                     # (P30: and a terminator's weight shakes
+    p.push(5).emit("sub", "shr 2").store(F["shake"])   # the lens: 2, 2, the haymaker 5)
     p.mark(sk2)
 p.mark(nf_)
 p.load(F["act"]).store(IACT)                    # P20b: the swarm reads it after
