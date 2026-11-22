@@ -49,9 +49,11 @@ def _s32(v):
 
 
 class Game:
+    cart = CART                               # (a layer above this one plays its own)
+
     def __init__(self, text):
         self.text = text
-        self.m = cabinet.VirtualMachine(cabinet.load_cart(CART))
+        self.m = cabinet.VirtualMachine(cabinet.load_cart(self.cart))
         self.m.frame(spec.PAD_START)
         self.d = self.m.vm.dmem
         self.run(0, 90)                       # at the start: far from any key
@@ -329,11 +331,11 @@ DILATED = {
         (Y, 2), (0, 50), (LF | Y, 2), (0, 50), (spec.PAD_B, 2), (0, 30), (RT | spec.PAD_B, 2), (0, 30), (U, 10), (0, 20))),
     "the jabs and the count": (Y, _seq(
         (X, 2), (0, 9), (X, 2), (0, 9), (LF | X, 2), (0, 9), (X, 2), (0, 30), (U, 12), (0, 50), (D | X, 2), (0, 30))),
-    # (B's holds are short -- 8 fight frames at most, 4 with Left or Right:
-    # the hold and the CHARGE are a thumb's clocks, counted in frames of
-    # glass, and a longer hold slows time in the "running" play too)
+    # (B's holds are short -- 4 fight frames at most: the hold, the aim and
+    # the CHARGE are a thumb's clocks, counted in frames of glass -- twelve
+    # of them here in slowed time, under the hold knob's fourteen)
     "the gun: drawn, a volley, shots on the move, the cylinder": (X, _seq(
-        (B, 6), (0, 12), (LF | B, 4), (0, 10), (B, 3), (0, 3), (B, 3), (0, 3), (B, 3), (0, 30), (D | B, 8), (0, 40),
+        (B, 4), (0, 12), (LF | B, 4), (0, 10), (B, 3), (0, 3), (B, 3), (0, 3), (B, 3), (0, 30), (D | B, 4), (0, 40),
         (L | RT | B, 4), (L | RT, 20), (L, 10), (B, 2), (0, 8), (B, 2), (0, 8), (B, 4), (0, 30), (B, 4), (0, 20),
         (U, 30), (0, 20))),
 }
@@ -537,28 +539,40 @@ def test_a_shot_is_a_bullet_and_lands_where_the_sight_said(text, way):
     a bead a round and a point where the shot will land -- along the line a
     release would fire: the pad's way from his steering, or his body's. The
     bullet then flies that line at its pace and lands on that point: a wall's
-    face, where the street ends (or nothing, 13 units out)."""
+    face, where the street ends (or nothing, 13 units out).
+    P35 ("the targeting should really only show in slow motion"): the sight
+    is drawn in slowed time only -- a tap in running time is just the shot."""
     g = Game(text)
     g.run(0, 30)
+    n0, mid = g.d[spec.OL_BASE], g.pos()[0]                         # (he starts in the middle of the street)
+    for _ in range(8):
+        g.run(way | B, 1)
+        assert g.d[spec.OL_BASE] <= n0, "the sight, in running time"
+    g.run(way, 1)
+    g.run(0, 60)                                                    # (that tap's shot: five rounds left)
+    g.run(X, 90)                                                    # a jab, and X held: time slowed
+    assert g.cell("slow_on") and g.cell("anim") != 2
     n0, y0 = g.d[spec.OL_BASE], g.cell("yaw")
-    g.run(way | B, 8)
+    g.run(X | way | B, 8)
     (x0, z0), still = g.pos(), way in (0, LF, RT)                   # (Up and Down walk him, the button held)
     assert g.cell("yaw") == y0, "a button freshly down, and the tank turned"
     hit, far = g.cell("ray_hit"), g.cell("ray_len") / 65536
-    assert g.d[spec.OL_BASE] == n0 + 6 + (1 if hit else 0), "the sight: six beads, and its point on a wall"
+    assert g.d[spec.OL_BASE] == n0 + 5 + (1 if hit else 0), "the sight: a bead a round, and its point on a wall"
     end = (g.cell("ray_x"), g.cell("ray_z"))
     a = (y0 + {0: 0, LF: 256, RT: -256, D: 512, U | LF: 128}[way]) * 2 * np.pi / 1024
     fx, fz = -np.sin(a), np.cos(a)                                  # the pad's way, from his steering
     ox, oz = x0 + 0.5 * fx + 0.14 * fz, z0 + 0.5 * fz - 0.14 * fx   # the gun: ahead, to his right
     assert abs(end[0] / 65536 - (ox + far * fx)) < 0.01 and abs(end[1] / 65536 - (oz + far * fz)) < 0.01
     if way in (LF, RT):                                             # the street's walls: 4.65 either side
-        assert hit == 1 and abs(abs(end[0] / 65536 - x0) - 4.65) < 0.13, (hit, end[0] / 65536 - x0)
+        assert hit == 1 and abs(abs(end[0] / 65536 - mid) - 4.65) < 0.13, (hit, end[0] / 65536 - mid)
     if way == 0:
         assert hit == 0 and far == GUN_RANGE, "down the street: nothing in reach"
     g.run(way, 1)
     assert g.d[spec.OL_BASE] <= n0, "the sight outlived the button"
-    g.run(0, 1)
-    assert _flying(g), "no bullet the frame after he let go"
+    for _ in range(6):                                              # (drawn three frames of the fight: two more)
+        if not _flying(g):
+            g.run(0, 1)
+    assert _flying(g), "no bullet"
     assert (g.cell("head") - y0) % 1024 == round(a * 1024 / (2 * np.pi) - y0) % 1024
     flew = 1
     while _flying(g):
@@ -568,7 +582,8 @@ def test_a_shot_is_a_bullet_and_lands_where_the_sight_said(text, way):
     there = [(g.cell(f"bul{i}_ex"), g.cell(f"bul{i}_ez")) for i in (0, 1) if g.cell(f"bul{i}_hit") & 3 or not hit]
     if still:
         assert flew - 1 == int(far // GUN_V) + 1, (flew, far)       # (it lands the frame it passes the place)
-        assert end in there, "the bullet's line is not the sight's"
+        assert any(abs(end[0] - x) < 66 and abs(end[1] - z) < 66 for x, z in there), (     # (a thousandth: the
+            end, there, "the bullet's line is not the sight's")                            # jab's lunge still dying)
     if hit:
         assert g.cell("spark", 3) > 0 and (g.cell("spark"), g.cell("spark", 2)) in there, "it did not land there"
     else:
@@ -616,9 +631,9 @@ def test_the_cylinder_empties_reloads_and_a_terminator_fills_it(text, monkeypatc
     g.run(0, 30)
     n0 = g.d[spec.OL_BASE]
 
-    def shot():                                   # a thumb's tap; -> (beads on the sight, did a bullet leave?)
-        g.run(B, 5)
-        beads, went = g.d[spec.OL_BASE] - n0, False
+    def shot(down=5):                             # a thumb's tap; -> (rounds in it, did a bullet leave?)
+        beads, went = 0 if g.cell("gun_reload") else 6 - g.cell("gun_shots"), False
+        g.run(B, down)
         for _ in range(12):
             g.run(0, 1)
             went = went or _flying(g)
@@ -628,13 +643,16 @@ def test_the_cylinder_empties_reloads_and_a_terminator_fills_it(text, monkeypatc
     assert shot() == (0, False), "it fired while it was reloading"
     g.run(0, RELOAD)
     assert g.cell("gun_shots") == 0 and shot() == (6, True), "it did not reload"
-    shot(), shot()
+    g.run(B, 20)                                  # held: time slowed, and the sight -- a bead a round
+    assert g.cell("slow_on") and g.d[spec.OL_BASE] == n0 + 5, "the sight's beads are not the rounds"
+    g.run(0, 12)
+    shot()
     assert g.cell("gun_shots") == 3
     g.run(Y, 5)
     g.run(0, 50)
     assert g.cell("gun_shots") == 0 and shot()[0] == 6, "a terminator did not fill it"
     g.d[g.sym("knobs") + MAG] = 0
-    assert all(shot() == (6, True) for _ in range(9)) and g.cell("gun_reload") == 0, "at 0 it ran dry"
+    assert all(shot()[1] for _ in range(9)) and g.cell("gun_reload") == 0, "at 0 it ran dry"
 
 
 @pytest.mark.parametrize("off,struck", [(0.0, True), (0.5, True), (0.9, False), (-0.5, False)])
@@ -648,7 +666,7 @@ def test_a_shot_meets_the_key_only_on_its_line(text, off, struck):
     kx, kz = g.cell("ctx_x"), g.cell("ctx_z")
     for name, v in (("px", kx + int(off * 65536)), ("pz", kz + 5 * 65536), ("yaw", 512), ("head", 512)):
         g.d[g.sym(name)] = v & 0xFFFFFFFF
-    g.run(B, 8)                                   # facing -z: his right is -x, the gun at off - 0.14
+    g.run(B, 20)                                  # facing -z: his right is -x, the gun at off - 0.14
     assert (g.cell("ray_hit") == 2) == struck, (g.cell("ray_hit"), g.cell("ray_len") / 65536)
     if struck:
         assert abs(g.cell("ray_len") / 65536 - 4.5) < 0.01 and g.cell("ray_z") == kz
@@ -679,6 +697,49 @@ def test_held_to_aim_the_lens_comes_round_behind_the_shot(text):
     assert off(g.cell("head")) < 96, "the lens left before the shot landed"
     g.run(0, 90)
     assert off(g.cell("yaw")) < 16, "the lens did not come back"
+
+
+def test_aiming_the_pad_turns_him_and_the_shot_goes_where_he_faces(text):
+    """P35 (of P34 on glass: "just needs some fixing on the movement when in
+    slow motion gun drawn"; on its tape he held B up to eighteen seconds and
+    tapped Left and Right to bring the sight round, and every tap threw his
+    body a quarter turn to that side). B held past the hold knob he is
+    AIMING: his steering comes to where his body points, once; then Left and
+    Right turn him -- a tap a degree or two, a hold as fast as the tank --
+    his body with his steering, and the shot goes where he faces though the
+    pad is held. A direction with a FRESH B is still a shot that way."""
+    g = Game(text)
+    g.run(0, 30)
+    y0 = g.cell("yaw")
+
+    def turned(since):
+        return (g.cell("yaw") - since + 512) % 1024 - 512
+    g.run(B, 20)
+    assert g.cell("aimed") and g.cell("slow_on") and g.cell("yaw") == y0
+    g.run(B | LF, 6)
+    g.run(B, 12)
+    assert 0 < turned(y0) <= 6 and g.cell("head") == g.cell("yaw"), (turned(y0), g.cell("head"), g.cell("yaw"))
+    g.run(B | RT, 6)
+    g.run(B, 12)
+    assert abs(turned(y0)) <= 3 and g.cell("head") == g.cell("yaw")
+    g.run(B | LF, 90)                             # held: thirty frames of the fight
+    assert turned(y0) > 256 and g.cell("head") == g.cell("yaw"), "a held turn did not sweep"
+    y1 = g.cell("yaw")
+    g.run(LF, 1)                                  # B let go with Left still down
+    for _ in range(4):
+        if not _flying(g):
+            g.run(0, 1)
+    assert _flying(g) and g.cell("head") == g.cell("yaw") == y1, "the aimed shot did not go where he faced"
+    g.run(0, 60)
+    g.run(RT | B, 5)                              # a fresh B with a direction: a shot that way
+    g.run(RT, 1)
+    g.run(0, 3)
+    assert (g.cell("head") - y1) % 1024 == 768 and g.cell("yaw") == y1
+    g.run(0, 60)
+    g.run(LF | B, 13)                             # fresh, Left: he aims left of his steering...
+    assert (g.cell("head") - y1) % 1024 == 256 and g.cell("yaw") == y1 and not g.cell("aimed")
+    g.run(LF | B, 9)                              # ...held on: his steering comes to it, and he turns from there
+    assert g.cell("aimed") and g.cell("head") == g.cell("yaw") and 0 < turned(y1 + 256) <= 6
 
 
 def test_the_layers_under_it_still_stand(text, monkeypatch):

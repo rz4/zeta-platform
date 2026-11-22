@@ -1655,3 +1655,58 @@ gun and nothing was hit. Layer 2 only; behind L2.
   cylinder, the key on and off the line, the aim's lens, and a sixth
   dilation script for the gun). Layers 0 and 1 build byte-identical to
   P33's; the full cart is byte-identical.
+
+## P35: aiming; the sight in slowed time only; layer 3 -- the right shoulder (2026-11-22; not yet on glass)
+
+The player, of P34 on glass: "feels a bit better. just needs some fixing on
+the movement when in slow motion gun drawn. The targeting should really
+only show in slow motion." And: "do the targeting now too. right shoulder,
+use the item as the target." The tape (3m08 of P34): 56% of it slowed, B
+down for 59% of it -- 28 holds past the hold knob, the longest 18 seconds;
+ten shots struck the key; R held 22 seconds, where it did nothing.
+
+- **What was wrong with the movement.** Holding B with the gun drawn he
+  tapped Left and Right to bring the sight round. The pad was still the
+  SHOT'S way: each tap threw his body a quarter turn to that side of his
+  steering (Left, then Right: a half turn across), while his steering
+  crept a notch a frame under it and the lens came round after his body.
+- **Aiming** (layer 2 on). B held PAST the hold knob -- the moment time
+  slows for it -- his steering comes round to where his body points (in
+  the boxer, his cross), once. From then the pad moves him as it does with
+  no button down, and the shot goes where he faces: Left and Right turn
+  him, Up and Down walk him, the lens behind him the tank's own. A
+  direction with a FRESH B (under the knob) is still a shot that way.
+- **The turn starts fine.** The tank's notch is 14 (five degrees: half a
+  unit of wall at six units, and a key is 0.9 across). Aiming, a turn's
+  first frame is 1, its second 2, up to the tank's own: a thumb's tap is
+  three units -- a degree -- and a hold sweeps a quarter turn in a little
+  over a second of glass.
+- **The sight shows in slowed time only.** A tap in running time is just
+  the shot (and its bullet); held past the knob, or with another button
+  holding time, the beads and the point are drawn.
+- **Layer 3: the lock** (TND_LAYER=3; the P18 design, his: "R = targeting:
+  planted"). R held, the district's item within 20 units (the key; the
+  key held, its gate): he squares up to it -- his steering, in the boxer
+  his cross, comes round to its bearing at 48 a frame and stays on it,
+  his body with it. The item is outlined, a mark over it. He is planted:
+  the tank neither walks nor turns (the dodges are his). A blow or a shot
+  goes AT it whatever the pad says, so a shot strikes the key. L + R, the
+  boxer's steps go round it -- Left and Right circle, Up in, Down out.
+  The lens is targeting's: 2.8 behind, over his right shoulder. Not in
+  the run; nothing in reach, R is nothing. (One target: Left/Right to
+  change it and Up/Down for a shot's height wait for more to aim at.)
+  The fight never sees R: it is read off the pad before the layer's mask.
+- **Known, and left**: walking with the gun drawn he plays the walk (the
+  gun is not up in it): there is no clip of that yet.
+- **Found by the aiming's test: the first turn after the knob was a whole
+  notch.** The aim was taken up at the top of the fight's frame, before
+  that frame's buttons were read; the tank's own guard, read after them,
+  let him turn a frame sooner -- fourteen units, then the fine ones. The
+  aim begins where the buttons are read.
+- **Measured on silicon** (the sim; layer 3 from a state by the key: the
+  lock, a locked shot in slowed time, a jab, the boxer round it, then
+  aiming with no lock -- on the build before the fix above): 288 frames,
+  law and silicon the same on every one; peak 454,849 clocks (53%).
+- tests: 45 layer 2 (the sight in slowed time only; aiming), 5 layer 3.
+  Layers 0 and 1 build byte-identical to P33's; the full cart is
+  byte-identical. Layer 2 is 15,890 words of 16,384, layer 3 16,026.

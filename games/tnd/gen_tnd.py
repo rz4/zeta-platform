@@ -81,9 +81,10 @@ SWARM_TEST = os.environ.get("TND_SWARM") == "1"
 #                 held slows time, keeps the string, and the lens goes to
 #                 where the blow lands.
 LAYER = int(os.environ.get("TND_LAYER", "9"))
-BASE = LAYER in (0, 1, 2)        # the base's own rules (the layers stand on them)
-L1 = LAYER in (1, 2)             # the left shoulder
-L2 = LAYER == 2                  # shadow boxing
+BASE = LAYER in (0, 1, 2, 3)     # the base's own rules (the layers stand on them)
+L1 = LAYER in (1, 2, 3)          # the left shoulder
+L2 = LAYER in (2, 3)             # shadow boxing, and the gun
+L3 = LAYER == 3                  # the right shoulder: targeting (P35)
 SONG_CH = range(4, 11)          # the record's voices (the synth theme's, freed)
 SONG_VOL = 15                   # each voice's level at full bus (x bus / 256)
 OUT = Path(os.environ.get("TND_OUT", ROOT / "build" / f"layer{LAYER}" / "tnd.zol"
@@ -2209,7 +2210,7 @@ SETTLED = {k_[0]: k_[1] for k_ in KNOBS + KNOBS_L1 + KNOBS_L2}
 SETTLED["ramp"] = BASE_SET.get("ramp", int(0.22 * ONE))      # (weight: left at 0.73)
 if LAYER == 1:
     KNOBS = KNOBS_L1
-if LAYER == 2:
+if LAYER in (2, 3):
     KNOBS = KNOBS_L2
 if BASE:
     KN = cart.data(Table([k_[1] for k_ in KNOBS]), "knobs")
@@ -2248,9 +2249,18 @@ if BASE:
             "gun_draw", "gun_shots", "gun_reload", "key_hit", "bul_next"))
         RAY = {k: cart.var("ray_" + k) for k in ("dx", "dz", "len", "hit", "x", "z", "step", "ox", "oz")}
         AIMT = cart.var("aim_linger")
+        # P35: he is AIMING (B held past the hold knob: his steering came
+        # round to his body, and the pad moves him), and how long the pad
+        # has turned him at it (the turn starts fine)
+        AIMED, ATURN = cart.var("aimed"), cart.var("aim_turn")
         BUL = [{k: cart.var(f"bul{i}_{k}") for k in ("ex", "ez", "dx", "dz", "rem", "y", "yaw", "hit")}
                for i in range(2)]
         assert int(BUL[1]["ex"]) == int(BUL[0]["ex"]) + 8 and int(BUL[0]["hit"]) == int(BUL[0]["ex"]) + 7
+    if L3:
+        # P35: THE RIGHT SHOULDER. R down this frame (the pad's own word:
+        # the fight below never sees R), and locked on the item
+        RHELD, LOCK = cart.var("r_held"), cart.var("locked")
+        LOCK_RANGE, LOCK_TURN = 20.0, 48
     cart.boot(spec.LIGHT_DIR, 0x007F00)          # P22: straight down (see piece_light)
     cart.boot(spec.LIGHT_AMB, LIT_AMB0)         # (the title's street, before the game
     cart.boot(spec.LIGHT_DIF, 33 - LIT_AMB0)    # sets them a frame at a time)
@@ -2401,7 +2411,7 @@ if BASE:
     for c_ in (KEY, PICK, QT, WSPD, KNEAR, TURNED, SJD, FOCB, SLOWON, AHOLD, APEND, EVW):
         p.set(c_, 0)
     if L2:
-        for c_ in (DRAW, SHOTS, RLD, KHIT, AIMT, BUL[0]["rem"], BUL[1]["rem"]):
+        for c_ in (DRAW, SHOTS, RLD, KHIT, AIMT, AIMED, ATURN, BUL[0]["rem"], BUL[1]["rem"]) + ((LOCK,) if L3 else ()):
             p.set(c_, 0)
     p.set(WR, ONE)
 if SWARM_TEST:                                  # (the meter's hook: the fight in the
@@ -2471,6 +2481,8 @@ if BASE:
         p.mark(f"{gr_}_s")
     p.store(spec.GRADE_SRC)
     # no shoulders in the base; and a pick-up holds him, crouched, till it is done
+    if L3:
+        p.emit("load 1").push(spec.PAD_R).emit("and").store(RHELD)
     p.emit("load 1").push(0xFFFF & ~((0 if L1 else spec.PAD_L) | spec.PAD_R | spec.PAD_SELECT))
     p.emit("and").store(spec.REG_PAD)
     if L2:
@@ -2722,6 +2734,47 @@ if L2:
     p.load(DRAW).emit(f"jz {gd_}")
     p.addi(DRAW, -1)
     p.mark(gd_)
+    # P35: AIMING (the player, of P34 on glass: "just needs some fixing on
+    # the movement when in slow motion gun drawn"). On the tape he held B for
+    # up to eighteen seconds and tapped Left and Right to bring the sight
+    # round -- and each tap threw his body a quarter turn to that side of his
+    # steering (the pad was still the shot's way) while his steering crept a
+    # notch a frame under it. Now: B held PAST the hold knob, he is aiming.
+    # His steering comes round to where his body points (the boxer's cross
+    # too) -- once -- and from then the pad moves him as it does with no
+    # button down: Left and Right TURN him (finely: below), Up and Down walk
+    # him, and the shot goes where he faces. A direction with a FRESH B is
+    # still a shot that way.
+    # (the aim is taken up below, once this frame's buttons are read)
+    if L3:
+        # P35: THE LOCK (the player: "do the targeting now too. right shoulder,
+        # use the item as the target" -- and, of P18, his own: "R = targeting:
+        # planted"). R held, the district's item in reach of it (the key; the
+        # key held, its gate), he squares up to it: his steering -- in the
+        # boxer, his cross -- comes round to its bearing and stays on it, his
+        # body with it. He is planted (the tank neither walks nor turns; the
+        # dodges and the boxer's steps are his, round it), and a blow or a
+        # shot goes AT it, whatever the pad says. Not in the run.
+        lk3 = p.label("lock3")
+        p.set(LOCK, 0)
+        p.load(RHELD).emit(f"jz {lk3}")
+        p.load(F["sty"]).push(1).emit("eq", f"jz {lk3}_s", f"jmp {lk3}")
+        p.mark(f"{lk3}_s")
+        p.load(LVL).push(len(GATES)).emit("lt", f"jz {lk3}")
+        p.load(KX).load(PX).emit("sub").store(W["qx"]).load(KZ).load(PZ).emit("sub").store(W["qz"])
+        for q_ in (W["qx"], W["qz"]):
+            p.load(q_).emit("dup").push(0).emit("lt", f"jz {lk3}_p{int(q_)}")
+            p.push(0).emit("swap", "sub")
+            p.mark(f"{lk3}_p{int(q_)}")
+            p.push32(int(LOCK_RANGE * ONE)).emit("lt", f"jz {lk3}")
+        p.emit(f"call {L_YAW}")
+        p.set(LOCK, 1).set(TURNED, 0)
+        p.load(F["sty"]).push(2).emit("eq", f"jz {lk3}_t")
+        p.load(F["latch"]).store(YAW)
+        p.mark(f"{lk3}_t")
+        p.load(F["brg"]).store(W["head"]).push(LOCK_TURN).store(W["dg"]).emit(f"call {L_STEER}")
+        p.load(YAW).store(F["latch"])
+        p.mark(lk3)
     # THE CYLINDER: the mag knob's rounds. The last one gone, it is RELOAD
     # frames before the gun is full again -- or a terminator thrown fills it
     # at once (the launch): the fists load the gun.
@@ -2947,6 +3000,23 @@ else:
 p.mark(L["notap"])
 p.emit("ret")
 p.mark(f"{GEST}_end")
+if L2:
+    # P35: AIMING begins the frame B's hold passes the knob -- read here,
+    # after the buttons, so it is the SAME frame the tank is first let turn
+    # (a frame later, that first turn was a whole notch).
+    am_ = p.label("aim")
+    knob(p, "hold").load(GT["shoot"]).emit("lt", f"jz {am_}_n")
+    p.load(AIMED).emit(f"jz {am_}_e", f"jmp {am_}")
+    p.mark(f"{am_}_e")
+    p.load(F["sty"]).push(1).emit("eq", f"jz {am_}_s", f"jmp {am_}")
+    p.mark(f"{am_}_s")
+    p.load(HEAD).emit("dup").store(YAW).store(F["latch"])
+    p.set(TURNED, 0).set(AIMED, 1).set(ATURN, 0).emit(f"jmp {am_}")
+    p.mark(f"{am_}_n")                                     # (B up and no shot waiting: it is over)
+    p.load(GT["shoot"]).load(F["buf"]).emit("or", f"jz {am_}_c", f"jmp {am_}")
+    p.mark(f"{am_}_c")
+    p.set(AIMED, 0)
+    p.mark(am_)
 # THE JUMP: X's press, at once -- unless A is down (carve+jump launches)
 jp = p.label("jump")
 if L2:
@@ -3310,6 +3380,9 @@ if BASE:                                           # P21: THE QUICK TURN (Down +
     p.mark(f"{tk}_nq")
 p.load(F["sty"]).emit(f"jz {tk}_t", f"jmp {tk}")   # (the styles steer themselves)
 p.mark(f"{tk}_t")
+if L3:                                             # (P35: locked, he is planted)
+    p.load(LOCK).emit(f"jz {tk}_lk", f"jmp {tk}")
+    p.mark(f"{tk}_lk")
 if L2:                                             # (P28: nor through a strike: it is thrown;
     p.load(ANIM).push(2).emit("eq", f"jz {tk}_sw", f"jmp {tk}")   # P30: nor between a
     p.mark(f"{tk}_sw")                             # string's blows -- the pad was their step)
@@ -3337,7 +3410,25 @@ if L2:
 p.emit("load 1").push(spec.PAD_A | spec.PAD_B | spec.PAD_X | spec.PAD_Y)
 p.emit("and", f"jz {tk}_go", f"jmp {tk}")
 p.mark(f"{tk}_go")
-if BASE:
+if L2:
+    # P35: AIMING, THE TURN STARTS FINE. The tank's notch (14: five degrees)
+    # is half a unit of wall at six units -- a key is 0.9 across. Aiming, a
+    # turn's first frame is 1, its second 2, and so on up to the tank's own:
+    # a tap is a degree or two, a hold sweeps as fast as ever.
+    at_ = p.label("aimturn")
+    knob(p, "turn").store(W["dg"])
+    p.load(AIMED).emit(f"jz {at_}")
+    held(spec.PAD_LEFT | spec.PAD_RIGHT)
+    p.emit(f"jz {at_}_z")
+    p.addi(ATURN, 1)
+    p.load(ATURN).load(W["dg"]).emit("lt", f"jz {at_}")
+    p.load(ATURN).store(W["dg"]).emit(f"jmp {at_}")
+    p.mark(f"{at_}_z")
+    p.set(ATURN, 0)
+    p.mark(at_)
+    p.if_pad(spec.PAD_LEFT, lambda q: q.load(YAW).load(W["dg"]).emit("add").store(YAW))
+    p.if_pad(spec.PAD_RIGHT, lambda q: q.load(YAW).load(W["dg"]).emit("sub").store(YAW))
+elif BASE:
     p.if_pad(spec.PAD_LEFT, lambda q: knob(q.load(YAW), "turn").emit("add").store(YAW))
     p.if_pad(spec.PAD_RIGHT, lambda q: knob(q.load(YAW), "turn").emit("sub").store(YAW))
 else:
@@ -3470,6 +3561,9 @@ if L2:
     p.push(MOVE["gun"] - 1).load(F["mv"]).emit("lt", f"jz {gf}_pf", f"jmp {gf}_ps")
     p.mark(f"{gf}_pf")
     p.load(HEAD).store(PIVT)
+    if L3:                                        # (P35: locked, the blow goes at it)
+        p.load(LOCK).emit(f"jz {gf}_pl", f"jmp {L['motion']}")
+        p.mark(f"{gf}_pl")
     held(15)
     p.emit(f"jz {L['motion']}")
     p.push(int(OCTANT)).emit("load 1").push(15).emit("and", "add", "loadi")
@@ -3484,6 +3578,12 @@ if L2:
     # snapped back to his steering.
     p.mark(f"{gf}_ps")
     p.set(TURNED, 1)
+    p.load(AIMED)                                 # (P35: aimed -- or locked -- the shot goes
+    if L3:                                        # where he faces: the pad was his feet)
+        p.load(LOCK).emit("or")
+    p.emit(f"jz {gf}_pa")
+    p.set(AIMED, 0).emit(f"jmp {gf}_g")
+    p.mark(f"{gf}_pa")
     held(15)
     p.emit(f"jz {gf}_g")
 p.push(int(OCTANT)).emit("load 1").push(15).emit("and", "add", "loadi")
@@ -3535,6 +3635,11 @@ if L2:
     dr_ = p.label("drawturn")
     held(spec.PAD_B)
     p.emit(f"jz {dr_}")
+    p.load(AIMED)                             # (P35: aiming or locked, his body is his steering's)
+    if L3:
+        p.load(LOCK).emit("or")
+    p.emit(f"jz {dr_}_a", f"jmp {dr_}")
+    p.mark(f"{dr_}_a")
     p.load(F["sty"]).push(1).emit("eq").load(F["evf"]).emit("or", f"jz {dr_}_t", f"jmp {dr_}")
     p.mark(f"{dr_}_t")
     p.load(HEAD).store(PIVT)
@@ -3765,6 +3870,9 @@ if BASE:
     if L1:                                        # (out of the run: its speed, and the
         p.load(F["spd"]).push(int(0.8 * ONE)).emit("mulq").store(F["spd"])   # lean it gives him, die away)
     p.push(0)
+    if L3:                                        # (P35: locked, he is planted)
+        p.load(LOCK).emit(f"jz {wb}_lk", f"jmp {wb}_e")
+        p.mark(f"{wb}_lk")
     if L2:                                        # (P30: between a string's blows he stands)
         p.load(F["c3"]).emit(f"jz {wb}_sl")
         p.push(TURN_LOCK).load(F["ltap"]).emit("lt", f"jz {wb}_e")
@@ -4399,6 +4507,11 @@ p.push(FOCUS_HOLD).load(GT["special"]).emit("lt", "or", "and")
 p.load(F["slow"]).emit("or", f"jz {md_}_e")       # -- or a launcher's slow motion
 p.push(int(FOCUS_D * ONE)).store(W["dmg"])
 p.mark(f"{md_}_e")
+if L3:                                           # P35: locked -- targeting's lens (P18): 2.8
+    lc_ = p.label("lockcam")                     # behind, over his right shoulder, the
+    p.load(LOCK).emit(f"jz {lc_}")               # item ahead of him in the shot
+    p.push(int(TGT_D * ONE)).store(W["dmg"]).push(int(TGT_SH * ONE)).store(W["stop"])
+    p.mark(lc_)
 if L2:
     # P31: TIME SLOWED, THE LENS GOES TO WHERE THE BLOW LANDS (the player:
     # "the slow motions need cameras focused on the hit location"): in to
@@ -5688,6 +5801,7 @@ if BASE:
               "push 1", "add", "mul", "push 1023", "and"),       # (in reach: it spins fast,
              (f"load {int(KNEAR)}", "push 1", "eq")
              + ((f"load {int(KHIT)}", "push 0", "eq", "push 1", "xor", "or") if L2 else ())
+             + ((f"load {int(LOCK)}", "or") if L3 else ())
              + (f"push {spec.OBJ_EDGE}", "mul",                                       # outlined)
               f"push {spec.OBJ_CULL}", "or"))
     p.object(NOBJ, SHADOW_M, (f"load {int(KX)}",), 0, (f"load {int(KZ)}",), 0, spec.OBJ_BLEND)
@@ -5708,9 +5822,15 @@ if L2:
     p.mark(f"{sg_}_k")
     p.load(F["py"]).push(GUN_Y).emit("add").store(W["oy"])
     p.load(GT["shoot"]).emit(f"jz {sg_}")
-    p.load(GC["shoot"]).load(RLD).emit("or", f"jz {sg_}_c", f"jmp {sg_}")
+    p.load(SLOWON).emit(f"jz {sg_}")              # (P35, the player: "the targeting should
+    p.load(GC["shoot"]).load(RLD).emit("or", f"jz {sg_}_c", f"jmp {sg_}")   # really only show in slow motion")
     p.mark(f"{sg_}_c")
     p.load(HEAD).store(W["head"])
+    p.load(AIMED)
+    if L3:
+        p.load(LOCK).emit("or")
+    p.emit(f"jz {sg_}_a", f"jmp {sg_}_h")
+    p.mark(f"{sg_}_a")
     held(15)
     p.emit(f"jz {sg_}_h")
     p.push(int(OCTANT)).emit("load 1").push(15).emit("and", "add", "loadi")
@@ -5746,6 +5866,12 @@ if L2:
              (f"load {int(RAY['z'])}",),
              (f"load {spec.REG_FRAME}", "push 29", "mul", "push 1023", "and", "dup", "shl 10", "or"), 0)
     p.mark(sg_)
+    if L3:                                      # P35: the lock's mark, over the item
+        lm_ = p.label("lockmark")
+        p.load(LOCK).emit(f"jz {lm_}")
+        p.object(NOBJ, AWARE_M, (f"load {int(KX)}",), int(1.9 * ONE), (f"load {int(KZ)}",),
+                 (f"load {spec.REG_FRAME}", "push 23", "mul", "push 1023", "and"), 0)
+        p.mark(lm_)
     for B_ in BUL:                              # the bullets: each a streak along its way
         nb = p.label("dbul")
         p.load(B_["rem"]).emit(f"jz {nb}")
