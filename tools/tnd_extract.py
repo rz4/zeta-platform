@@ -187,6 +187,612 @@ for name, kind, n in (("flip_fwd", "fwd", 20), ("flip_back", "back", 20),
     seqs[name] = [frozen(bm.flip_mesh(f / (n - 1), kind)) for f in range(n)]
 for d in ("fwd", "back", "left", "right"):
     seqs["dodge_" + d] = [frozen(bm.dodge_mesh(f / 11.0, d)) for f in range(12)]
+# THE STRIKES, AUTHORED (TND-PORT P29; the player, on glass: "the punching
+# poses need substanitlal work. I should be able to anticipate where the jab
+# will land ... all the punches should posed tactically"). The archive's jab
+# travels 25-30 degrees off his facing line. These are KEYS over each
+# strike's own frames: where the fist IS (two-bone IK puts it there exactly),
+# how the trunk is turned and leaned, where his weight is, and both feet
+# planted. Every one lands on his centre line (y = 0): what he faces is what
+# he hits. "name2" clips, so the archive's own stay beside them; P_name2 is
+# the fist's path, for the cart's hit and its spark.
+extra = {}
+G = bm._guard_pose_dict()
+_g = frozen(bm._pose_and_skin(G, np.zeros(3), None))[0]
+FOOT = {w: _g[anat.leg(w).foot].mean(0) for w in ("lead", "rear")}
+FIST = {w: _g[anat.arm(w).knuckles].mean(0) for w in ("lead", "rear")}
+def sm(u): return u * u * (3 - 2 * u)
+def interp(keys, f):
+    """keys: [(frame, {name: value}), ...] -> the values at frame f, eased key to key"""
+    ks = sorted(keys, key=lambda k: k[0])
+    if f <= ks[0][0]: return dict(ks[0][1])
+    for (f0, a), (f1, b) in zip(ks, ks[1:]):
+        if f0 <= f <= f1:
+            u = sm((f - f0) / (f1 - f0)) if f1 > f0 else 1.0
+            return {k: np.asarray(a[k], float) * (1 - u) + np.asarray(b[k], float) * u for k in a}
+    return dict(ks[-1][1])
+REST = dict(twist=0.0, lean=0.0, shift=(0.0, 0.0, 0.0), fist=None, s=0.0, lead_foot=(0.0, 0.0, 0.0),
+            rear_foot=(0.0, 0.0, 0.0), other=None, so=0.0, head=0.0)
+def frame(k, arm, pole=None):
+    """one pose: k = the keys' values. twist: the trunk turned (+ = to his left),
+    lean: forward, shift: (forward, left, up) of his whole weight, fist: where the
+    striking fist is (s: how far the IK has taken it there from the guard),
+    other: the other fist's place if it leaves the guard, feet: steps from the guard's"""
+    pose = dict(G)
+    tw, ln = float(k["twist"]), float(k["lean"])
+    pose["Hips"] = [G["Hips"][0], G["Hips"][1] + 0.35 * tw, G["Hips"][2]]
+    pose["Spine"] = [G["Spine"][0] + 0.6 * ln, G["Spine"][1] + 0.40 * tw, G["Spine"][2]]
+    pose["Spine1"] = [G["Spine1"][0] + 0.4 * ln, G["Spine1"][1] + 0.25 * tw, G["Spine1"][2]]
+    pose["Neck"] = [G["Neck"][0] + float(k["head"]), G["Neck"][1] - 0.55 * tw, G["Neck"][2]]   # eyes stay on the line
+    sh = np.asarray(k["shift"], float)
+    plant = [(w, tuple(FOOT[w] + np.asarray(k[w + "_foot"], float) - sh), 1.0) for w in ("lead", "rear")]
+    def repose(Vt, skel_, angles):
+        body = anat.pose(angles)
+        if float(k["s"]) > 0:
+            a = anat.arm(arm)
+            bm._reach_arm(Vt, a, body, np.asarray(k["fist"], float) - sh, a.outward if pole is None else np.asarray(pole, float), float(k["s"]))
+        if k.get("other") is not None and float(k["so"]) > 0:
+            o = anat.arm("rear" if arm == "lead" else "lead")
+            bm._reach_arm(Vt, o, body, np.asarray(k["other"], float) - sh, o.outward, float(k["so"]))
+    faces, cols = bm._pose_and_skin(pose, np.zeros(3), plant, repose)
+    V, C = frozen((np.asarray(faces) + sh, cols))
+    return V, C
+def build(n, keys, arm, pole=None):
+    keys = [(f, dict(REST, **{kk: vv for kk, vv in v.items()})) for f, v in keys]
+    # a key that names no fist keeps the last one named (so the IK eases out along it)
+    last = FIST[arm]
+    for f, v in keys:
+        if v["fist"] is None: v["fist"] = last
+        last = v["fist"]
+        if v["other"] is None: v["other"] = FIST["rear" if arm == "lead" else "lead"]
+    out = [frame(interp(keys, f), arm, pole) for f in range(n)]
+    V = np.array([o[0] for o in out])
+    fist = np.array([v[anat.arm(arm).knuckles].mean(0) for v in V])
+    return V, np.array([o[1] for o in out]), fist
+STRIKES = {
+ "jab": {
+  "n": 16,
+  "arm": "lead",
+  "land": 4,
+  "want": "(0.70, 0, 1.22)",
+  "keys": [
+   [
+    0,
+    {}
+   ],
+   [
+    1,
+    {
+     "twist": -6,
+     "lean": 2,
+     "shift": [
+      0.02,
+      0,
+      0
+     ],
+     "fist": [
+      0.38,
+      0.03,
+      1.19
+     ],
+     "s": 0.5
+    }
+   ],
+   [
+    4,
+    {
+     "twist": -24,
+     "lean": 7,
+     "shift": [
+      0.07,
+      0,
+      -0.01
+     ],
+     "fist": [
+      0.7,
+      0.0,
+      1.22
+     ],
+     "s": 1.0,
+     "lead_foot": [
+      0.05,
+      0,
+      0
+     ],
+     "head": 4
+    }
+   ],
+   [
+    6,
+    {
+     "twist": -24,
+     "lean": 7,
+     "shift": [
+      0.07,
+      0,
+      -0.01
+     ],
+     "fist": [
+      0.7,
+      0.0,
+      1.22
+     ],
+     "s": 1.0,
+     "lead_foot": [
+      0.05,
+      0,
+      0
+     ],
+     "head": 4
+    }
+   ],
+   [
+    9,
+    {
+     "twist": -8,
+     "lean": 3,
+     "shift": [
+      0.04,
+      0,
+      0
+     ],
+     "fist": [
+      0.42,
+      0.03,
+      1.19
+     ],
+     "s": 0.6,
+     "lead_foot": [
+      0.05,
+      0,
+      0
+     ]
+    }
+   ],
+   [
+    12,
+    {
+     "twist": 0,
+     "lean": 0,
+     "shift": [
+      0.01,
+      0,
+      0
+     ],
+     "fist": [
+      0.3,
+      0.07,
+      1.15
+     ],
+     "s": 0.0,
+     "lead_foot": [
+      0.02,
+      0,
+      0
+     ]
+    }
+   ],
+   [
+    15,
+    {}
+   ]
+  ]
+ },
+ "lead_hook": {
+  "n": 34,
+  "arm": "lead",
+  "land": 11,
+  "want": "(0.44, 0, 1.25)",
+  "keys": [
+   [
+    0,
+    {}
+   ],
+   [
+    5,
+    {
+     "twist": 22,
+     "lean": 2,
+     "shift": [
+      0.0,
+      0.03,
+      -0.03
+     ],
+     "fist": [
+      0.2,
+      0.36,
+      1.22
+     ],
+     "s": 1.0,
+     "head": 2
+    }
+   ],
+   [
+    9,
+    {
+     "twist": 10,
+     "lean": 3,
+     "shift": [
+      0.02,
+      0.02,
+      -0.03
+     ],
+     "fist": [
+      0.36,
+      0.32,
+      1.25
+     ],
+     "s": 1.0
+    }
+   ],
+   [
+    11,
+    {
+     "twist": -30,
+     "lean": 5,
+     "shift": [
+      0.05,
+      -0.02,
+      -0.02
+     ],
+     "fist": [
+      0.44,
+      0.0,
+      1.25
+     ],
+     "s": 1.0
+    }
+   ],
+   [
+    14,
+    {
+     "twist": -44,
+     "lean": 5,
+     "shift": [
+      0.05,
+      -0.03,
+      -0.02
+     ],
+     "fist": [
+      0.34,
+      -0.18,
+      1.25
+     ],
+     "s": 1.0
+    }
+   ],
+   [
+    22,
+    {
+     "twist": -12,
+     "lean": 2,
+     "shift": [
+      0.02,
+      -0.01,
+      0
+     ],
+     "fist": [
+      0.32,
+      0.02,
+      1.18
+     ],
+     "s": 0.5
+    }
+   ],
+   [
+    30,
+    {
+     "fist": [
+      0.29,
+      0.07,
+      1.15
+     ],
+     "s": 0.0
+    }
+   ],
+   [
+    33,
+    {}
+   ]
+  ]
+ },
+ "rear_uppercut": {
+  "n": 39,
+  "arm": "rear",
+  "land": 13,
+  "want": "(0.40, 0, 1.34)",
+  "pole": [
+   0.0,
+   -0.5,
+   -1.0
+  ],
+  "keys": [
+   [
+    0,
+    {}
+   ],
+   [
+    6,
+    {
+     "twist": -16,
+     "lean": 8,
+     "shift": [
+      -0.02,
+      -0.03,
+      -0.12
+     ],
+     "fist": [
+      0.14,
+      -0.18,
+      0.86
+     ],
+     "s": 1.0
+    }
+   ],
+   [
+    10,
+    {
+     "twist": -6,
+     "lean": 6,
+     "shift": [
+      0.0,
+      -0.01,
+      -0.11
+     ],
+     "fist": [
+      0.26,
+      -0.08,
+      0.96
+     ],
+     "s": 1.0
+    }
+   ],
+   [
+    13,
+    {
+     "twist": 26,
+     "lean": 1,
+     "shift": [
+      0.06,
+      0.0,
+      0.02
+     ],
+     "fist": [
+      0.4,
+      0.0,
+      1.34
+     ],
+     "s": 1.0,
+     "head": -4
+    }
+   ],
+   [
+    16,
+    {
+     "twist": 32,
+     "lean": 0,
+     "shift": [
+      0.06,
+      0.0,
+      0.04
+     ],
+     "fist": [
+      0.36,
+      0.0,
+      1.5
+     ],
+     "s": 1.0,
+     "head": -4
+    }
+   ],
+   [
+    26,
+    {
+     "twist": 8,
+     "lean": 2,
+     "shift": [
+      0.02,
+      0,
+      0
+     ],
+     "fist": [
+      0.24,
+      -0.1,
+      1.22
+     ],
+     "s": 0.5
+    }
+   ],
+   [
+    35,
+    {
+     "fist": [
+      0.21,
+      -0.12,
+      1.19
+     ],
+     "s": 0.0
+    }
+   ],
+   [
+    38,
+    {}
+   ]
+  ]
+ },
+ "special": {
+  "n": 56,
+  "arm": "rear",
+  "land": 20,
+  "want": "(0.72, 0, 1.24)",
+  "pole": [
+   0.0,
+   -1.0,
+   0.4
+  ],
+  "keys": [
+   [
+    0,
+    {}
+   ],
+   [
+    8,
+    {
+     "twist": -38,
+     "lean": -4,
+     "shift": [
+      -0.08,
+      -0.04,
+      -0.03
+     ],
+     "fist": [
+      -0.18,
+      -0.4,
+      1.32
+     ],
+     "s": 1.0,
+     "other": [
+      0.44,
+      0.06,
+      1.2
+     ],
+     "so": 0.8
+    }
+   ],
+   [
+    15,
+    {
+     "twist": -46,
+     "lean": -5,
+     "shift": [
+      -0.1,
+      -0.05,
+      -0.04
+     ],
+     "fist": [
+      -0.24,
+      -0.42,
+      1.36
+     ],
+     "s": 1.0,
+     "other": [
+      0.48,
+      0.04,
+      1.2
+     ],
+     "so": 1.0
+    }
+   ],
+   [
+    20,
+    {
+     "twist": 34,
+     "lean": 16,
+     "shift": [
+      0.14,
+      0.02,
+      -0.04
+     ],
+     "fist": [
+      0.72,
+      0.0,
+      1.24
+     ],
+     "s": 1.0,
+     "lead_foot": [
+      0.08,
+      0,
+      0
+     ],
+     "other": [
+      0.22,
+      0.16,
+      1.12
+     ],
+     "so": 0.7,
+     "head": 6
+    }
+   ],
+   [
+    25,
+    {
+     "twist": 52,
+     "lean": 22,
+     "shift": [
+      0.16,
+      0.04,
+      -0.08
+     ],
+     "fist": [
+      0.5,
+      0.28,
+      0.98
+     ],
+     "s": 1.0,
+     "lead_foot": [
+      0.08,
+      0,
+      0
+     ],
+     "other": [
+      0.22,
+      0.16,
+      1.12
+     ],
+     "so": 0.5,
+     "head": 6
+    }
+   ],
+   [
+    38,
+    {
+     "twist": 16,
+     "lean": 8,
+     "shift": [
+      0.08,
+      0.02,
+      -0.03
+     ],
+     "fist": [
+      0.3,
+      -0.02,
+      1.15
+     ],
+     "s": 0.6,
+     "lead_foot": [
+      0.06,
+      0,
+      0
+     ]
+    }
+   ],
+   [
+    50,
+    {
+     "fist": [
+      0.21,
+      -0.12,
+      1.19
+     ],
+     "s": 0.0,
+     "lead_foot": [
+      0.02,
+      0,
+      0
+     ]
+    }
+   ],
+   [
+    55,
+    {}
+   ]
+  ]
+ }
+}
+for _n, _sp in STRIKES.items():
+    _Vs, _Ss, _fist = build(_sp["n"], [(f, v) for f, v in _sp["keys"]], _sp["arm"], _sp.get("pole"))
+    seqs[_n + "2"] = [(v, c) for v, c in zip(_Vs, _Ss)]
+    extra["P_" + _n + "2"] = _fist
 # the swings, at the game's own timing: the clip stretched over the move's
 # startup + active + recovery, as tear.py draws it (t = frame / (total-1))
 for mv in ("jab", "cross", "lead_hook", "rear_hook", "special",
@@ -197,6 +803,7 @@ out = {"F": F, "C": C}
 for k, frames in seqs.items():
     out["V_" + k] = np.stack([v for v, _ in frames])
     out["S_" + k] = np.stack([c for _, c in frames])
+out.update(extra)                                 # (the authored strikes' fist paths)
 np.savez_compressed(sys.argv[1], **out)
 print({k: v.shape for k, v in out.items()})
 '''

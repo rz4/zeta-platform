@@ -111,7 +111,11 @@ SEQS = ("idle", "walk", "air", "jab", "cross", "lead_hook", "rear_hook", "specia
 # comedically fast, should look more intimidating"). The layers play the
 # walk re-solved at a longer stride (0.75 a step, "walk2"), and slower than
 # the ground asks -- see the legs knob.
-CLIP_OF = {"run": "run2", "walk": "walk2"} if BASE else {}
+# P29: THE STRIKES, AUTHORED (tools/tnd_extract.py STRIKES): the jab, the
+# lead hook, the rear uppercut and the haymaker, each landing on his centre
+# line. Their fist paths (P_name2) are the layers' hit points too.
+CLIP_OF = {"run": "run2", "walk": "walk2", "jab": "jab2", "lead_hook": "lead_hook2",
+           "rear_uppercut": "rear_uppercut2", "special": "special2"} if BASE else {}
 if BASE:
     SEQS += ("slide",)           # P27: the run's slide (the layers only; four poses)
 
@@ -1265,7 +1269,8 @@ AWARE_M = int(cart.data(tetra_mesh(0.10, (255, 210, 80)), "aware"))
 # -- the archive's burst grows through twelve sizes, and an object on this
 # machine cannot be scaled, so this one turns instead. Its cells: where,
 # and how many frames are left.
-SPARK_M = int(cart.data(tetra_mesh(0.20, (255, 244, 214)), "spark_m"))
+# (P29: in shadow boxing the spark marks WHERE THE FIST LANDED -- a point, so small)
+SPARK_M = int(cart.data(tetra_mesh(0.09 if L2 else 0.20, (255, 244, 214)), "spark_m"))
 SPARK_FOR = 6
 SPK = cart.var("spark", 4)
 AWARE_LIFT = int(1.62 * ONE)
@@ -1343,7 +1348,16 @@ _UPPER = _bits("gun", "special")
 CANCELS = {"jab": _LIGHT, "cross": _LIGHT, "lead_hook": _HOOK, "rear_hook": _HOOK,
            "special": 0, "lead_uppercut": _UPPER, "rear_uppercut": _UPPER,
            "gun": _LIGHT, "gun_charged": _bits("special")}
-_pm, _pf, _pat = move_rows(DEM["p_moves"], [DEM["p_fist_" + n] for n in PMN],
+def _fist_path(k, n):
+    """the fist's place on each active frame: the authored clip's own, where
+    the layers play one (so the hit IS where the drawn fist is)"""
+    if n in CLIP_OF and "P_" + CLIP_OF[n] in d.files:
+        su, ac = int(DEM["p_moves"][k][0]), int(DEM["p_moves"][k][1])
+        return d["P_" + CLIP_OF[n]][su:su + ac]
+    return DEM["p_fist_" + n]
+
+
+_pm, _pf, _pat = move_rows(DEM["p_moves"], [_fist_path(k, n) for k, n in enumerate(PMN)],
                            lambda k: base[PMN[k]], [CANCELS[n] for n in PMN])
 BIT = cart.data(Table([1 << i for i in range(len(PMN))]), "bits", borrow="auto")
 PFIST = cart.data(Table(_pf), "p_fists", borrow="auto")
@@ -2135,8 +2149,8 @@ KNOBS_L1 = (("run", 81262, int(0.08 * ONE), int(0.5 * ONE), int(2.5 * ONE)),    
             ("jump", 12190, int(0.01 * ONE), int(0.08 * ONE), int(0.4 * ONE)),   # 8 the jump
             ("dclick", 44, 2, 6, 60))                              # 9 frames between the two clicks
 # LAYER 2'S PAGE: the strikes.
-KNOBS_L2 = (("pivot", 36, 4, 8, 160),          # 0 the turn to a jab's or a cross's way, a frame
-            ("pivoth", 24, 4, 8, 160),         # 1 ...to a hook's, an uppercut's, the haymaker's
+KNOBS_L2 = (("pivot", 176, 16, 32, 512),       # 0 his body's turn into a jab's way, a frame (512: at once)
+            ("pivoth", 128, 16, 32, 512),      # 1 ...into a hook's, an uppercut's, the haymaker's
             ("lunge", ONE, int(0.1 * ONE), 0, 3 * ONE),   # 2 how far a strike carries him (x its own)
             ("steady", 14, 2, 4, 40),          # 3 frames after a blow a tap still keeps the string
             ("pause", 55, 5, 20, 120))         # 4 ...and how long a wait may be
@@ -2159,7 +2173,7 @@ if BASE:
         "wall_t", "wall_axes", "wall_sx", "wall_sz", "wall_tx", "wall_tz", "wall_n"))
     SLT, SLV, SLF = cart.var("slide_t"), cart.var("slide_v"), cart.var("slide_f")
     # P28: the strike's pivot -- turning (1) to where it goes; and Y's heavy hand
-    PIVOT, PIVT, HVY = cart.var("pivot_on"), cart.var("pivot_to"), cart.var("heavy")
+    PIVOT, PIVT = cart.var("pivot_on"), cart.var("pivot_to")
     cart.boot(spec.LIGHT_DIR, 0x007F00)          # P22: straight down (see piece_light)
     cart.boot(spec.LIGHT_AMB, LIT_AMB0)         # (the title's street, before the game
     cart.boot(spec.LIGHT_DIF, 33 - LIT_AMB0)    # sets them a frame at a time)
@@ -2284,7 +2298,7 @@ for d in range(3):
 for i in range(N_IMP):
     p.set(imp(i, "st"), 0)
 if BASE:
-    for c_ in (KEY, PICK, QT, WSPD, KNEAR, PIVOT, HVY):
+    for c_ in (KEY, PICK, QT, WSPD, KNEAR, PIVOT):
         p.set(c_, 0)
 if SWARM_TEST:                                  # (the meter's hook: the fight in the
     p.set(PX, int(3 * ONE)).set(PZ, int(3 * ONE))               # first plaza, the
@@ -2577,6 +2591,16 @@ CMB = {1: ((1, 2), (2, 4)),                      # jab, then: cross / (wait) lea
        2: ((2, 3), (3, 0)),                      # jab cross, then: lead hook / (wait) rear hook
        3: ((6, 0), (6, 0)),                      # ...the rear uppercut, the launcher
        4: ((6, 0), (6, 0))}                      # (state 0, or a new string: the jab)
+if L2:
+    # P29: THE STRINGS ARE THE PLAYER'S: "two combo jab jab, three combo jab
+    # jab left hiok, jab jab wait right upper cut. hay maker is the special
+    # button with no previous jab input."
+    #   X X            jab, jab
+    #   X X X          jab, jab, the left (lead) hook
+    #   X X - X        jab, jab, (wait) the right (rear) uppercut
+    #   Y              the haymaker -- when no string is on
+    CMB = {1: ((0, 2), (0, 2)),                  # a jab thrown: the second jab
+           2: ((2, 0), (6, 0))}                  # two: the lead hook / (wait) the rear uppercut
 TAP_MAX, CHORD_SLOP = 9, 3
 CHARGE = 26                     # combat.resolve: a shot held this long is charged
 MOVE = {n: i for i, n in enumerate(PMN)}
@@ -2663,15 +2687,15 @@ def chord(a, b, move):
 # the special: its own tap
 sp = p.label("g_sp")
 if L2:
-    hv_in = p.label("heavyin")
-    # P28: Y IS THE HEAVY VERSION (the player: "heavy version of each"). Y
-    # takes the string's next place exactly as X would, and throws that
-    # blow's heavy: the jab's is the lead hook, the cross's the rear hook,
-    # a hook's its uppercut, and the string's last -- the launcher -- the
-    # haymaker. (It was the haymaker, always.)
-    p.set(HVY, 0)
+    # P29: Y IS THE HAYMAKER, WHEN NO STRING IS ON (no jab thrown, or the last
+    # one longer ago than a wait may be). In a string Y is not read: the
+    # player's strings are X's.
     p.load(GTAP["special"]).emit(f"jz {sp}")
-    p.set(HVY, 1).emit(f"jmp {hv_in}")
+    p.load(F["c3"]).emit(f"jz {sp}_go")                       # no string: throw it
+    knob(p, "pause").load(F["ltap"]).emit("lt", f"jz {sp}")   # a string, still on: not read
+    p.mark(f"{sp}_go")
+    p.set(F["c3"], 0)
+    choose(MOVE["special"])
 else:
     p.load(GTAP["special"]).emit(f"jz {sp}")
     choose(MOVE["special"])
@@ -2709,8 +2733,6 @@ if BASE:
 #   X X - X        jab, cross, (wait) rear hook
 # Shots may fill a wait; more than SEC_MAX of them and the string is lost.
 rh = p.label("rhythm")
-if L2:
-    p.mark(hv_in)
 p.load(F["buf"]).emit(f"jz {rh}_q")               # a blow of the string still waiting
 p.load(F["bmv"]).push(MOVE["special"]).emit("eq", f"jz {rh}_b", f"jmp {rh}_q")   # in the
 p.mark(f"{rh}_b")                                 # buffer: this tap is the same beat
@@ -2737,17 +2759,6 @@ for st_, ((ms, ns_), (mw, nw_)) in CMB.items():
     p.mark(nx)
 p.push(0).set(F["c3"], 1)                         # the jab opens a string
 p.mark(rd_)
-if L2:
-    hm_ = p.label("heavy")
-    p.load(HVY).emit(f"jz {hm_}")
-    for a_, b_ in (("jab", "lead_hook"), ("cross", "rear_hook"), ("lead_hook", "lead_uppercut"),
-                   ("rear_hook", "rear_uppercut"), ("lead_uppercut", "special"),
-                   ("rear_uppercut", "special")):
-        nk = p.label("hv")
-        p.emit("dup").push(MOVE[a_]).emit("eq", f"jz {nk}")
-        p.emit("drop").push(MOVE[b_]).emit(f"jmp {hm_}")
-        p.mark(nk)
-    p.mark(hm_)
 choose(mv_cell_ops=())
 p.set(F["ltap"], 0).set(F["sec"], 0)
 p.mark(L["notap"])
@@ -3104,7 +3115,7 @@ p.mark(tk)
 # ---- a swing owns the body until its frames are done --------------------------
 p.load(ANIM).push(2).emit("eq", f"jz {L['free']}")
 if L2:
-    pv_ = p.label("pivot")
+    pv_ = p.label("pivot")                        # the body comes round, the clock running
     p.load(PIVOT).emit(f"jz {pv_}")
     p.load(PIVT).store(W["head"])
     knob(p, "pivot")
@@ -3114,15 +3125,8 @@ if L2:
     p.mark(f"{pv_}_r")
     p.store(W["dg"]).emit(f"call {L_STEER}")
     p.load(YAW).store(HEAD)
-    p.load(YAW).load(PIVT).emit("eq", f"jz {L['motion']}")          # still turning
-    p.set(PIVOT, 0)                                                 # there: its lunge, now
-    row(PMT, F["mv"], "lunge")
-    knob(p, "lunge").emit("mulq", "dup").store(W["dmg"])
-    sin_of(p, cell=HEAD)
-    p.emit("mulq").load(F["vx"]).emit("swap", "sub").store(F["vx"])
-    sin_of(p, 256, cell=HEAD)
-    p.load(W["dmg"]).emit("mulq").load(F["vz"]).emit("add").store(F["vz"])
-    p.emit(f"jmp {L['motion']}")
+    p.load(YAW).load(PIVT).emit("eq", f"jz {pv_}")
+    p.set(PIVOT, 0)
     p.mark(pv_)
 p.addi(AF, 1)
 p.load(AF)
@@ -3157,22 +3161,24 @@ p.emit(f"call {L_BRG}")
 p.load(F["brg"]).store(HEAD).emit(f"jmp {gf}_g")
 p.mark(f"{gf}_p")
 if L2:
-    # P28: HE TURNS TO IT (the player: "it should feel like theirs weight to
-    # each and the player shouldnt be looking like he's just teleported to
-    # the other directions"). A fist thrown any way but ahead does not snap
-    # his body there and back: he PIVOTS there first -- the blow held at its
-    # wind-up, the lunge kept -- at the pivot knob's turn a frame, so a blow
-    # to the side costs a few frames and one behind him twice that; and he
-    # STAYS facing it. (The gun still snaps: its layer is not this one.)
+    # P29: HE TURNS TO IT, AT ONCE. (P28 held the blow at its wind-up until he
+    # had turned -- a side cost 7 frames, behind him 14 -- and the player:
+    # "the directional snappiness was important because the intention is to
+    # place the jab exactly where we want it".) The blow goes the way the pad
+    # points THE FRAME IT IS THROWN: its clock runs, its lunge is along that
+    # way, and it lands on its own frame whichever way that is. His body
+    # comes round to it inside the wind-up -- the pivot knob's turn a frame,
+    # half a circle in three -- so there is no frame he is not somewhere on
+    # the way; and he STAYS facing it. (The gun still snaps: not this layer's.)
     p.set(PIVOT, 0)
     p.push(MOVE["gun"] - 1).load(F["mv"]).emit("lt", f"jz {gf}_pf", f"jmp {gf}_ps")
     p.mark(f"{gf}_pf")
     p.push(int(OCTANT)).emit("load 1").push(15).emit("and", "add", "loadi")
-    p.load(YAW).emit("add").push(1023).emit("and").store(PIVT)
-    p.load(YAW).store(HEAD)
-    p.load(PIVT).load(YAW).emit("eq", f"jz {gf}_pv", f"jmp {gf}_g")   # ahead: at once
+    p.load(YAW).emit("add").push(1023).emit("and", "dup").store(PIVT)
+    p.store(HEAD)                                  # (for the lunge, below: along it)
+    p.load(PIVT).load(YAW).emit("eq", f"jz {gf}_pv", f"jmp {gf}_g")
     p.mark(f"{gf}_pv")
-    p.set(PIVOT, 1).emit(f"jmp {L['motion']}")
+    p.set(PIVOT, 1).emit(f"jmp {gf}_g")
     p.mark(f"{gf}_ps")
 p.push(int(OCTANT)).emit("load 1").push(15).emit("and", "add", "loadi")
 p.load(YAW).emit("add").push(1023).emit("and").store(HEAD)
@@ -3211,6 +3217,11 @@ sin_of(p, cell=HEAD)
 p.emit("mulq").load(F["vx"]).emit("swap", "sub").store(F["vx"])   # fwd x = -sin
 sin_of(p, 256, cell=HEAD)
 p.load(W["dmg"]).emit("mulq").load(F["vz"]).emit("add").store(F["vz"])
+if L2:                                            # (pivoting: drawn where he has got to)
+    pvh = p.label("pivhead")
+    p.load(PIVOT).emit(f"jz {pvh}")
+    p.load(YAW).store(HEAD)
+    p.mark(pvh)
 p.emit(f"jmp {L['motion']}")
 p.mark(f"{L['walk']}_q")
 p.load(YAW).store(HEAD)                       # no strike: he faces his steering
@@ -3830,6 +3841,18 @@ p.emit(f"call {L_WPT}")
 for a, b in (("x", "fx"), ("y", "fy"), ("z", "fz")):
     p.load(W[a]).store(F[b])
 p.set(F["act"], 1)
+if L2:
+    # P29: WHERE IT LANDED. Shadow boxing hits the air; the spark is at his
+    # fist the first frame the blow is out -- exactly where it would have
+    # landed.
+    sk2 = p.label("airspark")
+    p.load(AF)
+    row(PMT, F["mv"], "start")
+    p.emit("eq", f"jz {sk2}")
+    for k_, c_ in enumerate(("fx", "fy", "fz")):
+        p.load(F[c_]).store(int(SPK) + k_)
+    p.set(int(SPK) + 3, SPARK_FOR)
+    p.mark(sk2)
 p.mark(nf_)
 p.load(F["act"]).store(IACT)                    # P20b: the swarm reads it after
 

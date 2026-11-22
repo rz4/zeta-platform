@@ -1289,7 +1289,7 @@ brake and a slide were offered): "slide!!"
   no knob: the layer's starts are settled.
 - tests: 8 for the base, 7 for the layer.
 
-## P28: layer 2 -- shadow boxing (2026-11-21; not yet on glass)
+## P28: layer 2 -- shadow boxing (2026-11-21; on glass: reworked in P29)
 
 "for the fighting next, think shadow boxing. we want to be able to control
 what gets thrown and where it lands precisely. thats why i was thinkg
@@ -1330,3 +1330,49 @@ version of each.
   Each axis is checked near first, now.
 - **Measured on silicon** (strings in every direction): peak 58%, median
   49%, none dropped. tests: 8 base, 7 layer 1, 7 layer 2.
+
+## P29: shadow boxing again -- placed, and posed (2026-11-21; not yet on glass)
+
+The player, on glass, of P28: "we need major improvements on the shadow
+boxing, the directional snappiness was important because the intention
+is to place the jab exactly where we want it. i thing the punching poses
+need substanitlal work. I should be able to anticipate where the jab will
+land. then its two combo jab jab, three combo jab jab left hiok, jab jab
+wait right upper cut. hay maker is the special button with no previous
+jab input. all the punches should posed tactically".
+
+- **What P28 got wrong, on the tape** (54 s, no knob touched): a blow to
+  the side or behind HELD at its wind-up until he had turned -- up to 24
+  frames for a hook thrown behind. Weight bought with the one thing the
+  layer is for.
+- **Placed.** The blow goes the way the pad points the frame it is
+  thrown: its clock runs at once, its lunge is along that way, and it
+  lands on its own frame whichever way that is (the jab: the same frame
+  ahead, to a side, behind). His body comes round INSIDE the wind-up --
+  176 of 1024 a frame for a jab (a side in 2 frames, behind in 3), 128
+  for the heavy ones -- so he is never teleported, and never late. He
+  still stays facing it. Knobs 0 and 1 are those turns (512: at once).
+- **Posed** (tools/tnd_extract.py STRIKES). The archive's jab travelled
+  25-30 degrees off his facing line, and the hook and uppercut ended off
+  it too: there was no line to read. The four blows are authored now as
+  keys over their own frames -- where the fist IS (two-bone IK puts it
+  there exactly), the trunk's turn and lean, where his weight is, both
+  feet planted -- and every one lands ON HIS CENTRE LINE:
+  the jab at 0.70 ahead, shoulder height, the lead shoulder turned in
+  behind it; the lead hook loads out to his left and comes across level
+  at 0.44; the rear uppercut dips (the weight 0.12 down) and drives up
+  the line at 0.40 to chin height and through; the haymaker winds back
+  behind his rear shoulder, the lead hand out as the range-finder, and
+  comes over the top to 0.72 with the weight behind it. Clips jab2,
+  lead_hook2, rear_uppercut2, special2 (layers only; the archive's stay
+  beside them). The fist's authored path is the hit's too, so the hit is
+  where the drawn fist is.
+- **Where it landed.** A small spark at the fist the first frame the blow
+  is out. Shadow boxing hits air; the spark is the mark.
+- **The strings are the player's.** X X: jab, jab. X X X: jab, jab, the
+  left hook. X X (wait) X: jab, jab, the right uppercut. Y, with no
+  string on: the haymaker. Y inside a string is not read. (P28's "Y is
+  the heavy version of each" is gone.)
+- **Not remeasured on silicon**: same vertex counts, one more small
+  object for 6 frames; P28 measured 58%. tests: 8 base, 7 layer 1, 8
+  layer 2; the full cart is byte-identical.

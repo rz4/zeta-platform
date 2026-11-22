@@ -1,10 +1,10 @@
 """TND's LAYER 2 (docs/TND-PORT.md P28): shadow boxing.
 
 "we want to be able to control what gets thrown and where it lands
-precisely ... it should feel like theirs weight to each and the player
-shouldnt be looking like he's just teleported to the other directions."
-The strike goes the way the pad points, he PIVOTS there at a turn a frame
-and stays facing it, and Y throws the heavy version of what X would have.
+precisely." The strike goes the way the pad points the frame it is thrown
+and lands on its own frame on the line he then faces; his body comes round
+inside the wind-up and he stays facing it; the strings are the player's
+own; the strikes are authored to land on his centre line (P29).
 A local build (TND_LAYER=2 -> build/layer2/tnd.zol).
 """
 import os
@@ -84,57 +84,86 @@ class Game:
         return MOVES[mv] if mv is not None else None, (self.cell("yaw") - y0 + 512) % 1024 - 512, big, began
 
 
-def test_a_strike_ahead_is_thrown_at_once(text):
-    """Nothing held (or Up): the jab goes where he faces -- no turn, its
-    clock running from the frame it is read."""
+def _landing(g, way, button, frames=90):
+    """throw it; -> (the move, the turn, the biggest turn in a frame, the frame
+    the spark lit, where it lit in HIS frame: ahead, off his line, up)"""
+    y0, mv, big, lit = g.cell("yaw"), None, 0, None
+    for f in range(frames):
+        last = g.cell("yaw")
+        g.run((way | button) if f < 7 else 0, 1)
+        big = max(big, abs((g.cell("yaw") - last + 512) % 1024 - 512))
+        if g.cell("anim") == 2:
+            mv = g.cell("f_mv")
+        if lit is None and g.cell("spark", 3) > 0:
+            yaw = g.cell("yaw") * 2 * np.pi / 1024
+            dx, dz = g.cell("spark") / 65536 - g.pos()[0], g.cell("spark", 2) / 65536 - g.pos()[1]
+            lit = (f, -np.sin(yaw) * dx + np.cos(yaw) * dz, np.cos(yaw) * dx + np.sin(yaw) * dz,
+                   g.cell("spark", 1) / 65536)
+    return MOVES[mv] if mv is not None else None, (g.cell("yaw") - y0 + 512) % 1024 - 512, big, lit
+
+
+@pytest.mark.parametrize("way,angle", [(0, 0), (U, 0), (LF, 256), (RT, -256), (D, 512), (U | LF, 128)])
+def test_the_jab_lands_where_he_points_it_on_its_own_frame(text, way, angle):
+    """P29: "the intention is to place the jab exactly where we want it ...
+    I should be able to anticipate where the jab will land". Whichever way
+    the pad points, the jab lands on the SAME frame, at the same reach and
+    height, dead on the line he then faces (the spark is where it landed);
+    his body comes round to it inside the wind-up -- never in one frame
+    when it is more than the knob's turn -- and he stays facing it."""
     g = Game(text)
-    mv, turned, big, began = g.throw(0, X)
-    assert mv == "jab" and turned == 0 and big == 0, (mv, turned, big)
-    assert began is not None and began <= 5, f"the jab ahead waited ({began})"
+    mv, turned, big, lit = _landing(g, 0, X)
+    assert mv == "jab" and turned == 0 and lit is not None
+    frame0, ahead0, off0, up0 = lit
+    assert abs(off0) < 0.02 and 0.6 < ahead0 < 0.8 and 1.1 < up0 < 1.35, f"the jab ahead lands at {lit}"
     g.run(0, 80)
-    mv, turned, big, _ = g.throw(U, X)
-    assert mv == "jab" and turned == 0 and big == 0, (mv, turned, big)
-
-
-@pytest.mark.parametrize("way,angle", [(LF, 256), (RT, -256), (D, 512), (U | LF, 128)])
-def test_he_pivots_to_where_it_goes_and_stays(text, way, angle):
-    """The pad's way with X: he turns there at the pivot knob's units a
-    frame -- never more in one frame: no teleport -- the blow's clock held
-    until he is there, so the farther round, the later it lands; and when
-    it is done he is still facing it."""
-    g = Game(text)
-    rate = g.knob(PIVOT)
-    mv, turned, big, began = g.throw(way, X)
+    mv, turned, big, lit = _landing(g, way, X)
     assert mv == "jab"
-    assert abs(turned) == abs(angle) and (abs(angle) == 512 or turned == angle), \
-        f"he turned {turned}, not {angle}"
-    assert 0 < big <= rate, f"a frame turned him {big} (the knob is {rate})"
-    assert began >= abs(angle) // rate + 3, f"the blow did not wait for the pivot (clock at {began})"
+    assert abs(turned) == abs(angle) and (abs(angle) in (0, 512) or turned == angle), f"turned {turned}, not {angle}"
+    assert big <= g.knob(PIVOT), f"a frame turned him {big}"
+    frame, ahead, off, up = lit
+    assert frame == frame0, f"that way it landed on frame {frame}, not {frame0}"
+    assert abs(off) < 0.02 and abs(ahead - ahead0) < 0.02 and abs(up - up0) < 0.02, f"it landed at {lit[1:]}"
     y = g.cell("yaw")
     g.run(0, 60)
     assert g.cell("yaw") == y, "he did not stay facing it"
 
 
-def test_y_is_the_heavy_version_and_turns_slower(text):
-    """Y takes the string's next place as X would and throws that blow's
-    heavy: alone, the lead hook where X is the jab; X X Y Y is jab, cross,
-    the lead uppercut, the haymaker; four Ys are the two hooks, the
-    uppercut, the haymaker. A heavy blow pivots at its own, slower knob."""
+def _string(g, presses, gaps):
+    g.run(0, 140)
+    seen = []
+    for b, gap in zip(presses, gaps):
+        for f in range(gap):
+            g.run(b if f < 6 else 0, 1)
+            if g.cell("anim") == 2 and g.cell("af") == 1:
+                seen.append(MOVES[g.cell("f_mv")])
+    g.run(0, 70)
+    return seen
+
+
+def test_the_strings_are_the_players(text):
+    """"two combo jab jab, three combo jab jab left hiok, jab jab wait right
+    upper cut. hay maker is the special button with no previous jab input."
+    And every one of them lands on his centre line."""
     g = Game(text)
-    mv, turned, big, began = g.throw(LF, Y)
-    assert mv == "lead_hook", f"Y alone threw {mv}"
-    assert turned == 256 and 0 < big <= g.knob(PIVOTH) < g.knob(PIVOT)
-    for presses, want in (((X, X, X, X), ["jab", "cross", "lead_hook", "rear_uppercut"]),
-                          ((X, X, Y, Y), ["jab", "cross", "lead_uppercut", "special"]),
-                          ((Y, Y, Y, Y), ["lead_hook", "rear_hook", "lead_uppercut", "special"])):
+    assert _string(g, (X, X), (20, 50)) == ["jab", "jab"]
+    assert _string(g, (X, X, X), (20, 20, 60)) == ["jab", "jab", "lead_hook"]
+    assert _string(g, (X, X, X), (20, 44, 70)) == ["jab", "jab", "rear_uppercut"]
+    assert _string(g, (Y,), (80,)) == ["special"]
+    assert _string(g, (X, Y), (20, 70)) == ["jab"], "Y was read inside a string"
+    for presses, gaps, last in (((X, X, X), (20, 20, 60), "lead_hook"),
+                                ((X, X, X), (20, 44, 70), "rear_uppercut"), ((Y,), (80,), "special")):
         g.run(0, 140)
-        seen = []
-        for b in presses:
-            for f in range(44 if b == Y else 24):
+        lit, was = [], 0
+        for b, gap in zip(presses, gaps):
+            for f in range(gap):
                 g.run(b if f < 6 else 0, 1)
-                if g.cell("anim") == 2 and (not seen or seen[-1] != g.cell("f_mv")):
-                    seen.append(g.cell("f_mv"))
-        assert [MOVES[m] for m in seen] == want, f"{presses}: {[MOVES[m] for m in seen]}"
+                before, was = was, g.cell("spark", 3)
+                if was > before:                  # (a spark just lit)
+                    yaw = g.cell("yaw") * 2 * np.pi / 1024
+                    dx, dz = g.cell("spark") / 65536 - g.pos()[0], g.cell("spark", 2) / 65536 - g.pos()[1]
+                    lit.append((MOVES[g.cell("f_mv")], np.cos(yaw) * dx + np.sin(yaw) * dz))
+        assert lit and lit[-1][0] == last and all(abs(off) < 0.03 for _, off in lit), \
+            f"{presses}: off his line: {lit}"
 
 
 def test_the_layers_under_it_still_stand(text, monkeypatch):
