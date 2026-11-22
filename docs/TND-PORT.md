@@ -1099,3 +1099,26 @@ seconds.
   is bit-equality: a platform fault in how the clipper carries a vertex's
   light, law or RTL, to be run down. (The lit witness cart has no clipped
   face.)
+
+## P23: onto the sidewalk (2026-11-21; not yet on glass)
+
+"can we step onto the side walk?" In the base the street is his from wall
+to wall.
+
+- **The arena's width** is 0.6 from a wall now (it was 0.7 inside the
+  curb), and a cell, because the lens asks the same question of a wider
+  street.
+- **His feet step up the curb**: where he stands in his tile, a sidewalk
+  lies wherever a wall stands beside him -- past the curb line with no
+  street on that side there, or on a jutting corner's pad. His body and
+  his shadow ease up its 0.15 and back down.
+- **The lens beside a wall**: 0.6 from a wall, turned a little from it, the
+  lens stood in the building looking along it and that side of the street
+  was gone. Off the street (0.15 from a wall, for the lens) it is brought
+  straight back across to the wall's face -- found by halving between it
+  and him -- eased a quarter a frame, and from there it looks AT him, so
+  he keeps the middle of the shot. If that would leave it under three
+  quarters of its distance, the wall is BEHIND him and out of the shot,
+  and the lens stays in it at its whole distance, as P21 promised.
+  Against a wall and turned 25 degrees off it: the lens 0.17 inside the
+  wall's face, 1.87 from him, looking 10 degrees off his heading.

@@ -180,7 +180,8 @@ def test_the_jab_picks_up_the_key_and_unlocks_the_gate(text):
     gx, gz = _s32(b.d[g + 4]) / 65536, _s32(b.d[g + 5]) / 65536
     b.put(ax, az, int(round(np.arctan2(-(gx - ax), gz - az) * 1024 / (2 * np.pi))))
     b.run(U, 110)
-    assert np.hypot(b.pos()[0] - ax, b.pos()[1] - az) < 3.2, "the shut gate did not stop him"
+    assert np.hypot(b.pos()[0] - ax, b.pos()[1] - az) < b.const("AR_W") / 65536 + 0.5, \
+        "the shut gate did not stop him"
     assert b.cell("ctx_near") == 2
     for f in range(40):
         b.run(X if f < 7 else 0, 1)
@@ -293,3 +294,42 @@ def test_the_town_is_lit(text):
     assert d[spec.LIGHT_AMB] > amb0, "no flash"
     b.run(0, 30)
     assert d[spec.LIGHT_AMB] == amb0 - 4, "the flash did not die away"
+
+
+def test_he_steps_onto_the_sidewalk_and_the_lens_keeps_him(text):
+    """P23, "can we step onto the side walk?": across a street he walks over
+    the curb to 0.6 from the wall, and his feet come up the curb's height;
+    back on the road they come down. Standing against the wall and turned a
+    little from it, the lens is on the street (not in the building beside
+    him) and still looks at him; turned square from it -- the wall behind
+    him -- the lens keeps its whole distance."""
+    b = Base(text)
+    T, ox, oy, cm = b.const("CITY_TILE"), b.const("CITY_OXA"), b.const("CITY_OYA"), b.sym("city_map")
+    n = next(n for n in range(256) if (b.d[cm + n] & 0xFF) == 0x11)       # a street along x
+    cx, cz = oy - (n // 16) * T, (n % 16) * T - ox
+    far, wall = b.knob(4) / 65536, 4.7
+    b.put(cx, cz, 0)                                                     # at its wall
+    b.run(U, 30)
+    assert b.cell("curb_y") == 0, "his feet came up on the road"
+    b.run(U, 90)
+    off = b.pos()[1] - cz
+    assert abs(off - (wall - 0.6)) < 0.1, f"he stands {off:.2f} from the middle, not at the wall"
+    assert abs(b.cell("curb_y") / 65536 - 0.15) < 0.01, "his feet did not step up the curb"
+
+    def lens_off():
+        return _s32(b.d[spec.CAM_Z]) / 65536 - cz
+    for turn, inside in ((25, False), (90, True)):
+        b.d[b.sym("yaw")] = (256 + int(turn * 1024 / 360)) & 1023
+        b.run(0, 60)
+        if inside:
+            assert abs(b.lens() - far) < 0.05 and lens_off() > wall, "a wall behind him moved the lens"
+        else:
+            assert lens_off() < wall, f"the lens stands in the building beside him ({lens_off():.2f})"
+            assert b.lens() > 0.75 * far, "the lens came in on him"
+            cy = b.d[spec.CAM_YAW] * 2 * np.pi / 1024                    # he is down its line
+            (px, pz), c = b.pos(), (_s32(b.d[spec.CAM_X]) / 65536, _s32(b.d[spec.CAM_Z]) / 65536)
+            side = (px - c[0]) * np.cos(cy) + (pz - c[1]) * np.sin(cy)
+            assert abs(side) < 0.15, f"he is {side:.2f} off the middle of the shot"
+    b.d[b.sym("yaw")] = 512                                              # away, to the road
+    b.run(U, 60)
+    assert b.cell("curb_y") == 0, "his feet stayed up on the road"

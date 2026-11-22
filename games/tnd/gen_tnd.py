@@ -1480,6 +1480,17 @@ W = {k: cart.var("w_" + k) for k in ("k", "bx", "bz", "c", "s", "x", "y", "z", "
 # what stays on -- for him and for the demons alike.
 AR = {k: cart.var("ar_" + k) for k in ("x", "z", "ox", "oz", "u", "v")}
 AR_W = int((CITY_LANE - 0.7) * ONE)    # how near a wall a body's centre comes
+if BASE:
+    # P23 (the player: "can we step onto the side walk?"): in the base the
+    # street is his from wall to wall -- a body's centre comes 0.6 from a
+    # wall, over the curb and onto the sidewalk, and his feet step up it.
+    # The arena's width is a CELL here, because the lens asks the same
+    # question with a wider street (it may come 0.15 from a wall).
+    AR_W = int((FAC - 0.6) * ONE)
+    LENS_W = int((FAC - 0.15) * ONE)
+    AWC = cart.data(Table([AR_W]), "ar_w")
+    GYC = cart.var("curb_y")                 # how far up the curb his feet are
+    LDX, LDZ = cart.var("lens_dx"), cart.var("lens_dz")   # the lens's eased move off a wall
 
 
 L_KIA = p.label("kia")
@@ -3395,6 +3406,52 @@ keep_in_arena(PX, PZ, AR["ox"], AR["oz"])
 # turned it all the way off on glass -- "a wall is a wall" -- and P22 took
 # it out. The archive's slide, above, is the base's.)
 
+if BASE:
+    # P23: IS HE ON THE SIDEWALK? Where he stands in his tile (u east, v
+    # north of its middle), a sidewalk lies wherever a wall stands beside
+    # him: past the curb line on an axis with no street on that side there,
+    # or on the pad of a jutting corner. His feet ease up the curb's height.
+    sw_ = p.label("swalk")
+    p.push(0).store(W["dmg"])                                   # the height wanted
+    city_node(p, PX, PZ)
+    p.load(CT["n"]).push(0).emit("lt", f"jz {sw_}_on", f"jmp {sw_}_e")
+    p.mark(f"{sw_}_on")
+    p.load(PZ).push32(int((OXA + HT) * ONE)).emit("add")
+    p.push32((1 << TSH) - 1).emit("and").push32(1 << (TSH - 1)).emit("sub").store(AR["u"])
+    p.push32(int((OYA + HT) * ONE)).load(PX).emit("sub")
+    p.push32((1 << TSH) - 1).emit("and").push32(1 << (TSH - 1)).emit("sub").store(AR["v"])
+    for cell, hi_side, lo_side, out in ((AR["u"], 1, 3, "x"), (AR["v"], 0, 2, "y")):
+        nb = p.label("sws")                    # this axis's side there, and |coordinate|
+        p.load(CT["w"]).emit(f"shr {2 * hi_side}").push(3).emit("and").store(KP[out])
+        p.push(0).load(cell).emit("lt", f"jz {nb}_n", f"jmp {nb}")
+        p.mark(f"{nb}_n")
+        p.load(CT["w"]).emit(f"shr {2 * lo_side}").push(3).emit("and").store(KP[out])
+        p.push(0).load(cell).emit("sub").store(cell)
+        p.mark(nb)
+    LANE_Q, FAC_Q = int(CITY_LANE * ONE), int(FAC * ONE)
+    # both sides open (a plaza's inside): no block at that corner
+    p.load(KP["x"]).push(2).emit("eq").load(KP["y"]).push(2).emit("eq", "and").store(W["dg"])
+    for a_, b_, sa in ((AR["u"], AR["v"], KP["x"]), (AR["v"], AR["u"], KP["y"])):
+        nb = p.label("swa")
+        p.push(LANE_Q).load(a_).emit("lt", f"jz {nb}")          # past the curb line on a
+        p.load(b_).push(FAC_Q).emit("lt", f"jz {nb}_c")         # beside the junction:
+        p.load(sa).emit(f"jz {sw_}_up", f"jmp {nb}")            # a closed side is a wall
+        p.mark(f"{nb}_c")                                       # beside an arm: its corner
+        p.load(W["dg"]).emit(f"jz {sw_}_up")                    # block's wall
+        p.mark(nb)
+    p.push(LANE_Q).load(AR["u"]).emit("lt").push(LANE_Q).load(AR["v"]).emit("lt", "and")
+    p.emit(f"jz {sw_}_e")                                       # a jutting corner's pad
+    p.load(W["dg"]).emit(f"jz {sw_}_up", f"jmp {sw_}_e")
+    p.mark(f"{sw_}_up")
+    p.push(int(CURB * ONE)).store(W["dmg"])
+    p.mark(f"{sw_}_e")
+    p.load(W["dmg"]).load(GYC).emit("sub", "dup").push(0).emit("lt", f"jz {sw_}_p")
+    p.emit(f"jmp {sw_}_q")                                      # (toward it by a quarter,
+    p.mark(f"{sw_}_p")                                          # rounded so it arrives: up
+    p.push(3).emit("add")                                       # rounds up, and down the
+    p.mark(f"{sw_}_q")                                          # shift already rounds down)
+    p.emit("shr 2").load(GYC).emit("add").store(GYC)
+
 # his trig, for his keys and his fist: the BODY's facing
 sin_of(p, 256, cell=HEAD)
 p.store(F["pc"])
@@ -3772,6 +3829,67 @@ if BASE:
     # stays the same distance to the player when a wall is up close behind").
     # The tank's lens is straight behind him, so a wall it backs into faces
     # away from it and is not drawn: it may stand in the building.
+    # P23: on the sidewalk he walks 0.6 from a wall, and a lens BESIDE a
+    # wall -- not behind one -- stood in the building looking along it, and
+    # that side of the street was gone. So a lens off the street (it may
+    # come 0.15 from a wall) is brought back to the wall's face, straight
+    # across (found by halving between where it is and where he is) --
+    # unless that leaves it under three quarters of its distance: then the
+    # wall is behind him, out of the shot, and the lens stays in it. The
+    # move is EASED (a quarter a frame), and from wherever it ends the lens
+    # looks AT him, so he keeps the middle of the shot.
+    p.set(AWC, LENS_W)
+    p.set(W["qx"], 0).set(W["qz"], 0)                       # the move wanted
+    p.load(spec.CAM_X).store(AR["x"]).load(spec.CAM_Z).store(AR["z"])
+    p.emit(f"call {L_ARENA}", f"jz {cmc}_b", f"jmp {cmc}_r")
+    p.mark(f"{cmc}_b")
+    for ax, (cam_a, me_a, cam_o, tgt) in enumerate(((spec.CAM_Z, PZ, spec.CAM_X, W["qz"]),
+                                                    (spec.CAM_X, PX, spec.CAM_Z, W["qx"]))):
+        nx = p.label("lensax")
+
+        def probe(val_ops, ax=ax, cam_o=cam_o):              # ( -- inside? ) this axis at val
+            if ax == 0:
+                p.load(cam_o).store(AR["x"])
+                val_ops()
+                p.store(AR["z"])
+            else:
+                val_ops()
+                p.store(AR["x"])
+                p.load(cam_o).store(AR["z"])
+            p.emit(f"call {L_ARENA}")
+        probe(lambda me_a=me_a: p.load(me_a))                # his own place on this axis:
+        p.emit(f"jz {nx}")                                   # on the street? (else not this axis)
+        p.load(me_a).store(W["bx"]).load(cam_a).store(W["bz"])   # in, out
+        for _ in range(5):
+            hb = p.label("lensh")
+            probe(lambda: p.load(W["bx"]).load(W["bz"]).emit("add", "shr 1"))
+            p.emit(f"jz {hb}_o")
+            p.load(W["bx"]).load(W["bz"]).emit("add", "shr 1").store(W["bx"]).emit(f"jmp {hb}")
+            p.mark(f"{hb}_o")
+            p.load(W["bx"]).load(W["bz"]).emit("add", "shr 1").store(W["bz"])
+            p.mark(hb)
+        # far enough still?  (his distance on the other axis is unchanged)
+        p.load(W["bx"]).load(me_a).emit("sub", "dup", "mulq")
+        p.load(cam_o).load(PX if ax == 0 else PZ).emit("sub", "dup", "mulq", "add")
+        knob(p, "camd").push(int(0.75 * ONE)).emit("mulq", "dup", "mulq")
+        p.emit("swap", "lt", f"jz {cmc}_r")                  # (3/4 d)^2 < it: take it
+        p.load(W["bx"]).load(cam_a).emit("sub").store(tgt)
+        p.emit(f"jmp {cmc}_r")
+        p.mark(nx)
+    p.mark(f"{cmc}_r")
+    p.set(AWC, AR_W)
+    for want, have, reg in ((W["qx"], LDX, spec.CAM_X), (W["qz"], LDZ, spec.CAM_Z)):
+        p.load(want).load(have).emit("sub", "shr 2").load(have).emit("add", "dup").store(have)
+        p.load(reg).emit("add").store(reg)
+    lk_ = p.label("lenslook")
+    for have in (LDX, LDZ):                                  # (moved at all? by 1/256)
+        p.load(have).emit("dup", "mulq")
+    p.emit("add").push(1).emit("swap", "lt", f"jz {lk_}")
+    p.load(PX).load(spec.CAM_X).emit("sub").store(W["qx"])
+    p.load(PZ).load(spec.CAM_Z).emit("sub").store(W["qz"])
+    p.emit(f"call {L_YAW}")
+    p.load(F["brg"]).store(spec.CAM_YAW)
+    p.mark(lk_)
     p.emit(f"jmp {cmc}")
 p.load(spec.CAM_X).store(AR["x"]).load(spec.CAM_Z).store(AR["z"])
 p.emit(f"call {L_ARENA}", f"jz {cmc}_o", f"jmp {cmc}")
@@ -4596,7 +4714,8 @@ for m in ((UPPER, LOWER) if "player" not in OMIT else ()):
     # archive's collapse folds over the guard, and backwards took him out
     # of the bottom of the shot
     p.object(NOBJ, m, (f"load {int(PX)}", f"load {int(W['x'])}", "add"),
-             (f"load {int(F['py'])}", f"load {int(W['y'])}", "add"),
+             (f"load {int(F['py'])}", f"load {int(W['y'])}", "add")
+             + ((f"load {int(GYC)}", "add") if BASE else ()),
              (f"load {int(PZ)}", f"load {int(W['z'])}", "add"),
              (f"load {int(HEAD)}", f"load {int(F['tilt'])}", f"load {int(W['qx'])}", "add",
               f"load {int(F['spd'])}", f"push {LEAN_PITCH}", "mul", "shr 16", "add",   # P15: the lean
@@ -4691,7 +4810,7 @@ if BASE:
               f"push {spec.OBJ_CULL}", "or"))
     p.object(NOBJ, SHADOW_M, (f"load {int(KX)}",), 0, (f"load {int(KZ)}",), 0, spec.OBJ_BLEND)
     p.mark(kd_)
-    p.object(NOBJ, SHADOW_M, (f"load {int(PX)}",), 0, (f"load {int(PZ)}",),
+    p.object(NOBJ, SHADOW_M, (f"load {int(PX)}",), (f"load {int(GYC)}",), (f"load {int(PZ)}",),
              (f"load {int(HEAD)}",), spec.OBJ_BLEND)
 # P15: the spark, last in the list, while its frames last
 sk_ = p.label("spark")
@@ -5526,10 +5645,10 @@ for cell, coord in ((AR["u"], "x"), (AR["v"], "y")):
 for cell, hi_side, lo_side, out in ((AR["u"], 1, 3, "x"), (AR["v"], 0, 2, "y")):
     t_ = p.label("aside")
     p.push(9).store(KP[out])                       # 9: inside on this axis
-    p.push(AR_W).load(cell).emit("lt", f"jz {t_}_lo")
+    (p.load(AWC) if BASE else p.push(AR_W)).load(cell).emit("lt", f"jz {t_}_lo")
     p.load(CT["w"]).emit(f"shr {2 * hi_side}").push(3).emit("and").store(KP[out])
     p.mark(f"{t_}_lo")
-    p.load(cell).push(-AR_W).emit("lt", f"jz {t_}")
+    (p.load(cell).push(0).load(AWC).emit("sub") if BASE else p.load(cell).push(-AR_W)).emit("lt", f"jz {t_}")
     p.load(CT["w"]).emit(f"shr {2 * lo_side}").push(3).emit("and").store(KP[out])
     p.mark(t_)
 p.load(KP["x"]).push(9).emit("eq", f"jz {ai_}_x")
