@@ -1288,3 +1288,45 @@ brake and a slide were offered): "slide!!"
 - The third tape of the layer (four minutes, to the last district) turned
   no knob: the layer's starts are settled.
 - tests: 8 for the base, 7 for the layer.
+
+## P28: layer 2 -- shadow boxing (2026-11-21; not yet on glass)
+
+"for the fighting next, think shadow boxing. we want to be able to control
+what gets thrown and where it lands precisely. thats why i was thinkg
+directional with dpad. it should feel like theirs weight to each and the
+player shouldnt be looking like he's just teleported to the other
+directions." Asked three things, the player chose: the pad picks the
+DIRECTION (not the punch); after a turn he STAYS facing it; Y is the HEAVY
+version of each.
+
+    TND_LAYER=2   the base + the left shoulder + this. No enemies: the
+                  blows are thrown at the air.
+
+- **He turns to it.** Until now a fist thrown any way but ahead snapped
+  his body there for the blow and back after -- the teleport. Now he
+  PIVOTS there first: the blow held at its wind-up, its lunge kept, his
+  heading turned at the pivot knob's units a frame (36: a side in 7
+  frames, behind him in 14) -- then the blow runs. The farther round, the
+  later it lands: that is its weight. Ahead (nothing held, or Up) it is
+  thrown at once, as before.
+- **He stays.** The strike commits his heading: he is facing where he
+  struck, the lens comes round after him, and the pad means "from where
+  he faces NOW" for the next blow. (So a string to one side is Left + X,
+  then X, X.) Through a strike the tank's turn is off: it is thrown.
+- **Y is the heavy version.** Y takes the string's next place exactly as
+  X would and throws that blow's heavy, from the blows already in the
+  bank: the jab's is the lead hook, the cross's the rear hook, a hook's
+  its uppercut, the string's last the haymaker. Y Y Y Y: the two hooks,
+  the uppercut, the haymaker. X X Y Y: jab, cross, lead uppercut,
+  haymaker. Heavy blows (hooks and up) pivot at their own slower knob (24).
+  Y alone was always the haymaker; that is the string's end now.
+- **Its knobs**: 0 the pivot, 1 the heavy pivot, 2 the lunge (x each
+  blow's own), 3 the frames a tap still keeps the string, 4 how long a
+  wait may be.
+- **A fault found on the way, in the base since P21**: the jab's context
+  (is the key in reach?) squared the distance to the key, and past 181
+  units the square overflows the word and reads small -- across town from
+  the key, the jab picked it up. A layer test happened to stand there.
+  Each axis is checked near first, now.
+- **Measured on silicon** (strings in every direction): peak 58%, median
+  49%, none dropped. tests: 8 base, 7 layer 1, 7 layer 2.
