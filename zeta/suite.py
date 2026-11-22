@@ -69,6 +69,8 @@ class Observed:
         self.objects = 0
         self.blend_px = 0
         self.clip_px = 0
+        self.cart_px = 0          # pixels that MOVE if OBJ_CART is switched
+        self.cart_vsrcs = set()   # off in the law; the vertex streams drawn from
         self.otint_px = 0         # pixels that MOVE if OBJ_OTINT is
         self.otint_words = set()  # ignored, and the distinct lights seen
         self.add_px = 0           # pixels that MOVE if BLEND_ADD is
@@ -285,6 +287,26 @@ class Observed:
                 self.otint_px = max(self.otint_px,
                                     int((unlit != m.framebuffer())
                                         .any(axis=2).sum()))
+            # spec.OBJ_CART (frontier 20), by the same mutation: with the
+            # flag unread a descriptor is no mesh, and what the cart's
+            # meshes drew is gone. The streams it drew from are counted,
+            # so a cart that never changes a pose's offsets cannot claim
+            # that a pose is "two offsets written".
+            if any(f & spec.OBJ_CART for f in self.flags):
+                from . import gpu as _gpu
+                for b in range(spec.OL_BASE + 1,
+                               spec.OL_BASE + 1 + n * spec.OL_STRIDE,
+                               spec.OL_STRIDE):
+                    if d[b + 5] & spec.OBJ_CART and 0 <= d[b] < spec.DMEM_WORDS - 5:
+                        self.cart_vsrcs.add(d[d[b] + 1])
+                _oc, spec.OBJ_CART = spec.OBJ_CART, 0
+                try:
+                    gone = _gpu.render(d, m._cram, m._tex)
+                finally:
+                    spec.OBJ_CART = _oc
+                self.cart_px = max(self.cart_px,
+                                   int((gone != m.framebuffer())
+                                       .any(axis=2).sum()))
             # BLEND_ADD, proved by the same mutation -- and by an
             # invariant, which a screenshot could not give. The two modes
             # differ by add - lerp = dst*a, which is never negative, so
@@ -623,6 +645,15 @@ CLAIMS: list[Claim] = [
           "switching the clipper off changes almost nothing -- the huge "
           "floor is not crossing the planes, so the wide end of the "
           "crossing's multiply and divide is unwitnessed again",
+          frames=40),
+    # MESHES DRAWN FROM THE CART (frontier 20): three streams in the
+    # segment through a five-word descriptor -- the clipper, the outline,
+    # the object's tint, a refusal, the store's limit, a pose by offsets.
+    Claim("cartmesh", "spec.OBJ_CART: meshes drawn from the cart, a pose two offsets",
+          lambda o: o.cart_px > 5000 and len(o.cart_vsrcs) > 5,
+          "switching OBJ_CART off in the law changes almost nothing -- the "
+          "cart's meshes reach no pixel -- or no descriptor's vertices ever "
+          "moved to another stream, which is the whole of a pose",
           frames=40),
     # THE GAME, and the line that would have caught the defect it found:
     # a backdrop AND more than one mesh, which no other cart in this table
