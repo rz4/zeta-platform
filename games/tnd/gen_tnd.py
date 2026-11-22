@@ -2683,9 +2683,15 @@ if L2:
     # P30: THE STRING STANDS while a blow is out, while a button is held, and
     # for the keep knob's frames after -- no beat to hit: mashed or slow, the
     # count is the count.
+    # P32: ...and TIME SLOWED, THE PAD MOVES HIM. The string's lock (no walk,
+    # no turn, for 10 frames after its blow) was held on for as long as a
+    # button was: on the tape he held Up in the tank for 41 seconds of
+    # slowed time and stood still. Slowed, the clock is held just past the
+    # lock -- the count kept, his legs his own.
     kp_ = p.label("keep")
-    p.load(GT["carve"]).load(GT["special"]).emit("or", f"jz {kp_}_n")
-    p.set(F["ltap"], 0)
+    knob(p, "hold").load(GT["carve"]).emit("lt")
+    knob(p, "hold").load(GT["special"]).emit("lt", "or", f"jz {kp_}_n")
+    p.set(F["ltap"], TURN_LOCK + 1)
     p.mark(f"{kp_}_n")
     knob(p, "keep").load(F["ltap"]).emit("lt", f"jz {kp_}")
     p.set(F["c3"], 0)
@@ -3188,6 +3194,13 @@ if L2:                                             # (P28: nor through a strike:
     p.load(F["c3"]).emit(f"jz {tk}_sl")
     p.push(TURN_LOCK).load(F["ltap"]).emit("lt", f"jz {tk}")
     p.mark(f"{tk}_sl")
+if L2:
+    # (P32: the tank does not turn with a face button down -- the pad is then
+    # a blow's way -- but TIME SLOWED the button is the hold, and he steers)
+    knob(p, "hold").load(GT["carve"]).emit("lt")
+    knob(p, "hold").load(GT["special"]).emit("lt", "or", f"jz {tk}_fb")
+    p.emit(f"jmp {tk}_go")
+    p.mark(f"{tk}_fb")
 p.emit("load 1").push(spec.PAD_A | spec.PAD_B | spec.PAD_X | spec.PAD_Y)
 p.emit("and", f"jz {tk}_go", f"jmp {tk}")
 p.mark(f"{tk}_go")
@@ -3290,8 +3303,16 @@ if L2:
     p.load(YAW).emit("add").push(1023).emit("and").store(PIVT)
     p.set(TURNED, 1)
     p.emit(f"jmp {L['motion']}")
+    # P32: A SHOT IS A BLOW TOO. The gun still snaps to the pad's way the
+    # frame it fires (a shot goes exactly where it is pointed) -- but, as a
+    # fist does, with no pad it goes where his body faces, and he STAYS as
+    # the shot left him till he moves: on the tape 144 of his 203 shots
+    # were fired in slowed time, in volleys, and between each two his body
+    # snapped back to his steering.
     p.mark(f"{gf}_ps")
-    p.set(TURNED, 0)
+    p.set(TURNED, 1)
+    held(15)
+    p.emit(f"jz {gf}_g")
 p.push(int(OCTANT)).emit("load 1").push(15).emit("and", "add", "loadi")
 p.load(YAW).emit("add").push(1023).emit("and").store(HEAD)
 p.mark(f"{gf}_g")
@@ -4386,6 +4407,13 @@ blend(CW["ch"])
 # THE PUNCH OVERHEAD: the tank, a strike button held choosing its aim
 p.mark(f"{op}_pu")
 p.push(0).store(W["head"])
+if L2:
+    # P32: NOT IN LAYER 2. This shot (the archive's: the tank, a strike
+    # button held, the lens goes 3.6 up and back to choose an aim) took the
+    # frame whenever he stood in the tank with X or Y held -- which is
+    # layer 2's slowed time: on the tape 10,776 frames of it, the lens far
+    # overhead instead of at the blow. The slowed lens is this layer's.
+    p.emit(f"jmp {op}_p3")
 p.load(F["sty"]).emit(f"jz {op}_p1", f"jmp {op}_p3")
 p.mark(f"{op}_p1")
 p.load(ANIM).push(2).emit("eq", f"jz {op}_p2", f"jmp {op}_p3")

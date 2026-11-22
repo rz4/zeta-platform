@@ -1497,3 +1497,42 @@ drawn, where a blow goes).
   distance, 7 the boxer lens's share.
 - Not remeasured on silicon (no new geometry). tests: 8 base, 7 layer 1,
   18 layer 2; the full cart is byte-identical.
+
+## P32: what the tape of P31 says (2026-11-22; not yet on glass)
+
+The player: "I don't think we need any more plain strong design decision
+here. Look at the replay, do you see what I am going for?" The tape: 26
+minutes of layer 2, three gates opened, no knob touched.
+
+- **Slowed time is where he plays.** 45% of the tape was slowed (137 X
+  holds and 92 Y holds past the hold knob; the longest 25 seconds). In
+  it: 138 of his 249 jumps (176 of them strafe jumps), 245 of his 394
+  flips and dodges, 46 wall jumps, and 144 of his 203 shots. X is held
+  with A beside it -- one hold had 53 leaps and flips in it; Y is held
+  with B beside it -- a hook thrown, held, and a volley (one hold: 48
+  shots). The blow is the way in; the hold is the stage.
+- **The lock held him still.** P30's lock (no walk or turn for 10 frames
+  after a string's blow) ran off a clock that a held button stopped: in
+  the tank he held Up through 41 seconds of slowed time and stood. Time
+  slowed, the clock is now held just PAST the lock: the count kept, his
+  legs his own. And the tank's rule that it does not turn with a face
+  button down (the pad is then a blow's way) gives way too once time is
+  slowed -- the button is the hold, and he steers.
+- **The slowed lens was not the lens in the tank.** The archive's "punch
+  overhead" (P12: the tank, a strike button held, the lens 3.6 up and
+  back to choose an aim) took the frame whenever he stood in the tank
+  with X or Y down: 10,776 frames of the tape. It is off in layer 2; on
+  the same tape replayed, the tank's slowed lens is 1.43 from him (it
+  was 3.60) and one frame is past 3.
+- **A shot is a blow.** The gun snapped his body to the pad's way and
+  back to his steering every shot -- in a volley, every shot. It still
+  snaps there the frame it fires (a shot goes where it is pointed), but
+  now he stays as it left him, a shot with no pad goes where his body
+  faces, and moving brings him back: the fists' rule (P31).
+- **Seen, and left**: R is held 106 seconds, 80 of them with L in the
+  stance, where it does nothing -- the right shoulder is the next layer.
+  Slowed, the lens is 1.4 from him in the run and in the air, where no
+  blow is out (the run's own is 3.4): the tape cannot say how that
+  feels. A pressed again in the air does nothing about 55 times (one flip an
+  air).
+- tests: 8 base, 7 layer 1, 20 layer 2; the full cart is byte-identical.

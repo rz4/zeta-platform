@@ -259,6 +259,57 @@ def test_time_slowed_the_lens_goes_to_where_the_blow_lands(text, way):
     assert abs(np.hypot(*np.subtract(g.lens()[:2], g.pos())) - far) < 0.25, "let go, the lens stayed in"
 
 
+def test_time_slowed_he_still_moves_and_the_lens_stays_with_the_blow(text):
+    """P32, from the tape of P31 (26 minutes; 45% of it in slowed time, and
+    in it 138 of his 249 jumps and 144 of his 203 shots): slowed time is
+    where he MOVES. In the tank with X held he walks and turns -- the
+    string's lock is for running time (he had held Up for 41 seconds and
+    stood) -- the count is still kept, and the lens stays in at the blow
+    (the tank's old overhead shot had taken it: 3.6 away, looking down)."""
+    g = Game(text)
+    g.run(0, 30)
+    far = np.hypot(*np.subtract(g.lens()[:2], g.pos()))
+    g.run(X, g.knob(HOLD) + 30)                   # a jab, held: time slows
+    assert g.cell("f_c3") == 1
+    p0, y0 = g.pos(), g.cell("yaw")
+    for _ in range(150):
+        g.run(X | U, 1)
+        assert np.hypot(*np.subtract(g.lens()[:2], g.pos())) < far, "the lens left the blow"
+    assert g.local(p0, y0)[0] > 1.0, f"slowed, with Up held, he went {g.local(p0, y0)}"
+    g.run(X | LF, 60)
+    assert (g.cell("yaw") - y0) % 1024 > 100, "slowed, he could not turn"
+    assert g.cell("f_c3") == 1, "held, the count was lost"
+    g.run(0, 2)
+    assert g.string(tap(X, 12) + tap(Y, 10)) == ["jab", "rear_uppercut"], "let go, the count was gone"
+
+
+def test_a_shot_leaves_him_as_a_fist_does(text):
+    """P32: the gun snaps to the pad's way the frame it fires, and his body
+    STAYS there -- a shot with no pad goes that way again, his steering and
+    the lens never turn, and moving brings him back -- so a volley does not
+    snap him back to his steering between every two shots."""
+    g = Game(text)
+    B = spec.PAD_B
+    g.run(0, 30)
+    y0, c0 = g.cell("yaw"), g.lens()[2]
+
+    def shoot(way):                               # (the gun fires as B comes up: the pad is read then)
+        g.run(way | B, 4)
+        g.run(way, 1)
+        assert g.cell("anim") == 2 and g.cell("f_mv") >= MOVES.index("gun"), "no shot"
+        seen = (g.cell("head") - g.cell("yaw") + 512) % 1024 - 512
+        g.run(0, 40)
+        return seen
+    assert shoot(LF) == 256, "the shot did not go the pad's way"
+    y0 = g.cell("yaw")
+    g.run(0, 60)
+    assert (g.cell("head") - y0) % 1024 == 256 and g.cell("yaw") == y0, "he did not stay as the shot left him"
+    assert shoot(0) == 256, "a shot with no pad left where his body faced"
+    assert abs((g.lens()[2] - c0 + 512) % 1024 - 512) < 32, "the lens came round with the shot"
+    g.run(U, 8)
+    assert g.cell("head") == g.cell("yaw") == y0, "moving did not bring him back"
+
+
 @pytest.mark.parametrize("way,ahead,left", [(U, 1, 0), (D, -1, 0), (LF, 0, 1), (RT, 0, -1)])
 def test_the_boxers_jump_is_a_strafe_jump(text, way, ahead, left):
     """P31: "For the boxer, the jumps should be like a strafe jump in the
