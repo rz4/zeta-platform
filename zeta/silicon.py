@@ -25,7 +25,7 @@ from . import clip, spec
 
 ROOT = Path(__file__).resolve().parents[1]
 SIL = ROOT / "silicon"
-RTL = ["zvm.v", "zimem.v", "zseq.v", "zgpu.v", "zsnd.v", "zcard.v", "cram_burst.v",
+RTL = ["zvm.v", "zimem.v", "zseq.v", "zmesh.v", "zgpu.v", "zsnd.v", "zcard.v", "cram_burst.v",
        "cram_fb.v", "zeta_top.v"]
 
 
@@ -94,6 +94,8 @@ def gen_params() -> str:
         f"GRADE_WORDS = {spec.GRADE_WORDS};",
         f"localparam CRAM_CART_BASE = {spec.CRAM_CART_BASE}, "
         f"CRAM_WORDS = {spec.CRAM_WORDS};",
+        f"localparam CMESH_WORDS = {spec.CMESH_WORDS}, CM_VMAX = {spec.CM_VMAX}, "
+        f"CM_FMAX = {spec.CM_FMAX};",
         f"localparam LOADER_SIG = {spec.LOADER_SIG};",
         f"localparam LOADER_BUILD = {spec.LOADER_BUILD};",
         f"localparam LOADER_SIG2 = {spec.LOADER_SIG2};",

@@ -41,6 +41,13 @@ module zseq (
     // DMEM external read port (registered: data 2 states after address)
     output reg  [13:0] rd_addr,
     input  wire [31:0] rd_data,
+    // spec.OBJ_CART (frontier 20): with rd_cart up, rd_addr is a word of
+    // object rd_obj's mesh AS THE STORE HOLDS IT -- [nv, nf, 3 a vertex,
+    // 2 a face], a DMEM mesh's own layout -- and zmesh answers on rd_data
+    // in the same two states. cm_ok: the loader admitted this object.
+    output reg         rd_cart,
+    output wire [5:0]  rd_obj,
+    input  wire        cm_ok,
     // triangle handshake to the rasterizer
     input  wire        tri_rdy,
     output reg         tri_go,
@@ -214,6 +221,7 @@ module zseq (
   reg signed [31:0] mb_s, ox, oy, oz;
   reg [9:0]  oyaw, opit, orol;
   reg [31:0] oflags, nv, nf;
+  assign rd_obj = o[5:0];
   reg signed [31:0] dxr, dyr, dzr;
   reg [8:0]  vi;
   reg [1:0]  vi3;
@@ -227,14 +235,17 @@ module zseq (
   // channel gradients, the fill -- is the path gouraud already built,
   // and the only new thing is the one wire that turns the word into a
   // colour as it comes off the mesh. So `gour` simply includes it.
-  wire       litf = oflags[13];
-  wire       gour = oflags[1] || litf;   // OBJ_GOURAUD: the mesh LAYOUT, which
+  // spec.OBJ_CART: a cart mesh is FLAT -- its gouraud, lit, texture, face-
+  // tint and blend bits are not read (gpu.py masks the same five)
+  wire       cartf = oflags[14];
+  wire       litf = oflags[13] && !cartf;
+  wire       gour = (oflags[1] && !cartf) || litf;   // OBJ_GOURAUD: the mesh LAYOUT, which
                                     // decides what to fetch and must not
                                     // depend on a depth nobody knows yet
   reg        far;                   // this face is past LOD_FLAT: fetch
                                     // as usual, but skip the colour
                                     // gradients -- the expensive part
-  wire       texf = oflags[2];      // OBJ_TEX: the block carries uv
+  wire       texf = oflags[2] && !cartf;   // OBJ_TEX: the block carries uv
   // OBJ_OTINT: the light is ONE WORD in the object slot rather than nf
   // words in the mesh, so an actor can be re-lit every frame from where
   // it is standing. The object wins over the face when both are set.
@@ -248,7 +259,7 @@ module zseq (
   wire [7:0] oidv = {oflags[7], o[6:0] + 7'd1};
   wire       otintf = oflags[6];
   wire [14:0] otintv = oflags[31:17];   // 5:5:5, R 31:27 G 26:22 B 21:17
-  wire       tintf = oflags[3];     // OBJ_TINT: ...and the face's colour
+  wire       tintf = oflags[3] && !cartf;  // OBJ_TINT: ...and the face's colour
                                     // word LIGHTS it instead of being
                                     // discarded, which is what a
                                     // textured face did until build 89
@@ -261,7 +272,7 @@ module zseq (
                                     // sixteen were
                                     // resident now, and zero is what
                                     // every older cart says
-  wire       blendf = oflags[5];    // OBJ_BLEND: this object composites
+  wire       blendf = oflags[5] && !cartf; // OBJ_BLEND: this object composites
                                     // against what is already there and
                                     // writes NO depth, so blended faces
                                     // cannot occlude each other and their
@@ -798,6 +809,7 @@ module zseq (
     vc_we <= 1'b0;
     fb_we <= 1'b0;
     if (!rst_n) begin           // (m_act/m_blk are assigned below the case)
+      rd_cart <= 1'b0;
       rph <= 1'b0;
       st <= S_IDLE;
       cl_on <= 1'b0; cl_xf <= 1'b0; cl_prj <= 1'b0;
@@ -807,6 +819,7 @@ module zseq (
       // start as well as at reset: a flag surviving a wedged frame would
       // route the NEXT frame's ordinary vertices into the clipper's states
       S_IDLE: if (start) begin
+        rd_cart <= 1'b0;
         rd_addr <= DL_BASE[13:0];
         cl_on <= 1'b0; cl_xf <= 1'b0; cl_prj <= 1'b0;
         st <= S_DLN_W;
@@ -914,9 +927,9 @@ module zseq (
         areg <= oyaw;
         // THE SKIP: a later band that this object's measured span cannot
         // reach costs one state instead of a full mesh walk.
-        if (mb_s[31] || mb_s >= DMEM_WORDS - 2) begin
-          vb_ok <= 1'b0;
-          if (first_pass) onf[o[5:0]] <= 11'd0;   // gpu.py continues too
+        if (mb_s[31] || mb_s >= DMEM_WORDS - 2 || (cartf && !cm_ok)) begin
+          vb_ok <= 1'b0;                          // (a cart mesh the loader
+          if (first_pass) onf[o[5:0]] <= 11'd0;   // refused: gpu.py continues too)
           st <= S_ONXT;
         end else if (!first_pass && !band_hit) begin
           // nf is on rd_data THIS cycle, which is why the bump can be
@@ -925,7 +938,12 @@ module zseq (
           seq_skip <= 1'b1; seq_skip_n <= onf[o[5:0]];
           st <= S_ONXT;
         end
-        else st <= S_OT2;
+        else begin
+          // an admitted cart mesh: from here its mesh is the store's, read
+          // as a DMEM mesh at address 0 would be
+          if (cartf) begin mb_s <= 32'd0; rd_cart <= 1'b1; end
+          st <= S_OT2;
+        end
       end
       S_OT2: begin s_o <= aval; areg <= oyaw + 10'd256; st <= S_OT2B; end
       S_OT2B: begin c_o <= aval; areg <= opit; st <= S_OT3; end
@@ -1632,6 +1650,7 @@ module zseq (
         if (first_pass && vb_ok) vb_base <= vb_base + {1'd0, nv[10:0]};
         if (first_pass && fb_ok) fb_base <= fb_base + {1'd0, nf[10:0]};
         o <= o + 1'b1; ci <= 0;
+        rd_cart <= 1'b0;                  // the next object's six words are DMEM's
         obase <= obase + OL_STRIDE[13:0];
         rd_addr <= obase + OL_STRIDE[13:0];
         st <= (o + 1'b1 == n_ol) ? S_FIN : S_OBJ_W;

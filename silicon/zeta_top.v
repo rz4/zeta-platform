@@ -146,7 +146,10 @@ module zeta_top (
              I_GRW = 6'd50, I_GRC = 6'd51,
              I_VIS = 6'd52, I_AUD = 6'd53,    // (0..46 were taken)
              I_ARW = 6'd54, I_ARC = 6'd55, I_ARZ = 6'd56,   // spec.AU_RESET
-             I_D2 = 6'd57;                    // spec.DMA2_*: the second request
+             I_D2 = 6'd57,                    // spec.DMA2_*: the second request
+             // spec.OBJ_CART (frontier 20): the cart mesh's loader
+             I_ML = 6'd58, I_MRD = 6'd59, I_MCK = 6'd60, I_MCHK = 6'd61,
+             I_MSTR = 6'd62, I_MNX = 6'd63;
                                     // were taken, and a duplicate here
                                     // wedges the frame in silence)
   localparam [13:0] A_FRAME = REG_FRAME, A_PAD = REG_PAD;
@@ -267,6 +270,46 @@ module zeta_top (
   // loaded into d_* so the SAME engine (and req_ok) serves it
   reg [31:0] m2_src, m2_dst, m2_len, m2_go;
   reg        dma_two;                // the engine is serving request 2
+  // ---- THE CART MESH'S LOADER (spec.OBJ_CART; frontier 20) ---------------
+  // After the second sweep -- DMEM is what the paint will see -- walk the
+  // object list. A cart object's five descriptor words are read, the
+  // law's refusals applied (gpu.py _cart_mesh, in its order), and an
+  // admitted one's three streams are burst into zmesh's store by the
+  // mover's own engine: dma_mesh says the words are the store's, not
+  // DMEM's. Every object gets a verdict, so the store's table is never
+  // stale for an object the sequencer will ask about.
+  reg [6:0]  ml_o, ml_n;             // the object in hand, and how many
+  reg [2:0]  msel;                   // which word of it is being read
+  reg [13:0] ml_e;                   // its first word in the list
+  reg [31:0] ml_mesh;
+  reg [31:0] ml_d0, ml_d1, ml_d2, ml_d3, ml_d4;
+  reg [11:0] ml_uv;                  // vertices admitted this frame
+  reg [12:0] ml_uf;                  // ...and faces
+  reg [2:0]  ml_str;                 // the stream in hand: 1 v, 2 f, 3 c (4: done)
+  reg [1:0]  dma_mesh;               // this burst lands in the store
+  reg        ml_new, ml_obj, ml_okr;
+  wire [15:0] ml_nv = ml_d0[15:0];
+  wire [15:0] ml_nf = ml_d0[31:16];
+  wire [31:0] ml_vw = ({22'd0, ml_nv[8:0], 1'b0} + {23'd0, ml_nv[8:0]} + 32'd1) >> 1;
+  wire [31:0] ml_fw = {22'd0, ml_nf[9:0]};
+  wire [31:0] ml_cw = ({22'd0, ml_nf[9:0]} + 32'd1) >> 1;
+  wire [31:0] ml_e1 = ml_d1 + d_seg, ml_e2 = ml_d2 + d_seg, ml_e3 = ml_d3 + d_seg;
+  wire       ml_valid = (ml_nv <= MESH_NV_MAX) && (ml_nf <= MESH_NF_MAX) &&
+                        (ml_d4[31:4] == 28'd0) &&
+                        !ml_d1[31] && !ml_e1[31] && (ml_e1 + ml_vw <= CRAM_WORDS) &&
+                        !ml_d2[31] && !ml_e2[31] && (ml_e2 + ml_fw <= CRAM_WORDS) &&
+                        !ml_d3[31] && !ml_e3[31] && (ml_e3 + ml_cw <= CRAM_WORDS) &&
+                        ({1'b0, ml_uv} + {4'd0, ml_nv[8:0]} <= CM_VMAX) &&
+                        ({1'b0, ml_uf} + {4'd0, ml_nf[9:0]} <= CM_FMAX);
+  wire [31:0] ml_eff = (ml_str == 3'd1) ? ml_e1 : (ml_str == 3'd2) ? ml_e2 : ml_e3;
+  wire [31:0] ml_len = (ml_str == 3'd1) ? ml_vw : (ml_str == 3'd2) ? ml_fw : ml_cw;
+  wire [13:0] ml_addr = (msel == 3'd0) ? OL_BASE[13:0] :
+                        (msel == 3'd1) ? ml_e :
+                        (msel == 3'd2) ? ml_e + 14'd5 :
+                                         ml_mesh[13:0] + {11'd0, msel} - 14'd3;
+  wire [31:0] mesh_q;                // zmesh's answer to the sequencer
+  wire        seq_cart, cm_ok;
+  wire [5:0]  seq_obj;
   reg [15:0] c_slot_r;               // ...latched, so a cart rewriting
   reg [31:0] c_off_r;                // the cells mid-flight changes
   reg [13:0] c_dst_r;                // nothing
@@ -499,7 +542,7 @@ module zeta_top (
     end
   end
   wire        ext_we    = boot_dmem || st == I_WF || st == I_WP ||
-                          (dma_we && !dma_imem) || st == I_DCLR ||
+                          (dma_we && !dma_imem && dma_mesh == 2'd0) || st == I_DCLR ||
                           st == I_OCLR || st == I_PW ||
                           card_we || st == I_CCLR || st == I_CGO ||
                           st == I_CDG || st == I_CDG2 || st == I_CDG3 ||
@@ -512,7 +555,8 @@ module zeta_top (
                               ? (AUD_BASE[13:0] + {9'd0, audi} - 14'd1) :
                           (st == I_WF) ? A_FRAME :
                           (st == I_WP) ? A_PAD :
-                          dma_we       ? dma_dst[13:0] :
+                          (dma_we && dma_mesh == 2'd0) ? dma_dst[13:0] :
+                          (st == I_MRD || st == I_MCK) ? ml_addr :
                           (st == I_DCLR) ? (dma_two ? DMA2_GO[13:0]
                                                     : DMA_GO[13:0]) :
                           (st == I_OCLR) ? OVL_GO[13:0] :
@@ -646,12 +690,20 @@ module zeta_top (
     .ic_req(ic_req), .ic_line(ic_line), .ic_we(ic_we), .ic_wo(ic_wo),
     .ic_wd(ic_wd), .ic_done(ic_done), .ic_flush(ic_flush));
 
+  zmesh u_mesh (
+    .clk(clk),
+    .ld_new(ml_new), .ld_obj(ml_obj), .ld_o(ml_o[5:0]), .ld_ok(ml_okr),
+    .ld_nv(ml_nv[8:0]), .ld_nf(ml_nf[9:0]), .ld_sh(ml_d4[3:0]),
+    .ld_sel(dma_mesh), .ld_we(dma_we && dma_mesh != 2'd0), .ld_word(dma_word),
+    .rd_obj(seq_obj), .rd_addr(seq_addr), .cm_ok(cm_ok), .rd_data(mesh_q));
+
   zseq u_seq (
     .clk(clk), .rst_n(core_rst_n),
     .start(st == I_GK), .done(seq_done),
     .m_act(seq_m_act), .m_blk(seq_m_blk), .m_skp(seq_m_skp),
     .tile_y0(tile_y0), .first_pass(tpass == 6'd0),
-    .rd_addr(seq_addr), .rd_data(dl_data),
+    .rd_addr(seq_addr), .rd_data(seq_cart ? mesh_q : dl_data),
+    .rd_cart(seq_cart), .rd_obj(seq_obj), .cm_ok(cm_ok),
     .lod_flat((f_lod[31] || f_lod > 32'hFFFF) ? 16'd0 : f_lod[15:0]),
     .tri_rdy(tq_rdy), .tri_go(tri_go), .seq_item(seq_item), .seq_skip(seq_skip),
     .seq_skip_n(seq_skip_n),
@@ -752,6 +804,8 @@ module zeta_top (
     gpu_flush_go <= 1'b0;   // one-clock pulse
     dma_go <= 1'b0;                     // one-clock request
     dma_we <= 1'b0;                     // one-clock DMEM write
+    ml_new <= 1'b0;                     // one-clock words to zmesh
+    ml_obj <= 1'b0;
     tex_we <= 1'b0;
     ev_we <= 1'b0;
     gr_we <= 1'b0;
@@ -761,6 +815,7 @@ module zeta_top (
     if (card_we && ~&n_copy) n_copy <= n_copy + 8'd1;
     if (!core_rst_n) begin
       st <= I_IDLE; frame_no <= 0; busy <= 1'b0;
+      dma_mesh <= 2'd0;
       dma_hi <= 1'b0; d_fin <= 1'b0; tpass <= 6'd0; au_rst <= 1'b0;
       m_clr <= 0; m_walk <= 0; m_idle <= 0;
       m_stall <= 0; m_seq <= 0; m_blkd <= 0; m_skp <= 0;
@@ -919,7 +974,8 @@ module zeta_top (
           6'd42: m2_go  <= dl_data;
           default: co_reg[dsel - 6'd21] <= dl_data;
         endcase
-        if (dsel == 6'd42) st <= swept2 ? I_TXP : I_DCLR;
+        if (dsel == 6'd42) st <= swept2 ? I_ML : I_DCLR;   // (frontier 20: the
+                                          // cart meshes, once DMEM is final)
         else begin dsel <= dsel + 1'b1; st <= I_DRD; end
       end
       I_DCLR:                             // GO clears whether or not the
@@ -946,8 +1002,62 @@ module zeta_top (
       end
       I_DWAIT: if (d_fin && !dma_hi && !dma_we) begin
         d_fin <= 1'b0;                    // every half of this burst is
-        st <= (dma_left == 0) ? (dma_ret ? I_OCLR : dma_two ? I_OVL : I_D2)
+        st <= (dma_left == 0) ? (dma_mesh != 2'd0 ? I_MSTR :
+                                 dma_ret ? I_OCLR : dma_two ? I_OVL : I_D2)
                               : I_DBURST;           // landed now
+        if (dma_left == 0 && dma_mesh != 2'd0) ml_str <= ml_str + 3'd1;
+      end
+      // ---- the cart mesh's loader (see its registers, above) ----------
+      I_ML: begin
+        ml_o <= 7'd0; ml_uv <= 12'd0; ml_uf <= 13'd0; msel <= 3'd0;
+        ml_e <= OL_BASE[13:0] + 14'd1; ml_new <= 1'b1; dma_mesh <= 2'd0;
+        st <= I_MRD;
+      end
+      I_MRD: st <= I_MCK;                 // the word presented
+      I_MCK: begin                        // ...and readable this cycle
+        st <= I_MRD;
+        case (msel)
+          3'd0: begin
+            ml_n <= (dl_data > OL_MAX) ? OL_MAX[6:0] : dl_data[6:0];
+            msel <= 3'd1;
+            if (dl_data == 32'd0) st <= I_TXP;
+          end
+          3'd1: begin ml_mesh <= dl_data; msel <= 3'd2; end
+          3'd2:                           // its flags: a cart mesh, its
+            if (dl_data[14] && !ml_mesh[31] &&         // descriptor in DMEM?
+                ml_mesh <= DMEM_WORDS - CMESH_WORDS) msel <= 3'd3;
+            else begin ml_obj <= 1'b1; ml_okr <= 1'b0; st <= I_MNX; end
+          3'd3: begin ml_d0 <= dl_data; msel <= 3'd4; end
+          3'd4: begin ml_d1 <= dl_data; msel <= 3'd5; end
+          3'd5: begin ml_d2 <= dl_data; msel <= 3'd6; end
+          3'd6: begin ml_d3 <= dl_data; msel <= 3'd7; end
+          default: begin ml_d4 <= dl_data; st <= I_MCHK; end
+        endcase
+      end
+      I_MCHK: begin                       // the verdict (gpu.py _cart_mesh)
+        ml_obj <= 1'b1; ml_okr <= ml_valid;
+        if (ml_valid) begin
+          ml_uv <= ml_uv + {3'd0, ml_nv[8:0]};
+          ml_uf <= ml_uf + {3'd0, ml_nf[9:0]};
+          ml_str <= 3'd1;
+          st <= I_MSTR;
+        end else st <= I_MNX;
+      end
+      I_MSTR:                             // its streams, one burst run each
+        if (ml_str == 3'd4) begin dma_mesh <= 2'd0; st <= I_MNX; end
+        else if (ml_len == 32'd0) ml_str <= ml_str + 3'd1;
+        else begin
+          dma_addr <= CRAM_CART_BASE[22:0] + {ml_eff[21:0], 1'b0};
+          dma_left <= ml_len;
+          dma_hi   <= 1'b0;
+          dma_imem <= 1'b0;
+          dma_ret  <= 1'b0;
+          dma_mesh <= ml_str[1:0];
+          st <= I_DBURST;
+        end
+      I_MNX: begin
+        ml_o <= ml_o + 7'd1; ml_e <= ml_e + OL_STRIDE[13:0]; msel <= 3'd1;
+        st <= (ml_o + 7'd1 == ml_n) ? I_TXP : I_MRD;
       end
       // ---- the second request (spec.DMA2_*): the same engine, again --
       I_D2: begin

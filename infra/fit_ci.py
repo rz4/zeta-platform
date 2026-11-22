@@ -120,7 +120,7 @@ import hashlib  # noqa: E402
 from zeta import spec  # noqa: E402
 
 SIL = ROOT / "silicon"
-srcs = [SIL / f for f in ("zvm.v", "zimem.v", "zgpu.v", "zseq.v", "zsnd.v",
+srcs = [SIL / f for f in ("zvm.v", "zimem.v", "zgpu.v", "zseq.v", "zmesh.v", "zsnd.v",
                           "zeta_top.v")]
 srcs += [ROOT / "pocket/zeta_glass.v", ROOT / "pocket/zeta_tape.v",
          ROOT / "silicon/gen/params.vh",

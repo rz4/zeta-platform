@@ -791,6 +791,7 @@ set_global_assignment -name VERILOG_FILE ../zeta_glass.v
 set_global_assignment -name VERILOG_FILE ../cart_loader.v
 set_global_assignment -name VERILOG_FILE ../zeta_tape.v
 set_global_assignment -name VERILOG_FILE ../../silicon/zseq.v
+set_global_assignment -name VERILOG_FILE ../../silicon/zmesh.v
 set_global_assignment -name VERILOG_FILE ../../silicon/zsnd.v
 set_global_assignment -name VERILOG_FILE ../../silicon/zcard.v
 set_global_assignment -name VERILOG_FILE ../../pocket/card_apf.v
