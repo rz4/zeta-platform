@@ -27,7 +27,7 @@ U, D, LF, RT, X, Y, L = (spec.PAD_UP, spec.PAD_DOWN, spec.PAD_LEFT, spec.PAD_RIG
                          spec.PAD_X, spec.PAD_Y, spec.PAD_L)
 MOVES = ("jab", "cross", "lead_hook", "rear_hook", "special", "lead_uppercut",
          "rear_uppercut", "gun", "gun_charged")
-PIVOT, LUNGE, KEEP, HOLD, SLOW, SJUMP, FCAM, WANDER = range(8)   # the layer's knobs
+PIVOT, LUNGE, KEEP, HOLD, SLOW, SJUMP, FCAM, WANDER, DODGE = range(9)   # the layer's knobs
 A = spec.PAD_A
 FRICTION = 0.82                                         # a swing's, a frame
 
@@ -310,6 +310,160 @@ def test_a_shot_leaves_him_as_a_fist_does(text):
     assert g.cell("head") == g.cell("yaw") == y0, "moving did not bring him back"
 
 
+def _seq(*parts):
+    return [pad for pad, n in parts for _ in range(n)]
+
+
+DILATED = {
+    "the tank: walk, turn, dodges": (Y, _seq(
+        (U, 30), (0, 10), (LF, 12), (U, 20), (U | A, 2), (U, 20), (0, 20), (LF | A, 2), (0, 30), (A, 2), (0, 30),
+        (RT | A, 3), (RT, 25), (D | A, 2), (0, 40))),
+    "the boxer: steps, strafe jumps, a flip": (Y, _seq(
+        (L, 20), (L | LF, 20), (L, 10), (L | LF | A, 2), (L | LF, 30), (L, 20), (L | U | A, 3), (L, 40), (L | A, 2),
+        (L, 8), (L | RT | A, 2), (L, 50), (L | D | A, 2), (L | D, 4), (L | D | A, 2), (L, 60))),
+    "the run: its click, a jump, a flip, a slide": (Y, _seq(
+        (L, 2), (0, 1), (L | U, 60), (L | U | A, 2), (L | U, 40), (L | U | A, 2), (L | U, 5), (L | U | A, 2),
+        (L | U, 50), (L | U | LF, 10), (L | U, 10), (L | D, 20), (L | U, 30), (L, 40))),
+    "the terminators and the gun": (X, _seq(
+        (Y, 2), (0, 50), (LF | Y, 2), (0, 50), (spec.PAD_B, 2), (0, 30), (RT | spec.PAD_B, 2), (0, 30), (U, 10), (0, 20))),
+    "the jabs and the count": (Y, _seq(
+        (X, 2), (0, 9), (X, 2), (0, 9), (LF | X, 2), (0, 9), (X, 2), (0, 30), (U, 12), (0, 50), (D | X, 2), (0, 30))),
+}
+FIGHT = ("px", "pz", "f_py", "yaw", "head", "anim", "af", "f_mv", "pose", "f_evf", "f_vx", "f_vz", "f_sty",
+         "sjump_dir", "f_spd", "turned")
+
+
+@pytest.mark.parametrize("name", list(DILATED))
+def test_time_dilated_is_the_same_fight(text, monkeypatch, name):
+    """P33: "Im sure its about the numerics when time dialates thats the big
+    issue here." One script of pads, a fight frame each, played in running
+    time and again in slowed time (a strike button held on; each pad kept
+    till the fight has moved a frame). Every cell that is the fight's --
+    where he is, his height, his steering, his body, what he is doing, its
+    frame, his pose, his speed -- is the same, frame for frame. (Found by
+    it: one press of A read once a running frame while it was held -- a
+    jump AND a flip; the run's double click and the slide's Down lost two
+    times in three; Left + A dodging and turning him.)"""
+    from zeta import gpu
+    blank = np.zeros((spec.H, spec.W, 3), np.uint8)
+    monkeypatch.setattr(gpu, "render", lambda *a, **k: blank)
+    button, script = DILATED[name]
+
+    def play(slowed):
+        g = Game(text)
+        skip, rows = g.sym("f_skip"), []
+
+        def step(pad):
+            if not slowed:
+                g.run(pad, 1)
+                return
+            for _ in range(12):                   # until the fight has moved a frame
+                g.run(pad | button, 1)
+                if g.d[skip] == 0:
+                    break
+        for k in range(204):                      # the same way in: one blow, then standing
+            step(0) if slowed else g.run(button if k < 4 else 0, 1)
+        assert bool(g.cell("slow_on")) == slowed
+        for pad in script:
+            step(pad)
+            rows.append([g.cell(c) for c in FIGHT])
+        return np.array(rows)
+    a, b = play(False), play(True)
+    bad = np.flatnonzero((a != b).any(1))
+    assert not len(bad), (f"first at fight frame {bad[0]} (pad {script[bad[0]]}): "
+                          f"{[(c, int(x), int(y)) for c, x, y in zip(FIGHT, a[bad[0]], b[bad[0]]) if x != y]}")
+    assert np.hypot(a[-1][0] - a[0][0], a[-1][1] - a[0][1]) > 65536, "the script went nowhere"
+
+
+def test_one_press_is_one_press_and_any_button_held_slows_time(text, monkeypatch):
+    """P33: "what if gun and jump/evade also have the slow down" -- any of
+    the four held past the hold knob slows time: the gun held to its shot
+    (it fires as B comes up, as ever), a jump ridden through. And a thumb's
+    press of A in slowed time -- eleven frames of glass -- is ONE jump: no
+    flip thrown after it, and he lands where the jump lands."""
+    from zeta import gpu
+    blank = np.zeros((spec.H, spec.W, 3), np.uint8)
+    monkeypatch.setattr(gpu, "render", lambda *a, **k: blank)
+    g = Game(text)
+    hold, B = g.knob(HOLD), spec.PAD_B
+    g.run(B, hold)
+    assert not g.cell("slow_on")
+    g.run(B, 12)
+    assert g.cell("slow_on") and g.cell("anim") != 2, "the gun, held, did not slow time (or fired early)"
+    g.run(0, 2)
+    assert g.cell("anim") == 2 and g.cell("f_mv") >= MOVES.index("gun") and not g.cell("slow_on")
+    g.run(0, 60)
+    g.run(L, 40)
+    g.run(L | A, hold + 12)                       # the boxer's jump, A kept down
+    assert g.cell("slow_on") and g.cell("f_py") > 0 and g.cell("f_evf") == 0, "the jump, held, did not slow time"
+    g.run(L, 120)
+    assert g.cell("f_py") == 0
+    # a strafe jump inside slowed time, A down eleven frames
+    g.run(L | X, hold + 80)
+    assert g.cell("slow_on")
+    p0, y0, flips, ups, was = g.pos(), g.cell("yaw"), 0, 0, 0
+    for f in range(240):
+        g.run(L | X | (LF | A if f < 11 else 0), 1)
+        flips += g.cell("f_evf") > 0
+        ups += (g.cell("f_py") > 0) and not was
+        was = g.cell("f_py") > 0
+    assert ups == 1 and flips == 0, f"one press of A, slowed: {ups} jumps and {flips} frames of a flip"
+    assert abs(g.local(p0, y0)[1] - 3.0) < 0.05, f"it landed {g.local(p0, y0)[1]:.2f} to his left, not 3.0"
+
+
+@pytest.mark.parametrize("way,ahead,left", [(0, -1, 0), (U, 1, 0), (LF, 0, 1), (RT, 0, -1)])
+def test_a_dodge_ends_where_it_ends(text, way, ahead, left):
+    """P33: "work on the dodges it feels to slippy. for all movement I
+    should be able to have accurate prediction of where I'll land or be."
+    The dodge is its own twelve frames at the dodge knob's pace -- 2.4
+    units, the way the pad points (no pad: back) -- and then he is STOPPED:
+    not an inch more (it slid 0.83 more over twenty-two frames)."""
+    g = Game(text)
+    g.run(0, 30)
+    p0, y0 = g.pos(), g.cell("yaw")
+    g.run(way | A, 3)
+    g.run(0, 10)
+    at = g.local(p0, y0)
+    want = g.knob(DODGE) / 65536 * 12
+    assert abs(at[0] - ahead * want) < 0.03 and abs(at[1] - left * want) < 0.03, f"he is at {at}, not {want:.2f} that way"
+    g.run(0, 40)
+    assert np.hypot(*np.subtract(g.local(p0, y0), at)) < 0.005, "he slid on after the dodge"
+
+
+def test_a_jump_lands_where_it_was_thrown(text, monkeypatch):
+    """P33: the boxer's strafe jump is 3.0 units and he stays where he
+    lands; the run's jump keeps its speed through the air whether Up is
+    held or not (letting go mid-air cut it from 4.8 units to 1.6)."""
+    from zeta import gpu
+    blank = np.zeros((spec.H, spec.W, 3), np.uint8)
+    monkeypatch.setattr(gpu, "render", lambda *a, **k: blank)
+    g = Game(text)
+    g.run(L, 40)
+    p0, y0 = g.pos(), g.cell("yaw")
+    g.run(L | RT | A, 3)
+    for _ in range(40):
+        g.run(L, 1)
+        if g.cell("f_py") == 0 and g.cell("sjump_dir") == 0:
+            break
+    at = g.local(p0, y0)
+    assert abs(at[1] + 3.0) < 0.05 and abs(at[0]) < 0.02, f"the strafe jump landed at {at}"
+    g.run(L, 30)
+    assert np.hypot(*np.subtract(g.local(p0, y0), at)) < 0.005, "he slid on after landing"
+    far = []
+    for keep in (U, 0):
+        g = Game(text)
+        g.run(L, 2)
+        g.run(0, 1)
+        g.run(L | U, 70)                          # the run, at its speed
+        assert g.cell("f_sty") == 1
+        p0 = g.pos()
+        g.run(L | U | A, 2)
+        while g.cell("f_py") > 0:
+            g.run(L | keep, 1)
+        far.append(np.hypot(*np.subtract(g.pos(), p0)))
+    assert far[0] > 4 and abs(far[0] - far[1]) < 0.05 * far[0], f"the run's jump: {far[0]:.2f} with Up, {far[1]:.2f} without"
+
+
 @pytest.mark.parametrize("way,ahead,left", [(U, 1, 0), (D, -1, 0), (LF, 0, 1), (RT, 0, -1)])
 def test_the_boxers_jump_is_a_strafe_jump(text, way, ahead, left):
     """P31: "For the boxer, the jumps should be like a strafe jump in the
@@ -374,7 +528,7 @@ def test_the_layers_under_it_still_stand(text, monkeypatch):
     SEL = spec.PAD_SELECT
     for way in (D, U):
         g = Game(text)
-        for k in range(8):
+        for k in range(9):
             for _ in range(70):
                 g.run(SEL | way, 1)
                 g.run(SEL, 1)

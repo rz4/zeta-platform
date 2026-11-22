@@ -1498,7 +1498,7 @@ drawn, where a blow goes).
 - Not remeasured on silicon (no new geometry). tests: 8 base, 7 layer 1,
   18 layer 2; the full cart is byte-identical.
 
-## P32: what the tape of P31 says (2026-11-22; not yet on glass)
+## P32: what the tape of P31 says (2026-11-22; on glass)
 
 The player: "I don't think we need any more plain strong design decision
 here. Look at the replay, do you see what I am going for?" The tape: 26
@@ -1536,3 +1536,53 @@ minutes of layer 2, three gates opened, no knob touched.
   feels. A pressed again in the air does nothing about 55 times (one flip an
   air).
 - tests: 8 base, 7 layer 1, 20 layer 2; the full cart is byte-identical.
+
+## P33: time dilated is the same fight; movement that ends where it ends (2026-11-22; not yet on glass)
+
+The player, on glass, of P32: "what if gun and jump/evade also have the
+slow down. work on the dodges it feels to slippy. for all movement I
+should be able to have accurate prediction of where I'll land or be. It
+should feel like a good platforming kit." And: "Im sure its about the
+numerics when time dialates thats the big issue here." (And, for after:
+the gunplay, "more tactical too"; then targeting, with the item as a
+target.) The tape (8m21 of P32): 62% of it slowed; 194 shots, 142 of
+them slowed; 53 of his 208 presses of B and 57 of his 189 of A already
+held past the hold knob.
+
+He was right about the numerics. The measure: one script of pads, a
+fight frame each, played in running time and again in slowed time (each
+pad kept till the fight has moved a frame); every cell that is the
+fight's compared, frame for frame.
+
+- **One press of A was a jump AND a flip.** The jump read "A's first
+  frame down" off a count the freeze holds at zero (so a press in a
+  hitstop waits for the world to move). In slowed time that made every
+  running frame of a held A its first: one press jumped, and on the next
+  running frame flipped. A strafe jump went 4.1 units, not 3.1. The
+  press is latched now every frame of glass and read once.
+- **The run's double click and the slide's Down were lost two times in
+  three.** A press is fresh against the pad of the frame before -- kept
+  every frame of glass, the held ones too. The fight keeps its own
+  "before" from its own frames; and the click's clock, a thumb's, counts
+  the held frames as well.
+- **Left + A, slowed, dodged and turned him** (P32's own: slowed, the
+  tank steers with a face button down). Exactly now: a button freshly
+  down is a blow's or a dodge's way in either time; only one held past
+  the hold knob lets him steer.
+- With those, five scripts are the same in both times, every cell: the
+  tank's walk, turns and dodges; the boxer's steps, strafe jumps and a
+  flip; the run's click, jump, flip and slide; the terminators and the
+  gun; the jabs and the count.
+- **Any of the four held slows time**: the gun held to its shot (it
+  fires as B comes up, as ever), a jump or a dodge ridden through.
+- **The dodge ends where it ends.** It went 1.65 in its own twelve
+  frames, then slid 0.83 more over twenty-two on the body's friction.
+  Now the twelve frames are all of it -- 0.20 a frame, 2.4 units (the
+  reach it had) -- and he is stopped. (Every layer's; knob 8.)
+- **The strafe jump lands and stays**: 3.0 units exactly, stopped (it
+  landed with half its speed and slid 0.39).
+- **In the air the run keeps its speed.** Letting go of Up mid-jump
+  coasted him down as on the ground: 4.8 units with Up held, 1.6
+  without. The air takes nothing now.
+- tests: 8 base, 7 layer 1, 31 layer 2 (the dilation scripts are five of
+  them); the full cart is byte-identical.

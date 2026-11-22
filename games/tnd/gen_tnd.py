@@ -2172,9 +2172,10 @@ KNOBS_L2 = (("pivot", 176, 16, 128, 512),      # 0 his body's turn into a blow's
             ("keep", 40, 4, 8, 160),           # 2 frames after a blow the string still stands
             ("hold", 14, 2, 6, 40),            # 3 frames a button is down before time slows
             ("slow", 3, 1, 2, 6),              # 4 ...to one frame in this many
-            ("sjump", int(0.13 * ONE), int(0.01 * ONE), int(0.05 * ONE), int(0.4 * ONE)),   # 5 the boxer's strafe jump, a frame
+            ("sjump", int(round(3.0 / 22 * ONE)), int(0.01 * ONE), int(0.05 * ONE), int(0.4 * ONE)),   # 5 the boxer's strafe jump, a frame (x 22: 3.0 units)
             ("fcam", int(1.3 * ONE), int(0.1 * ONE), int(0.6 * ONE), 4 * ONE),   # 6 time slowed: the lens, this far back
-            ("wander", int(0.08 * ONE), int(0.01 * ONE), int(0.01 * ONE), ONE))  # 7 the boxer's lens: its share of the way, a frame
+            ("wander", int(0.08 * ONE), int(0.01 * ONE), int(0.01 * ONE), ONE),  # 7 the boxer's lens: its share of the way, a frame
+            ("dodge", int(0.20 * ONE), int(0.01 * ONE), int(0.08 * ONE), int(0.4 * ONE)))   # 8 the dodge, a frame (x 12: 2.4 units)
 SETTLED = {k_[0]: k_[1] for k_ in KNOBS + KNOBS_L1 + KNOBS_L2}
 SETTLED["ramp"] = BASE_SET.get("ramp", int(0.22 * ONE))      # (weight: left at 0.73)
 if LAYER == 1:
@@ -2201,6 +2202,13 @@ if BASE:
     SJD = cart.var("sjump_dir")
     BCX, BCZ, WR = cart.var("lens_x"), cart.var("lens_z"), cart.var("lens_share")
     HX, HZ, FOCB = cart.var("focus_x"), cart.var("focus_z"), cart.var("focus_on")
+    # P33: time slowed (1) this frame; A's own hold (frames down) and its
+    # press, kept till a running frame reads it; a dodge to be stopped
+    SLOWON, AHOLD, APEND, EVW = (cart.var(k) for k in ("slow_on", "a_hold", "a_press", "dodge_end"))
+    # ...and the pad as the FIGHT last saw it (a running frame's): what a
+    # press is "fresh" against, in the fight's own time
+    PVF = cart.var("prevpad_f")
+    PVE = PVF if L2 else PV     # (the fight's edges: the run's click, the slide's Down)
     cart.boot(spec.LIGHT_DIR, 0x007F00)          # P22: straight down (see piece_light)
     cart.boot(spec.LIGHT_AMB, LIT_AMB0)         # (the title's street, before the game
     cart.boot(spec.LIGHT_DIF, 33 - LIT_AMB0)    # sets them a frame at a time)
@@ -2348,7 +2356,7 @@ for d in range(3):
 for i in range(N_IMP):
     p.set(imp(i, "st"), 0)
 if BASE:
-    for c_ in (KEY, PICK, QT, WSPD, KNEAR, TURNED, SJD, FOCB):
+    for c_ in (KEY, PICK, QT, WSPD, KNEAR, TURNED, SJD, FOCB, SLOWON, AHOLD, APEND, EVW):
         p.set(c_, 0)
     p.set(WR, ONE)
 if SWARM_TEST:                                  # (the meter's hook: the fight in the
@@ -2413,14 +2421,37 @@ if BASE:
     p.emit("drop").push(int(GRADES[1]))
     p.mark(gr_)
     if L2:                                        # (time slowed: the glass sinks)
-        knob(p, "hold").load(GT["carve"]).emit("lt")
-        knob(p, "hold").load(GT["special"]).emit("lt", "or", f"jz {gr_}_s")
+        p.load(SLOWON).emit(f"jz {gr_}_s")
         p.emit("drop").push(int(GRADES[2]))
         p.mark(f"{gr_}_s")
     p.store(spec.GRADE_SRC)
     # no shoulders in the base; and a pick-up holds him, crouched, till it is done
     p.emit("load 1").push(0xFFFF & ~((0 if L1 else spec.PAD_L) | spec.PAD_R | spec.PAD_SELECT))
     p.emit("and").store(spec.REG_PAD)
+    if L2:
+        # P33: ONE PRESS OF A IS ONE PRESS, WHATEVER TIME IS DOING. The jump
+        # read "A's first frame down" off a count the freeze holds at zero
+        # (so a press in a hitstop waits for the world): in slowed time that
+        # made every running frame of a held A its first -- one press was a
+        # jump AND a flip (a strafe jump went 4.1 units, not 3.1). The press
+        # is latched here, every frame of glass, and read once.
+        ah_ = p.label("ahold")
+        p.emit("load 1").push(spec.PAD_A).emit("and", f"jz {ah_}_u")
+        p.load(AHOLD).emit(f"jz {ah_}_e", f"jmp {ah_}_h")
+        p.mark(f"{ah_}_e")
+        p.set(APEND, 1)
+        p.mark(f"{ah_}_h")
+        p.addi(AHOLD, 1).emit(f"jmp {ah_}")
+        p.mark(f"{ah_}_u")
+        p.set(AHOLD, 0)
+        p.mark(ah_)
+        # P33: ANY OF THE FOUR HELD SLOWS TIME (the player: "what if gun and
+        # jump/evade also have the slow down"): a strike, the gun as it is
+        # held to its shot, a jump or a dodge ridden through.
+        knob(p, "hold").load(GT["carve"]).emit("lt")
+        knob(p, "hold").load(GT["special"]).emit("lt", "or")
+        knob(p, "hold").load(GT["shoot"]).emit("lt", "or")
+        knob(p, "hold").load(AHOLD).emit("lt", "or").store(SLOWON)
     pk = p.label("pick")                          # (he bows to it -- the fold the
     p.push(0).load(PICK).emit("lt", f"jz {pk}_up")   # body already has, part way -- and
     p.addi(PICK, -1).set(LANDT, LAND_FOR // 2 + 1)   # comes back up; only ABOVE zero)
@@ -2595,8 +2626,7 @@ if L2:
     # keeping the string, slowing time and releasing ... the slow motion
     # gives time to think"). Past the hold knob's frames the fight -- his own
     # blow too -- runs one frame in the slow knob's; let go, and it runs.
-    knob(p, "hold").load(GT["carve"]).emit("lt")
-    knob(p, "hold").load(GT["special"]).emit("lt", "or", f"jz {fc}_o")
+    p.load(SLOWON).emit(f"jz {fc}_o")
 else:
     p.load(F["sty"]).push(SQ_TARGET).emit("eq", f"jz {fc}_o")
     p.push(FOCUS_HOLD).load(GT["carve"]).emit("lt")
@@ -2689,8 +2719,7 @@ if L2:
     # slowed time and stood still. Slowed, the clock is held just past the
     # lock -- the count kept, his legs his own.
     kp_ = p.label("keep")
-    knob(p, "hold").load(GT["carve"]).emit("lt")
-    knob(p, "hold").load(GT["special"]).emit("lt", "or", f"jz {kp_}_n")
+    p.load(SLOWON).emit(f"jz {kp_}_n")
     p.set(F["ltap"], TURN_LOCK + 1)
     p.mark(f"{kp_}_n")
     knob(p, "keep").load(F["ltap"]).emit("lt", f"jz {kp_}")
@@ -2835,7 +2864,11 @@ p.emit("ret")
 p.mark(f"{GEST}_end")
 # THE JUMP: X's press, at once -- unless A is down (carve+jump launches)
 jp = p.label("jump")
-p.load(GT["jump"]).push(1).emit("eq", f"jz {jp}")   # (P18: no chords)
+if L2:
+    p.load(APEND).emit(f"jz {jp}")                # (P33: the press, latched: read once)
+    p.set(APEND, 0)
+else:
+    p.load(GT["jump"]).push(1).emit("eq", f"jz {jp}")   # (P18: no chords)
 p.load(F["py"]).load(F["acmb"]).emit("or", f"jz {jp}_g", f"jmp {jp}_fl")   # aloft: flip?
 p.mark(f"{jp}_g")
 dg_ = p.label("dodge")                           # P18: THE DODGE is A in the tank
@@ -2873,9 +2906,11 @@ p.mark(f"{dg_}_go")
 p.set(F["evt"], DODGE_F).set(F["evf"], DODGE_F)
 p.load(YAW).load(W["qx"]).emit("add").push(1023).emit("and").store(W["qx"])
 sin_of(p, cell=W["qx"])
-p.push(DODGE_V).emit("mulq").push(0).emit("swap", "sub", "dup").store(F["evx"]).store(F["vx"])
+(knob(p, "dodge") if BASE else p.push(DODGE_V)).emit("mulq").push(0).emit("swap", "sub", "dup").store(F["evx"]).store(F["vx"])
 sin_of(p, 256, cell=W["qx"])
-p.push(DODGE_V).emit("mulq", "dup").store(F["evz"]).store(F["vz"])
+(knob(p, "dodge") if BASE else p.push(DODGE_V)).emit("mulq", "dup").store(F["evz"]).store(F["vz"])
+if BASE:
+    p.set(EVW, 1)                                 # (P33: a dodge, to be stopped at its end)
 p.emit(f"jmp {jp}")
 p.mark(dg_)
 p.load(F["uwin"]).emit(f"jz {jp}_p")
@@ -2999,6 +3034,8 @@ p.mark(f"{jp}_dj")                                # straight up again, as he was
 p.set(F["evk"], 0).set(F["evt"], FLIPS[0][1]).set(F["evf"], FLIPS[0][1])
 p.load(F["vx"]).store(F["evx"]).load(F["vz"]).store(F["evz"])
 p.mark(f"{jp}_up")
+if BASE:
+    p.set(EVW, 0)
 p.set(F["pvy"], FLIP_V).set(F["flipu"], 1)
 p.mark(jp)
 
@@ -3037,7 +3074,7 @@ if L1:
     p.mark(f"{fr_}_s")
     held(spec.PAD_L)
     p.emit(f"jz {fr_}_no")
-    p.load(PV).push(spec.PAD_L).emit("and", f"jz {fr_}_dn", f"jmp {fr_}")   # still held
+    p.load(PVE).push(spec.PAD_L).emit("and", f"jz {fr_}_dn", f"jmp {fr_}")   # still held
     p.mark(f"{fr_}_dn")
     p.load(RDT)
     knob(p, "dclick").emit("lt", f"jz {fr_}_1")
@@ -3195,12 +3232,17 @@ if L2:                                             # (P28: nor through a strike:
     p.push(TURN_LOCK).load(F["ltap"]).emit("lt", f"jz {tk}")
     p.mark(f"{tk}_sl")
 if L2:
-    # (P32: the tank does not turn with a face button down -- the pad is then
-    # a blow's way -- but TIME SLOWED the button is the hold, and he steers)
-    knob(p, "hold").load(GT["carve"]).emit("lt")
-    knob(p, "hold").load(GT["special"]).emit("lt", "or", f"jz {tk}_fb")
-    p.emit(f"jmp {tk}_go")
-    p.mark(f"{tk}_fb")
+    # P32: the tank does not turn with a face button down -- the pad is then
+    # a blow's way -- but TIME SLOWED the button is the hold, and he steers.
+    # P33: exactly: a button FRESHLY down (not yet past the hold knob) still
+    # makes the pad its blow's way, in slowed time as in running time -- or
+    # Left + A, slowed, dodged AND turned him. Only a button held past the
+    # knob lets him steer.
+    p.push(0)
+    for cell_ in (GT["carve"], GT["special"], GT["shoot"], AHOLD):
+        p.push(0).load(cell_).emit("lt")                          # down...
+        knob(p, "hold").load(cell_).emit("lt").push(1).emit("xor", "and", "or")   # ...and not past the hold
+    p.emit(f"jz {tk}_go", f"jmp {tk}")
 p.emit("load 1").push(spec.PAD_A | spec.PAD_B | spec.PAD_X | spec.PAD_Y)
 p.emit("and", f"jz {tk}_go", f"jmp {tk}")
 p.mark(f"{tk}_go")
@@ -3380,6 +3422,20 @@ p.addi(F["evf"], -1)
 p.load(F["evx"]).store(F["vx"]).load(F["evz"]).store(F["vz"])
 p.set(ANIM, 0).emit(f"jmp {L['motion']}")
 p.mark(f"{ev}_n")
+if BASE:
+    # P33: THE DODGE ENDS WHERE IT ENDS (the player: "work on the dodges it
+    # feels to slippy. for all movement I should be able to have accurate
+    # prediction of where I'll land or be"). It went 1.65 in its own twelve
+    # frames and then SLID 0.83 more over twenty-two, on the body's friction.
+    # Now its twelve frames are the whole of it -- the dodge knob's pace a
+    # frame, 2.4 units -- and he is stopped: the same place, every time.
+    de_ = p.label("dodgeend")
+    p.load(EVW).emit(f"jz {de_}")
+    p.set(EVW, 0)
+    p.load(F["py"]).emit(f"jz {de_}_g", f"jmp {de_}")       # (thrown into the air: the air's)
+    p.mark(f"{de_}_g")
+    p.set(F["vx"], 0).set(F["vz"], 0)
+    p.mark(de_)
 p.load(F["sty"]).push(1).emit("eq", f"jz {ev}_b")
 # PARKOUR: the quick turn, the logistic ramp, the fixed turn, grip and scrub
 # P18: THE RUN goes the way the pad points round the target -- Up at it,
@@ -3414,7 +3470,7 @@ if L1:
     p.mark(f"{sd_}_no")
     held(spec.PAD_DOWN)                                            # a fresh Down, running fast
     p.emit(f"jz {sd_}")
-    p.load(PV).push(spec.PAD_DOWN).emit("and", f"jz {sd_}_e", f"jmp {sd_}")
+    p.load(PVE).push(spec.PAD_DOWN).emit("and", f"jz {sd_}_e", f"jmp {sd_}")
     p.mark(f"{sd_}_e")
     p.push(SLIDE_MIN).load(F["spd"]).emit("lt", f"jz {sd_}")
     p.load(F["py"]).emit(f"jz {sd_}_g", f"jmp {sd_}")
@@ -3452,6 +3508,12 @@ p.set(F["spd"], PK_TOP)
 p.mark(f"{ev}_tp")
 p.emit(f"jmp {ev}_tr")
 p.mark(f"{ev}_co")
+if L1:
+    # P33: IN THE AIR THE RUN KEEPS ITS SPEED. Letting go of Up mid-jump
+    # coasted him down as it does on the ground: a jump went 4.8 units with
+    # Up held and 1.6 without. The air takes nothing: the jump is the jump.
+    p.load(F["py"]).emit(f"jz {ev}_cg", f"jmp {ev}_tr")
+    p.mark(f"{ev}_cg")
 p.load(F["spd"]).push(PK_FR).emit("mulq").store(F["spd"])     # coasting
 p.mark(f"{ev}_tr")
 # (P18: METEOR and the prowler's turn are the run's steer, above)
@@ -3496,15 +3558,12 @@ else:
     p.load(F["latch"]).emit("dup").store(YAW).store(HEAD)
 if L1:
     # P31: THE STRAFE JUMP's flight (below, at the jump): thrown, he keeps
-    # what the jump gave him -- no step, no drag -- till he lands, and
-    # lands with half of it.
+    # what the jump gave him -- no step, no drag -- till he lands; and
+    # (P33) lands THERE: stopped, 3.0 units from where he left the ground.
     sjf = p.label("sjfly")
     p.load(SJD).emit(f"jz {sjf}")
-    p.load(F["py"]).emit(f"jz {sjf}_l")
+    p.load(F["py"]).emit(f"jz {sjf}")
     p.set(ANIM, 0).emit(f"jmp {L['motion']}")
-    p.mark(f"{sjf}_l")
-    p.set(SJD, 0)
-    p.load(F["vx"]).emit("shr 1").store(F["vx"]).load(F["vz"]).emit("shr 1").store(F["vz"])
     p.mark(sjf)
 (knob(p.push(BOX_FR).store(W["qx"]), "boxstep") if L1
  else p.push(BOX_FR).store(W["qx"]).push(BOX_RATE)).store(W["qz"])
@@ -3723,6 +3782,10 @@ p.mark(f"{av}_land")
 p.set(F["py"], 0).set(F["pvy"], 0).set(F["flipu"], 0)   # (a landing re-arms the flip)
 if L1:
     p.set(WJN, 0).set(WALLT, 0)                           # (...and the wall jumps)
+    sjl = p.label("sjland")                               # (P33: the strafe jump lands,
+    p.load(SJD).emit(f"jz {sjl}")                         # and stays where it landed)
+    p.set(SJD, 0).set(F["vx"], 0).set(F["vz"], 0)
+    p.mark(sjl)
 # P15: THE LANDING, FELT (tear.py 2757: "a dead touchdown reads as cartoony
 # no matter how the arc above it is shaped"). The frame shakes and the
 # ground answers -- the step's own thud, since a sound of its own is 24
@@ -4166,8 +4229,7 @@ if L2:
     # the fcam knob's distance, over his right shoulder -- and, below, it
     # LOOKS at the place a blow's reach ahead of his body.
     fo_ = p.label("focuscam")
-    knob(p, "hold").load(GT["carve"]).emit("lt")
-    knob(p, "hold").load(GT["special"]).emit("lt", "or", "dup").store(W["k"])
+    p.load(SLOWON).emit("dup").store(W["k"])
     p.emit(f"jz {fo_}")
     knob(p, "fcam").store(W["dmg"]).push(int(FOCUS_SH * ONE)).store(W["stop"])
     p.mark(fo_)
@@ -6225,6 +6287,20 @@ if SONG:
 p.load(EVN).store(spec.AU_EV_BASE)
 
 p.emit("load 1").store(PV)
+if L2:
+    # P33: THE FIGHT'S OWN "BEFORE". A press is fresh against the pad of the
+    # frame before -- but that was kept every frame of glass, the held ones
+    # too, so in slowed time two presses in three were never fresh to the
+    # fight: the run's double click and the slide's Down were lost. The
+    # fight keeps its own, from its own frames. (And the click's clock, a
+    # thumb's, counts the held frames as well.)
+    pvf = p.label("prevf")
+    p.load(F["skip"]).emit(f"jz {pvf}_r")
+    p.load(RDT).push(255).emit("lt", f"jz {pvf}")
+    p.addi(RDT, 1).emit(f"jmp {pvf}")
+    p.mark(f"{pvf}_r")
+    p.emit("load 1").store(PVF)
+    p.mark(pvf)
 
 # ---- subroutines (after the halt) -------------------------------------------
 p.emit("halt")
