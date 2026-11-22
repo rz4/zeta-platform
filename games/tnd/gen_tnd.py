@@ -81,10 +81,11 @@ SWARM_TEST = os.environ.get("TND_SWARM") == "1"
 #                 held slows time, keeps the string, and the lens goes to
 #                 where the blow lands.
 LAYER = int(os.environ.get("TND_LAYER", "9"))
-BASE = LAYER in (0, 1, 2, 3)     # the base's own rules (the layers stand on them)
-L1 = LAYER in (1, 2, 3)          # the left shoulder
-L2 = LAYER in (2, 3)             # shadow boxing, and the gun
-L3 = LAYER == 3                  # the right shoulder: targeting (P35)
+BASE = LAYER in (0, 1, 2, 3, 4)  # the base's own rules (the layers stand on them)
+L1 = LAYER in (1, 2, 3, 4)       # the left shoulder
+L2 = LAYER in (2, 3, 4)          # shadow boxing, and the gun
+L3 = LAYER in (3, 4)             # the right shoulder: targeting (P35)
+L4 = LAYER == 4                  # the enemies (P37): bodies from the cart (frontier 20's core)
 SONG_CH = range(4, 11)          # the record's voices (the synth theme's, freed)
 SONG_VOL = 15                   # each voice's level at full bus (x bus / 256)
 OUT = Path(os.environ.get("TND_OUT", ROOT / "build" / f"layer{LAYER}" / "tnd.zol"
@@ -331,7 +332,7 @@ END_PAUSE = cart.cram(Table(_pend), "pause_end")
 # twice the room it had, and a page-in copies 16K words -- a frame's work at
 # the SRAM's pace, on the frames the intro or the pause come and go.
 PAGE = 16384
-if os.environ.get("TND_CARTMESH") == "1":     # (the experiment: the whole of IMEM is the page --
+if os.environ.get("TND_CARTMESH") == "1" or LAYER == 4:   # (the whole of IMEM is the page --
     PAGE = spec.IMEM_WORDS                    # the machine holds 32,768; a page-in is two frames' work)
 INTRO_PROG = cart.cram(Table([0] * PAGE), "intro_prog")
 PAUSE_PROG = cart.cram(Table([0] * PAGE), "pause_prog")
@@ -362,7 +363,7 @@ def black(g):
 # pose is its vertices (16 bits a coordinate, << CM_SHIFT) and its baked
 # face colours (5:5:5), and choosing one is four offsets written -- no
 # mover, and no body in DMEM.
-CARTMESH = os.environ.get("TND_CARTMESH") == "1"
+CARTMESH = os.environ.get("TND_CARTMESH") == "1" or L4
 CM_SHIFT = 2
 
 
@@ -425,39 +426,59 @@ if CARTMESH:
     # the same bank through his own two descriptors and the same two face
     # streams -- ten words of DMEM and four offsets a frame. He stands five
     # units up the street from the start, facing down it, in the guard.
-    RIVAL = L3
+    RIVAL = L3 and not L4
     if RIVAL:
         RDESC = cart.data(Table([len(halves[0][1]) | len(halves[0][2]) << 16, _o[0], int(FSTR[0]), _o[1], CM_SHIFT,
                                  len(halves[1][1]) | len(halves[1][2]) << 16, _o[2], int(FSTR[1]), _o[3], CM_SHIFT]),
                           "rival_desc")
     RIV_T = cart.var("rival_t") if L3 else None
-    # THE SIZES BELOW HIM (the experiment's head-count; build/tiers, cut from
-    # the archive's full-resolution body by its own pipeline): each a single
-    # mesh, its own idle in the cart, one face stream a size. TND_CROWD names
-    # who stands up the street: "elite:1,common:2,horde:4".
+    # THE SIZES BELOW HIM (build/tiers, cut from the archive's full-resolution
+    # body by its own pipeline, and posed by this game's own baker): each a
+    # single mesh, one face stream a size. TND_CROWD names who stands up the
+    # street in the experiment's scenes ("elite:1,common:2,horde:4"); layer 4
+    # has its own six, and they WALK (the guard, and the planted walk).
     TIER_FILE = {"elite": "440", "common": "300", "horde": "190"}
     CROWD = [(k_.split(":")[0], int(k_.split(":")[1])) for k_ in
              filter(None, os.environ.get("TND_CROWD", "").split(","))] if L3 else []
+    if L4:
+        CROWD = [("elite", 1), ("common", 1), ("horde", 4)]
+    # (a size's pace a frame, how near it comes, what it takes)
+    TIER_IS = {"elite": (0.045, 2.4, 8), "common": (0.040, 2.1, 5), "horde": (0.030, 1.8, 3)}
     TIER, ENEMY = {}, []
     for name_, count_ in CROWD:
         if name_ == "rival" or name_ in TIER:
             continue
-        t_ = np.load(ROOT / "build" / "tiers" / f"pose_{TIER_FILE[name_]}.npz")
+        t_ = np.load(ROOT / "build" / "tiers" / (f"clips_{TIER_FILE[name_]}.npz" if L4 else f"pose_{TIER_FILE[name_]}.npz"))
         tri_ = [(int(a), int(c), int(b)) if FLIP else (int(a), int(b), int(c)) for a, b, c in t_["F"]]
         h_ = (np.ones(len(tri_), bool), np.arange(int(t_["F"].max()) + 1), tri_)
         fs_ = cart.cram(Table([a | b << 10 | c << 20 for a, b, c in tri_]), f"{name_}_faces")
-        ps_ = [half_streams(V_, S_, h_) for V_, S_ in zip(t_["V_idle"], t_["S_idle"])]
+        clips_ = ("guard2", "walk2") if L4 else ("idle",)
+        ps_ = [half_streams(V_, S_, h_) for c_ in clips_ for V_, S_ in zip(t_["V_" + c_], t_["S_" + c_])]
         TIER[name_] = dict(nv=len(h_[1]), nf=len(tri_), faces=int(fs_), lv=len(ps_[0][0]), span=len(ps_[0][0]) + len(ps_[0][1]),
                            bank=int(cart.cram(Table([x for st in ps_ for part in st for x in part]), f"{name_}_poses")),
-                           n=len(ps_))
+                           n=len(t_["V_" + clips_[0]]), walk=len(t_["V_" + clips_[0]]),
+                           pace=int(TIER_IS[name_][0] * ONE), stand=TIER_IS[name_][1], hp=TIER_IS[name_][2])
     _slot = 0
     for name_, count_ in CROWD:
         for _ in range(0 if name_ == "rival" else count_):
             T_ = TIER[name_]
-            ENEMY.append(dict(T=T_, phase=(_slot * 13) % T_["n"],
-                              dx=int(((_slot % 4) - 1.5) * 1.5 * ONE), dz=-int((4.5 + 1.6 * (_slot // 4)) * ONE),
-                              desc=int(cart.data(Table([T_["nv"] | T_["nf"] << 16, T_["bank"], T_["faces"],
-                                                        T_["bank"] + T_["lv"], CM_SHIFT]), f"enemy{_slot}"))))
+            e_ = dict(T=T_, phase=(_slot * 13) % T_["n"], k=_slot,
+                      dx=int(((_slot % 4) - 1.5) * 1.5 * ONE), dz=-int((4.5 + 1.6 * (_slot // 4)) * ONE),
+                      desc=int(cart.data(Table([T_["nv"] | T_["nf"] << 16, T_["bank"], T_["faces"],
+                                                T_["bank"] + T_["lv"], CM_SHIFT]), f"enemy{_slot}")))
+            if L4:
+                # where it is, where it was (the street's own slide wants both, x then z); its
+                # heading; 0 gone / 1 up / 2 down; what it can still take; frames it is held by
+                # a blow; frames it flashes; its stride's place; its guard's clock; walking?;
+                # frames it has been down
+                # (and ITS PLACE ROUND HIM: a sixth of the way round from the last one's, at its
+                # size's stand-off -- so they ring him, each on a bearing of its own)
+                _a = (_slot * 171 + 60) * 2 * np.pi / 1024
+                e_.update(dx=int(((_slot % 3) - 1) * 1.7 * ONE), dz=-int((6.0 + 2.4 * (_slot // 3)) * ONE),
+                          rx=int(-np.sin(_a) * T_["stand"] * ONE), rz=int(np.cos(_a) * T_["stand"] * ONE),
+                          pos=cart.var(f"e{_slot}_pos", 2), old=cart.var(f"e{_slot}_old", 2),
+                          **{k_: cart.var(f"e{_slot}_{k_}") for k_ in ("yaw", "st", "hp", "stun", "fl", "ph", "clk", "walk", "t")})
+            ENEMY.append(e_)
             _slot += 1
     RIVAL = RIVAL and (not CROWD or any(k_ == "rival" for k_, _ in CROWD))
 NPOSE = {s: len(d["V_" + s]) for s in SEQS}
@@ -2294,7 +2315,7 @@ SETTLED = {k_[0]: k_[1] for k_ in KNOBS + KNOBS_L1 + KNOBS_L2}
 SETTLED["ramp"] = BASE_SET.get("ramp", int(0.22 * ONE))      # (weight: left at 0.73)
 if LAYER == 1:
     KNOBS = KNOBS_L1
-if LAYER in (2, 3):
+if LAYER in (2, 3, 4):
     KNOBS = KNOBS_L2
 if BASE:
     KN = cart.data(Table([k_[1] for k_ in KNOBS]), "knobs")
@@ -2353,6 +2374,19 @@ if BASE:
         RPAD, RAD2 = cart.var("circle_pad"), cart.var("circle_r2")
         CIRCLE_IN = 6                # units of heading turned in, when he is outside it
         SUPER_V, SUPER_STOP, RUN_ARM = int(0.25 * ONE), int(1.2 * ONE), 14
+    if L4:
+        # P37: THE TARGETS -- the enemies, then the item. Which is chosen (-1:
+        # none), the spot on it (0 high, 1 mid, 2 low), where it is, whether
+        # there is one; R as it was a frame ago; R held ALONE (he is planted);
+        # and, a target each: where, in reach?, how far (squared), its bearing.
+        NE = len(ENEMY)
+        TSEL, SPOT, TGTX, TGTZ, TOK, RPREV, PLANT = (cart.var(k) for k in (
+            "t_sel", "t_spot", "t_x", "t_z", "t_ok", "r_prev", "planted"))
+        TPX, TPZ, TV, TD, TB = (cart.var(k, NE + 1) for k in ("t_px", "t_pz", "t_in", "t_d2", "t_brg"))
+        SPOTY = cart.data(Table([int(1.60 * ONE), int(1.10 * ONE), int(0.50 * ONE)]), "spot_y")
+        FDMG = cart.data(Table([1, 1, 2, 2, 4, 2, 2, 0, 0]), "fist_dmg")     # by move (PMN)
+        E_R, E_TURN, DOWN_FOR, E_LEGS = int(0.40 * ONE), 20, 150, 20
+    TGX, TGZ = (TGTX, TGTZ) if L4 else (KX, KZ)     # (the lock's target: layer 3 had only the item)
     cart.boot(spec.LIGHT_DIR, 0x007F00)          # P22: straight down (see piece_light)
     cart.boot(spec.LIGHT_AMB, LIT_AMB0)         # (the title's street, before the game
     cart.boot(spec.LIGHT_DIF, 33 - LIT_AMB0)    # sets them a frame at a time)
@@ -2389,6 +2423,17 @@ if L1:
                     "sjump_poses")          # (the fifth: P36's leap, if its blow ends in the air)
     SJ_TURN = cart.data(Table([0, 0, 512, 256, 768]), "sjump_turn")   # (by sjump_dir: in, out, left, right)
     SJ_RISE = 0.72              # its rise, x the jump's: lower, and longer
+
+
+def enemy_hurt(g, e):
+    """w_dmg off what enemy e can take, and w_stop frames it is held: it
+    flashes; with nothing left it goes down"""
+    eh = g.label("ehurt")
+    g.load(e["hp"]).load(W["dmg"]).emit("sub", "dup").store(e["hp"])
+    g.push(1).emit("lt", f"jz {eh}")
+    g.set(e["st"], 2).set(e["t"], 0)
+    g.mark(eh)
+    g.load(W["stop"]).store(e["stun"]).set(e["fl"], 8).set(e["walk"], 0)
 
 
 def steer_head(g, to_cell):
@@ -2506,6 +2551,14 @@ if BASE:
     if L2:
         for c_ in (DRAW, SHOTS, RLD, KHIT, AIMT, AIMED, ATURN, BUL[0]["rem"], BUL[1]["rem"]) + ((LOCK, RSHOT) if L3 else ()):
             p.set(c_, 0)
+    if L4:
+        p.set(TSEL, -1).set(SPOT, 1).set(TOK, 0).set(RPREV, 0).set(PLANT, 0)
+        for e_ in ENEMY:
+            p.set(int(e_["pos"]), START_X + e_["dx"]).set(int(e_["pos"]) + 1, START_Z + e_["dz"])
+            p.set(e_["yaw"], 0).set(e_["st"], 1).set(e_["hp"], e_["T"]["hp"])
+            for k_ in ("stun", "fl", "ph", "walk", "t"):
+                p.set(e_[k_], 0)
+            p.set(e_["clk"], e_["phase"])
     p.set(WR, ONE)
 if SWARM_TEST:                                  # (the meter's hook: the fight in the
     p.set(PX, int(3 * ONE)).set(PZ, int(3 * ONE))               # first plaza, the
@@ -2578,6 +2631,116 @@ if BASE:
         p.emit("load 1").push(spec.PAD_R).emit("and").store(RHELD)
     p.emit("load 1").push(0xFFFF & ~((0 if L1 else spec.PAD_L) | spec.PAD_R | spec.PAD_SELECT))
     p.emit("and").store(spec.REG_PAD)
+    if L4:
+        # P37: R HELD ALONE CHOOSES (the player: "r shoulder alone held does
+        # selection of target and hit spot with dpad. same in slow motion" --
+        # and "not move when held during slow motion"). Read every frame of
+        # glass, so a press in slowed time is a press. R down: the NEAREST
+        # target in reach is taken (and again whenever the one he had is gone);
+        # then, with L up, Left and Right step to the next target round him
+        # that way, and Up and Down step the spot -- high, mid, low -- which
+        # STAYS where it is put. And with R alone the pad is only that: he
+        # does not walk or turn, whatever time is doing.
+        sel = p.label("select")
+        p.load(RHELD).push(0).emit("eq", "push 1", "xor")
+        p.emit("load 1").push(spec.PAD_L).emit("and").push(0).emit("eq", "and").store(PLANT)
+        p.load(RHELD).emit(f"jz {sel}_off")
+        for t_ in range(NE + 1):                  # each target: where, and in reach?
+            tv = p.label("tv")
+            p.set(int(TV) + t_, 0)
+            if t_ < NE:
+                e_ = ENEMY[t_]
+                p.load(e_["st"]).push(1).emit("eq", f"jz {tv}")
+                xc_, zc_ = int(e_["pos"]), int(e_["pos"]) + 1
+            else:
+                p.load(LVL).push(len(GATES)).emit("lt", f"jz {tv}")
+                xc_, zc_ = int(KX), int(KZ)
+            p.load(xc_).store(int(TPX) + t_).load(zc_).store(int(TPZ) + t_)
+            p.load(xc_).load(PX).emit("sub").store(W["qx"]).load(zc_).load(PZ).emit("sub").store(W["qz"])
+            for q_ in (W["qx"], W["qz"]):
+                p.load(q_).emit("dup").push(0).emit("lt", f"jz {tv}_p{int(q_)}")
+                p.push(0).emit("swap", "sub")
+                p.mark(f"{tv}_p{int(q_)}")
+                p.push32(int(LOCK_RANGE * ONE)).emit("lt", f"jz {tv}")
+            p.load(W["qx"]).emit("dup", "mulq").load(W["qz"]).emit("dup", "mulq", "add").store(int(TD) + t_)
+            p.set(int(TV) + t_, 1)
+            p.mark(tv)
+        # the one he has: still there? (and R only just down takes the nearest anew)
+        p.push(-1).load(TSEL).emit("lt", f"jz {sel}_near")
+        p.push(int(TV)).load(TSEL).emit("add", "loadi", f"jz {sel}_near")
+        p.load(RPREV).emit(f"jz {sel}_near")
+        p.emit("load 1").push(spec.PAD_L).emit("and", f"jz {sel}_pad", f"jmp {sel}_set")
+        p.mark(f"{sel}_pad")
+        for bit_, d_ in ((spec.PAD_UP, -1), (spec.PAD_DOWN, 1)):      # the spot: it steps, and stays
+            sp_ = p.label("spot")
+            fresh(bit_)
+            p.emit(f"jz {sp_}")
+            p.load(SPOT).push(d_).emit("add", "dup").push(0).emit("lt", f"jz {sp_}_a")
+            p.emit("drop").push(0)
+            p.mark(f"{sp_}_a")
+            p.emit("dup").push(2).emit("swap", "lt", f"jz {sp_}_b")
+            p.emit("drop").push(2)
+            p.mark(f"{sp_}_b")
+            p.store(SPOT)
+            p.mark(sp_)
+        fresh(spec.PAD_LEFT)
+        fresh(spec.PAD_RIGHT)
+        p.emit("or", f"jz {sel}_set")
+        for t_ in range(NE + 1):                  # the next one round him: bearings first
+            tb = p.label("tb")
+            p.load(int(TV) + t_).emit(f"jz {tb}")
+            p.load(int(TPX) + t_).load(PX).emit("sub").store(W["qx"])
+            p.load(int(TPZ) + t_).load(PZ).emit("sub").store(W["qz"])
+            p.emit(f"call {L_YAW}")
+            p.load(F["brg"]).store(int(TB) + t_)
+            p.mark(tb)
+        # (ORDERED BY BEARING, THEN BY NUMBER: they come at him in a file, so
+        # two on one bearing is the common case -- and on bearing alone the
+        # second of a pair could never be reached. Left is the next key up,
+        # Right the same round backwards.)
+        p.push(int(TB)).load(TSEL).emit("add", "loadi").store(W["dg"])       # his own
+        p.push(9000).store(W["dc"]).load(TSEL).store(W["k"])
+        fresh(spec.PAD_LEFT)
+        p.store(W["d2"])                          # (1: leftward -- a raised bearing)
+        for t_ in range(NE + 1):
+            tc = p.label("tc")
+            p.load(int(TV) + t_).emit(f"jz {tc}")
+            p.load(TSEL).push(t_).emit("eq", f"jz {tc}_o", f"jmp {tc}")
+            p.mark(f"{tc}_o")
+            p.load(int(TB) + t_).load(W["dg"]).emit("sub")
+            p.load(W["d2"]).emit(f"jz {tc}_r")
+            p.push(1023).emit("and").push(8).emit("mul").push(t_).emit("add").load(TSEL).emit("sub")
+            p.emit(f"jmp {tc}_w")
+            p.mark(f"{tc}_r")
+            p.push(0).emit("swap", "sub").push(1023).emit("and").push(8).emit("mul")
+            p.load(TSEL).emit("add").push(t_).emit("sub")
+            p.mark(f"{tc}_w")
+            p.push(8191).emit("and")
+            p.emit("dup").load(W["dc"]).emit("lt", f"jz {tc}_n")
+            p.store(W["dc"]).set(W["k"], t_).emit(f"jmp {tc}")
+            p.mark(f"{tc}_n")
+            p.emit("drop")
+            p.mark(tc)
+        p.load(W["k"]).store(TSEL)
+        p.emit(f"jmp {sel}_set")
+        p.mark(f"{sel}_near")                     # the nearest in reach, or none
+        p.set(TSEL, -1).push32(0x7FFFFFFF).store(W["dc"])
+        for t_ in range(NE + 1):
+            tn_ = p.label("tn")
+            p.load(int(TV) + t_).emit(f"jz {tn_}")
+            p.load(int(TD) + t_).load(W["dc"]).emit("lt", f"jz {tn_}")
+            p.load(int(TD) + t_).store(W["dc"]).set(TSEL, t_)
+            p.mark(tn_)
+        p.mark(f"{sel}_set")
+        p.set(TOK, 0)
+        p.push(-1).load(TSEL).emit("lt", f"jz {sel}")
+        p.push(int(TPX)).load(TSEL).emit("add", "loadi").store(TGTX)
+        p.push(int(TPZ)).load(TSEL).emit("add", "loadi").store(TGTZ)
+        p.set(TOK, 1).emit(f"jmp {sel}")
+        p.mark(f"{sel}_off")
+        p.set(TOK, 0)
+        p.mark(sel)
+        p.load(RHELD).store(RPREV)
     if L2:
         # P33: ONE PRESS OF A IS ONE PRESS, WHATEVER TIME IS DOING. The jump
         # read "A's first frame down" off a count the freeze holds at zero
@@ -2855,7 +3018,7 @@ if L2:
         p.addi(RSHOT, -1)
         p.mark(f"{lk3}_rs")
         p.load(SJD).push(5).emit("eq", f"jz {lk3}_sm")
-        p.load(KX).load(PX).emit("sub", "dup", "mulq").load(KZ).load(PZ).emit("sub", "dup", "mulq", "add")
+        p.load(TGX).load(PX).emit("sub", "dup", "mulq").load(TGZ).load(PZ).emit("sub", "dup", "mulq", "add")
         p.push32(int((SUPER_STOP / ONE) ** 2 * ONE)).emit("lt", f"jz {lk3}_sm")
         p.set(F["vx"], 0).set(F["vz"], 0)
         p.mark(f"{lk3}_sm")
@@ -2866,8 +3029,11 @@ if L2:
         p.set(RPAD, 0)
         p.mark(f"{lk3}_pd")
         p.load(RHELD).emit(f"jz {lk3}")
-        p.load(LVL).push(len(GATES)).emit("lt", f"jz {lk3}")
-        p.load(KX).load(PX).emit("sub").store(W["qx"]).load(KZ).load(PZ).emit("sub").store(W["qz"])
+        if L4:
+            p.load(TOK).emit(f"jz {lk3}")
+        else:
+            p.load(LVL).push(len(GATES)).emit("lt", f"jz {lk3}")
+        p.load(TGX).load(PX).emit("sub").store(W["qx"]).load(TGZ).load(PZ).emit("sub").store(W["qz"])
         for q_ in (W["qx"], W["qz"]):
             p.load(q_).emit("dup").push(0).emit("lt", f"jz {lk3}_p{int(q_)}")
             p.push(0).emit("swap", "sub")
@@ -2884,6 +3050,67 @@ if L2:
         p.load(F["brg"]).store(W["head"]).push(LOCK_TURN).store(W["dg"]).emit(f"call {L_STEER}")
         p.load(YAW).store(F["latch"])
         p.mark(lk3)
+    if L4:
+        # P37: THE ENEMIES MOVE (the player: "lets have then move and make them
+        # target able"). Each, up: held by a blow it stands; else it walks to
+        # ITS PLACE in the ring round him (its size's stand-off out, on its own
+        # bearing), turning as it goes (E_TURN a frame) at its size's pace, a
+        # wall a wall for it too; there -- or stopped by a wall -- it stands in
+        # its guard and turns to face him. Down, it lies DOWN_FOR frames and is
+        # back where it began.
+        for e_ in ENEMY:
+            ea = p.label("enemy")
+            ex_, ez_ = int(e_["pos"]), int(e_["pos"]) + 1
+
+            def e_turn(ea=ea, e_=e_):             # ( -- ) its heading toward (w_qx, w_qz), E_TURN at most
+                tl = p.label("eturn")
+                p.emit(f"call {L_YAW}")
+                p.load(F["brg"]).load(e_["yaw"]).emit("sub").push(512).emit("add").push(1023).emit("and").push(512).emit("sub")
+                p.emit("dup").push(E_TURN).emit("swap", "lt", f"jz {tl}_1")
+                p.emit("drop").push(E_TURN)
+                p.mark(f"{tl}_1")
+                p.emit("dup").push(-E_TURN).emit("lt", f"jz {tl}_2")
+                p.emit("drop").push(-E_TURN)
+                p.mark(f"{tl}_2")
+                p.load(e_["yaw"]).emit("add").push(1023).emit("and").store(e_["yaw"])
+            p.load(e_["st"]).push(1).emit("eq", f"jz {ea}_dn")
+            p.load(e_["stun"]).emit(f"jz {ea}_free")
+            p.addi(e_["stun"], -1).set(e_["walk"], 0).emit(f"jmp {ea}")
+            p.mark(f"{ea}_free")
+            p.set(e_["walk"], 0)
+            p.load(PX).push32(e_["rx"]).emit("add").load(ex_).emit("sub").store(W["qx"])
+            p.load(PZ).push32(e_["rz"]).emit("add").load(ez_).emit("sub").store(W["qz"])
+            for q_ in (W["qx"], W["qz"]):         # (across town: it waits)
+                p.load(q_).emit("dup").push(0).emit("lt", f"jz {ea}_p{int(q_)}")
+                p.push(0).emit("swap", "sub")
+                p.mark(f"{ea}_p{int(q_)}")
+                p.push32(int(40 * ONE)).emit("lt", f"jz {ea}_clk")
+            p.load(W["qx"]).emit("dup", "mulq").load(W["qz"]).emit("dup", "mulq", "add")
+            p.push(int(0.3 ** 2 * ONE)).emit("swap", "lt", f"jz {ea}_idle")       # 0.09 < d2: not there yet
+            e_turn()
+            p.load(ex_).store(int(e_["old"])).load(ez_).store(int(e_["old"]) + 1)
+            sin_of(p, cell=e_["yaw"])
+            p.push(e_["T"]["pace"]).emit("mulq").load(ex_).emit("swap", "sub").store(ex_)
+            sin_of(p, 256, cell=e_["yaw"])
+            p.push(e_["T"]["pace"]).emit("mulq").load(ez_).emit("add").store(ez_)
+            keep_in_arena(e_["pos"], int(e_["pos"]) + 1, e_["old"], int(e_["old"]) + 1)
+            p.load(ex_).load(int(e_["old"])).emit("eq").load(ez_).load(int(e_["old"]) + 1).emit("eq", "and")
+            p.emit(f"jz {ea}_went", f"jmp {ea}_idle")                             # (a wall has it: it stands)
+            p.mark(f"{ea}_went")
+            p.addi(e_["ph"], e_["T"]["pace"] * E_LEGS).set(e_["walk"], 1).emit(f"jmp {ea}")
+            p.mark(f"{ea}_idle")
+            p.load(PX).load(ex_).emit("sub").store(W["qx"]).load(PZ).load(ez_).emit("sub").store(W["qz"])
+            e_turn()
+            p.mark(f"{ea}_clk")
+            p.addi(e_["clk"], 1).load(e_["clk"]).push(2 * e_["T"]["n"]).emit("lt", f"jz {ea}_w", f"jmp {ea}")
+            p.mark(f"{ea}_w")
+            p.set(e_["clk"], 0).emit(f"jmp {ea}")
+            p.mark(f"{ea}_dn")
+            p.load(e_["st"]).push(2).emit("eq", f"jz {ea}")
+            p.addi(e_["t"], 1).push(DOWN_FOR).load(e_["t"]).emit("lt", f"jz {ea}")
+            p.set(ex_, START_X + e_["dx"]).set(ez_, START_Z + e_["dz"])
+            p.set(e_["st"], 1).set(e_["hp"], e_["T"]["hp"]).set(e_["stun"], 0).set(e_["walk"], 0)
+            p.mark(ea)
     # THE CYLINDER: the mag knob's rounds. The last one gone, it is RELOAD
     # frames before the gun is full again -- or a terminator thrown fills it
     # at once (the launch): the fists load the gun.
@@ -3489,8 +3716,11 @@ if BASE:                                           # P21: THE QUICK TURN (Down +
     p.mark(f"{tk}_nq")
 p.load(F["sty"]).emit(f"jz {tk}_t", f"jmp {tk}")   # (the styles steer themselves)
 p.mark(f"{tk}_t")
-if L3:                                             # (P35: locked, he is planted)
-    p.load(LOCK).emit(f"jz {tk}_lk", f"jmp {tk}")
+if L3:                                             # (P35: locked, he is planted;
+    p.load(LOCK)                                   # P37: and with R held alone, target or none)
+    if L4:
+        p.load(PLANT).emit("or")
+    p.emit(f"jz {tk}_lk", f"jmp {tk}")
     p.mark(f"{tk}_lk")
 if L2:                                             # (P28: nor through a strike: it is thrown;
     p.load(ANIM).push(2).emit("eq", f"jz {tk}_sw", f"jmp {tk}")   # P30: nor between a
@@ -3881,7 +4111,7 @@ if L3:
     # holds the circle to a hundredth.
     rc_ = p.label("circle")
     p.load(LOCK).emit(f"jz {rc_}")
-    p.load(KX).load(PX).emit("sub", "dup", "mulq").load(KZ).load(PZ).emit("sub", "dup", "mulq", "add")
+    p.load(TGX).load(PX).emit("sub", "dup", "mulq").load(TGZ).load(PZ).emit("sub", "dup", "mulq", "add")
     p.store(W["d2"])
     p.emit("load 1").push(15).emit("and", "dup").load(RPAD).emit("eq", f"jz {rc_}_n")
     p.emit("drop", f"jmp {rc_}_h")
@@ -4015,7 +4245,10 @@ if BASE:
         p.load(F["spd"]).push(int(0.8 * ONE)).emit("mulq").store(F["spd"])   # lean it gives him, die away)
     p.push(0)
     if L3:                                        # (P35: locked, he is planted)
-        p.load(LOCK).emit(f"jz {wb}_lk", f"jmp {wb}_e")
+        p.load(LOCK)
+        if L4:
+            p.load(PLANT).emit("or")
+        p.emit(f"jz {wb}_lk", f"jmp {wb}_e")
         p.mark(f"{wb}_lk")
     if L2:                                        # (P30: between a string's blows he stands)
         p.load(F["c3"]).emit(f"jz {wb}_sl")
@@ -4423,10 +4656,15 @@ if CARTMESH:                                 # the pose is where its streams are
         p.emit("drop")
     for e_ in ENEMY:                         # each of the crowd: its own place in its size's idle
         en_ = p.label("enemy")
-        p.load(RIV_T).emit("shr 1").push(e_["phase"]).emit("add")
-        p.emit("dup").push(e_["T"]["n"]).emit("lt", f"jz {en_}_w", f"jmp {en_}")
-        p.mark(f"{en_}_w")
-        p.push(e_["T"]["n"]).emit("sub")
+        if L4:                               # (P37: the guard by its own clock; walking, the stride)
+            p.load(e_["clk"]).emit("shr 1")
+            p.load(e_["walk"]).emit(f"jz {en_}")
+            p.emit("drop").load(e_["ph"]).emit("shr 16").push(31).emit("and").push(e_["T"]["walk"]).emit("add")
+        else:
+            p.load(RIV_T).emit("shr 1").push(e_["phase"]).emit("add")
+            p.emit("dup").push(e_["T"]["n"]).emit("lt", f"jz {en_}_w", f"jmp {en_}")
+            p.mark(f"{en_}_w")
+            p.push(e_["T"]["n"]).emit("sub")
         p.mark(en_)
         p.push(e_["T"]["span"]).emit("mul").push(e_["T"]["bank"]).emit("add")
         p.emit("dup").store(e_["desc"] + 1).push(e_["T"]["lv"]).emit("add").store(e_["desc"] + 3)
@@ -4562,6 +4800,39 @@ if L3:
     p.load(KX).store(int(SPK)).push(int(1.0 * ONE)).store(int(SPK) + 1).load(KZ).store(int(SPK) + 2)
     p.set(int(SPK) + 3, SPARK_FOR).set(SPKM, HOT_M)
     p.mark(fk_)
+if L4:
+    # P37: A FIST LANDS ON AN ENEMY: its fist within three quarters of a unit
+    # of one that is up, each way -- once a blow. The blow's own hitstop and
+    # shake; what the move is worth off it (a jab 1, a hook or an uppercut 2,
+    # the haymaker 4); it is held, flashes, and is driven a third of a unit
+    # the way the blow went (a wall a wall).
+    fe_ = p.label("fistenemy")
+    p.push(MOVE["gun"] - 1).load(F["mv"]).emit("lt", f"jz {fe_}_f", f"jmp {fe_}")
+    p.mark(f"{fe_}_f")
+    for e_ in ENEMY:
+        fn_ = p.label("fe")
+        ex_, ez_ = int(e_["pos"]), int(e_["pos"]) + 1
+        p.load(F["con"]).emit(f"jz {fn_}_c", f"jmp {fe_}")
+        p.mark(f"{fn_}_c")
+        p.load(e_["st"]).push(1).emit("eq", f"jz {fn_}")
+        for c_, f_ in ((ex_, "fx"), (ez_, "fz")):
+            p.load(c_).load(F[f_]).emit("sub", "dup").push(0).emit("lt", f"jz {fn_}_a{f_}")
+            p.push(0).emit("swap", "sub")
+            p.mark(f"{fn_}_a{f_}")
+            p.push(int(0.75 * ONE)).emit("lt", f"jz {fn_}")
+        p.set(F["con"], 1)
+        p.push(int(FDMG)).load(F["mv"]).emit("add", "loadi").store(W["dmg"])
+        row(PMT, F["mv"], "stop")
+        p.emit("dup", "dup").store(F["stop"]).store(F["shake"]).push(12).emit("add").store(W["stop"])
+        enemy_hurt(p, e_)
+        p.load(ex_).store(int(e_["old"])).load(ez_).store(int(e_["old"]) + 1)
+        sin_of(p, cell=HEAD)
+        p.push(int(0.35 * ONE)).emit("mulq").load(ex_).emit("swap", "sub").store(ex_)
+        sin_of(p, 256, cell=HEAD)
+        p.push(int(0.35 * ONE)).emit("mulq").load(ez_).emit("add").store(ez_)
+        keep_in_arena(e_["pos"], int(e_["pos"]) + 1, e_["old"], int(e_["old"]) + 1)
+        p.mark(fn_)
+    p.mark(fe_)
 if L2:
     # P29: WHERE IT LANDED. Shadow boxing hits the air; the spark is at his
     # fist the first frame the blow is out -- exactly where it would have
@@ -5936,9 +6207,47 @@ for m in ((UPPER, LOWER) if "player" not in OMIT else ()):
 if CARTMESH and RIVAL:
     for m in (int(RDESC), int(RDESC) + spec.CMESH_WORDS):
         p.object(NOBJ, m, START_X, 0, START_Z - int((3.0 if CROWD else 5.0) * ONE), 0, spec.OBJ_CART)
-if CARTMESH:
+if CARTMESH and not L4:
     for e_ in ENEMY:
         p.object(NOBJ, e_["desc"], START_X + e_["dx"], 0, START_Z + e_["dz"], 0, spec.OBJ_CART | spec.OBJ_CULL)
+if L4:
+    # P37: THE ENEMIES, where they can be seen: each from the cart (its
+    # descriptor's pose, above). One a blow has just struck flashes; the one
+    # he has chosen is outlined; one going down tips over backwards.
+    for e_ in ENEMY:
+        de_ = p.label("denemy")
+        p.load(e_["st"]).emit(f"jz {de_}")
+        p.load(e_["fl"]).emit(f"jz {de_}_f")
+        p.addi(e_["fl"], -1)
+        p.mark(f"{de_}_f")
+
+        def e_body(e_=e_):
+            def ang(h):
+                ta = h.label("etip")
+                h.load(e_["yaw"])
+                h.load(e_["st"]).push(2).emit("eq", f"jz {ta}")
+                h.load(e_["t"]).push(14).emit("mul", "dup").push(250).emit("swap", "lt", f"jz {ta}_c")
+                h.emit("drop").push(250)
+                h.mark(f"{ta}_c")
+                h.push(1023).emit("swap", "sub", "shl 10", "or")           # (back, away from his face)
+                h.mark(ta)
+
+            def flags(h):
+                tf = h.label("efl")
+                h.push32(spec.OBJ_CART | spec.OBJ_CULL)
+                h.load(e_["fl"]).emit(f"jz {tf}")
+                h.emit("drop").push32(FLASH | spec.OBJ_CART)
+                h.mark(tf)
+                h.load(LOCK).load(TSEL).push(e_["k"]).emit("eq", "and", f"jz {tf}_e")
+                h.push(spec.OBJ_EDGE).emit("or")
+                h.mark(f"{tf}_e")
+            p.object(NOBJ, e_["desc"], (f"load {int(e_['pos'])}",), 0, (f"load {int(e_['pos']) + 1}",), ang, flags)
+        # (one within arm's length of the LENS is not drawn: it would blot out the shot)
+        for c_, cam_ in ((int(e_["pos"]), spec.CAM_X), (int(e_["pos"]) + 1, spec.CAM_Z)):
+            p.load(c_).load(cam_).emit("sub", "dup", "mulq")
+        p.emit("add").push(int(1.3 ** 2 * ONE)).emit("swap", "lt", f"jz {de_}")
+        if_visible((f"load {int(e_['pos'])}",), 1.0, (f"load {int(e_['pos']) + 1}",), 1.3, e_body)
+        p.mark(de_)
 for d in range(3 if "demons" not in OMIT else 0):     # the demons, last
     for f, c in (("x", "x"), ("z", "z"), ("cf", "cf")):
         p.load(dslot(d, f)).store(FK[c])
@@ -6025,7 +6334,8 @@ if BASE:
               "push 1", "add", "mul", "push 1023", "and"),       # (in reach: it spins fast,
              (f"load {int(KNEAR)}", "push 1", "eq")
              + ((f"load {int(KHIT)}", "push 0", "eq", "push 1", "xor", "or") if L2 else ())
-             + ((f"load {int(LOCK)}", "or") if L3 else ())
+             + ((f"load {int(LOCK)}",) + ((f"load {int(TSEL)}", f"push {NE}", "eq", "and") if L4 else ()) + ("or",)
+                if L3 else ())
              + (f"push {spec.OBJ_EDGE}", "mul",                                       # outlined)
               f"push {spec.OBJ_CULL}", "or"))
     p.object(NOBJ, SHADOW_M, (f"load {int(KX)}",), 0, (f"load {int(KZ)}",), 0, spec.OBJ_BLEND)
@@ -6045,6 +6355,10 @@ if L2:
     p.addi(KHIT, -1)
     p.mark(f"{sg_}_k")
     p.load(F["py"]).push(GUN_Y).emit("add").store(W["oy"])
+    if L4:                                        # (P37: locked, at the spot's height)
+        p.load(LOCK).emit(f"jz {sg_}_y")
+        p.push(int(SPOTY)).load(SPOT).emit("add", "loadi").store(W["oy"])
+        p.mark(f"{sg_}_y")
     p.load(GT["shoot"]).emit(f"jz {sg_}")
     p.load(SLOWON).emit(f"jz {sg_}")              # (P35, the player: "the targeting should
     p.load(GC["shoot"]).load(RLD).emit("or", f"jz {sg_}_c", f"jmp {sg_}")   # really only show in slow motion")
@@ -6093,8 +6407,19 @@ if L2:
     if L3:                                      # P35: the lock's mark, over the item
         lm_ = p.label("lockmark")
         p.load(LOCK).emit(f"jz {lm_}")
-        p.object(NOBJ, AWARE_M, (f"load {int(KX)}",), int(1.9 * ONE), (f"load {int(KZ)}",),
-                 (f"load {spec.REG_FRAME}", "push 23", "mul", "push 1023", "and"), 0)
+        if L4:                                  # P37: at the spot, on his side of the target
+            def mark_x(h):
+                sin_of(h, cell=LBRG)
+                h.push(int(0.45 * ONE)).emit("mulq").load(TGTX).emit("add")
+
+            def mark_z(h):
+                sin_of(h, 256, cell=LBRG)
+                h.push(int(0.45 * ONE)).emit("mulq").load(TGTZ).emit("swap", "sub")
+            p.object(NOBJ, AWARE_M, mark_x, (f"push {int(SPOTY)}", f"load {int(SPOT)}", "add", "loadi"), mark_z,
+                     (f"load {spec.REG_FRAME}", "push 23", "mul", "push 1023", "and"), 0)
+        else:
+            p.object(NOBJ, AWARE_M, (f"load {int(KX)}",), int(1.9 * ONE), (f"load {int(KZ)}",),
+                     (f"load {spec.REG_FRAME}", "push 23", "mul", "push 1023", "and"), 0)
         p.mark(lm_)
     for B_ in BUL:                              # the bullets: each a streak along its way
         nb = p.label("dbul")
@@ -7738,6 +8063,27 @@ if L2:
     p.mark(f"{ry}_x")
     p.emit("drop")
     p.mark(f"{ry}_e")
+    if L4:
+        # P37: ...or AN ENEMY that is up: on the line, within its body's
+        # width of it, and nearer than whatever the line met before (3 + its
+        # number). The same test the key has; nothing is aimed for him.
+        for e_ in ENEMY:
+            rn = p.label("rayenemy")
+            p.load(e_["st"]).push(1).emit("eq", f"jz {rn}")
+            p.load(int(e_["pos"])).load(RAY["ox"]).emit("sub").store(W["qx"])
+            p.load(int(e_["pos"]) + 1).load(RAY["oz"]).emit("sub").store(W["qz"])
+            p.load(W["qx"]).load(RAY["dx"]).emit("mulq").load(W["qz"]).load(RAY["dz"]).emit("mulq", "add")
+            p.store(W["d2"])
+            p.push(0).load(W["d2"]).emit("lt", f"jz {rn}")
+            p.load(W["d2"]).load(RAY["len"]).emit("lt", f"jz {rn}")
+            p.load(W["qx"]).load(RAY["dz"]).emit("mulq").load(W["qz"]).load(RAY["dx"]).emit("mulq", "sub")
+            p.emit("dup").push(E_R).emit("lt", f"jz {rn}_x")
+            p.push(-E_R).emit("swap", "lt", f"jz {rn}")
+            p.load(W["d2"]).store(RAY["len"]).set(RAY["hit"], 3 + e_["k"])
+            p.emit(f"jmp {rn}")
+            p.mark(f"{rn}_x")
+            p.emit("drop")
+            p.mark(rn)
     for c_, me, d_ in ((RAY["x"], RAY["ox"], "dx"), (RAY["z"], RAY["oz"], "dz")):
         p.load(RAY[d_]).load(RAY["len"]).emit("mulq").load(me).emit("add").store(c_)
     p.set(AWC, AR_W)
@@ -7763,15 +8109,27 @@ if L2:
     p.set(RLD, RELOAD)                                     # the last round: it reloads
     p.mark(f"{fr_}_s")
     p.emit(f"call {L_RAY}")
+    if L4:
+        # P37: locked, the round goes at the SPOT (its height and what it
+        # does to who it strikes); else the gun's own height, and mid
+        fy_ = p.label("firey")
+        p.load(F["py"]).push(GUN_Y).emit("add").store(W["bx"]).set(W["bz"], 1)
+        p.load(LOCK).emit(f"jz {fy_}")
+        p.push(int(SPOTY)).load(SPOT).emit("add", "loadi").store(W["bx"]).load(SPOT).store(W["bz"])
+        p.mark(fy_)
     p.push(1).load(BNX).emit("sub", "dup").store(BNX)      # the other slot
     p.push(len(BK)).emit("mul").push(int(BUL[0]["ex"])).emit("add").store(W["k"])
     for name, ops in (("ex", (f"load {int(RAY['x'])}",)), ("ez", (f"load {int(RAY['z'])}",)),
                       ("dx", (f"load {int(RAY['dx'])}",)), ("dz", (f"load {int(RAY['dz'])}",)),
                       ("rem", (f"load {int(RAY['len'])}", "push 2", "add")),
-                      ("y", (f"load {int(F['py'])}", f"push {GUN_Y}", "add")),
+                      ("y", (f"load {int(W['bx'])}",) if L4 else (f"load {int(F['py'])}", f"push {GUN_Y}", "add")),
                       ("yaw", (f"load {int(W['head'])}",)),
-                      ("hit", (f"load {int(F['mv'])}", f"push {MOVE['gun']}", "sub", "push 4", "mul",
-                               f"load {int(RAY['hit'])}", "add"))):
+                      # (the hit's word. Layer 4: what it meets, 0..15 | charged << 4 | spot << 5)
+                      ("hit", (f"load {int(F['mv'])}", f"push {MOVE['gun']}", "sub", "push 16", "mul",
+                               f"load {int(RAY['hit'])}", "add", f"load {int(W['bz'])}", "push 32", "mul", "add")
+                       if L4 else
+                       (f"load {int(F['mv'])}", f"push {MOVE['gun']}", "sub", "push 4", "mul",
+                        f"load {int(RAY['hit'])}", "add"))):
         p.emit(*ops).load(W["k"]).push(BK[name]).emit("add", "storei")
     p.set(SG_T["nt"], 0)                                   # the crack, and the kick:
     p.push(3).load(F["mv"]).push(MOVE["gun"]).emit("sub").push(4).emit("mul", "add").store(F["shake"])
@@ -7787,20 +8145,47 @@ if L2:
 
     def bf(name):
         p.load(W["k"]).push(BK[name]).emit("add", "loadi")
-    bf("hit")
-    p.push(3).emit("and", f"jz {ld}")
+    if L4:
+        bf("hit")
+        p.push(15).emit("and", f"jz {ld}")
+    else:
+        bf("hit")
+        p.push(3).emit("and", f"jz {ld}")
     for k_, name in enumerate(("ex", "y", "ez")):
         bf(name)
         p.store(int(SPK) + k_)
     p.set(int(SPK) + 3, SPARK_FOR).set(SPKM, HOT_M)
     p.set(int(PLAYD["step"]) + 1, int(SND_STEP)).set(SG["st"], 0)
     bf("hit")
-    p.push(4).emit("and", f"jz {ld}_c")
+    p.push(16 if L4 else 4).emit("and", f"jz {ld}_c")
     p.set(F["shake"], 4)
     p.mark(f"{ld}_c")
     bf("hit")
-    p.push(3).emit("and").push(2).emit("eq", f"jz {ld}")
+    p.push(15 if L4 else 3).emit("and").push(2).emit("eq", f"jz {ld}_k")
     p.set(KHIT, 40).set(SG["gt"], 0).set(SG["gr"], 3)
+    p.emit(f"jmp {ld}")
+    p.mark(f"{ld}_k")
+    if L4:
+        # P37: AN ENEMY, STRUCK. A round is 1 off it, the charged one 3;
+        # HIGH it is doubled; LOW it is held three times as long (it does
+        # not come on); and it flashes.
+        bf("hit")
+        p.emit("shr 4").push(1).emit("and").push(2).emit("mul").push(1).emit("add").store(W["dmg"])
+        p.push(12).store(W["stop"])
+        bf("hit")
+        p.emit("shr 5").push(3).emit("and", "dup", f"jz {ld}_hi")
+        p.push(2).emit("eq", f"jz {ld}_e")
+        p.push(36).store(W["stop"]).emit(f"jmp {ld}_e")
+        p.mark(f"{ld}_hi")
+        p.emit("drop").load(W["dmg"]).push(2).emit("mul").store(W["dmg"])
+        p.mark(f"{ld}_e")
+        for e_ in ENEMY:
+            le = p.label("lande")
+            bf("hit")
+            p.push(15).emit("and").push(3 + e_["k"]).emit("eq", f"jz {le}")
+            enemy_hurt(p, e_)
+            p.emit(f"jmp {ld}")
+            p.mark(le)
     p.mark(ld)
     p.emit("ret")
 

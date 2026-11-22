@@ -1759,3 +1759,57 @@ being a subroutine.
   superman punch from 5.5, 7.5 and 9.5 units with three things held in
   the air, a terminator by the key); layer 2's 14 gun tests after the
   subroutine. Layers 0 and 1 and the full cart build byte-identical.
+
+## P37: layer 4 -- the enemies, and choosing among them (2026-11-22; not yet on glass)
+
+On the cart-mesh core (ZETA0-FRONTIER 20; branch exp/cart-mesh), which
+the player has on glass: "starting to feel alot better". And: "the
+targeting needs up and down for high and low shots, and not move when
+held during slow motion. for the enemies, lets have then move and make
+them target able, r shoulder alone held does selection of target and hit
+spot with dpad. same in slow motion." TND_LAYER=4: layer 3, the body from
+the cart, and six enemies.
+
+- **The enemies** are the player's own body cut smaller from the
+  archive's full-resolution mesh (an elite 243 vertices / 369 triangles,
+  a common 172 / 252, four of the horde 109 / 150), each with the WHOLE
+  clip set from this game's own baker run on it (build/tiers; the guard
+  and the planted walk are in the cart so far). With him: 1,320 vertices
+  and 1,958 faces of the store's 2,048 and 2,048.
+- **They move.** Each walks to its own place in a ring round him -- its
+  size's stand-off out (2.4, 2.1, 1.8), a sixth of the way round from the
+  last one's -- turning twenty a frame, at its size's pace (0.045, 0.040,
+  0.030), a wall a wall; there, or held short by a wall, it stands in its
+  guard and faces him. The ring goes where he goes. (The first cut sent
+  them all straight at him: one clump, in a file, on one bearing.) One
+  within arm's length of the lens is not drawn.
+- **R held ALONE chooses**, read every frame of glass (so in slowed time
+  a press is a press): the nearest target in reach (twenty units) on R's
+  press, and again whenever the one he has is gone; Left and Right, the
+  next one round him that way -- ordered by bearing and then by number,
+  so two on one line can both be reached; Up and Down, the spot: high,
+  mid, low, which STAYS. The item is the last target of the round. And
+  with R alone the pad is only that: the tank neither walks nor turns,
+  target or none, running time or slowed. (R with L is the boxer's steps
+  round the target; in the run, the circle -- as layer 3.)
+- **The spot.** A locked shot flies at the spot's height (1.6, 1.1, 0.5;
+  the sight's beads and the mark on the target stand there too) and does
+  what the spot does: a round is 1 off the enemy and holds it 12 frames;
+  HIGH it is doubled; LOW it is held 36 -- it comes no nearer. The
+  charged round is 3.
+- **What lands.** The gun's line meets an enemy as it meets the key (its
+  body's width, the nearest thing on the line -- locked or not; nothing
+  is aimed for him). A fist within three quarters of a unit of one has
+  struck it: the move's hitstop and shake, a jab 1, a hook or an uppercut
+  2, the haymaker 4, and it is driven a third of a unit the way the blow
+  went. Struck, it flashes; with nothing left (8, 5, 3) it tips over,
+  lies 150 frames, and is back where it began. They do not strike yet.
+- **Measured on the silicon** (the simulation, 383 frames from power-on:
+  they come, the lock, both ways round, the spot, shots, a hook, the
+  boxer round one): median 61% of the frame, peak 73%. Where the lit
+  town's own open fault is not in the shot, law and silicon are the same
+  to the pixel (a median of 0 differing); where it is -- the boxer's lens
+  against a wall: the wall black, 38,000 pixels -- it is there with every
+  enemy removed too.
+- tests: 7 layer 4; 12 layer 3 and layer 2's 14 gun tests after it.
+  Layers 0 and 1 and the full cart build byte-identical.
