@@ -272,8 +272,19 @@ OBJ_LIT = 8192                  # flags bit 13: the vertex word is a
 # ONE face stream. The faces are FLAT (the object's gouraud, lit and
 # texture bits are not read); cull, outline and the object tint are. A
 # descriptor or a stream outside its memory draws nothing.
+#
+# THE STORE. The silicon reads the streams ONCE a frame, at the movers'
+# instant, into a store of its own, and the frame is drawn from that. So
+# the store's size is law: cart meshes are admitted in OBJECT-LIST ORDER
+# while the frame's running totals stay within CM_VMAX vertices and
+# CM_FMAX faces; one that would pass either draws nothing (and takes no
+# room: a smaller one after it may still fit). The bounds are the mover's:
+# a stream must lie inside CRAM_WORDS through SEG_BASE, and words of it
+# the cart never carried read as zero.
 OBJ_CART = 16384                # flags bit 14
 CMESH_WORDS = 5
+CM_VMAX = 1536                  # vertices of cart meshes a frame
+CM_FMAX = 2560                  # faces of cart meshes a frame
 
 OBJ_EDGE = 128                  # flags bit 7: OUTLINE this object.
                                 # The rasterizer keeps WHICH OBJECT owns

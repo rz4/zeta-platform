@@ -1175,3 +1175,34 @@ tail the game borrows for tables); the program's page is 32,768 against
 the game's 16,300; the cart is about 2.7 M words of 4.06 M with the song
 and is about 1.5 M with 16-bit poses -- room for the enemies' own pose
 sets and for a plate (92,160 words) a menu screen.
+
+**The silicon's shape for it** (planned 2026-11-22; none built). The
+law's cart mesh is drawn from a STORE the silicon fills once a frame:
+
+- *The store* (new block RAM, the law's CM_VMAX / CM_FMAX): vertices as
+  the cart holds them, 1,536 x 3 x 16 bits; face indices 2,560 x 30;
+  colours 2,560 x 15 -- about 20 M10K of the 27 free. Derived every frame
+  from DMEM and the cart, so it is not machine state (spec.STATE is
+  untouched; a resumed frame reloads it).
+- *The loader* (zeta_top, at the movers' instant, after DMA, DMA2 and
+  the overlay): walk the object list; for each OBJ_CART object read its
+  five descriptor words, apply the law's refusals (the descriptor inside
+  DMEM, nv / nf / shift, the three spans inside CRAM_WORDS through
+  SEG_BASE, the store's running totals), give it a place in the store and
+  burst its three streams there with the mover's own engine (a
+  destination select beside dma_imem). Per object, kept for the frame:
+  admitted?, nv, nf, shift, its vertex base and face base.
+- *The sequencer* (zseq) reads a cart object's mesh through the port it
+  has: one more bit beside rd_addr (and the object's index) says "this
+  object's mesh, word k of [nv, nf, 3 words a vertex, 2 words a face]";
+  an adapter serves it from the store -- a vertex half sign-extended and
+  shifted, a face's index word, its colour widened to 24 bits -- in the
+  same two states. In zseq: at S_OT1 an OBJ_CART object not admitted is
+  skipped as an invalid mesh is; an admitted one takes mb_s = 0 and its
+  gouraud / lit / texture / tint / blend bits are masked off. Nothing else
+  in the walk, the bins, the vertex cache or the clipper changes.
+- *Its time*: the streams for the balance above are about 5,000 words a
+  frame beside the mover's 8,192 allowed today -- to be metered.
+- *Proved by* the cross on a witness cart and on TND's cart-mesh build,
+  then fitted (exp branch, CI). The larger vertex store is a second
+  experiment, fitted alone.

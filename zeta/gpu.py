@@ -212,7 +212,7 @@ def _tdivv(num, den):
     return np.where(num >= 0, num // den, -((-num) // den))
 
 
-def _cart_mesh(dmem, cram, mb):
+def _cart_mesh(dmem, cram, mb, used):
     """spec.OBJ_CART: the descriptor at mb -> (V, face index words, face
     rgb words), read from the cart's segment; None if any of it falls
     outside its memory. The colours come back as the 24-bit words a flat
@@ -224,20 +224,32 @@ def _cart_mesh(dmem, cram, mb):
     nv, nf = w0 & 0xFFFF, (w0 >> 16) & 0xFFFF
     if nv > spec.MESH_NV_MAX or nf > spec.MESH_NF_MAX or not 0 <= sh <= 15:
         return None
-    seg, top = s32(dmem[spec.SEG_BASE]), min(len(cram), spec.CRAM_WORDS)
+    seg = s32(dmem[spec.SEG_BASE])
     spans = ((vsrc, (nv * 3 + 1) // 2), (fsrc, nf), (csrc, (nf + 1) // 2))
-    for src, n in spans:
-        if src < 0 or src + seg < 0 or src + seg + n > top:
+    for src, n in spans:                       # the mover's own bounds
+        if src < 0 or src + seg < 0 or src + seg + n > spec.CRAM_WORDS:
             return None
+    # THE STORE (spec.CM_VMAX, CM_FMAX): admitted in list order while the
+    # frame's totals fit; one that would not draws nothing and takes no room
+    if used[0] + nv > spec.CM_VMAX or used[1] + nf > spec.CM_FMAX:
+        return None
+    used[0] += nv
+    used[1] += nf
+
+    def words(src, n):                         # (past what the cart carried: zeros)
+        w = np.zeros(n, np.int64)
+        got = cram[src + seg:src + seg + n]
+        w[:len(got)] = got
+        return w & 0xFFFFFFFF
 
     def halves(src, n):
-        w = cram[src + seg:src + seg + (n + 1) // 2] & 0xFFFFFFFF
+        w = words(src, (n + 1) // 2)
         return np.stack((w & 0xFFFF, w >> 16), 1).reshape(-1)[:n]
     v = halves(vsrc, nv * 3)
     V = (((v ^ 0x8000) - 0x8000) << sh).reshape(nv, 3)
     c = halves(csrc, nf)
     rgb = (((c >> 10) & 31) << 19) | (((c >> 5) & 31) << 11) | ((c & 31) << 3)
-    return V, (cram[fsrc + seg:fsrc + seg + nf] & 0xFFFFFFFF).tolist(), rgb.tolist()
+    return V, words(fsrc, nf).tolist(), rgb.tolist()
 
 
 def _verts(V, nv, yaw, pit, rol, ox, oy, oz,
@@ -303,6 +315,7 @@ def _geom(fb, zbuf, dmem, watch, pick, tex=None, fog=None,
     cyaw = dmem[spec.CAM_YAW] & 1023
     cpit = dmem[spec.CAM_PITCH] & 1023
     crol = dmem[spec.CAM_ROLL] & 1023
+    cm_used = [0, 0]                           # spec.OBJ_CART's store, this frame
     for o in range(n):
         base = spec.OL_BASE + 1 + o * spec.OL_STRIDE
         mb, ox, oy, oz, ang, flags = (s32(v) for v in
@@ -312,7 +325,7 @@ def _geom(fb, zbuf, dmem, watch, pick, tex=None, fog=None,
             continue
         cart = bool(flags & spec.OBJ_CART)
         if cart:                           # spec.OBJ_CART: the mesh is in the cart
-            cm = _cart_mesh(dmem, cram, mb)
+            cm = _cart_mesh(dmem, cram, mb, cm_used)
             if cm is None:
                 continue
             V, fidx, frgb = cm

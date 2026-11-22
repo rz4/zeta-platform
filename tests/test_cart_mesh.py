@@ -111,3 +111,42 @@ def test_a_cart_mesh_outside_its_memory_draws_nothing(poke):
     body = _body(9)
     empty = _frame(*body, cart=False, at=(0, 0, -50))
     assert np.array_equal(_frame(*body, cart=True, poke=poke), empty)
+
+
+def test_the_store_admits_in_list_order_and_a_mesh_that_will_not_fit_draws_nothing():
+    """spec.CM_VMAX / CM_FMAX: seven lumps of 250 vertices are 1,750 -- the
+    seventh does not fit the store's 1,536 and is not drawn; a small one
+    AFTER it still is (the one refused took no room)."""
+    big = _body(21, nv=250, nf=120)
+    small = _body(22, nv=20, nf=30)
+    cram = np.zeros(CART_AT + 8192, np.int64)
+    at_, descs = CART_AT, []
+    for v16, faces, c15 in (big, small):
+        offs = []
+        for w in (_halves(v16.reshape(-1)), [a | b << 10 | c << 20 for a, b, c in faces], _halves(c15)):
+            cram[at_:at_ + len(w)] = w
+            offs.append(at_)
+            at_ += len(w)
+        descs.append([len(v16) | len(faces) << 16, offs[0], offs[1], offs[2], SHIFT])
+
+    def frame(which):
+        d = [0] * spec.DMEM_WORDS
+        d[DESC:DESC + 5], d[DESC + 5:DESC + 10] = descs
+        d[spec.OL_BASE] = len(which)
+        for k, (desc, x) in enumerate(which):
+            b = spec.OL_BASE + 1 + k * spec.OL_STRIDE
+            d[b:b + 6] = [desc, int(x * ONE) & 0xFFFFFFFF, 0, 6 * ONE, 0, spec.OBJ_CART]
+        return gpu.render(d, cram)
+    six = [(DESC, -2.5 + k) for k in range(6)]
+    assert spec.CM_VMAX // 250 == 6
+    with_seventh = frame(six + [(DESC, 3.5)])
+    assert np.array_equal(with_seventh, frame(six)), "the mesh past the store was drawn"
+    and_small = frame(six + [(DESC, 3.5), (DESC + 5, 3.5)])
+    assert np.array_equal(and_small, frame(six + [(DESC + 5, 3.5)])) and (and_small != with_seventh).any()
+
+
+def test_a_stream_the_cart_never_carried_reads_as_zeros():
+    v16, faces, c15 = _body(31)
+    short = _frame(v16, faces, c15, cart=True, poke=lambda d: d.__setitem__(DESC + 3, CART_AT + 5000))
+    black = _frame(v16, faces, np.zeros_like(c15), cart=True)
+    assert np.array_equal(short, black)
