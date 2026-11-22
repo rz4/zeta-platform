@@ -73,11 +73,13 @@ SWARM_TEST = os.environ.get("TND_SWARM") == "1"
 #                 the lens backs off and he squares up; L clicked twice and
 #                 held is the RUN -- the fastest, with momentum, the lens
 #                 trailing; A jumps in either, and A again flips.
-#   TND_LAYER=2   + SHADOW BOXING (P30, the player's): every blow goes
-#                 where he faces, and the pad steps it (in, out, off the
-#                 line); X is a jab and counts, Y ends the string with what
+#   TND_LAYER=2   + SHADOW BOXING (P31, the player's): a blow goes the way
+#                 the pad points and his WHOLE BODY turns to throw it --
+#                 his steering and the lens do not; moving brings him
+#                 back. X is a jab and counts, Y ends the string with what
 #                 the count earned (hook, uppercut, haymaker); a button
-#                 held slows time and keeps the string.
+#                 held slows time, keeps the string, and the lens goes to
+#                 where the blow lands.
 LAYER = int(os.environ.get("TND_LAYER", "9"))
 BASE = LAYER in (0, 1, 2)        # the base's own rules (the layers stand on them)
 L1 = LAYER in (1, 2)             # the left shoulder
@@ -119,17 +121,17 @@ SEQS = ("idle", "walk", "air", "jab", "cross", "lead_hook", "rear_hook", "specia
 # footwork"). A boxer's stance -- shorter, wider, sat into the knees -- with
 # a guard that is ready, not frozen ("guard2"); the stance's steps as a
 # bounce, the near foot down first, never crossing ("hop_*"); and every
-# strike's feet PLANTED IN THE WORLD through its lunge, in five ways: as it
-# is ("_n"), and stepped in, out, left and right ("_u _d _l _r").
+# strike's feet PLANTED IN THE WORLD through its lunge ("_n").
+# P31: the boxer's STRAFE JUMP, four ways, seven poses by his rise ("sj_*").
 STRIKES = ("jab", "lead_hook", "rear_uppercut", "special")
-WAYS = "nudlr"                  # no pad, Up, Down, Left, Right
+SJ_WAYS = ("fwd", "back", "left", "right")
 CLIP_OF = dict({"run": "run2", "walk": "walk2", "idle": "guard2"},
                **{"kite_" + k_: "hop_" + k_ for k_ in ("fwd", "back", "left", "right")},
                **{k_: k_ + "_n" for k_ in STRIKES}) if BASE else {}
 if BASE:
     SEQS += ("slide",)           # P27: the run's slide (the layers only; four poses)
-if L2:
-    SEQS += tuple(f"{k_}_{w_}" for k_ in STRIKES for w_ in WAYS[1:])
+if L1:
+    SEQS += tuple("sj_" + k_ for k_ in SJ_WAYS)
 
 
 def to_zeta(V):
@@ -365,13 +367,9 @@ assert SPAN <= spec.DMA_MAX, f"pose span {SPAN} exceeds DMA_MAX"
 # the switch.)
 DEDUPE = False
 bank, base, slot, seen = [], {}, [], {}
-# (P30: layer 2's strings cannot throw the cross, the rear hook or the lead
-# uppercut; their clips make room in CRAM for the stepped strikes -- one
-# pose each stays, so every base is still a pose.)
-UNTHROWN = ("cross", "rear_hook", "lead_uppercut") if L2 else ()
 for s in SEQS:
     base[s] = len(slot)
-    for V, S in list(zip(d["V_" + CLIP_OF.get(s, s)], d["S_" + CLIP_OF.get(s, s)]))[:1 if s in UNTHROWN else None]:
+    for V, S in zip(d["V_" + CLIP_OF.get(s, s)], d["S_" + CLIP_OF.get(s, s)]):
         w = pose_span(V, S)
         k = tuple(w) if DEDUPE else len(slot)
         if k not in seen:
@@ -2169,11 +2167,14 @@ KNOBS_L1 = (("run", 81262, int(0.08 * ONE), int(0.5 * ONE), int(2.5 * ONE)),    
             ("jump", 12190, int(0.01 * ONE), int(0.08 * ONE), int(0.4 * ONE)),   # 8 the jump
             ("dclick", 44, 2, 6, 60))                              # 9 frames between the two clicks
 # LAYER 2'S PAGE: the strikes.
-KNOBS_L2 = (("step", int(0.075 * ONE), int(0.0075 * ONE), 0, int(0.2 * ONE)),   # 0 the pad's step with a blow
+KNOBS_L2 = (("pivot", 176, 16, 128, 512),      # 0 his body's turn into a blow's way, a frame (512: at once)
             ("lunge", 58983, int(0.1 * ONE), 0, 3 * ONE),   # 1 how far a strike carries him (x its own; the player's)
             ("keep", 40, 4, 8, 160),           # 2 frames after a blow the string still stands
             ("hold", 14, 2, 6, 40),            # 3 frames a button is down before time slows
-            ("slow", 3, 1, 2, 6))              # 4 ...to one frame in this many
+            ("slow", 3, 1, 2, 6),              # 4 ...to one frame in this many
+            ("sjump", int(0.13 * ONE), int(0.01 * ONE), int(0.05 * ONE), int(0.4 * ONE)),   # 5 the boxer's strafe jump, a frame
+            ("fcam", int(1.3 * ONE), int(0.1 * ONE), int(0.6 * ONE), 4 * ONE),   # 6 time slowed: the lens, this far back
+            ("wander", int(0.08 * ONE), int(0.01 * ONE), int(0.01 * ONE), ONE))  # 7 the boxer's lens: its share of the way, a frame
 SETTLED = {k_[0]: k_[1] for k_ in KNOBS + KNOBS_L1 + KNOBS_L2}
 SETTLED["ramp"] = BASE_SET.get("ramp", int(0.22 * ONE))      # (weight: left at 0.73)
 if LAYER == 1:
@@ -2192,8 +2193,14 @@ if BASE:
     WALLT, WALLA, WSX, WSZ, WTX, WTZ, WJN = (cart.var(k) for k in (
         "wall_t", "wall_axes", "wall_sx", "wall_sz", "wall_tx", "wall_tz", "wall_n"))
     SLT, SLV, SLF = cart.var("slide_t"), cart.var("slide_v"), cart.var("slide_f")
-    # P30: the way the pad stepped the blow (0 none, 1 in, 2 out, 3 left, 4 right)
-    STEPD = cart.var("step_dir")
+    # P31: where a blow goes (his BODY turns there; his steering does not),
+    # whether he stands turned from his steering, and a place to keep it
+    PIVT, TURNED, YKEEP = cart.var("punch_to"), cart.var("turned"), cart.var("yaw_keep")
+    # ...the boxer's strafe jump (0, or 1..4 the way), the lens's wander (its
+    # place, and its share of the way a frame), and the slowed lens's focus
+    SJD = cart.var("sjump_dir")
+    BCX, BCZ, WR = cart.var("lens_x"), cart.var("lens_z"), cart.var("lens_share")
+    HX, HZ, FOCB = cart.var("focus_x"), cart.var("focus_z"), cart.var("focus_on")
     cart.boot(spec.LIGHT_DIR, 0x007F00)          # P22: straight down (see piece_light)
     cart.boot(spec.LIGHT_AMB, LIT_AMB0)         # (the title's street, before the game
     cart.boot(spec.LIGHT_DIF, 33 - LIT_AMB0)    # sets them a frame at a time)
@@ -2218,13 +2225,26 @@ if BASE:
 
 
 if L2:
-    # P30: each blow's own lunge frame (its drive, not its wind-up), and its
-    # poses the five ways the pad can step it
+    # P30: each blow's own lunge frame (its drive, not its wind-up)
     LUNGE_AT = {"jab": 1, "cross": 1, "lead_hook": 6, "rear_hook": 6, "special": 13,
                 "lead_uppercut": 8, "rear_uppercut": 8}
     LDT = cart.data(Table([LUNGE_AT.get(n_, 0) for n_ in PMN]), "lunge_at")
-    SVT = cart.data(Table([base.get(f"{n_}_{w_}", base[n_]) for n_ in PMN for w_ in WAYS]), "step_poses")
     TURN_LOCK = 10              # frames after a string's blow the pad still does not turn or walk him
+    FOCUS_REACH, FOCUS_SH = 0.7, -0.6             # the slowed lens: a blow's reach; over his right shoulder
+    FOCUS_DROP = 0.30                             # ...and down toward the fist's height
+if L1:
+    SJB = cart.data(Table([base["sj_" + k_] for k_ in SJ_WAYS]), "sjump_poses")
+    SJ_TURN = cart.data(Table([0, 0, 512, 256, 768]), "sjump_turn")   # (by sjump_dir: in, out, left, right)
+    SJ_RISE = 0.72              # its rise, x the jump's: lower, and longer
+
+
+def steer_head(g, to_cell):
+    """turn his BODY (HEAD) toward to_cell by the pivot knob, the short way;
+    his steering (YAW) is put back as it was"""
+    g.load(to_cell).store(W["head"])
+    g.load(YAW).store(YKEEP).load(HEAD).store(YAW)
+    knob(g, "pivot").store(W["dg"]).emit(f"call {L_STEER}")
+    g.load(YAW).store(HEAD).load(YKEEP).store(YAW)
 
 
 def knob(g, name):
@@ -2328,8 +2348,9 @@ for d in range(3):
 for i in range(N_IMP):
     p.set(imp(i, "st"), 0)
 if BASE:
-    for c_ in (KEY, PICK, QT, WSPD, KNEAR, STEPD):
+    for c_ in (KEY, PICK, QT, WSPD, KNEAR, TURNED, SJD, FOCB):
         p.set(c_, 0)
+    p.set(WR, ONE)
 if SWARM_TEST:                                  # (the meter's hook: the fight in the
     p.set(PX, int(3 * ONE)).set(PZ, int(3 * ONE))               # first plaza, the
 p.set(GT["jump"], 100).set(GC["jump"], 1)        # whole swarm up)     # the A that left the title is spent
@@ -2865,7 +2886,29 @@ p.load(ANIM).push(2).emit("eq", f"jz {jp}_j", f"jmp {jp}")   # not mid-swing
 p.mark(f"{jp}_j")
 if L1:                                            # P24: "jump and pressed again to flip" --
     knob(p, "jump").store(F["pvy"])               # A is the jump, in the boxer too; the
-    p.set(F["py"], 1).emit(f"jmp {jp}")           # flip is the second press, in the air
+    p.set(F["py"], 1)                             # flip is the second press, in the air
+    # P31: THE BOXER'S STRAFE JUMP (the player: "For the boxer, the jumps
+    # should be like a strafe jump in the four directions"; on the tape all
+    # 21 of his jumps in the stance had the pad held). With the pad, the
+    # jump THROWS him that way on his cross -- lower than the jump, at the
+    # sjump knob's pace, faster than his step -- still facing as he was.
+    sj_ = p.label("sjump")
+    p.load(F["sty"]).push(2).emit("eq", f"jz {jp}")
+    p.set(SJD, 0)
+    for bit_, k_ in ((spec.PAD_UP, 1), (spec.PAD_DOWN, 2), (spec.PAD_LEFT, 3), (spec.PAD_RIGHT, 4)):
+        nb_ = p.label("sjd")
+        held(bit_)
+        p.emit(f"jz {nb_}")
+        p.set(SJD, k_)
+        p.mark(nb_)
+    p.load(SJD).emit(f"jz {jp}")
+    p.load(F["pvy"]).push(int(SJ_RISE * ONE)).emit("mulq").store(F["pvy"])
+    p.push(int(SJ_TURN)).load(SJD).emit("add", "loadi").load(F["latch"]).emit("add").store(W["qx"])
+    sin_of(p, cell=W["qx"])
+    knob(p, "sjump").emit("mulq").push(0).emit("swap", "sub").store(F["vx"])
+    sin_of(p, 256, cell=W["qx"])
+    knob(p, "sjump").emit("mulq").store(F["vz"])
+    p.emit(f"jmp {jp}")
 p.set(F["pvy"], JUMP_V0).set(F["py"], 1)
 p.load(F["sty"]).push(2).emit("eq", f"jz {jp}")   # P18: THE BOXER -- a direction with
 p.emit(f"jmp {jp}_f2g")                           # the jump flips that way at once.
@@ -3161,40 +3204,23 @@ p.mark(tk)
 p.load(ANIM).push(2).emit("eq", f"jz {L['free']}")
 p.addi(AF, 1)
 if L2:
+    # P31: HIS BODY COMES ROUND TO THE BLOW, the clock running (the pivot
+    # knob a frame: a side in two, behind in three -- there before a jab is
+    # out). His steering does not turn, nor the lens.
     # P30: THE BLOW'S DRIVE. Its lunge comes on its own frame -- with the
     # drive, not the wind-up (the haymaker winds back where he stands, then
-    # goes) -- and THE PAD'S STEP with it: Up steps him in, Down out (and no
-    # lunge), Left and Right off the line. He does not turn: the blow goes
-    # where he faces. One impulse; the clip's feet are planted to it.
+    # goes) -- along the blow's way. One impulse; the clip's feet are
+    # planted to it.
     lg_ = p.label("lunge")
+    p.push(MOVE["gun"] - 1).load(F["mv"]).emit("lt", f"jz {lg_}_f", f"jmp {lg_}")
+    p.mark(f"{lg_}_f")
+    steer_head(p, PIVT)
     p.load(AF).push(int(LDT)).load(F["mv"]).emit("add", "loadi", "eq", f"jz {lg_}")
     row(PMT, F["mv"], "lunge")
-    knob(p, "lunge").emit("mulq")
-    p.load(STEPD).push(1).emit("eq", f"jz {lg_}_u")
-    knob(p, "step").emit("add")
-    p.mark(f"{lg_}_u")
-    p.load(STEPD).push(2).emit("eq", f"jz {lg_}_d")
-    p.emit("drop").push(0)
-    knob(p, "step").emit("sub")
-    p.mark(f"{lg_}_d")
-    p.emit("dup").store(W["dmg"])
-    sin_of(p, cell=HEAD)
+    knob(p, "lunge").emit("mulq", "dup").store(W["dmg"])
+    sin_of(p, cell=PIVT)
     p.emit("mulq").load(F["vx"]).emit("swap", "sub").store(F["vx"])   # fwd x = -sin
-    sin_of(p, 256, cell=HEAD)
-    p.load(W["dmg"]).emit("mulq").load(F["vz"]).emit("add").store(F["vz"])
-    p.push(0)                                                          # his left is his facing + 256
-    p.load(STEPD).push(3).emit("eq", f"jz {lg_}_l")
-    p.emit("drop")
-    knob(p, "step")
-    p.mark(f"{lg_}_l")
-    p.load(STEPD).push(4).emit("eq", f"jz {lg_}_r")
-    p.emit("drop").push(0)
-    knob(p, "step").emit("sub")
-    p.mark(f"{lg_}_r")
-    p.emit("dup").store(W["dmg"])
-    sin_of(p, 256, cell=HEAD)
-    p.emit("mulq").load(F["vx"]).emit("swap", "sub").store(F["vx"])
-    sin_of(p, 512, cell=HEAD)
+    sin_of(p, 256, cell=PIVT)
     p.load(W["dmg"]).emit("mulq").load(F["vz"]).emit("add").store(F["vz"])
     p.mark(lg_)
 p.load(AF)
@@ -3247,23 +3273,25 @@ p.emit(f"call {L_BRG}")
 p.load(F["brg"]).store(HEAD).emit(f"jmp {gf}_g")
 p.mark(f"{gf}_p")
 if L2:
-    # P30: THE BLOW GOES WHERE HE FACES (the player, of P29: "the jabs turn
-    # the player, it shouldn't" -- and, asked, "Always straight; d-pad is
-    # footwork"). The pad at the launch is the blow's STEP, latched here and
-    # given with its lunge (the swing, above). (The gun still snaps: not this
-    # layer's.)
+    # P31: THE BLOW GOES THE WAY THE PAD POINTS, AND HIS BODY TURNS TO THROW
+    # IT (the player, of P30: "The directional punches are to turn player as
+    # if he was making a punch in that direction" -- "The whole body should
+    # be turned, the tank and boxer camera does not move. movement returns
+    # the direction to where it was before the directional hits"). The way
+    # is the pad's, from his STEERING -- which no blow changes, so the pad
+    # means the same thing blow after blow -- and with no pad it is the way
+    # his body already faces. (The gun still snaps: not this layer's.)
     p.push(MOVE["gun"] - 1).load(F["mv"]).emit("lt", f"jz {gf}_pf", f"jmp {gf}_ps")
     p.mark(f"{gf}_pf")
-    p.load(YAW).store(HEAD)
-    p.set(STEPD, 0)
-    for bit_, k_ in ((spec.PAD_RIGHT, 4), (spec.PAD_LEFT, 3), (spec.PAD_DOWN, 2), (spec.PAD_UP, 1)):
-        ns_ = p.label("stepd")
-        held(bit_)
-        p.emit(f"jz {ns_}")
-        p.set(STEPD, k_)
-        p.mark(ns_)
+    p.load(HEAD).store(PIVT)
+    held(15)
+    p.emit(f"jz {L['motion']}")
+    p.push(int(OCTANT)).emit("load 1").push(15).emit("and", "add", "loadi")
+    p.load(YAW).emit("add").push(1023).emit("and").store(PIVT)
+    p.set(TURNED, 1)
     p.emit(f"jmp {L['motion']}")
     p.mark(f"{gf}_ps")
+    p.set(TURNED, 0)
 p.push(int(OCTANT)).emit("load 1").push(15).emit("and", "add", "loadi")
 p.load(YAW).emit("add").push(1023).emit("and").store(HEAD)
 p.mark(f"{gf}_g")
@@ -3301,7 +3329,29 @@ sin_of(p, 256, cell=HEAD)
 p.load(W["dmg"]).emit("mulq").load(F["vz"]).emit("add").store(F["vz"])
 p.emit(f"jmp {L['motion']}")
 p.mark(f"{L['walk']}_q")
-p.load(YAW).store(HEAD)                       # no strike: he faces his steering
+if L2:
+    # P31: A BLOW TURNED HIM, AND HE STANDS AS IT LEFT HIM till he moves:
+    # the pad (walking, turning, the boxer's steps) brings his body back
+    # round to his steering at the pivot knob's turn; the run, a dodge or a
+    # flip, at once. (Held still by a string's lock, the pad is not movement.)
+    tn_ = p.label("turned")
+    p.load(TURNED).emit(f"jz {tn_}_p")
+    p.load(F["sty"]).push(1).emit("eq").load(F["evf"]).emit("or", f"jz {tn_}_m")
+    p.set(TURNED, 0).emit(f"jmp {tn_}_p")
+    p.mark(f"{tn_}_m")
+    held(15)
+    p.emit(f"jz {tn_}")
+    p.load(F["c3"]).emit(f"jz {tn_}_go")
+    p.push(TURN_LOCK).load(F["ltap"]).emit("lt", f"jz {tn_}")
+    p.mark(f"{tn_}_go")
+    steer_head(p, YAW)
+    p.load(HEAD).load(YAW).emit("eq", f"jz {tn_}")
+    p.set(TURNED, 0).emit(f"jmp {tn_}")
+    p.mark(f"{tn_}_p")
+    p.load(YAW).store(HEAD)                   # no strike: he faces his steering
+    p.mark(tn_)
+else:
+    p.load(YAW).store(HEAD)                   # no strike: he faces his steering
 # P10: a flip owns the frame; else the style's own step
 ev = p.label("evade")
 p.load(F["evf"]).emit(f"jz {ev}_n")
@@ -3414,7 +3464,27 @@ p.set(ANIM, 5).emit(f"jmp {L['motion']}")
 p.mark(f"{ev}_b")
 p.load(F["sty"]).push(2).emit("eq", f"jz {ev}_tank")
 # (P18: FENCING, the locked boxer, is gone -- locked is targeting or the run)
-p.load(F["latch"]).emit("dup").store(YAW).store(HEAD)
+if L2:
+    p.load(F["latch"]).store(YAW)                 # (P31: his body, as a blow left it)
+    bt_ = p.label("boxturned")
+    p.load(TURNED).emit(f"jz {bt_}_p", f"jmp {bt_}")
+    p.mark(f"{bt_}_p")
+    p.load(YAW).store(HEAD)
+    p.mark(bt_)
+else:
+    p.load(F["latch"]).emit("dup").store(YAW).store(HEAD)
+if L1:
+    # P31: THE STRAFE JUMP's flight (below, at the jump): thrown, he keeps
+    # what the jump gave him -- no step, no drag -- till he lands, and
+    # lands with half of it.
+    sjf = p.label("sjfly")
+    p.load(SJD).emit(f"jz {sjf}")
+    p.load(F["py"]).emit(f"jz {sjf}_l")
+    p.set(ANIM, 0).emit(f"jmp {L['motion']}")
+    p.mark(f"{sjf}_l")
+    p.set(SJD, 0)
+    p.load(F["vx"]).emit("shr 1").store(F["vx"]).load(F["vz"]).emit("shr 1").store(F["vz"])
+    p.mark(sjf)
 (knob(p.push(BOX_FR).store(W["qx"]), "boxstep") if L1
  else p.push(BOX_FR).store(W["qx"]).push(BOX_RATE)).store(W["qz"])
 for vel, plus, neg in ((F["vx"], 0, True), (F["vz"], 256, False)):
@@ -3546,6 +3616,11 @@ p.load(F["evf"]).emit(f"jz {fr_}")
 p.mark(f"{fr_}_f")
 p.push(ONE).store(W["dg"])
 p.mark(fr_)
+if L1:                                           # (P31: the strafe jump's flight: free)
+    sjq = p.label("sjfree")
+    p.load(SJD).emit(f"jz {sjq}")
+    p.push(ONE).store(W["dg"])
+    p.mark(sjq)
 if L1:                                           # P24: the run's pace is a knob -- the
     rp_ = p.label("runpace")                      # step he takes in the run, not the speed
     p.push32(ONE)                                 # its own rules are written in
@@ -3736,13 +3811,15 @@ p.mark(f"{ap}_lo")
 p.emit("dup").push(6).emit("swap", "lt", f"jz {ap}_hi")
 p.emit("drop").push(6)
 p.mark(f"{ap}_hi")
+if L1:
+    apj = p.label("sjpose")
+    p.load(SJD).emit(f"jz {apj}")
+    p.push(int(SJB) - 1).load(SJD).emit("add", "loadi", "add").store(POSE).emit(f"jmp {L['pd']}")
+    p.mark(apj)
 p.push(base["air"]).emit("add").store(POSE).emit(f"jmp {L['pd']}")
 p.mark(ap)
 p.load(ANIM).push(2).emit("eq", f"jz {L['pm']}")
-if L2:                                            # (P30: the blow's clip, the way it was stepped)
-    p.push(int(SVT)).load(F["mv"]).push(len(WAYS)).emit("mul", "add").load(STEPD).emit("add", "loadi")
-else:
-    row(PMT, F["mv"], "pose")
+row(PMT, F["mv"], "pose")
 p.load(AF).emit("add").store(POSE).emit(f"jmp {L['pd']}")
 p.mark(L["pm"])
 # P15: THE TOUCHDOWN'S KNEES. Standing or walking out of a landing he
@@ -4062,6 +4139,21 @@ p.push(FOCUS_HOLD).load(GT["special"]).emit("lt", "or", "and")
 p.load(F["slow"]).emit("or", f"jz {md_}_e")       # -- or a launcher's slow motion
 p.push(int(FOCUS_D * ONE)).store(W["dmg"])
 p.mark(f"{md_}_e")
+if L2:
+    # P31: TIME SLOWED, THE LENS GOES TO WHERE THE BLOW LANDS (the player:
+    # "the slow motions need cameras focused on the hit location"): in to
+    # the fcam knob's distance, over his right shoulder -- and, below, it
+    # LOOKS at the place a blow's reach ahead of his body.
+    fo_ = p.label("focuscam")
+    knob(p, "hold").load(GT["carve"]).emit("lt")
+    knob(p, "hold").load(GT["special"]).emit("lt", "or", "dup").store(W["k"])
+    p.emit(f"jz {fo_}")
+    knob(p, "fcam").store(W["dmg"]).push(int(FOCUS_SH * ONE)).store(W["stop"])
+    p.mark(fo_)
+    p.push(0).load(W["k"]).emit(f"jz {fo_}_w")
+    p.emit("drop").push(ONE)
+    p.mark(f"{fo_}_w")
+    p.load(FOCB).emit("sub", "shr 2").load(FOCB).emit("add").store(FOCB)
 for cell, want in ((CWd["d"], W["dmg"]), (CWd["sh"], W["stop"])):
     p.load(want).load(cell).emit("sub").push(int(DIST_EASE * ONE)).emit("mulq")
     p.load(cell).emit("add").store(cell)
@@ -4078,6 +4170,25 @@ for reg, me, plus, fsgn in ((spec.CAM_X, PX, 0, 1), (spec.CAM_Z, PZ, 256, -1)):
     p.emit("add").store(reg)
 p.load(CY).store(spec.CAM_YAW)
 knob(p.load(F["py"]), "camh").emit("add").store(spec.CAM_Y)   # (P9: up with him)
+if L2:
+    # P31: THE BOXER'S LENS WANDERS (the player: "in the boxer the camera is
+    # locked on the player but can wander in position"). Its place comes
+    # after him by the wander knob's share of the way a frame -- it trails
+    # his steps -- and from wherever it is it looks AT him (below). Out of
+    # the stance the share climbs back to all of it: the follow, as it was.
+    wn_ = p.label("wander")
+    p.load(F["sty"]).push(2).emit("eq", f"jz {wn_}_o")
+    knob(p, "wander").load(WR).emit("sub", "shr 2").load(WR).emit("add").store(WR)
+    p.emit(f"jmp {wn_}")
+    p.mark(f"{wn_}_o")
+    p.load(WR).push(ONE >> 4).emit("add", "dup").push(ONE).emit("lt", f"jz {wn_}_c")
+    p.store(WR).emit(f"jmp {wn_}")
+    p.mark(f"{wn_}_c")
+    p.emit("drop").set(WR, ONE)
+    p.mark(wn_)
+    for have, reg in ((BCX, spec.CAM_X), (BCZ, spec.CAM_Z)):
+        p.load(reg).load(have).emit("sub").load(WR).emit("mulq").load(have).emit("add", "dup").store(have)
+        p.store(reg)
 
 # ---- P12: THE OPERATOR -- the special shots over the follow -----------------
 CW = CAM_W
@@ -4375,6 +4486,32 @@ for reg, me, w in ((spec.CAM_X, PX, W["bx"]), (spec.CAM_Z, PZ, W["bz"])):
 keep_in_arena(W["bx"], W["bz"], PX, PZ)
 p.load(W["bx"]).store(spec.CAM_X).load(W["bz"]).store(spec.CAM_Z)
 p.mark(cmc)
+if L2:
+    lk2 = p.label("look")
+    p.load(WR).push(ONE).emit("lt", f"jz {lk2}")             # (wandering: at him)
+    p.load(PX).load(spec.CAM_X).emit("sub").store(W["qx"])
+    p.load(PZ).load(spec.CAM_Z).emit("sub").store(W["qz"])
+    p.emit(f"call {L_YAW}")
+    p.load(F["brg"]).store(spec.CAM_YAW)
+    p.mark(lk2)
+    # the blow's place: a reach ahead of his body, eased (it is where he
+    # will hit before he has turned to it)
+    for have, me, plus, neg in ((HX, PX, 0, True), (HZ, PZ, 256, False)):
+        sin_of(p, plus, cell=HEAD)
+        p.push(int(FOCUS_REACH * ONE)).emit("mulq")
+        if neg:
+            p.push(0).emit("swap", "sub")
+        p.load(me).emit("add").load(have).emit("sub", "shr 2").load(have).emit("add").store(have)
+    p.push(64).load(FOCB).emit("lt", f"jz {lk2}_f")
+    p.load(HX).load(spec.CAM_X).emit("sub").store(W["qx"])
+    p.load(HZ).load(spec.CAM_Z).emit("sub").store(W["qz"])
+    p.emit(f"call {L_YAW}")
+    p.load(F["brg"]).load(spec.CAM_YAW).emit("sub").push(512).emit("add")
+    p.push(1023).emit("and").push(512).emit("sub")           # the gap, -512..511
+    p.load(FOCB).emit("mul", "shr 16")
+    p.load(spec.CAM_YAW).emit("add").push(1023).emit("and").store(spec.CAM_YAW)
+    p.load(spec.CAM_Y).load(FOCB).push(int(FOCUS_DROP * ONE)).emit("mulq", "sub").store(spec.CAM_Y)
+    p.mark(f"{lk2}_f")
 # THE SHAKE: a landed blow jolts the lens side to side for its hitstop
 sk = p.label("shake")
 p.load(F["shake"]).emit(f"jz {sk}")

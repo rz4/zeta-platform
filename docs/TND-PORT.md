@@ -1377,7 +1377,7 @@ jab input. all the punches should posed tactically".
   object for 6 frames; P28 measured 58%. tests: 8 base, 7 layer 1, 8
   layer 2; the full cart is byte-identical.
 
-## P30: the count, the hold, and the boxer's feet (2026-11-22; not yet on glass)
+## P30: the count, the hold, and the boxer's feet (2026-11-22; on glass: revised in P31)
 
 The player, on glass, of P29: "The boxing model needs better footwork and
 the jabs turn the player, it shouldn't. Let's make a fun rythm system with
@@ -1444,3 +1444,56 @@ the stance, the feet during punches, the standing guard).
   difference); layers 0 and 1 play the new clips with the old launch-frame
   lunge. Not remeasured on silicon (no new geometry; P28: 58%).
   tests: 8 base, 7 layer 1, 9 layer 2; the full cart is byte-identical.
+
+## P31: the body turns to the blow; the strafe jump; the slowed lens (2026-11-22; not yet on glass)
+
+The player, on glass, of P30: "The directional punches are to turn player
+as if he was making a punch in that direction. For the boxer, the jumps
+should be like a strafe jump in the four directions. the slow motions
+need cameras focused on the hit location." Asked what his facing is after
+such a punch: "The whole body should be turned, the tank and boxer camera
+does not move. movement returns the direction to where it was before the
+directional hits in the tank. in the boxer the camera is locked on the
+player but can wander in position."
+
+Three readings of the pad-with-a-punch had each been half of this: P28
+and P29 turned his STEERING (so the lens came round, and the pad meant
+something new after every blow); P30 turned nothing. There are two
+headings, and the cart always had both: his steering (YAW: the tank's,
+the lens's, what the pad is read from) and his body's (HEAD: what is
+drawn, where a blow goes).
+
+- **The tape** (7m54 of P30; no knob touched): 123 blows; all 21 of his
+  jumps in the stance had the pad held.
+- **His body turns to the blow.** The pad at the launch, read from his
+  steering, is where the blow goes; his body comes round to it with the
+  blow's clock running (176 of 1024 a frame: a side in two frames, behind
+  in three -- there before a jab is out). It lands on the same frame, at
+  the same reach, on his body's line, and its lunge carries him that way.
+  His steering does not change by a unit, and the lens does not turn. He
+  stands as the blow left him; a blow with no pad goes that way again
+  (so Left + X, X, X is three to the left, and Up + X is ahead again);
+  and movement -- the pad walking or turning him, the boxer's steps --
+  brings his body back round. P30's stepped clips and its step knob are
+  gone (the pad is the blow's way again, not its step); the planted feet
+  stay, one way a strike.
+- **The boxer's strafe jump.** In the stance, A with the pad throws him
+  that way on his cross: 0.13 a frame (his step is 0.11) for a lower,
+  shorter jump -- 3.1 units -- facing as he was, with its own seven poses
+  each way (the pushed-off leg trailing, the near one reaching). In
+  flight he keeps what the jump gave him; he lands with half. No pad: the
+  jump, as it was. A again in the air is still the flip.
+- **Time slowed, the lens goes to where the blow lands.** It comes in to
+  1.3 behind him, over his right shoulder and 0.3 lower, and LOOKS at the
+  place a blow's reach ahead of his body -- so a blow ahead is seen over
+  his shoulder, one to the side in profile, one behind him coming at the
+  glass. Eased in and out in real frames, not the slowed ones.
+- **The boxer's lens wanders.** Its place comes after him by a share of
+  the way a frame (8%), so it trails his steps, and from wherever it is
+  it looks at him. Standing, it comes back behind him; out of the stance
+  it is the follow exactly.
+- **Knobs** (layer 2's page): 0 the body's turn a frame, 1 the lunge,
+  2 keep, 3 hold, 4 slow, 5 the strafe jump's pace, 6 the slowed lens's
+  distance, 7 the boxer lens's share.
+- Not remeasured on silicon (no new geometry). tests: 8 base, 7 layer 1,
+  18 layer 2; the full cart is byte-identical.

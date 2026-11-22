@@ -1,10 +1,11 @@
-"""TND's LAYER 2 (docs/TND-PORT.md P28-P30): shadow boxing.
+"""TND's LAYER 2 (docs/TND-PORT.md P28-P31): shadow boxing.
 
-Every blow goes where he faces -- a blow never turns him -- and the pad
-at its launch is its STEP: in, out, off the line. X is a jab, every time,
-and counts; Y ends the string with what the count has earned: the lead
-hook, the rear uppercut, the haymaker. No beat is read: mashed or slow,
-the count is the count. A button held keeps the string and slows time.
+A blow goes the way the pad points and his WHOLE BODY turns to throw it;
+his steering and the lens do not, and moving brings him back. X is a jab,
+every time, and counts; Y ends the string with what the count has earned:
+the lead hook, the rear uppercut, the haymaker. No beat is read. A button
+held keeps the string and slows time, and the lens goes to where the blow
+lands. In the boxer the jump is a strafe jump and the lens wanders.
 A local build (TND_LAYER=2 -> build/layer2/tnd.zol).
 """
 import os
@@ -26,7 +27,8 @@ U, D, LF, RT, X, Y, L = (spec.PAD_UP, spec.PAD_DOWN, spec.PAD_LEFT, spec.PAD_RIG
                          spec.PAD_X, spec.PAD_Y, spec.PAD_L)
 MOVES = ("jab", "cross", "lead_hook", "rear_hook", "special", "lead_uppercut",
          "rear_uppercut", "gun", "gun_charged")
-STEP, LUNGE, KEEP, HOLD, SLOW = range(5)                # the layer's knobs
+PIVOT, LUNGE, KEEP, HOLD, SLOW, SJUMP, FCAM, WANDER = range(8)   # the layer's knobs
+A = spec.PAD_A
 FRICTION = 0.82                                         # a swing's, a frame
 
 
@@ -75,24 +77,30 @@ class Game:
         a = yaw0 * 2 * np.pi / 1024
         return -np.sin(a) * dx + np.cos(a) * dz, -np.cos(a) * dx - np.sin(a) * dz
 
+    def lens(self):
+        """the lens: (x, z, yaw)"""
+        return _s32(self.d[spec.CAM_X]) / 65536, _s32(self.d[spec.CAM_Z]) / 65536, self.d[spec.CAM_YAW]
+
     def throw(self, way, button, frames=60):
         """a thumb's press of `button` with `way` held; -> (the move thrown,
-        the most his heading changed in any frame, the frame the spark lit,
-        where it lit in HIS frame (ahead, off his line, up), how far he went
-        (ahead, to his left))"""
-        p0, y0, mv, big, lit = self.pos(), self.cell("yaw"), None, 0, None
+        the most his STEERING changed in any frame, the most the lens turned,
+        the frame the spark lit and where it lit in his BODY's frame (ahead,
+        off its line, up) with how far his body had turned by then, how far
+        he went (ahead, to his left) in his steering's frame)"""
+        p0, y0, c0, mv, big, cam, lit = self.pos(), self.cell("yaw"), self.lens()[2], None, 0, 0, None
         for f in range(frames):
             self.run((way | button) if f < 7 else 0, 1)
             big = max(big, abs((self.cell("yaw") - y0 + 512) % 1024 - 512))
+            cam = max(cam, abs((self.lens()[2] - c0 + 512) % 1024 - 512))
             if self.cell("anim") == 2:
                 mv = self.cell("f_mv")
             if lit is None and self.cell("spark", 3) > 0:
-                here = self.pos()
+                here, h = self.pos(), self.cell("head")
                 sx, sz = self.cell("spark") / 65536 - here[0], self.cell("spark", 2) / 65536 - here[1]
-                a = y0 * 2 * np.pi / 1024
+                a = h * 2 * np.pi / 1024
                 lit = (f, -np.sin(a) * sx + np.cos(a) * sz, np.cos(a) * sx + np.sin(a) * sz,
-                       self.cell("spark", 1) / 65536)
-        return MOVES[mv] if mv is not None else None, big, lit, self.local(p0, y0)
+                       self.cell("spark", 1) / 65536, (h - y0 + 512) % 1024 - 512)
+        return MOVES[mv] if mv is not None else None, big, cam, lit, self.local(p0, y0)
 
     def string(self, presses, tail=90):
         """presses: [(pad, frames), ...]; -> the blows launched, in order"""
@@ -110,28 +118,43 @@ def tap(button, gap, down=5):
     return [(button, down), (0, gap - down)]
 
 
-@pytest.mark.parametrize("way,ahead,left", [(0, 1, 0), (U, 1, 0), (D, 0, 0), (LF, 1, 1), (RT, 1, -1)])
-def test_a_blow_goes_where_he_faces_and_the_pad_steps_it(text, way, ahead, left):
-    """P30: "the jabs turn the player, it shouldn't" -- "Always straight;
-    d-pad is footwork". Whatever the pad holds, the jab does not turn him by
-    one unit on any frame; it lands the same frame, at the same reach and
-    height, dead on the line he faces; and the pad is its step: Up in, Down
-    out (and no lunge), Left and Right off the line -- as far as the clip's
-    feet were planted for (the lunge and the step knobs, over the friction)."""
+@pytest.mark.parametrize("way,angle", [(0, 0), (U, 0), (LF, 256), (RT, -256), (D, 512), (U | LF, 128)])
+def test_his_body_turns_to_the_blow_and_his_steering_does_not(text, way, angle):
+    """P31: "The directional punches are to turn player as if he was making
+    a punch in that direction" -- "The whole body should be turned, the tank
+    and boxer camera does not move. movement returns the direction to where
+    it was before the directional hits". The jab goes the way the pad points:
+    his body is round to it before the fist is out, it lands the same frame
+    and at the same reach as one thrown ahead, dead on his body's line, and
+    its lunge carries him that way. His steering does not change by a unit
+    and the lens does not turn. He stands as the blow left him; a jab with
+    no pad goes that way again; and the pad, moving him, brings him back."""
     g = Game(text)
-    mv, big, lit0, went0 = g.throw(0, X)
-    assert mv == "jab" and big == 0 and lit0 is not None
+    mv, big, cam, lit0, went0 = g.throw(0, X)
+    assert mv == "jab" and big == 0 and cam == 0 and lit0 is not None
     assert lit0[0] <= 5, f"the jab lands {lit0[0]} frames after the press"
     assert abs(lit0[2]) < 0.02 and 0.6 < lit0[1] < 0.8 and 1.1 < lit0[3] < 1.35, f"the jab lands at {lit0}"
     g.run(0, 120)
-    mv, big, lit, went = g.throw(way, X)
-    assert mv == "jab" and big == 0, f"the jab turned him {big}"
-    assert lit[0] == lit0[0] and all(abs(a - b) < 0.02 for a, b in zip(lit[1:], lit0[1:])), \
-        f"stepped, it landed at {lit}, not {lit0}"
+    y0 = g.cell("yaw")
+    mv, big, cam, lit, went = g.throw(way, X)
+    assert mv == "jab" and big == 0, f"the jab turned his steering {big}"
+    assert cam == 0, f"the lens turned {cam}"
+    assert abs(lit[4]) == abs(angle) and (abs(angle) in (0, 512) or lit[4] == angle), \
+        f"his body had turned {lit[4]} when it landed, not {angle}"
+    assert lit[0] == lit0[0] and all(abs(a - b) < 0.02 for a, b in zip(lit[1:4], lit0[1:4])), \
+        f"that way it landed at {lit}, not {lit0}"
     lunge = 0.078 * g.knob(LUNGE) / 65536 / (1 - FRICTION)
-    step = g.knob(STEP) / 65536 / (1 - FRICTION)
-    want = (lunge * ahead + step * ((way == U) - (way == D)), step * left)
-    assert abs(went[0] - want[0]) < 0.03 and abs(went[1] - want[1]) < 0.03, f"he went {went}, not {want}"
+    a = angle * 2 * np.pi / 1024
+    assert abs(went[0] - lunge * np.cos(a)) < 0.03 and abs(went[1] - lunge * np.sin(a)) < 0.03, \
+        f"he went {went}"
+    g.run(0, 60)
+    turned = (g.cell("head") - y0 + 512) % 1024 - 512
+    assert abs(turned) == abs(angle), "standing, he did not stay as the blow left him"
+    mv, big, cam, lit, went = g.throw(0, X)
+    assert lit[4] == turned and big == 0, f"a jab with no pad went {lit[4]}, not where his body faced"
+    g.run(0, 80)                                  # (the count gone: the pad moves him)
+    g.run(U, 8)
+    assert g.cell("head") == g.cell("yaw") == y0, "moving did not bring him back"
 
 
 def test_the_count_builds_to_the_terminator(text):
@@ -215,6 +238,81 @@ def test_a_button_held_keeps_the_string_and_slows_time(text):
     assert np.hypot(*np.subtract(g.pos(), p0)) < 6, "held, he was carried off"
 
 
+@pytest.mark.parametrize("way", [0, LF, D])
+def test_time_slowed_the_lens_goes_to_where_the_blow_lands(text, way):
+    """P31: "the slow motions need cameras focused on the hit location."
+    Time slowed, the lens comes in from the follow's distance and looks AT
+    the place a blow's reach ahead of his body -- whichever way the blow
+    went; let go, it is the follow again."""
+    g = Game(text)
+    g.run(0, 30)
+    far = np.hypot(*np.subtract(g.lens()[:2], g.pos()))
+    c0 = g.lens()[2]
+    g.run(way | Y, g.knob(HOLD) + 40)
+    x, z, yaw = g.lens()
+    a = g.cell("head") * 2 * np.pi / 1024
+    hx, hz = g.pos()[0] - 0.7 * np.sin(a), g.pos()[1] + 0.7 * np.cos(a)
+    bearing = np.degrees(np.arctan2(-(hx - x), hz - z)) / 360 * 1024
+    assert np.hypot(x - g.pos()[0], z - g.pos()[1]) < far - 0.3, "the lens did not come in"
+    assert abs((yaw - bearing + 512) % 1024 - 512) < 12, f"the lens looks {yaw}, the blow lands at {bearing:.0f}"
+    g.run(0, 60)
+    assert abs(np.hypot(*np.subtract(g.lens()[:2], g.pos())) - far) < 0.25, "let go, the lens stayed in"
+
+
+@pytest.mark.parametrize("way,ahead,left", [(U, 1, 0), (D, -1, 0), (LF, 0, 1), (RT, 0, -1)])
+def test_the_boxers_jump_is_a_strafe_jump(text, way, ahead, left):
+    """P31: "For the boxer, the jumps should be like a strafe jump in the
+    four directions." In the stance, A with the pad throws him that way on
+    his cross -- farther than his step would carry him in that time, lower
+    than the jump -- facing as he was; with no pad it is the jump, as it was."""
+    g = Game(text)
+    g.run(L, 40)
+    p0, y0, top0, air0 = g.pos(), g.cell("yaw"), 0, 0
+    for f in range(60):
+        g.run(L | (A if f < 4 else 0), 1)
+        top0 = max(top0, g.cell("f_py"))
+        air0 += g.cell("f_py") > 0
+    assert top0 > 0 and np.hypot(*g.local(p0, y0)) < 0.1, "the plain jump moved him"
+    g.run(L, 30)
+    p0, top, air = g.pos(), 0, 0
+    for f in range(60):
+        g.run(L | (way | A if f < 4 else 0), 1)
+        top = max(top, g.cell("f_py"))
+        air += g.cell("f_py") > 0
+        assert g.cell("yaw") == y0 and g.cell("head") == y0, "the strafe jump turned him"
+    went = g.local(p0, y0)
+    far = g.knob(SJUMP) / 65536 * air
+    assert 0 < top < 0.8 * top0 and air < air0, f"its top {top / 65536:.2f} against the jump's {top0 / 65536:.2f}"
+    assert abs(went[0] - ahead * far) < 0.6 and abs(went[1] - left * far) < 0.6 and far > 2, \
+        f"he went {went}, not {far:.2f} that way"
+    assert g.cell("sjump_dir") == 0 and g.cell("f_py") == 0, "he never landed"
+
+
+def test_the_boxers_lens_wanders_and_looks_at_him(text):
+    """P31: "in the boxer the camera is locked on the player but can wander
+    in position." As he steps aside the lens trails him -- off the line
+    behind him -- and looks at him from wherever it is; standing, it comes
+    back behind him; out of the stance it is the follow, exactly."""
+    g = Game(text)
+    g.run(L, 60)
+
+    def off():                                    # the lens, off his steering's line; its aim, off him
+        x, z, yaw = g.lens()
+        back = g.local((x, z), g.cell("yaw"))     # him from the lens: (ahead, to the left)
+        bearing = np.degrees(np.arctan2(-(g.pos()[0] - x), g.pos()[1] - z)) / 360 * 1024
+        return back[1], abs((yaw - bearing + 512) % 1024 - 512)
+    side, aim = off()
+    assert abs(side) < 0.1 and aim <= 2
+    for _ in range(40):
+        g.run(L | LF, 1)
+        assert off()[1] <= 2, "the lens lost him"
+    assert off()[0] > 0.5, f"the lens did not trail: he is {off()[0]:.2f} to its left"
+    g.run(L, 90)
+    assert abs(off()[0]) < 0.1, "standing, the lens did not come back behind him"
+    g.run(0, 40)
+    assert g.cell("lens_share") == 65536 and g.lens()[2] == g.cell("cam_yaw"), "out of the stance, not the follow"
+
+
 def test_the_layers_under_it_still_stand(text, monkeypatch):
     """The base's walk and quick turn, and the left shoulder's boxer and
     run, are all still here; and the layer's knobs, at either end, break
@@ -225,15 +323,15 @@ def test_the_layers_under_it_still_stand(text, monkeypatch):
     SEL = spec.PAD_SELECT
     for way in (D, U):
         g = Game(text)
-        for k in range(5):
-            for _ in range(60):
+        for k in range(8):
+            for _ in range(70):
                 g.run(SEL | way, 1)
                 g.run(SEL, 1)
             g.run(SEL | RT, 1)
             g.run(SEL, 1)
         g.run(0, 2)
-        mv, big, lit, went = g.throw(D, X, frames=200)
-        assert mv == "jab" and big == 0 and lit is not None, (mv, big, lit)
+        mv, big, cam, lit, went = g.throw(D, X, frames=200)
+        assert mv == "jab" and big == 0 and lit is not None and abs(lit[4]) == 512, (mv, big, lit)
         assert g.cell("anim") != 2, "the blow never ended"
         assert g.string(tap(X, 12) * 3 + tap(Y, 10))[-1] in ("special", "lead_hook"), "no terminator"
         p0 = g.pos()

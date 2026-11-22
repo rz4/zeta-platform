@@ -201,10 +201,10 @@ for d in ("fwd", "back", "left", "right"):
 # A strike's feet are planted IN THE WORLD: the cart moves him by the blow's
 # lunge (an impulse on the blow's own frame, then x0.82 a frame) and by the
 # pad's step, so a planted foot goes back under him exactly as far as he has
-# gone and the stepping foot lands where he will end -- five ways a strike:
-# as it is (_n), stepped in (_u), out (_d), left (_l), right (_r). DELAY,
-# LUNGE, STEP_I, FRICTION and LUNGE_KNOB are the cart's own numbers
-# (games/tnd/gen_tnd.py: LUNGE_AT, p_moves, the step and lunge knobs).
+# gone and the stepping foot lands where he will end ("_n"). DELAY, LUNGE,
+# FRICTION and LUNGE_KNOB are the cart's own numbers (games/tnd/gen_tnd.py:
+# LUNGE_AT, p_moves, the lunge knob). And the boxer's STRAFE JUMP (P31),
+# four ways, seven poses by his rise ("sj_*").
 extra = {}
 G = bm._guard_pose_dict()
 _g = frozen(bm._pose_and_skin(G, np.zeros(3), None))[0]
@@ -218,7 +218,7 @@ SIT = np.asarray(STANCE["sit"])
 FRICTION, LUNGE_KNOB = 0.82, 0.9
 def sm(u): return u * u * (3 - 2 * u)
 REST = dict(twist=0.0, lean=0.0, shift=(0.0, 0.0, 0.0), fist=None, s=0.0, lead_foot=(0.0, 0.0, 0.0),
-            rear_foot=(0.0, 0.0, 0.0), other=None, so=0.0, head=0.0)
+            rear_foot=(0.0, 0.0, 0.0), other=None, so=0.0, head=0.0, roll=0.0)
 def interp(keys, f):
     ks = sorted(keys, key=lambda k: k[0])
     if f <= ks[0][0]: return dict(ks[0][1])
@@ -231,8 +231,9 @@ def frame(k, arm=None, pole=None):
     pose = dict(G)
     tw, ln = float(k["twist"]), float(k["lean"])
     pose["Hips"] = [G["Hips"][0], G["Hips"][1] + 0.35 * tw, G["Hips"][2]]
-    pose["Spine"] = [G["Spine"][0] + 0.6 * ln, G["Spine"][1] + 0.40 * tw, G["Spine"][2]]
-    pose["Spine1"] = [G["Spine1"][0] + 0.4 * ln, G["Spine1"][1] + 0.25 * tw, G["Spine1"][2]]
+    rl = float(k.get("roll", 0.0))
+    pose["Spine"] = [G["Spine"][0] + 0.6 * ln, G["Spine"][1] + 0.40 * tw, G["Spine"][2] + 0.6 * rl]
+    pose["Spine1"] = [G["Spine1"][0] + 0.4 * ln, G["Spine1"][1] + 0.25 * tw, G["Spine1"][2] + 0.4 * rl]
     pose["Neck"] = [G["Neck"][0] + float(k["head"]), G["Neck"][1] - 0.55 * tw, G["Neck"][2]]
     sh = SIT + np.asarray(k["shift"], float)
     plant = [(w, tuple(FOOT[w] + np.asarray(k[w + "_foot"], float) - sh), 1.0) for w in ("lead", "rear")]
@@ -278,13 +279,32 @@ def hop(direction, n=16, reach=0.13, lift=0.05):
         k["lean"] = 2.5 * u[0] + 1.5 * c
         out.append(frame(k))
     return out
+# ---- the boxer's strafe jump: seven poses by his rise (0: off the ground, fast; 6: coming down)
+def strafe_jump(direction, n=7):
+    u = np.array(HOP[direction], float)
+    lead_side = "lead" if (u[0] > 0 or u[1] > 0) else "rear"     # the foot on the side he goes
+    out = []
+    for i in range(n):
+        v = i / (n - 1)
+        tuck = np.sin(np.pi * v)
+        k = dict(REST)
+        for w in ("lead", "rear"):
+            if w == lead_side:   o, z = 0.04 + 0.24 * v, 0.06 + 0.16 * tuck          # it reaches for the landing
+            else:                o, z = -0.22 * (1 - v) + 0.04 * v, 0.10 + 0.14 * tuck  # it pushed off, and trails
+            k[w + "_foot"] = (u[0] * o, u[1] * o, z)
+        k["shift"] = (0.03 * u[0], 0.03 * u[1], 0.02 * tuck)
+        k["lean"] = 7 * u[0] * (1 - v) + 3 * tuck
+        k["roll"] = 9 * u[1] * (1 - 1.4 * v)
+        out.append(frame(k))
+    return out
 # ---- the strikes
 DELAY = {"jab": 1, "lead_hook": 6, "rear_uppercut": 8, "special": 13}          # the frame the cart gives the lunge
 LUNGE = {"jab": 0.078, "lead_hook": 0.125, "rear_uppercut": 0.085, "special": 0.23}
 STEP_I = 0.075                                                                  # the pad's step, as an impulse
 FEET = {"jab": ((0, 4), (3, 9)), "lead_hook": ((5, 10), (9, 16)),
         "rear_uppercut": ((7, 12), (11, 18)), "special": ((12, 18), (17, 27))}  # (lift, land): first foot, second
-WAYS = {"n": (1, 0, 0), "u": (1, 1, 0), "d": (0, -1, 0), "l": (1, 0, 1), "r": (1, 0, -1)}   # (lunge?, step fwd, step left)
+WAYS = {"n": (1, 0, 0)}        # (lunge?, step fwd, step left): P30 baked a strike five ways, the pad
+                                # its step; P31 turns his body to the blow instead, and one way is all
 REACH = 0.34
 def travel(move, way):
     lg, sf, sl = WAYS[way]
@@ -793,6 +813,7 @@ STRIKE_KEYS = {
 seqs["guard2"] = guard()
 for _d in HOP:
     seqs["hop_" + _d] = hop(_d)
+    seqs["sj_" + _d] = strafe_jump(_d)            # (P31: the boxer's strafe jump)
 for _m, _sp in STRIKE_KEYS.items():
     for _w in WAYS:
         _Vs, _Ss, _fist = strike(_m, _w, _sp)
