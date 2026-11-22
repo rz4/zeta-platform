@@ -146,3 +146,35 @@ spends pace.
 - Going down costs the sitting's time and returns him to his last save.
 - Weight slows him.
 - A world is a seed, shown, so two people can play the same one.
+
+## Every idea from the talk, and where it goes (2026-11-22)
+
+The player: "we also need to incorporate all the other ideas from this
+discussion." So that none is lost -- each with the step above that carries
+it (or "new"), and whether he said it or it was offered and not refused.
+
+| the idea | whose | where |
+|---|---|---|
+| real time is the fast, exciting fight (DMC); slowed time strings it together (XCOM) | his | the layers (P30-P37); step 7 makes real time press him |
+| what slowed time shows, running time does not: the sight, the target, the spot | his (the sight); offered (the rest) | P35, P37; step 7 adds the enemies' wind-ups and a blow's reach to it |
+| the enemies strike, on a wind-up he can read | offered | step 7 |
+| the clock runs at glass speed in slowed time: thinking costs seconds | offered | step 4 |
+| a combat rank a sector, for real-time fighting; a traversal rank for the whole game, by time | his | step 4 |
+| slowed time neither earns nor bleeds the combat rank | offered | step 4 |
+| a run is provable: a tape and a seed | offered | step 6 (the seed shown); the tape is the platform's |
+| keys open routes; back doors for the way back; hard optional ways forward | his | step 2 |
+| sectors as missions, more than one way out | his | steps 2 and 4 (the rank at each gate) |
+| a hard way is held: a fight, or a charge spent, or the wall jump and the slide asked of him | offered | step 2 (open), 5 (the charge), 7 (the pack); the movement kind is new street pieces -- later |
+| the bunker: prep, waymarks, routes, packing, saving; more of them as the city grows | his | steps 3-5 |
+| the bunker as baked rooms seen from fixed lenses (the machine's plates) | offered | after step 5: first a screen, then rooms |
+| the map fogged, a bunker surveying its sector | offered | step 3 |
+| carried weight slows him | offered | step 5 |
+| each game a random map; several sittings; cities that grow | his | step 6; the larger city is the generator's `size` and the map's words |
+| the world's par, so a random map can be ranked | offered | step 1 (done), step 4 |
+| the enemies are his own body, smaller -- zombies, demons, aliens; the hardest a second full player | his | P37 (the sizes); step 7: their looks (proportion, colour, posture, a horn or a crest), their fists, the rival |
+| the rival's hands: a mind using his kit, or tapes of play | offered, undecided | step 7 |
+| a cleared sector stays quiet; a patrol returns after a rest | offered | step 7 |
+| more items; the city as it is | his | step 5; the town's own budget is kept (ZETA0-FRONTIER 20, the balance) |
+| better menus: baked screens, the four scanout panels, 37 live characters; later a small blit for glyphs | his (the wish); offered (the means) | steps 3-5; the blit is a machine experiment of its own |
+| limited rounds as a routing matter; the fists load the gun | mine, not yet judged | P34; step 5 makes rounds a thing packed |
+| the vertex store doubled, for a larger company | offered | a machine experiment: nine M10K are left, it wants seventeen |
