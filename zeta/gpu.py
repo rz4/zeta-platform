@@ -212,12 +212,39 @@ def _tdivv(num, den):
     return np.where(num >= 0, num // den, -((-num) // den))
 
 
-def _verts(dmem, mb, nv, yaw, pit, rol, ox, oy, oz,
+def _cart_mesh(dmem, cram, mb):
+    """spec.OBJ_CART: the descriptor at mb -> (V, face index words, face
+    rgb words), read from the cart's segment; None if any of it falls
+    outside its memory. The colours come back as the 24-bit words a flat
+    face has always carried (5 bits a channel, << 3), so everything past
+    this point is the path that was already built."""
+    if cram is None or not 0 <= mb <= spec.DMEM_WORDS - spec.CMESH_WORDS:
+        return None
+    w0, vsrc, fsrc, csrc, sh = (s32(v) for v in dmem[mb:mb + spec.CMESH_WORDS])
+    nv, nf = w0 & 0xFFFF, (w0 >> 16) & 0xFFFF
+    if nv > spec.MESH_NV_MAX or nf > spec.MESH_NF_MAX or not 0 <= sh <= 15:
+        return None
+    seg, top = s32(dmem[spec.SEG_BASE]), min(len(cram), spec.CRAM_WORDS)
+    spans = ((vsrc, (nv * 3 + 1) // 2), (fsrc, nf), (csrc, (nf + 1) // 2))
+    for src, n in spans:
+        if src < 0 or src + seg < 0 or src + seg + n > top:
+            return None
+
+    def halves(src, n):
+        w = cram[src + seg:src + seg + (n + 1) // 2] & 0xFFFFFFFF
+        return np.stack((w & 0xFFFF, w >> 16), 1).reshape(-1)[:n]
+    v = halves(vsrc, nv * 3)
+    V = (((v ^ 0x8000) - 0x8000) << sh).reshape(nv, 3)
+    c = halves(csrc, nf)
+    rgb = (((c >> 10) & 31) << 19) | (((c >> 5) & 31) << 11) | ((c & 31) << 3)
+    return V, (cram[fsrc + seg:fsrc + seg + nf] & 0xFFFFFFFF).tolist(), rgb.tolist()
+
+
+def _verts(V, nv, yaw, pit, rol, ox, oy, oz,
            cx, cy, cz, cyaw, cpit, crol):
     """The per-vertex transform chain for one object: model rotations,
     placement, the camera, projection and the guard band -- exactly the
     walk the scalar loop performed, returned as (pts, vws)."""
-    V = np.array(dmem[mb + 2:mb + 2 + nv * 3], np.int64).reshape(nv, 3)
     vx, vy, vz = _w32(V[:, 0]), _w32(V[:, 1]), _w32(V[:, 2])
     vx, vy = _rotv(vx, vy, rol)                # model: roll (x,y),
     vy, vz = _rotv(vy, vz, pit)                # pitch (y,z),
@@ -270,7 +297,7 @@ def _clipped(vws, a, b, c, vattr, rgb=0):
 
 
 def _geom(fb, zbuf, dmem, watch, pick, tex=None, fog=None,
-          lod_flat=0, idbuf=None) -> None:
+          lod_flat=0, idbuf=None, cram=None) -> None:
     n = min(dmem[spec.OL_BASE], spec.OL_MAX)
     cx, cy, cz = (s32(dmem[c]) for c in (spec.CAM_X, spec.CAM_Y, spec.CAM_Z))
     cyaw = dmem[spec.CAM_YAW] & 1023
@@ -283,20 +310,31 @@ def _geom(fb, zbuf, dmem, watch, pick, tex=None, fog=None,
         yaw, pit, rol = ang & 1023, (ang >> 10) & 1023, (ang >> 20) & 1023
         if not 0 <= mb < spec.DMEM_WORDS - 2:
             continue
-        nv, nf = dmem[mb], dmem[mb + 1]
+        cart = bool(flags & spec.OBJ_CART)
+        if cart:                           # spec.OBJ_CART: the mesh is in the cart
+            cm = _cart_mesh(dmem, cram, mb)
+            if cm is None:
+                continue
+            V, fidx, frgb = cm
+            nv, nf = len(V), len(fidx)
+            flags &= ~(spec.OBJ_GOURAUD | spec.OBJ_LIT | spec.OBJ_TEX | spec.OBJ_TINT | spec.OBJ_BLEND)
+        else:
+            nv, nf = dmem[mb], dmem[mb + 1]
         gour = bool(flags & spec.OBJ_GOURAUD)
         lit = bool(flags & spec.OBJ_LIT)
         texd = bool(flags & spec.OBJ_TEX) and tex is not None
         vcw = nv if (gour or lit or (flags & spec.OBJ_TEX)) else 0
-        if nv > spec.MESH_NV_MAX or nf > spec.MESH_NF_MAX or \
-           mb + 2 + nv * 3 + vcw + nf * 2 > spec.DMEM_WORDS:
-            continue                       # a mesh outside DMEM is skipped
+        if not cart:
+            if nv > spec.MESH_NV_MAX or nf > spec.MESH_NF_MAX or \
+               mb + 2 + nv * 3 + vcw + nf * 2 > spec.DMEM_WORDS:
+                continue                   # a mesh outside DMEM is skipped
+            V = np.array(dmem[mb + 2:mb + 2 + nv * 3], np.int64).reshape(nv, 3)
         # the vertex walk, whole-mesh at once (see _verts): the same
         # rotations in the same order -- roll, pitch, yaw, place, camera,
         # then the BANK last and about the view axis, which is what makes
         # it a bank and not a yaw -- with the gates holding it to the
         # scalar arithmetic bit for bit
-        pts, vws = _verts(dmem, mb, nv, yaw, pit, rol, ox, oy, oz,
+        pts, vws = _verts(V, nv, yaw, pit, rol, ox, oy, oz,
                           cx, cy, cz, cyaw, cpit, crol)
         cbase = mb + 2 + nv * 3
         fbase = cbase + vcw
@@ -343,8 +381,11 @@ def _geom(fb, zbuf, dmem, watch, pick, tex=None, fog=None,
             # the player caught on boot 63's glass)
             fid = pick["next"]
             pick["next"] += 1
-            idx = dmem[fbase + f * 2]
-            rgb = s32(dmem[fbase + f * 2 + 1])
+            if cart:
+                idx, rgb = fidx[f], frgb[f]
+            else:
+                idx = dmem[fbase + f * 2]
+                rgb = s32(dmem[fbase + f * 2 + 1])
             # THE LIGHT ON THIS FACE. OBJ_OTINT takes it from the object
             # (one word, so an actor can be re-lit per frame); OBJ_TINT
             # takes it from the face (baked in the mesh). The object wins
@@ -634,7 +675,7 @@ def render(dmem: list[int], cram: np.ndarray | None = None,
     lodf = s32(dmem[spec.LOD_FLAT])
     idbuf = np.zeros((spec.H, spec.W), np.int64)
     _geom(fb, zbuf, dmem, watch, pick, tex, fog,
-          lodf if lodf > 0 else 0, idbuf)
+          lodf if lodf > 0 else 0, idbuf, cram)
     # ---- THE OUTLINE PASS (spec.OBJ_EDGE) --------------------------------
     # A pixel is an edge when its owner differs from the owner of the
     # pixel to its LEFT or the one ABOVE. Nothing else: two outlined

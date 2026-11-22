@@ -253,6 +253,28 @@ AUD_MAX = 0xFFFFFF              # 24 bits: 800 samples at 15,360
 OBJ_LIT = 8192                  # flags bit 13: the vertex word is a
                                 # NORMAL, not a colour -- see LIGHT_DIR
 
+# ---- THE CART MESH (experiment, exp/cart-mesh: NOT yet in the silicon) ----
+# Every mesh was drawn from DMEM, so a posed body was COPIED there whole,
+# every frame it changed: 2,967 words of mover and 2,969 words of a DMEM
+# with 11,700 to give -- one fighter was a quarter of the machine, and two
+# did not fit. But a pose bank already IS the meshes, sitting in the cart.
+#
+# OBJ_CART: the object's mesh word is the DMEM address of a DESCRIPTOR,
+# and the mesh is read from the cart's CRAM segment in three STREAMS:
+#   +0  nv | nf << 16
+#   +1  VSRC  word offset of the vertices: nv * 3 halves, x y z, signed
+#             16 bits each (low half of a word first), padded to a word
+#   +2  FSRC  word offset of the faces: nf words, a | b << 10 | c << 20
+#   +3  CSRC  word offset of the colours: nf halves, RGB 5:5:5
+#   +4  SHIFT a vertex coordinate is its 16 bits << SHIFT (0..15), Q16.16
+# The offsets are the mover's (through SEG_BASE). A pose is a new VSRC and
+# CSRC: five cells written, nothing moved. Every body of one build shares
+# ONE face stream. The faces are FLAT (the object's gouraud, lit and
+# texture bits are not read); cull, outline and the object tint are. A
+# descriptor or a stream outside its memory draws nothing.
+OBJ_CART = 16384                # flags bit 14
+CMESH_WORDS = 5
+
 OBJ_EDGE = 128                  # flags bit 7: OUTLINE this object.
                                 # The rasterizer keeps WHICH OBJECT owns
                                 # each pixel in a band-local identity

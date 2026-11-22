@@ -1036,3 +1036,58 @@ and the recorder -- now the SRAM's guest -- wrote a 4m29s tape, build 107,
 carrying the staged cart's sum. On the desktop the cache cost TND's brawl
 route 24k clocks at its peak (60% of the frame, from 57%), as the model
 said.
+
+## 20. Meshes drawn from the cart (experiment, the law only; exp/cart-mesh, 2026-11-22)
+
+**What asked for it.** TND's enemies are to be the player's own body at
+several sizes, the hardest of them a second full player. A full body is
+2,969 words of a DMEM with about 11,700 to give, and its pose is 2,967
+words of mover every frame it changes -- and layer 3 had 374 words free.
+Every mesh is drawn from DMEM, so every posed body is COPIED there first.
+But the pose bank already is the meshes, in a cart memory of four million
+words that reaches the picture only through that copy.
+
+**The amendment** (spec.OBJ_CART, flags bit 14). The object's mesh word is
+the DMEM address of a five-word descriptor, and the mesh is read from the
+cart's segment in three streams: vertices (16 bits a coordinate, shifted),
+faces (one word each, shared by every pose and every body of the build),
+colours (5:5:5, a half a face -- the baked shading, as it was). A pose is
+two offsets written. Flat faces only; cull, outline and the object tint as
+ever. In the house's terms it is the vertex walk given the window the
+mover and the backdrop already have: a `cram_burst` front end, not an
+engine.
+
+**Proved in the law** (tests/test_cart_mesh.py): a mesh from the cart is
+the same picture TO THE PIXEL as that mesh in DMEM -- five placements,
+through the clipper, outlined, tinted; through the segment window; two
+poses by offsets alone; and a descriptor or a stream outside its memory
+draws nothing.
+
+**TND on it** (TND_CARTMESH=1, layer 3, the law):
+
+| | as it is | from the cart |
+|---|---:|---:|
+| DMEM free | 374 | 3,333 |
+| a pose, words | 2,967 | 1,115 |
+| the bank (663 poses), words of CRAM | 1,967,121 | 739,245 |
+| mover requests a frame | 1 (2 with the song) | 0 |
+| the picture, 461 frames of play | -- | a median of 3 pixels of 92,160 differ (worst 18): the vertices rounded to 16 bits |
+
+And a SECOND full fighter (the rival: the same bank, his own two
+descriptors and pose clock) costs eleven words of DMEM and four offsets a
+frame: 3,322 free with both on the street.
+
+**The program's page.** IMEM is 32,768 words; the cart's page was 16,384
+by its own choice (a page-in is 16K words, a frame's work at the SRAM's
+pace). The experiment's page is the whole of IMEM: the title, the fight,
+the pause and back all run in the law. On the machine a page-in would be
+about two frames, on the frames the pause comes and goes -- unmeasured.
+
+**Not done: the silicon.** Nothing here is in zseq/zgpu. What it needs
+there: the descriptor read, the three streams burst from the PSRAM before
+the vertex walk (the mover moves up to 8,192 words in that gap today; two
+full bodies are about 2,250), 16-bit sign-extend-and-shift on the way in,
+and the face walk reading indices and colours from where the streams
+landed. Its cost is unmeasured until it is fitted. With bodies out of
+DMEM, the frame's 2,048-vertex store becomes the head-count's limit, and
+DMEM (52 M10K) could give some of itself to it.

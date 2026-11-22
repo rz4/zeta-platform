@@ -331,6 +331,8 @@ END_PAUSE = cart.cram(Table(_pend), "pause_end")
 # twice the room it had, and a page-in copies 16K words -- a frame's work at
 # the SRAM's pace, on the frames the intro or the pause come and go.
 PAGE = 16384
+if os.environ.get("TND_CARTMESH") == "1":     # (the experiment: the whole of IMEM is the page --
+    PAGE = spec.IMEM_WORDS                    # the machine holds 32,768; a page-in is two frames' work)
 INTRO_PROG = cart.cram(Table([0] * PAGE), "intro_prog")
 PAUSE_PROG = cart.cram(Table([0] * PAGE), "pause_prog")
 MAIN_PROG = cart.cram(Table([0] * PAGE), "main_prog")
@@ -354,14 +356,46 @@ def black(g):
 
 
 
+# ---- EXPERIMENT (exp/cart-mesh; TND_CARTMESH=1, the law only): the body is
+# drawn FROM THE CART (spec.OBJ_CART). Each half is a five-word descriptor
+# in DMEM; its faces are one stream in the cart, shared by every pose; a
+# pose is its vertices (16 bits a coordinate, << CM_SHIFT) and its baked
+# face colours (5:5:5), and choosing one is four offsets written -- no
+# mover, and no body in DMEM.
+CARTMESH = os.environ.get("TND_CARTMESH") == "1"
+CM_SHIFT = 2
+
+
+def _halves16(h):
+    h = [int(x) & 0xFFFF for x in h] + [0]
+    return [h[i] | h[i + 1] << 16 for i in range(0, len(h) - 1, 2)]
+
+
+def half_streams(V, S, h):
+    """one half of one pose as the cart mesh's two per-pose streams:
+    (vertex words, colour words)"""
+    mask, vids, tri = h
+    P = (np.round(to_zeta(V[vids]) * ONE).astype(np.int64) + (1 << CM_SHIFT >> 1)) >> CM_SHIFT
+    assert np.abs(P).max() < 32768, "a vertex does not fit 16 bits at CM_SHIFT"
+    c = np.asarray(S[mask]).astype(np.int64) >> 3
+    return _halves16(P.reshape(-1)), _halves16((c[:, 0] << 10) | (c[:, 1] << 5) | c[:, 2])
+
+
 # ---- the body: two meshes, back to back, holding the first idle pose ----
-first = half_words(d["V_idle"][0], d["S_idle"][0], halves[0]) \
-    + half_words(d["V_idle"][0], d["S_idle"][0], halves[1])
-BODY = cart.data(Table(first), "body")
-SPAN = len(first) - 2
-UPPER, LOWER = int(BODY), int(BODY) + len(half_words(
-    d["V_idle"][0], d["S_idle"][0], halves[0]))
-assert SPAN <= spec.DMA_MAX, f"pose span {SPAN} exceeds DMA_MAX"
+if CARTMESH:
+    FSTR = [cart.cram(Table([a | b << 10 | c << 20 for a, b, c in h[2]]), f"body_faces{k}")
+            for k, h in enumerate(halves)]
+    _s0 = [half_streams(d["V_idle"][0], d["S_idle"][0], h) for h in halves]
+    CM_LEN = [len(x) for st in _s0 for x in st]          # vertices, colours; upper then lower
+    SPAN = sum(CM_LEN)
+else:
+    first = half_words(d["V_idle"][0], d["S_idle"][0], halves[0]) \
+        + half_words(d["V_idle"][0], d["S_idle"][0], halves[1])
+    BODY = cart.data(Table(first), "body")
+    SPAN = len(first) - 2
+    UPPER, LOWER = int(BODY), int(BODY) + len(half_words(
+        d["V_idle"][0], d["S_idle"][0], halves[0]))
+    assert SPAN <= spec.DMA_MAX, f"pose span {SPAN} exceeds DMA_MAX"
 
 # ---- the pose bank: every frame of every sequence, one span each ---------
 # (Build 105's second dies doubled the segment, so the song build no
@@ -373,13 +407,30 @@ bank, base, slot, seen = [], {}, [], {}
 for s in SEQS:
     base[s] = len(slot)
     for V, S in zip(d["V_" + CLIP_OF.get(s, s)], d["S_" + CLIP_OF.get(s, s)]):
-        w = pose_span(V, S)
+        w = ([x for h in halves for st in half_streams(V, S, h) for x in st] if CARTMESH
+             else pose_span(V, S))
         k = tuple(w) if DEDUPE else len(slot)
         if k not in seen:
             seen[k] = len(bank) // SPAN
             bank += w
         slot.append(seen[k])
 BANK = cart.cram(Table(bank), "poses")
+if CARTMESH:
+    _o = [int(BANK), int(BANK) + CM_LEN[0], int(BANK) + sum(CM_LEN[:2]), int(BANK) + sum(CM_LEN[:3])]
+    DESC = cart.data(Table([len(halves[0][1]) | len(halves[0][2]) << 16, _o[0], int(FSTR[0]), _o[1], CM_SHIFT,
+                            len(halves[1][1]) | len(halves[1][2]) << 16, _o[2], int(FSTR[1]), _o[3], CM_SHIFT]),
+                     "body_desc")
+    UPPER, LOWER = int(DESC), int(DESC) + spec.CMESH_WORDS
+    # THE RIVAL (the experiment's proof): a SECOND full fighter, drawn from
+    # the same bank through his own two descriptors and the same two face
+    # streams -- ten words of DMEM and four offsets a frame. He stands five
+    # units up the street from the start, facing down it, in the guard.
+    RIVAL = L3
+    if RIVAL:
+        RDESC = cart.data(Table([len(halves[0][1]) | len(halves[0][2]) << 16, _o[0], int(FSTR[0]), _o[1], CM_SHIFT,
+                                 len(halves[1][1]) | len(halves[1][2]) << 16, _o[2], int(FSTR[1]), _o[3], CM_SHIFT]),
+                          "rival_desc")
+        RIV_T = cart.var("rival_t")
 NPOSE = {s: len(d["V_" + s]) for s in SEQS}
 if DEDUPE:
     _sl = slot + [0] * (len(slot) & 1)
@@ -4321,15 +4372,35 @@ if DEDUPE:                     # the pose's slot: two 16-bit slots a word
 else:
     p.load(POSE)
 p.push(SPAN).emit("mul").push(int(BANK)).emit("add")
-pd_ = p.label("posedma")                     # (P13: not on a frame that pages a
-p.load(spec.OVL_GO).emit(f"jz {pd_}_go")     # scene in -- its handshake has the
-p.emit("drop", f"jmp {pd_}")                 # request, and the pose holds anyway)
-p.mark(f"{pd_}_go")
-p.store(spec.DMA_SRC)
-p.push(UPPER + 2).store(spec.DMA_DST)
-p.push(SPAN).store(spec.DMA_LEN)
-p.set(spec.DMA_GO, 1)
-p.mark(pd_)
+if CARTMESH:                                 # the pose is where its streams are: four offsets
+    for cell_, step_ in ((UPPER + 1, CM_LEN[0]), (UPPER + 3, CM_LEN[1]), (LOWER + 1, CM_LEN[2]), (LOWER + 3, 0)):
+        p.emit("dup").store(cell_)
+        if step_:
+            p.push(step_).emit("add")
+    p.emit("drop")
+    if RIVAL:                                # ...and the rival's: the guard, on his own clock
+        rv_ = p.label("rival")
+        p.addi(RIV_T, 1).load(RIV_T).push(2 * NPOSE["idle"]).emit("lt", f"jz {rv_}_w", f"jmp {rv_}")
+        p.mark(f"{rv_}_w")
+        p.set(RIV_T, 0)
+        p.mark(rv_)
+        p.load(RIV_T).emit("shr 1").push(base["idle"]).emit("add").push(SPAN).emit("mul").push(int(BANK)).emit("add")
+        for cell_, step_ in ((int(RDESC) + 1, CM_LEN[0]), (int(RDESC) + 3, CM_LEN[1]),
+                             (int(RDESC) + 6, CM_LEN[2]), (int(RDESC) + 8, 0)):
+            p.emit("dup").store(cell_)
+            if step_:
+                p.push(step_).emit("add")
+        p.emit("drop")
+else:
+    pd_ = p.label("posedma")                     # (P13: not on a frame that pages a
+    p.load(spec.OVL_GO).emit(f"jz {pd_}_go")     # scene in -- its handshake has the
+    p.emit("drop", f"jmp {pd_}")                 # request, and the pose holds anyway)
+    p.mark(f"{pd_}_go")
+    p.store(spec.DMA_SRC)
+    p.push(UPPER + 2).store(spec.DMA_DST)
+    p.push(SPAN).store(spec.DMA_LEN)
+    p.set(spec.DMA_GO, 1)
+    p.mark(pd_)
 
 if L1:
     p.load(PX).store(WTX).load(PZ).store(WTZ)     # (where the step would have put him)
@@ -5822,7 +5893,10 @@ for m in ((UPPER, LOWER) if "player" not in OMIT else ()):
               "push 1023", "and", "shl 10", "or",
               f"load {int(W['qy'])}", f"load {int(LEANR)}", "add", "push 1023", "and",
               "shl 20", "or"),
-             (f"load {int(PFLAGS)}",))
+             (f"load {int(PFLAGS)}",) + ((f"push {spec.OBJ_CART}", "or") if CARTMESH else ()))
+if CARTMESH and RIVAL:
+    for m in (int(RDESC), int(RDESC) + spec.CMESH_WORDS):
+        p.object(NOBJ, m, START_X, 0, START_Z - int(5 * ONE), 0, spec.OBJ_CART)
 for d in range(3 if "demons" not in OMIT else 0):     # the demons, last
     for f, c in (("x", "x"), ("z", "z"), ("cf", "cf")):
         p.load(dslot(d, f)).store(FK[c])
