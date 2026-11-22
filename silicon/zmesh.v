@@ -55,8 +55,25 @@ module zmesh (
   reg [15:0] hi_d;
   wire [9:0] ld_nv3 = {ld_nv, 1'b0} + {1'b0, ld_nv};
 
+  // ONE WRITE PORT A MEMORY, said as one statement each. (The first cut
+  // wrote vmem and cmem from two places in one block -- a word's low half
+  // and, a clock later, its high -- and Quartus built both out of
+  // registers: 112,000 of them, 541% of the device. The two writes never
+  // share a clock, so they are one port with a muxed word.)
+  wire        v_lo = ld_we && ld_sel == 2'd1;
+  wire        c_lo = ld_we && ld_sel == 2'd3;
+  wire        v_we = v_lo || (hi_p && !hi_c);
+  wire        c_we = c_lo || (hi_p && hi_c);
+  wire        f_we = ld_we && ld_sel == 2'd2;
+  wire [15:0] hw   = hi_p ? hi_d : ld_word[15:0];
+  always @(posedge clk) if (v_we) vmem[v_w] <= hw;
+  always @(posedge clk) if (c_we) cmem[c_w] <= hw[14:0];
+  always @(posedge clk) if (f_we) fmem[f_w] <= ld_word[29:0];
+
   always @(posedge clk) begin
-    hi_p <= 1'b0;
+    hi_p <= v_lo || c_lo;
+    hi_c <= c_lo;
+    if (v_lo || c_lo) hi_d <= ld_word[31:16];
     if (ld_new) begin v_top <= 13'd0; f_top <= 12'd0; end
     if (ld_obj) begin
       tab[ld_o] <= {ld_ok, ld_sh, ld_nv3, ld_nv, ld_nf, v_top, f_top};
@@ -66,18 +83,9 @@ module zmesh (
         f_top <= f_top + {2'd0, ld_nf};
       end
     end
-    if (ld_we) case (ld_sel)
-      2'd1: begin vmem[v_w] <= ld_word[15:0]; v_w <= v_w + 13'd1;
-                  hi_p <= 1'b1; hi_c <= 1'b0; hi_d <= ld_word[31:16]; end
-      2'd2: begin fmem[f_w] <= ld_word[29:0]; f_w <= f_w + 12'd1; end
-      2'd3: begin cmem[c_w] <= ld_word[14:0]; c_w <= c_w + 12'd1;
-                  hi_p <= 1'b1; hi_c <= 1'b1; hi_d <= ld_word[31:16]; end
-      default: ;
-    endcase
-    if (hi_p) begin
-      if (hi_c) begin cmem[c_w] <= hi_d[14:0]; c_w <= c_w + 12'd1; end
-      else      begin vmem[v_w] <= hi_d;       v_w <= v_w + 13'd1; end
-    end
+    if (v_we) v_w <= v_w + 13'd1;
+    if (c_we) c_w <= c_w + 12'd1;
+    if (f_we) f_w <= f_w + 12'd1;
   end
 
   // ---- the read: address decoded this clock, the RAMs answer the next ----
@@ -102,10 +110,12 @@ module zmesh (
   reg  [3:0]  q_sh;
   reg  [8:0]  q_nv;
   reg  [9:0]  q_nf;
+  wire [12:0] v_ra = t_vb + k[12:0];
+  wire [11:0] f_ra = t_fb + fa[12:1];
+  always @(posedge clk) vq <= vmem[v_ra];
+  always @(posedge clk) fq <= fmem[f_ra];
+  always @(posedge clk) cq <= cmem[f_ra];
   always @(posedge clk) begin
-    vq <= vmem[t_vb + k[12:0]];
-    fq <= fmem[t_fb + fa[12:1]];
-    cq <= cmem[t_fb + fa[12:1]];
     q_hdr <= (rd_addr == 14'd0) ? 2'd1 : (rd_addr == 14'd1) ? 2'd2 : 2'd0;
     q_v <= inv; q_odd <= fa[0];
     q_sh <= t_sh; q_nv <= t_nv; q_nf <= t_nf;
