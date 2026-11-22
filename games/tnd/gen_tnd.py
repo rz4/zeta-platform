@@ -1963,7 +1963,9 @@ WJ_FRAMES = 24                  # ...and how long it throws him (a flip's length
 # P27: THE SLIDE (the player, asked what Down should do in the run: "slide!!").
 SLIDE_MIN = int(0.09 * ONE)     # he must be running this fast to go down into one
 SLIDE_MAX, SLIDE_LEAST = 44, 16   # frames: the longest (Down held), and the least once begun
-SLIDE_BOOST, SLIDE_KEEP = int(1.12 * ONE), int(0.972 * ONE)   # it starts a little faster, and scrubs
+SLIDE_BOOST, SLIDE_KEEP = int(1.30 * ONE), int(0.975 * ONE)   # it starts faster than he ran -- a
+                                # lunge at the ball -- and scrubs: 5.4 units held, from a full run
+                                # ("make the slide go out a bit further"; it was 1.12 and 3.9)
 SLIDE_UP = 6                    # frames to come back up out of it
 RDT, FRUN = cart.data(Table([255]), "r_dt"), cart.var("f_frun")   # (long ago)
 GUN_CONE = 46                   # the free shot's line: 16 degrees either side
