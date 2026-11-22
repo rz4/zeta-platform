@@ -133,6 +133,8 @@ if BASE:
     SEQS += ("slide",)           # P27: the run's slide (the layers only; four poses)
 if L1:
     SEQS += tuple("sj_" + k_ for k_ in SJ_WAYS)
+if L3:
+    SEQS += ("run_gun_r", "run_gun_l", "run_gun_f")   # P36: the run, the gun out in one hand
 
 
 def to_zeta(V):
@@ -2137,7 +2139,9 @@ SLAM = int(round(0.62 * ONE))
 L_FOE = p.label("foe")
 L_STEER, L_LINE = p.label("steer"), p.label("line")
 if L2:
-    L_RAY, L_LAND = p.label("ray"), p.label("land")
+    L_RAY, L_LAND, L_FIRE = p.label("ray"), p.label("land"), p.label("fire")
+if L3:
+    L_RING = p.label("ring")
 PHP = cart.data(Table([140]), "p_hp")
 FRIC = int(round(0.82 * ONE))                   # tear.py: body friction
 # ---- P21: THE BASE LAYER'S KNOBS. The feel of the tank is tuned ON GLASS: in
@@ -2261,6 +2265,14 @@ if BASE:
         # the fight below never sees R), and locked on the item
         RHELD, LOCK = cart.var("r_held"), cart.var("locked")
         LOCK_RANGE, LOCK_TURN = 20.0, 48
+        # P36: the item's bearing, kept; frames the gun arm stays out after a
+        # shot in the run; the superman punch -- its pace through the air,
+        # and how near the item it stops
+        LBRG, RSHOT = cart.var("lock_brg"), cart.var("run_shot")
+        # ...and the circle he runs: the pad it began with, its radius squared
+        RPAD, RAD2 = cart.var("circle_pad"), cart.var("circle_r2")
+        CIRCLE_IN = 6                # units of heading turned in, when he is outside it
+        SUPER_V, SUPER_STOP, RUN_ARM = int(0.25 * ONE), int(1.2 * ONE), 14
     cart.boot(spec.LIGHT_DIR, 0x007F00)          # P22: straight down (see piece_light)
     cart.boot(spec.LIGHT_AMB, LIT_AMB0)         # (the title's street, before the game
     cart.boot(spec.LIGHT_DIF, 33 - LIT_AMB0)    # sets them a frame at a time)
@@ -2293,7 +2305,8 @@ if L2:
     FOCUS_REACH, FOCUS_SH = 0.7, -0.6             # the slowed lens: a blow's reach; over his right shoulder
     FOCUS_DROP = 0.30                             # ...and down toward the fist's height
 if L1:
-    SJB = cart.data(Table([base["sj_" + k_] for k_ in SJ_WAYS]), "sjump_poses")
+    SJB = cart.data(Table([base["sj_" + k_] for k_ in SJ_WAYS] + ([base["sj_fwd"]] if L3 else [])),
+                    "sjump_poses")          # (the fifth: P36's leap, if its blow ends in the air)
     SJ_TURN = cart.data(Table([0, 0, 512, 256, 768]), "sjump_turn")   # (by sjump_dir: in, out, left, right)
     SJ_RISE = 0.72              # its rise, x the jump's: lower, and longer
 
@@ -2411,7 +2424,7 @@ if BASE:
     for c_ in (KEY, PICK, QT, WSPD, KNEAR, TURNED, SJD, FOCB, SLOWON, AHOLD, APEND, EVW):
         p.set(c_, 0)
     if L2:
-        for c_ in (DRAW, SHOTS, RLD, KHIT, AIMT, AIMED, ATURN, BUL[0]["rem"], BUL[1]["rem"]) + ((LOCK,) if L3 else ()):
+        for c_ in (DRAW, SHOTS, RLD, KHIT, AIMT, AIMED, ATURN, BUL[0]["rem"], BUL[1]["rem"]) + ((LOCK, RSHOT) if L3 else ()):
             p.set(c_, 0)
     p.set(WR, ONE)
 if SWARM_TEST:                                  # (the meter's hook: the fight in the
@@ -2755,11 +2768,24 @@ if L2:
         # body with it. He is planted (the tank neither walks nor turns; the
         # dodges and the boxer's steps are his, round it), and a blow or a
         # shot goes AT it, whatever the pad says. Not in the run.
+        # P36: IN THE RUN TOO -- there the lock does not turn him (the run
+        # steers ROUND it, below); and his superman punch stops at the item.
         lk3 = p.label("lock3")
+        p.load(RSHOT).emit(f"jz {lk3}_rs")
+        p.addi(RSHOT, -1)
+        p.mark(f"{lk3}_rs")
+        p.load(SJD).push(5).emit("eq", f"jz {lk3}_sm")
+        p.load(KX).load(PX).emit("sub", "dup", "mulq").load(KZ).load(PZ).emit("sub", "dup", "mulq", "add")
+        p.push32(int((SUPER_STOP / ONE) ** 2 * ONE)).emit("lt", f"jz {lk3}_sm")
+        p.set(F["vx"], 0).set(F["vz"], 0)
+        p.mark(f"{lk3}_sm")
         p.set(LOCK, 0)
+        p.load(RHELD).emit(f"jz {lk3}_np")
+        p.emit("load 1").push(15).emit("and", f"jz {lk3}_np", f"jmp {lk3}_pd")
+        p.mark(f"{lk3}_np")                       # (no R, or no pad: the next circle is a new one)
+        p.set(RPAD, 0)
+        p.mark(f"{lk3}_pd")
         p.load(RHELD).emit(f"jz {lk3}")
-        p.load(F["sty"]).push(1).emit("eq", f"jz {lk3}_s", f"jmp {lk3}")
-        p.mark(f"{lk3}_s")
         p.load(LVL).push(len(GATES)).emit("lt", f"jz {lk3}")
         p.load(KX).load(PX).emit("sub").store(W["qx"]).load(KZ).load(PZ).emit("sub").store(W["qz"])
         for q_ in (W["qx"], W["qz"]):
@@ -2768,7 +2794,10 @@ if L2:
             p.mark(f"{lk3}_p{int(q_)}")
             p.push32(int(LOCK_RANGE * ONE)).emit("lt", f"jz {lk3}")
         p.emit(f"call {L_YAW}")
-        p.set(LOCK, 1).set(TURNED, 0)
+        p.load(F["brg"]).store(LBRG).set(LOCK, 1)
+        p.load(F["sty"]).push(1).emit("eq", f"jz {lk3}_sq", f"jmp {lk3}")
+        p.mark(f"{lk3}_sq")
+        p.set(TURNED, 0)
         p.load(F["sty"]).push(2).emit("eq", f"jz {lk3}_t")
         p.load(F["latch"]).store(YAW)
         p.mark(f"{lk3}_t")
@@ -3457,33 +3486,12 @@ if L2:
     p.load(AF)
     row(PMT, F["mv"], "start")
     p.emit("eq", f"jz {lg_}")
-    knob(p, "mag")
-    p.emit(f"jz {lg_}_s")                                  # (0: it never runs dry)
-    p.load(SHOTS)
-    knob(p, "mag")
-    p.emit("lt", f"jz {lg_}")
-    p.addi(SHOTS, 1).load(SHOTS)
-    knob(p, "mag")
-    p.emit("lt", f"jz {lg_}_e", f"jmp {lg_}_s")
-    p.mark(f"{lg_}_e")
-    p.set(RLD, RELOAD)                                     # the last round: it reloads
-    p.mark(f"{lg_}_s")
-    p.load(HEAD).store(W["head"]).emit(f"call {L_RAY}")
-    p.push(1).load(BNX).emit("sub", "dup").store(BNX)      # the other slot
-    p.push(len(BK)).emit("mul").push(int(BUL[0]["ex"])).emit("add").store(W["k"])
-    for name, ops in (("ex", (f"load {int(RAY['x'])}",)), ("ez", (f"load {int(RAY['z'])}",)),
-                      ("dx", (f"load {int(RAY['dx'])}",)), ("dz", (f"load {int(RAY['dz'])}",)),
-                      ("rem", (f"load {int(RAY['len'])}", "push 2", "add")),
-                      ("y", (f"load {int(F['py'])}", f"push {GUN_Y}", "add")),
-                      ("yaw", (f"load {int(HEAD)}",)),
-                      ("hit", (f"load {int(F['mv'])}", f"push {MOVE['gun']}", "sub", "push 4", "mul",
-                               f"load {int(RAY['hit'])}", "add"))):
-        p.emit(*ops).load(W["k"]).push(BK[name]).emit("add", "storei")
-    p.set(SG_T["nt"], 0)                                   # the crack, and the kick:
-    p.push(3).load(F["mv"]).push(MOVE["gun"]).emit("sub").push(4).emit("mul", "add").store(F["shake"])
-    p.emit(f"jmp {lg_}")                                   # 3 frames, the charged one 7
+    p.load(HEAD).store(W["head"]).emit(f"call {L_FIRE}", f"jmp {lg_}")
     p.mark(f"{lg_}_f")
     steer_head(p, PIVT)
+    if L3:                                        # (P36: the superman punch is the leap's own way)
+        p.load(SJD).emit(f"jz {lg_}_sj", f"jmp {lg_}")
+        p.mark(f"{lg_}_sj")
     p.load(AF).push(int(LDT)).load(F["mv"]).emit("add", "loadi", "eq", f"jz {lg_}")
     row(PMT, F["mv"], "lunge")
     knob(p, "lunge").emit("mulq", "dup").store(W["dmg"])
@@ -3508,6 +3516,32 @@ p.mark(f"{L['free']}_end")
 p.set(ANIM, 0)
 p.mark(L["free"])
 p.load(F["buf"]).emit(f"jz {L['walk']}_q")
+if L3:
+    # P36: IN THE LOCKED RUN (the player: "the gun being shot while running
+    # single hand. and then trying to weave and land a super man punch").
+    # A SHOT does not stop him: the round leaves at once, AT the item, the
+    # run going on under it with the near arm out (the pose, below). A FIST
+    # is the superman punch: he leaves the ground at the item -- the jump's
+    # own rise, SUPER_V a frame, nothing steering it -- the haymaker wound
+    # up through the air to land as he comes down; he stops short of the
+    # item and no nearer. Thrown from too far, it falls short: the range is
+    # his to find.
+    rs_ = p.label("runshot")
+    p.load(LOCK).load(F["sty"]).push(1).emit("eq", "and", f"jz {rs_}")
+    p.push(MOVE["gun"] - 1).load(F["bmv"]).emit("lt", f"jz {rs_}_p")
+    p.load(F["bmv"]).store(F["mv"]).set(F["buf"], 0).set(RSHOT, RUN_ARM)
+    p.load(LBRG).store(W["head"]).emit(f"call {L_FIRE}", f"jmp {L['walk']}_q")
+    p.mark(f"{rs_}_p")
+    p.load(F["py"]).emit(f"jz {rs_}_g", f"jmp {rs_}")
+    p.mark(f"{rs_}_g")
+    p.set(F["bmv"], MOVE["special"]).set(F["c3"], 3).set(SJD, 5).set(F["spd"], 0).set(F["py"], 1)
+    knob(p, "jump").store(F["pvy"])
+    p.load(LBRG).emit("dup").store(YAW).store(HEAD)
+    sin_of(p, cell=LBRG)
+    p.push(SUPER_V).emit("mulq").push(0).emit("swap", "sub").store(F["vx"])
+    sin_of(p, 256, cell=LBRG)
+    p.push(SUPER_V).emit("mulq").store(F["vz"])
+    p.mark(rs_)
 # LAUNCH: the buffered move, and its lunge as ONE impulse (tear.py _launch)
 p.load(F["bmv"]).store(F["mv"])
 p.set(ANIM, 2).set(AF, 0).set(F["con"], 0).set(F["buf"], 0)
@@ -3696,6 +3730,15 @@ p.load(F["sty"]).push(1).emit("eq", f"jz {ev}_b")
 # Down away, Left and Right round it -- turning there at RUN_TURN a frame
 # P20: THE FREE RUN (no target) steers as the tank does: Left/Right turn
 # him at FREE_TURN, Up drives; nothing held, he coasts
+if L3:
+    # P36: LOCKED, THE RUN GOES ROUND THE ITEM (the player: "the running and
+    # aiming should feel you are running on the tangent of the circle"): the
+    # pad's way is from the item's bearing -- Left and Right ALONG the circle
+    # round it, Up at it, Down away, the corners spiralling in and out --
+    # P18's own run round a target.
+    p.load(LOCK).emit(f"jz {ev}_nl")
+    p.load(LBRG).store(F["brg"]).emit(f"jmp {ev}_lb")
+    p.mark(f"{ev}_nl")
 p.load(F["tgt"]).emit(f"jz {ev}_fr", f"jmp {ev}_lk")
 p.mark(f"{ev}_fr")
 if L1:
@@ -3745,9 +3788,30 @@ held(spec.PAD_UP)
 p.emit(f"jmp {ev}_nd")
 p.mark(f"{ev}_lk")
 p.load(F["tgt"]).push(1).emit("sub").store(F["brg"]).emit(f"call {L_BRG}")
+if L3:
+    p.mark(f"{ev}_lb")
 p.emit("load 1").push(15).emit("and", "dup", f"jz {ev}_nd")
 p.push(int(OCTANT)).emit("add", "loadi").load(F["brg"]).emit("add")
 p.push(1023).emit("and").store(W["head"])
+if L3:
+    # P36: ...AND STAYS ON ITS CIRCLE. A step along the tangent ends a little
+    # OUTSIDE the circle it began on: left alone he spiralled out an eighth
+    # of a unit a second. The radius he had when this pad went down is kept,
+    # and outside it his heading is turned CIRCLE_IN toward the item: he
+    # holds the circle to a hundredth.
+    rc_ = p.label("circle")
+    p.load(LOCK).emit(f"jz {rc_}")
+    p.load(KX).load(PX).emit("sub", "dup", "mulq").load(KZ).load(PZ).emit("sub", "dup", "mulq", "add")
+    p.store(W["d2"])
+    p.emit("load 1").push(15).emit("and", "dup").load(RPAD).emit("eq", f"jz {rc_}_n")
+    p.emit("drop", f"jmp {rc_}_h")
+    p.mark(f"{rc_}_n")
+    p.store(RPAD).load(W["d2"]).store(RAD2).emit(f"jmp {rc_}")
+    p.mark(f"{rc_}_h")
+    p.load(RAD2).load(W["d2"]).emit("lt", f"jz {rc_}")
+    p.if_pad(spec.PAD_LEFT, lambda q: q.addi(W["head"], -CIRCLE_IN))
+    p.if_pad(spec.PAD_RIGHT, lambda q: q.addi(W["head"], CIRCLE_IN))
+    p.mark(rc_)
 p.push(RUN_TURN).store(W["dg"]).emit(f"call {L_STEER}")
 p.push(1)
 p.mark(f"{ev}_nd")
@@ -3962,6 +4026,9 @@ if L1:                                           # P24: the run's pace is a knob
     rp_ = p.label("runpace")                      # step he takes in the run, not the speed
     p.push32(ONE)                                 # its own rules are written in
     p.load(F["sty"]).push(1).emit("eq", f"jz {rp_}")
+    if L3:                                        # (P36: nor the superman punch's -- it goes as
+        p.load(SJD).emit(f"jz {rp_}_sp", f"jmp {rp_}")   # far with L let go in the air as held)
+        p.mark(f"{rp_}_sp")
     p.load(WJN).emit(f"jz {rp_}_k")               # (but a wall jump's throw is its OWN
     p.load(F["evf"]).emit(f"jz {rp_}_k", f"jmp {rp_}")   # pace, whatever the run's knob:
     p.mark(f"{rp_}_k")                            # it must cross the street)
@@ -4129,7 +4196,21 @@ if L1:
     p.push(base["slide"]).emit("add").store(POSE).emit(f"jmp {L['pd']}")
     p.mark(sp7)
 p.load(ANIM).push(5).emit("eq", f"jz {gp_}_k")
-p.load(F["ph"]).emit("shr 16").push(15).emit("and").push(base["run"]).emit("add")
+p.load(F["ph"]).emit("shr 16").push(15).emit("and").push(base["run"])
+if L3:
+    # P36: locked, B down or a shot just gone: the near arm is out at the
+    # item -- his right, his left, or ahead of him
+    rg_ = p.label("rungun")
+    p.load(DRAW).load(RSHOT).emit("or").push(0).emit("eq", "push 1", "xor").load(LOCK).emit("and", f"jz {rg_}")
+    p.emit("drop").push(base["run_gun_f"])
+    p.load(LBRG).load(YAW).emit("sub").push(512).emit("add").push(1023).emit("and").push(512).emit("sub")
+    p.emit("dup").push(96).emit("swap", "lt", f"jz {rg_}_r")           # 96 < it: on his left
+    p.emit("drop", "drop").push(base["run_gun_l"]).emit(f"jmp {rg_}")
+    p.mark(f"{rg_}_r")
+    p.push(-96).emit("lt", f"jz {rg_}")                                # it < -96: on his right
+    p.emit("drop").push(base["run_gun_r"])
+    p.mark(rg_)
+p.emit("add")
 p.store(POSE).emit(f"jmp {L['pd']}")
 p.mark(f"{gp_}_k")
 p.load(ANIM).push(6).emit("eq", f"jz {gp_}")
@@ -4351,6 +4432,26 @@ p.emit(f"call {L_WPT}")
 for a, b in (("x", "fx"), ("y", "fy"), ("z", "fz")):
     p.load(W[a]).store(F[b])
 p.set(F["act"], 1)
+if L3:
+    # P36: A FIST LANDS ON THE KEY (the superman punch has to LAND on
+    # something): a blow whose fist comes within a unit of it, each way, has
+    # struck it -- the blow's own hitstop and shake, the burst on the key,
+    # and it rings and leaps as it does for a shot. Once a blow.
+    fk_ = p.label("fistkey")
+    p.load(KEY).load(F["con"]).emit("or", f"jz {fk_}_k", f"jmp {fk_}")
+    p.mark(f"{fk_}_k")
+    p.load(LVL).push(len(GATES)).emit("lt", f"jz {fk_}")
+    for k_, f_ in ((KX, "fx"), (KZ, "fz")):
+        p.load(k_).load(F[f_]).emit("sub", "dup").push(0).emit("lt", f"jz {fk_}_a{f_}")
+        p.push(0).emit("swap", "sub")
+        p.mark(f"{fk_}_a{f_}")
+        p.push(int(1.0 * ONE)).emit("lt", f"jz {fk_}")
+    p.set(F["con"], 1).set(KHIT, 40).emit(f"call {L_RING}")
+    row(PMT, F["mv"], "stop")
+    p.emit("dup").store(F["stop"]).store(F["shake"])
+    p.load(KX).store(int(SPK)).push(int(1.0 * ONE)).store(int(SPK) + 1).load(KZ).store(int(SPK) + 2)
+    p.set(int(SPK) + 3, SPARK_FOR).set(SPKM, HOT_M)
+    p.mark(fk_)
 if L2:
     # P29: WHERE IT LANDED. Shadow boxing hits the air; the spark is at his
     # fist the first frame the blow is out -- exactly where it would have
@@ -4404,6 +4505,11 @@ p.load(F["tgt"]).emit(f"jz {by_}")
 p.load(F["tgt"]).push(1).emit("sub").store(F["brg"]).emit(f"call {L_BRG}")
 p.load(F["brg"]).emit("dup").store(W["oy"]).store(F["cgr"])   # (f_cgr: its last bearing)
 p.mark(by_)
+if L3:                                           # P36: locked, the lens is on the item's line:
+    lb_ = p.label("locklens")                    # in the run he crosses the shot, the item
+    p.load(LOCK).emit(f"jz {lb_}")               # beyond him
+    p.load(LBRG).store(W["oy"])
+    p.mark(lb_)
 if L2:
     # P34: THE AIM. B held past the hold knob -- time slowed for the shot --
     # the lens comes round behind his BODY and looks down the sight: a shot
@@ -4510,6 +4616,8 @@ p.mark(f"{md_}_e")
 if L3:                                           # P35: locked -- targeting's lens (P18): 2.8
     lc_ = p.label("lockcam")                     # behind, over his right shoulder, the
     p.load(LOCK).emit(f"jz {lc_}")               # item ahead of him in the shot
+    p.load(F["sty"]).push(1).emit("eq", f"jz {lc_}_t", f"jmp {lc_}")   # (the run: its own lens)
+    p.mark(f"{lc_}_t")
     p.push(int(TGT_D * ONE)).store(W["dmg"]).push(int(TGT_SH * ONE)).store(W["stop"])
     p.mark(lc_)
 if L2:
@@ -7517,6 +7625,41 @@ if L2:
     for c_, me, d_ in ((RAY["x"], RAY["ox"], "dx"), (RAY["z"], RAY["oz"], "dz")):
         p.load(RAY[d_]).load(RAY["len"]).emit("mulq").load(me).emit("add").store(c_)
     p.set(AWC, AR_W)
+    p.emit("ret")
+
+    if L3:                                      # RING -- the key, struck by a fist
+        p.mark(L_RING)
+        p.set(SG["gt"], 0).set(SG["gr"], 3).emit("ret")
+
+    # FIRE -- a round leaves the gun along w_head (the shot's frame; or, P36,
+    # in the locked run, the release itself)
+    fr_ = p.label("fire")
+    p.mark(L_FIRE)
+    knob(p, "mag")
+    p.emit(f"jz {fr_}_s")                                  # (0: it never runs dry)
+    p.load(SHOTS)
+    knob(p, "mag")
+    p.emit("lt", f"jz {fr_}")
+    p.addi(SHOTS, 1).load(SHOTS)
+    knob(p, "mag")
+    p.emit("lt", f"jz {fr_}_e", f"jmp {fr_}_s")
+    p.mark(f"{fr_}_e")
+    p.set(RLD, RELOAD)                                     # the last round: it reloads
+    p.mark(f"{fr_}_s")
+    p.emit(f"call {L_RAY}")
+    p.push(1).load(BNX).emit("sub", "dup").store(BNX)      # the other slot
+    p.push(len(BK)).emit("mul").push(int(BUL[0]["ex"])).emit("add").store(W["k"])
+    for name, ops in (("ex", (f"load {int(RAY['x'])}",)), ("ez", (f"load {int(RAY['z'])}",)),
+                      ("dx", (f"load {int(RAY['dx'])}",)), ("dz", (f"load {int(RAY['dz'])}",)),
+                      ("rem", (f"load {int(RAY['len'])}", "push 2", "add")),
+                      ("y", (f"load {int(F['py'])}", f"push {GUN_Y}", "add")),
+                      ("yaw", (f"load {int(W['head'])}",)),
+                      ("hit", (f"load {int(F['mv'])}", f"push {MOVE['gun']}", "sub", "push 4", "mul",
+                               f"load {int(RAY['hit'])}", "add"))):
+        p.emit(*ops).load(W["k"]).push(BK[name]).emit("add", "storei")
+    p.set(SG_T["nt"], 0)                                   # the crack, and the kick:
+    p.push(3).load(F["mv"]).push(MOVE["gun"]).emit("sub").push(4).emit("mul", "add").store(F["shake"])
+    p.mark(fr_)                                            # 3 frames, the charged one 7
     p.emit("ret")
 
     # P34: LAND -- bullet w_k has come to the end of its line. A wall or the

@@ -153,6 +153,33 @@ def _run2(t, fwd=28.0, back=50.0, elbow=98.0):
         pose[side + "ForeArm"] = [0, m * (elbow + 18.0 * s), 0]
     return bm._pose_and_skin(pose, root, None)
 seqs["run2"] = [frozen(_run2(f / 16.0)) for f in range(16)]
+# THE RUN WITH THE GUN OUT, ONE HAND (TND-PORT P36; the player: "the gun
+# being shot while running single hand"). Locked on the item he runs round
+# it, and it is beside him: the same stride and the far arm's pump, and the
+# NEAR arm straight out at it from the shoulder -- his right, his left, or
+# (running at it) his right arm ahead -- the head turned to it.
+def _run_gun(t, way):
+    pose, root = bm._run_cycle(t, bm._run_pose_dict())
+    for side, m, ph in (("Right", 1.0, t % 1.0), ("Left", -1.0, (t + 0.5) % 1.0)):
+        s = np.sin(2.0 * np.pi * ph)
+        pose[side + "Arm"] = [0, m * (28.0 if s > 0 else 50.0) * s, m * 90.0]
+        pose[side + "ForeArm"] = [0, m * (98.0 + 18.0 * s), 0]
+    side, m = ("Left", -1.0) if way == "l" else ("Right", 1.0)
+    if way != "f":
+        pose[side + "Arm"] = [0, 0, m * RG_DROP]
+        pose[side + "ForeArm"] = [0, 0, 0]
+        nk = list(pose.get("Neck", [0, 0, 0]))
+        pose["Neck"] = [nk[0], nk[1] - m * RG_HEAD, nk[2]]
+        return bm._pose_and_skin(pose, root, None)
+    def repose(Vt, skel_, angles):                # (ahead: the arm REACHED there, level, from where
+        a = _ranat.arm("rear")                    # the stride has put his shoulder)
+        at = Vt[list(a.upper_arm)].mean(0) + np.array(RG_AHEAD)
+        bm._reach_arm(Vt, a, _ranat.pose(angles), at, a.outward, 1.0)
+    return bm._pose_and_skin(pose, root, None, repose)
+_ranat = bm.anatomy(skel)
+RG_DROP, RG_HEAD, RG_AHEAD = 6.0, 40.0, (0.50, -0.04, 0.10)
+for _w in "rlf":
+    seqs["run_gun_" + _w] = [frozen(_run_gun(f / 16.0, _w)) for f in range(16)]
 # THE SLIDE (TND-PORT P27; the player chose it for Down in the run: "slide!!"
 # -- and then: "make the slide go out a bit further, think soccer player
 # trying to hit a ball"). A sliding tackle: the hips thrown well back and

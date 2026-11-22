@@ -5,6 +5,8 @@ squares up to it: his steering -- in the boxer, his cross -- comes round to
 its bearing and stays there, his body with it. He is planted (the tank
 neither walks nor turns); the boxer's steps go round it; a blow or a shot
 goes AT it whatever the pad says. Not in the run; nothing in reach, nothing.
+In the run (P36) he goes ROUND it -- on the circle he began -- the gun
+fired in stride with one hand, and a fist is the superman punch.
 A local build (TND_LAYER=3 -> build/layer3/tnd.zol).
 """
 import os
@@ -154,9 +156,9 @@ def test_locked_the_boxers_steps_go_round_it(text):
     assert g.far() < far - 1.0, "Up did not step in"
 
 
-def test_nothing_in_reach_r_is_nothing_and_not_in_the_run(text):
+def test_nothing_in_reach_r_is_nothing(text):
     """At the start the key is far out of the lock's reach: R does nothing,
-    and the pad is his. In the run R is not read."""
+    and the pad is his."""
     g = Game(text)
     assert g.far() > 20
     p0, y0 = g.pos(), g.cell("yaw")
@@ -164,14 +166,105 @@ def test_nothing_in_reach_r_is_nothing_and_not_in_the_run(text):
     assert g.cell("locked") == 0 and g.cell("yaw") == y0
     g.run(R | U, 30)
     assert np.hypot(*np.subtract(g.pos(), p0)) > 1.0, "R held, he could not walk"
-    g = Game(text, at=(8.0, 8.0), yaw=g.cell("yaw"))
+
+
+def _running(text, at):
+    g = Game(text, at=at, yaw=512)
     g.run(L, 3)
     g.run(0, 2)
-    g.run(L | U, 20)
+    g.run(L | U, 3)
     assert g.cell("f_sty") == 1, "no run"
-    y0 = g.cell("yaw")
-    g.run(L | U | R, 20)
-    assert g.cell("locked") == 0 and g.cell("yaw") == y0 and g.cell("f_sty") == 1, "the run was taken by the lock"
+    return g
+
+
+@pytest.mark.parametrize("pad,side", [(LF, 256), (RT, -256)])
+def test_locked_the_run_goes_round_the_item_on_its_circle(text, pad, side):
+    """P36 ("the running and aiming should feel you are running on the
+    tangent of the circle"): locked in the run, Left and Right run ALONG
+    the circle round the item -- his heading a quarter turn off its bearing
+    -- and he stays on the circle he began (left alone a tangent's step
+    spirals out: an eighth of a unit a second). Up runs in."""
+    g = _running(text, (0.0, 7.5))
+    g.run(L | R | pad, 60)
+    far, b0 = g.far(), g.bearing()
+    seen = []
+    for _ in range(480):
+        g.run(L | R | pad, 1)
+        seen.append(g.far())
+        assert abs(_wrap(g.cell("yaw") - g.bearing() - side)) <= 14, "he left the tangent"
+    assert max(seen[120:]) - min(seen[120:]) < 0.05, (min(seen), max(seen), "he does not hold the circle")
+    assert abs(seen[-1] - far) < 0.5 and g.cell("f_spd") > 0.1 * 65536
+    assert abs(_wrap(g.bearing() - b0)) > 100, "he did not go round it"
+    far = g.far()
+    g.run(L | R | U, 30)
+    assert g.far() < far - 2.0, "Up did not run in"
+
+
+def test_in_the_locked_run_the_gun_is_fired_in_stride(text):
+    """P36 ("the gun being shot while running single hand"): B down, the
+    near arm is out at the item (the run's own stride under it); let go,
+    the round leaves AT the item and he has not broken stride -- no swing,
+    his speed kept, the key struck."""
+    g = _running(text, (0.0, 7.5))
+    g.run(L | R | LF, 70)
+    spd, run = g.cell("f_spd"), g.cell("pose")
+    g.run(L | R | LF | B, 6)
+    assert g.cell("anim") == 5 and g.cell("pose") != run and g.cell("pose") > 600, "the arm is not out"
+    arm = g.cell("pose") - (g.cell("f_ph") >> 16 & 15)
+    struck = 0
+    for _ in range(14):
+        g.run(L | R | LF, 1)
+        assert g.cell("anim") == 5 and abs(g.cell("f_spd") - spd) < 300, "the shot broke his stride"
+        struck = max(struck, g.cell("key_hit"))
+    assert g.cell("gun_shots") == 1 and struck > 0, "the shot in the run did not strike the item"
+    g.run(L | R | LF, 20)
+    assert g.cell("pose") < 600, "the arm stayed out"
+    g.run(L | R | RT, 80)                         # the other way round: the other arm
+    g.run(L | R | RT | B, 6)
+    other = g.cell("pose") - (g.cell("f_ph") >> 16 & 15)
+    assert other > 600 and other != arm, (arm, other, "the same arm, both ways round")
+
+
+@pytest.mark.parametrize("held", [L | R | LF, R, 0])
+def test_the_superman_punch_lands_from_in_range_and_falls_short_from_out(text, held):
+    """P36 ("trying to weave and land a super man punch"): a fist thrown in
+    the locked run. He leaves the ground AT the item, the haymaker wound up
+    through the air, and stops 1.2 short of it: from inside seven units the
+    blow lands -- the key rings, its hitstop holds him -- and he ends the
+    same place whatever he holds in the air. From nine units it is thrown
+    just the same and is over before he gets there."""
+    ends = []
+    for at, lands in (((0.0, 5.5), True), ((0.0, 7.5), True), ((0.0, 9.5), False)):
+        g = _running(text, at)
+        g.run(L | R | LF, 30)
+        far = g.far()
+        g.run(L | R | LF | Y, 4)
+        aloft, struck, moves = 0, 0, set()
+        for _ in range(100):
+            g.run(held, 1)
+            aloft += g.cell("f_py") > 0
+            struck = max(struck, g.cell("key_hit"))
+            if g.cell("anim") == 2:
+                moves.add(MOVES[g.cell("f_mv")])
+        assert moves == {"special"} and aloft > 15, (moves, aloft)
+        assert (struck > 0) == lands, (far, struck)
+        if lands:
+            assert 0.9 < g.far() < 1.25, (far, g.far())
+        ends.append(round(g.far(), 2))
+    assert ends[2] < 2.5, "thrown from far, it did not carry"
+
+
+def test_a_terminator_by_the_key_strikes_it(text):
+    """A fist that comes within a unit of the key has struck it: standing
+    by it, a Y -- with its own hitstop -- and the key rings; it is not
+    picked up by it."""
+    g = Game(text, at=(0.0, 1.6), yaw=512)
+    g.run(Y, 5)
+    struck = stop = 0
+    for _ in range(40):
+        g.run(0, 1)
+        struck, stop = max(struck, g.cell("key_hit")), max(stop, g.cell("f_stop"))
+    assert struck > 0 and stop > 5 and g.cell("key_held") == 0, (struck, stop)
 
 
 def test_the_layers_under_it_still_stand(text):

@@ -1710,3 +1710,52 @@ ten shots struck the key; R held 22 seconds, where it did nothing.
 - tests: 45 layer 2 (the sight in slowed time only; aiming), 5 layer 3.
   Layers 0 and 1 build byte-identical to P33's; the full cart is
   byte-identical. Layer 2 is 15,890 words of 16,384, layer 3 16,026.
+
+## P36: the locked run -- round the item, the gun in one hand, the superman punch (2026-11-22; not yet on glass)
+
+The player: "The running and aiming should feel you are running on the
+tangent of the circle, the gun being shot while running single hand. and
+then trying to weave and land a super man punch." Layer 3 (the lock was
+"not in the run" in P35); layer 2 is unchanged but for the shot's frame
+being a subroutine.
+
+- **The run goes round it.** Locked, the run's pad is from the item's
+  bearing (P18's own run round a target, given the item): Left and Right
+  ALONG the circle round it, Up at it, Down away, the corners spiralling
+  in and out. The lens is on the item's line, so he crosses the shot in
+  profile with the item beyond him.
+- **...on its circle.** A step along the tangent ends a little outside
+  the circle it began on: left alone he spiralled out 0.12 a second (7.4
+  to 8.3 units in eight seconds). The radius he had when the pad went
+  down is kept, and outside it his heading is turned six units in: over
+  eight seconds round the key he holds 7.68-7.69.
+- **The gun, in stride, one hand.** In the locked run a shot is not a
+  move: B down, the near arm comes out at the item over the run's own
+  stride (three new clips of sixteen: his right arm out, his left, his
+  right ahead -- the head turned to it; tools/tnd_extract.py); let go,
+  the round leaves at once, AT the item, and his speed is untouched. The
+  arm stays out fourteen frames after.
+- **The superman punch.** A fist thrown in the locked run (X or Y): he
+  leaves the ground at the item with the jump's own rise, a quarter unit
+  a frame, nothing steering it, the haymaker wound up through the air to
+  land as he comes down; 1.2 from the item he stops. Thrown from inside
+  about seven units it lands; from nine it is thrown just the same and is
+  over before he arrives. The same whatever he holds in the air (the
+  run's pace knob is not in it: with L let go mid-air it went a fifth
+  less far).
+- **A fist lands on the key.** A blow whose fist comes within a unit of
+  the lying key has struck it: the blow's own hitstop (the haymaker's is
+  28 frames) and shake, the burst on the key, the ring and the leap.
+  Once a blow; it does not pick it up.
+- **Known, and left**: through the air he is in the haymaker's standing
+  clip (no flying pose yet); the strike is on the key only (the gate has
+  no answer to a blow).
+- Layer 3 is 16,291 words of 16,384 and 663 poses.
+- **Measured on silicon** (the sim; from a state 7 units from the key:
+  into the run, round it both ways, two shots in stride, a spiral in and
+  the superman punch landing): 294 frames, law and silicon the same on
+  every one; peak 445,048 clocks (52%), median 47%.
+- tests: 12 layer 3 (the circle held both ways, the shot in stride, the
+  superman punch from 5.5, 7.5 and 9.5 units with three things held in
+  the air, a terminator by the key); layer 2's 14 gun tests after the
+  subroutine. Layers 0 and 1 and the full cart build byte-identical.
