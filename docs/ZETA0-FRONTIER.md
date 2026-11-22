@@ -1126,3 +1126,52 @@ is the limit: to 90% of the frame, about twenty-six of the horde, or
 sixteen commons, or the rival with two elites, four commons and ten of the
 horde. Estimates from the per-body costs, not a metered scene; the cart's
 streams' own fetch is not in them.
+
+**The balance: the city as it is, items, and the UI** (2026-11-22; the
+player: "I like the city how it is rn, but also more items, and room for
+better ui and menu systems"). Metered on the silicon, layer 3, a walk
+through the town (the lit city, the player, no enemies):
+
+| | median | peak |
+|---|---:|---:|
+| the frame | 434,060 clocks (50%) | 532,879 (62%) |
+| the clear | 97,674 (11.3%) | the same |
+| the town in view | 225 vertices, 146 faces | 455 vertices, 302 faces |
+| everything else from meshes (him, the ground, shadows, the key) | 541 vertices | 557 |
+| display-list triangles | 1 | 1 (of 256) |
+
+- **An item is all but free in time**: an eight-face thing, spinning, 594
+  clocks (0.07% of a frame); forty of them 2.8%. What it spends is the
+  vertex store (its vertices) and an object (of 64).
+- **Text is the dear thing**: a display-list triangle is about 300 clocks
+  whatever its size, a 3x5 character 6.8 of them -- 2,000 clocks, 0.23%
+  of a frame. The list's 256 triangles are about 37 characters and 8% of
+  a frame. A menu of two hundred characters does not exist in this
+  primitive. What does: a full-screen plate from the cart (any picture,
+  any amount of baked text, about 136,000 clocks against the clear's
+  98,000), the compositor's four translucent rectangles at scanout (free),
+  the list's 37 live characters over them, and a program page of its own
+  (as the pause has).
+
+The split this gives, keeping the city (per frame, at the WORST town frame):
+
+| | the vertex store (2,048) | the frame |
+|---|---:|---:|
+| the city, the clear, the ground | 455 + ~90 | 56% |
+| the player | 469 | 6% |
+| items (a dozen or so) | 120 | 1.5% |
+| the HUD in play (100 triangles: 15 characters and meters) | -- | 3.5% |
+| the enemies | 916 | to 90%: 23% |
+
+By vertices today: eight of the horde, or five commons, or the rival with
+two commons and one of the horde -- about 78% of the frame at its peak.
+With the store doubled the 23% is the limit: seventeen of the horde, or
+eleven commons, or the rival with four commons and six of the horde.
+(Sums of per-body costs, as before.)
+
+The rest: DMEM keeps the city's 5,660 words and has about 3,300 free once
+bodies are drawn from the cart (the HUD can have back the display list's
+tail the game borrows for tables); the program's page is 32,768 against
+the game's 16,300; the cart is about 2.7 M words of 4.06 M with the song
+and is about 1.5 M with 16-bit poses -- room for the enemies' own pose
+sets and for a plate (92,160 words) a menu screen.
