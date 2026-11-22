@@ -7,7 +7,8 @@ colours -- and are drawn through five-word descriptors: turning, culled
 and not, outlined, object-tinted, one swung through the near plane (the
 clipper), two poses of one body swapped by its offsets every eight frames,
 one whose descriptor is refused, a rank that overruns the store (the last
-is not drawn), and an ordinary DMEM mesh among them. The lens turns.
+are not drawn), a face whose index is past its mesh (skipped, alone), and
+an ordinary DMEM mesh among them. The lens turns.
 """
 import sys
 from pathlib import Path
@@ -46,6 +47,7 @@ def main():
         descs[name] = cart.data(Table([len(v) | len(f) << 16, int(vs), int(fs), int(cs), shift]), name)
         return int(vs), int(fs), int(cs)
     a = lump(1, 60, 90)
+    a[1][5] = (a[1][5][0], 700, a[1][5][2])      # an index past the mesh: that face is skipped
     place("a", *a)
     b = lump(2, 33, 41)                     # odd counts: the streams' padded halves
     place("b", *b, shift=3)
@@ -82,14 +84,14 @@ def main():
              lambda q: q.push32(F | spec.OBJ_OTINT | 25 << 27 | 12 << 22 | 30 << 17))
     p.object(n, int(descs["a"]), 0, 0, int(0.4 * ONE), tumble, F)                    # through the near plane
     p.object(n, int(bad), int(3 * ONE), 0, 0, 0, F)                                   # refused: nothing
-    for k in range(6):                      # six bigs: with a (twice), b and the pose the store's vertices run out
+    for k in range(8):                      # eight bigs: the store's vertices and its faces both run out
         p.object(n, int(descs["big"]), int((k - 2.5) * 1.2 * ONE), int(1.2 * ONE), int(-2 * ONE) + int(k * 0.3 * ONE), spin, F | spec.OBJ_CULL)
     p.object(n, int(descs["b"]), int(-3 * ONE), 0, 0, spin, F)                       # ...but a small one after still fits
     p.load(n).store(spec.OL_BASE)
     p.emit("halt")
     cart.write(HERE / "cartmesh.zol")
     print(cart.report())
-    used_v = 60 + 33 + 48 + 60 + 250 * 6 + 33
+    used_v = 60 + 33 + 48 + 60 + 250 * 8 + 33
     print("vertices asked of the store:", used_v, "of", spec.CM_VMAX)
 
 

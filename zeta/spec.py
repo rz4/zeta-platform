@@ -283,8 +283,9 @@ OBJ_LIT = 8192                  # flags bit 13: the vertex word is a
 # the cart never carried read as zero.
 OBJ_CART = 16384                # flags bit 14
 CMESH_WORDS = 5
-CM_VMAX = 1536                  # vertices of cart meshes a frame
-CM_FMAX = 2560                  # faces of cart meshes a frame
+CM_VMAX = 2048                  # vertices of cart meshes a frame
+CM_FMAX = 2048                  # faces of cart meshes a frame (the block RAM's
+                                # own depth: 2,560 would not pack -- the fit said)
 
 OBJ_EDGE = 128                  # flags bit 7: OUTLINE this object.
                                 # The rasterizer keeps WHICH OBJECT owns

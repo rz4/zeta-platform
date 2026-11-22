@@ -283,7 +283,7 @@ module zeta_top (
   reg [13:0] ml_e;                   // its first word in the list
   reg [31:0] ml_mesh;
   reg [31:0] ml_d0, ml_d1, ml_d2, ml_d3, ml_d4;
-  reg [11:0] ml_uv;                  // vertices admitted this frame
+  reg [12:0] ml_uv;                  // vertices admitted this frame
   reg [12:0] ml_uf;                  // ...and faces
   reg [2:0]  ml_str;                 // the stream in hand: 1 v, 2 f, 3 c (4: done)
   reg [1:0]  dma_mesh;               // this burst lands in the store
@@ -299,7 +299,7 @@ module zeta_top (
                         !ml_d1[31] && !ml_e1[31] && (ml_e1 + ml_vw <= CRAM_WORDS) &&
                         !ml_d2[31] && !ml_e2[31] && (ml_e2 + ml_fw <= CRAM_WORDS) &&
                         !ml_d3[31] && !ml_e3[31] && (ml_e3 + ml_cw <= CRAM_WORDS) &&
-                        ({1'b0, ml_uv} + {4'd0, ml_nv[8:0]} <= CM_VMAX) &&
+                        ({1'b0, ml_uv} + {5'd0, ml_nv[8:0]} <= CM_VMAX) &&
                         ({1'b0, ml_uf} + {4'd0, ml_nf[9:0]} <= CM_FMAX);
   wire [31:0] ml_eff = (ml_str == 3'd1) ? ml_e1 : (ml_str == 3'd2) ? ml_e2 : ml_e3;
   wire [31:0] ml_len = (ml_str == 3'd1) ? ml_vw : (ml_str == 3'd2) ? ml_fw : ml_cw;
@@ -1009,7 +1009,7 @@ module zeta_top (
       end
       // ---- the cart mesh's loader (see its registers, above) ----------
       I_ML: begin
-        ml_o <= 7'd0; ml_uv <= 12'd0; ml_uf <= 13'd0; msel <= 3'd0;
+        ml_o <= 7'd0; ml_uv <= 13'd0; ml_uf <= 13'd0; msel <= 3'd0;
         ml_e <= OL_BASE[13:0] + 14'd1; ml_new <= 1'b1; dma_mesh <= 2'd0;
         st <= I_MRD;
       end
@@ -1037,7 +1037,7 @@ module zeta_top (
       I_MCHK: begin                       // the verdict (gpu.py _cart_mesh)
         ml_obj <= 1'b1; ml_okr <= ml_valid;
         if (ml_valid) begin
-          ml_uv <= ml_uv + {3'd0, ml_nv[8:0]};
+          ml_uv <= ml_uv + {4'd0, ml_nv[8:0]};
           ml_uf <= ml_uf + {3'd0, ml_nf[9:0]};
           ml_str <= 3'd1;
           st <= I_MSTR;

@@ -114,14 +114,16 @@ def test_a_cart_mesh_outside_its_memory_draws_nothing(poke):
 
 
 def test_the_store_admits_in_list_order_and_a_mesh_that_will_not_fit_draws_nothing():
-    """spec.CM_VMAX / CM_FMAX: seven lumps of 250 vertices are 1,750 -- the
-    seventh does not fit the store's 1,536 and is not drawn; a small one
-    AFTER it still is (the one refused took no room)."""
+    """spec.CM_VMAX / CM_FMAX: nine lumps of 250 vertices are 2,250 -- the
+    ninth does not fit the store's 2,048 and is not drawn; a small one
+    AFTER it still is (the one refused took no room). And by faces: five
+    lumps of 500 faces are 2,500 -- the fifth is refused."""
     big = _body(21, nv=250, nf=120)
     small = _body(22, nv=20, nf=30)
+    wide = _body(23, nv=60, nf=500)
     cram = np.zeros(CART_AT + 8192, np.int64)
     at_, descs = CART_AT, []
-    for v16, faces, c15 in (big, small):
+    for v16, faces, c15 in (big, small, wide):
         offs = []
         for w in (_halves(v16.reshape(-1)), [a | b << 10 | c << 20 for a, b, c in faces], _halves(c15)):
             cram[at_:at_ + len(w)] = w
@@ -131,18 +133,23 @@ def test_the_store_admits_in_list_order_and_a_mesh_that_will_not_fit_draws_nothi
 
     def frame(which):
         d = [0] * spec.DMEM_WORDS
-        d[DESC:DESC + 5], d[DESC + 5:DESC + 10] = descs
+        d[DESC:DESC + 5], d[DESC + 5:DESC + 10], d[DESC + 10:DESC + 15] = descs
         d[spec.OL_BASE] = len(which)
-        for k, (desc, x) in enumerate(which):
+        for k, (desc, x, y) in enumerate(which):
             b = spec.OL_BASE + 1 + k * spec.OL_STRIDE
-            d[b:b + 6] = [desc, int(x * ONE) & 0xFFFFFFFF, 0, 6 * ONE, 0, spec.OBJ_CART]
+            d[b:b + 6] = [desc, int(x * ONE) & 0xFFFFFFFF, int(y * ONE) & 0xFFFFFFFF, 6 * ONE, 0, spec.OBJ_CART]
         return gpu.render(d, cram)
-    six = [(DESC, -2.5 + k) for k in range(6)]
-    assert spec.CM_VMAX // 250 == 6
-    with_seventh = frame(six + [(DESC, 3.5)])
-    assert np.array_equal(with_seventh, frame(six)), "the mesh past the store was drawn"
-    and_small = frame(six + [(DESC, 3.5), (DESC + 5, 3.5)])
-    assert np.array_equal(and_small, frame(six + [(DESC + 5, 3.5)])) and (and_small != with_seventh).any()
+    assert spec.CM_VMAX // 250 == 8 and spec.CM_FMAX // 500 == 4
+    eight = [(DESC, -2.1 + 0.6 * k, -0.8) for k in range(8)]
+    alone = frame([(DESC, 0.0, 1.2)])
+    assert (alone != frame([])).any(), "the test's ninth place is out of the shot"
+    with_ninth = frame(eight + [(DESC, 0.0, 1.2)])
+    assert np.array_equal(with_ninth, frame(eight)), "the mesh past the store was drawn"
+    and_small = frame(eight + [(DESC, 0.0, 1.2), (DESC + 5, 0.0, 1.2)])
+    assert np.array_equal(and_small, frame(eight + [(DESC + 5, 0.0, 1.2)])) and (and_small != with_ninth).any()
+    four = [(DESC + 10, -1.2 + 0.8 * k, -0.8) for k in range(4)]
+    assert (frame([(DESC + 10, 0.0, 1.2)]) != frame([])).any()
+    assert np.array_equal(frame(four + [(DESC + 10, 0.0, 1.2)]), frame(four)), "the mesh past the store's faces was drawn"
 
 
 def test_a_stream_the_cart_never_carried_reads_as_zeros():
@@ -150,3 +157,15 @@ def test_a_stream_the_cart_never_carried_reads_as_zeros():
     short = _frame(v16, faces, c15, cart=True, poke=lambda d: d.__setitem__(DESC + 3, CART_AT + 5000))
     black = _frame(v16, faces, np.zeros_like(c15), cart=True)
     assert np.array_equal(short, black)
+
+
+def test_a_face_index_past_the_mesh_skips_that_face_and_no_other():
+    """an index of 256 or more is past any cart mesh (MESH_NV_MAX): the law
+    skips that face -- which the silicon's store keeps as one bit a face"""
+    v16, faces, c15 = _body(41)
+    wild = list(faces)
+    wild[3] = (wild[3][0], 300, wild[3][2])
+    wild[7] = (1000, wild[7][1], wild[7][2])
+    kept = [f for k, f in enumerate(faces) if k not in (3, 7)]
+    kc = np.array([c for k, c in enumerate(c15) if k not in (3, 7)])
+    assert np.array_equal(_frame(v16, wild, c15, cart=True), _frame(v16, kept, kc, cart=True))
