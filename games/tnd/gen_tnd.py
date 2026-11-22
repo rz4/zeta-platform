@@ -81,11 +81,12 @@ SWARM_TEST = os.environ.get("TND_SWARM") == "1"
 #                 held slows time, keeps the string, and the lens goes to
 #                 where the blow lands.
 LAYER = int(os.environ.get("TND_LAYER", "9"))
-BASE = LAYER in (0, 1, 2, 3, 4)  # the base's own rules (the layers stand on them)
-L1 = LAYER in (1, 2, 3, 4)       # the left shoulder
-L2 = LAYER in (2, 3, 4)          # shadow boxing, and the gun
-L3 = LAYER in (3, 4)             # the right shoulder: targeting (P35)
-L4 = LAYER == 4                  # the enemies (P37): bodies from the cart (frontier 20's core)
+BASE = LAYER in (0, 1, 2, 3, 4, 5)  # the base's own rules (the layers stand on them)
+L1 = LAYER in (1, 2, 3, 4, 5)    # the left shoulder
+L2 = LAYER in (2, 3, 4, 5)       # shadow boxing, and the gun
+L3 = LAYER in (3, 4, 5)          # the right shoulder: targeting (P35)
+L4 = LAYER in (4, 5)             # the enemies (P37): bodies from the cart (frontier 20's core)
+L5 = LAYER == 5                  # the world (P38, docs/TND-WORLD.md): a key a gate, bolts, bunkers
 SONG_CH = range(4, 11)          # the record's voices (the synth theme's, freed)
 SONG_VOL = 15                   # each voice's level at full bus (x bus / 256)
 OUT = Path(os.environ.get("TND_OUT", ROOT / "build" / f"layer{LAYER}" / "tnd.zol"
@@ -332,7 +333,7 @@ END_PAUSE = cart.cram(Table(_pend), "pause_end")
 # twice the room it had, and a page-in copies 16K words -- a frame's work at
 # the SRAM's pace, on the frames the intro or the pause come and go.
 PAGE = 16384
-if os.environ.get("TND_CARTMESH") == "1" or LAYER == 4:   # (the whole of IMEM is the page --
+if os.environ.get("TND_CARTMESH") == "1" or LAYER in (4, 5):   # (the whole of IMEM is the page --
     PAGE = spec.IMEM_WORDS                    # the machine holds 32,768; a page-in is two frames' work)
 INTRO_PROG = cart.cram(Table([0] * PAGE), "intro_prog")
 PAUSE_PROG = cart.cram(Table([0] * PAGE), "pause_prog")
@@ -807,6 +808,46 @@ _cs.loader.exec_module(city)
 CITY_SEED = 666142
 CITY = city.generate(16, CITY_SEED)
 CS = CITY.size
+WORLD = None
+if L5:
+    # P38: THE WORLD over the city (world.py; docs/TND-WORLD.md) -- a key a
+    # gate, lying at a dead end (often a sector back); bunkers; BACK DOORS,
+    # bolted on their deep side; HARD WAYS past a gate. The back doors and
+    # the hard ways are streets the tree does not have: they are added to
+    # the town here, so its pieces, its map and its arena have them -- and a
+    # back door's is shut as a gate's is, until its bolt is drawn.
+    sys.modules.setdefault("city", city)          # (world.py asks for it by that name)
+    _wsp = _ilu.spec_from_file_location("tnd_world", Path(__file__).with_name("world.py"))
+    world = _ilu.module_from_spec(_wsp)
+    sys.modules["tnd_world"] = world
+    _wsp.loader.exec_module(world)
+    WORLD = world.generate(CITY)
+    # THE WAY-FINDER'S TREE (the arrow's): the town as it was generated, as
+    # a tree from START -- each node's parent, and its place in a walk of
+    # the tree (in, out), so "is the waymark under this street" is two
+    # comparisons. Built before the new streets: the arrow shows the gates'
+    # way, never a bolt's or a hard one.
+    _tpar = city._bfs(CITY.adj, CITY.start)[1]
+    _tkids = [[m_ for m_ in range(CS * CS) if _tpar[m_] == v_] for v_ in range(CS * CS)]
+    _tin, _tout, _clock = [0] * (CS * CS), [0] * (CS * CS), 0
+    _stack = [(CITY.start, 0)]
+    while _stack:
+        v_, i_ = _stack.pop()
+        if i_ == 0:
+            _tin[v_] = _clock
+            _clock += 1
+        if i_ < len(_tkids[v_]):
+            _stack.append((v_, i_ + 1))
+            _stack.append((_tkids[v_][i_], 0))
+        else:
+            _tout[v_] = _clock - 1
+    assert _clock == CS * CS
+    for a_, b_ in WORLD.back + WORLD.hard:
+        assert b_ not in CITY.adj[a_]
+        CITY.adj[a_].append(b_)
+        CITY.adj[b_].append(a_)
+    for a_ in CITY.adj:
+        a_.sort()
 # P20: A TOWN, NOT A CANYON (the player, on glass: "still feels too
 # spacious ... the streets need the sidewalks like in the original. it
 # should feel more like a city, town ... a tighter experience, and feeling
@@ -1185,6 +1226,38 @@ for k, (a, b) in GATES:
     gay = ja * TILE - OYA + (jb - ja) * (FAC + 0.3)
     GT_W += [a, 1 << 2 * sa, b, 1 << 2 * sb, int(round(-gay * ONE)), int(round(gax * ONE)),
              0 if ia == ib else 256]
+if L5:
+    # P38: THE DOORS -- the gates (a key each) and the back doors (a bolt,
+    # on side a). Each has a place to stand on either side: the wall is
+    # drawn on HIS side of it, and a gate opens from either.
+    def _node_xz(n_):
+        """the zeta point of a node's centre"""
+        i_, j_ = CITY.xy(n_)
+        return int(round(-(j_ * TILE - OYA) * ONE)), int(round((i_ * TILE - OXA) * ONE))
+
+    def _stand(a_, b_):
+        """where the street from a to b stops while it is shut"""
+        (ia_, ja_), (ib_, jb_) = CITY.xy(a_), CITY.xy(b_)
+        gx_ = ia_ * TILE - OXA + (ib_ - ia_) * (FAC + 0.3)
+        gy_ = ja_ * TILE - OYA + (jb_ - ja_) * (FAC + 0.3)
+        return int(round(-gy_ * ONE)), int(round(gx_ * ONE))
+    DOORS = []
+    for k, (a, b) in GATES:
+        if CITY.district[a] > CITY.district[b]:
+            a, b = b, a
+        DOORS.append(dict(a=a, b=b, kind=0, key=k - 1))
+    for a, b in WORLD.back:                       # (deep, near): the bolt is on a's side
+        CMAP_W[a] &= ~(3 << 2 * side_to(a, b))
+        CMAP_W[b] &= ~(3 << 2 * side_to(b, a))
+        DOORS.append(dict(a=a, b=b, kind=1, key=-1))
+    for d_ in DOORS:
+        d_.update(sa=side_to(d_["a"], d_["b"]), sb=side_to(d_["b"], d_["a"]),
+                  pa=_stand(d_["a"], d_["b"]), pb=_stand(d_["b"], d_["a"]),
+                  yaw=0 if CITY.xy(d_["a"])[0] == CITY.xy(d_["b"])[0] else 256)
+    NGATE = len(GATES)
+    KEYAT = [_node_xz(WORLD.keys[k]) for k, _ in GATES]          # key g opens gate g + 1
+    BUNKS = [_node_xz(v_) for v_ in WORLD.bunkers]
+    PACK_HOME = _node_xz(WORLD.hard[0][0]) if WORLD.hard else _node_xz(CITY.core)
 GT_N = 7
 CMAP = cart.data(Table(CMAP_W), "city_map")
 GATE_T = cart.data(Table(GT_W or [0]), "gates")
@@ -1195,6 +1268,36 @@ for i in range(7):                 # red and black, seen from both sides
     _gb.quad([(x0, 0, 0.0), (x1, 0, 0.0), (x1, 0, 11), (x0, 0, 11)], (0, 1, 0), col)
                                    # (one side: the gate is drawn unculled)
 GATE_M = int(cart.data(_gb.mesh(), "gate"))
+if L5:
+    DOOR_T = cart.data(Table([w_ for d_ in DOORS for w_ in (d_["a"], 1 << 2 * d_["sa"], d_["b"], 1 << 2 * d_["sb"])]),
+                       "doors")
+    # the way-finder's word a node: its place in the tree's walk (in, out),
+    # the side its parent lies through, and which sides lead to children
+    _tw = []
+    for v_ in range(CS * CS):
+        pd_ = CSTEP.index(_tpar[v_] - v_) if _tpar[v_] >= 0 else 0
+        km_ = sum(1 << CSTEP.index(m_ - v_) for m_ in _tkids[v_])
+        _tw.append(_tin[v_] | _tout[v_] << 8 | pd_ << 16 | km_ << 18)
+    TREE_T = cart.data(Table(_tw), "way_tree")
+    _bb = Build()                  # the back door: the gate's bars in bone and black
+    for i in range(7):
+        x0, x1 = -FAC + 2 * FAC * i / 7, -FAC + 2 * FAC * (i + 1) / 7
+        _bb.quad([(x0, 0, 0.0), (x1, 0, 0.0), (x1, 0, 11), (x0, 0, 11)], (0, 1, 0),
+                 (214, 206, 190) if i % 2 == 0 else (14, 10, 12))
+    BOLT_M = int(cart.data(_bb.mesh(), "bolt"))
+    _hb = Build()                  # the bunker: a hatch in the road, green and black, and its lamp
+    for i in range(2):             # (archive axes: x, y across the ground, z up)
+        for j in range(2):
+            x0, y0 = -1.2 + 1.2 * i, -1.2 + 1.2 * j
+            _hb.quad([(x0, y0, 0.08), (x0 + 1.2, y0, 0.08), (x0 + 1.2, y0 + 1.2, 0.08), (x0, y0 + 1.2, 0.08)],
+                     (0, 0, 1), (40, 170, 90) if (i + j) % 2 == 0 else (14, 10, 12))
+    for (x0, y0, x1, y1) in ((1.5, 1.44, 1.62, 1.44), (1.62, 1.44, 1.62, 1.56), (1.62, 1.56, 1.5, 1.56),
+                             (1.5, 1.56, 1.5, 1.44)):
+        _hb.quad([(x0, y0, 0.0), (x1, y1, 0.0), (x1, y1, 3.0), (x0, y0, 3.0)], (0, 1, 0), (40, 36, 40))
+        _hb.quad([(x0 * 1.1 - 0.156, y0 * 1.6 - 0.9, 3.0), (x1 * 1.1 - 0.156, y1 * 1.6 - 0.9, 3.0),
+                  (x1 * 1.1 - 0.156, y1 * 1.6 - 0.9, 3.5), (x0 * 1.1 - 0.156, y0 * 1.6 - 0.9, 3.5)], (0, 1, 0),
+                 (90, 255, 150))
+    BUNK_M = int(cart.data(_hb.mesh(), "bunker"))
 if BASE:
     # P21: A KEY A DISTRICT, in the middle of its plaza -- found, picked up
     # with the jab, and carried to the district's gate, which the jab then
@@ -1244,6 +1347,9 @@ for k in range(8):                 # triangle a way, at the top of the screen
     _aw += [int(round(c)) for pt in pts for c in pt] + [0xE8C040]
 _aw += [0] * spec.DL_STRIDE
 ARROWS = cart.data(Table(_aw), "arrows")
+if L5:
+    PIPS = cart.data(Table([c_ for g_ in range(len(GATES)) for c_ in (
+        10 + 12 * g_, 22, 17 + 12 * g_, 28, 10 + 12 * g_, 34, 0xE8C040)]), "key_pips")
 CT_MAX = 12                     # pieces a frame, at most
 FOG_FROM, FOG_FULL = 2.0, 34.0   # P20b: a HEAVY haze, from his heels to two nodes on
 PIECE_CY, PIECE_R = 6.5, 13.5   # a piece's bounding sphere: centre height, radius
@@ -2315,7 +2421,7 @@ SETTLED = {k_[0]: k_[1] for k_ in KNOBS + KNOBS_L1 + KNOBS_L2}
 SETTLED["ramp"] = BASE_SET.get("ramp", int(0.22 * ONE))      # (weight: left at 0.73)
 if LAYER == 1:
     KNOBS = KNOBS_L1
-if LAYER in (2, 3, 4):
+if LAYER in (2, 3, 4, 5):
     KNOBS = KNOBS_L2
 if BASE:
     KN = cart.data(Table([k_[1] for k_ in KNOBS]), "knobs")
@@ -2324,6 +2430,45 @@ if BASE:
     WSPD, QT, KEY, PICK, KNEAR, KX, KZ, WACC, LFLASH = (cart.var(k) for k in (
         "walk_v", "qturn_left", "key_held", "pick_t", "ctx_near", "ctx_x", "ctx_z", "walk_acc",
         "light_flash"))
+    if L5:
+        # P38: THE WORLD's state. The keys in hand and the keys ever taken (a
+        # bit a gate); the doors opened (a bit a door: the gates, then the
+        # bolts); is there an item at all; the nearest key not yet taken (its
+        # number, bit and place) and the nearest door still shut (its number,
+        # bit, the key's bit it eats, the place to stand on HIS side, its
+        # turn, its mesh, and whether the jab would open it from here); the
+        # node the arrow leads to; the nearest bunker, and the last one stood
+        # in; is the hard way's pack awake, and where its ring is centred.
+        # (KEY keeps its place in the layers under: nonzero, the item is a
+        # DOOR, not a key.)
+        (KEYS, TAKEN, OPENED, ITEM, K5, KYB, KYX, KYZ, BESTK, D5, DRB, DRK, DRX, DRZ, DRY, DRM, DCAN, BESTD,
+         WAYN, BKX, BKZ, BESTB, LASTB, PACK, PKX, PKZ, PIPN, PIPE) = (cart.var("w_" + k) for k in (
+            "keys", "taken", "opened", "item", "k5", "kyb", "kyx", "kyz", "bestk", "d5", "drb", "drk", "drx", "drz",
+            "dry", "drm", "dcan", "bestd", "wayn", "bkx", "bkz", "bestb", "lastb", "pack", "pkx", "pkz", "pipn",
+            "pipe"))
+        FAR_ = 0x3FFFFFFF
+
+
+def item_exists(g):
+    """( -- flag ) is there an item (the key, or its gate) for the jab, the
+    lock, the shot: in the world, whenever a key or a door is left; under
+    it, until the last district"""
+    if L5:
+        return g.load(ITEM)
+    return g.load(LVL).push(len(GATES)).emit("lt")
+
+
+def manhattan(g, x_, z_, tag):
+    """( -- |x - his| + |z - his| ): how far, by the streets' own axes --
+    no squares, so the whole town is in range of the word"""
+    for c_, cell_, k_ in ((x_, PX, "x"), (z_, PZ, "z")):
+        g.push32(c_).load(cell_).emit("sub", "dup").push(0).emit("lt", f"jz {tag}{k_}")
+        g.push(0).emit("swap", "sub")
+        g.mark(f"{tag}{k_}")
+    return g.emit("add")
+
+
+if BASE:
     # P25: THE WALL JUMP's memory -- which way a wall stopped him in the air,
     # for how many frames more it still counts, and how many he has had
     WALLT, WALLA, WSX, WSZ, WTX, WTZ, WJN = (cart.var(k) for k in (
@@ -2554,11 +2699,24 @@ if BASE:
     if L4:
         p.set(TSEL, -1).set(SPOT, 1).set(TOK, 0).set(RPREV, 0).set(PLANT, 0)
         for e_ in ENEMY:
-            p.set(int(e_["pos"]), START_X + e_["dx"]).set(int(e_["pos"]) + 1, START_Z + e_["dz"])
+            if L5:
+                p.push32(PACK_HOME[0] + e_["rx"]).store(int(e_["pos"])).push32(PACK_HOME[1] + e_["rz"]).store(int(e_["pos"]) + 1)
+            else:
+                p.set(int(e_["pos"]), START_X + e_["dx"]).set(int(e_["pos"]) + 1, START_Z + e_["dz"])
             p.set(e_["yaw"], 0).set(e_["st"], 1).set(e_["hp"], e_["T"]["hp"])
             for k_ in ("stun", "fl", "ph", "walk", "t"):
                 p.set(e_[k_], 0)
             p.set(e_["clk"], e_["phase"])
+    if L5:
+        for c_ in (KEYS, TAKEN, OPENED, ITEM, LASTB, PACK, DCAN):
+            p.set(c_, 0)
+        p.set(K5, -1).set(D5, -1).set(WAYN, CITY.start).set(PIPN, 0)
+        for c_ in (BESTK, BESTD, BESTB):
+            p.push32(FAR_).store(c_)
+        if os.environ.get("TND_AT"):            # (the meter's hook: begin elsewhere -- "x,z,yaw,keys")
+            _at = os.environ["TND_AT"].split(",")
+            p.push32(int(float(_at[0]) * ONE)).store(PX).push32(int(float(_at[1]) * ONE)).store(PZ)
+            p.set(YAW, int(_at[2])).set(CY, int(_at[2])).set(HEAD, int(_at[2])).set(KEYS, int(_at[3])).set(TAKEN, int(_at[3]))
     p.set(WR, ONE)
 if SWARM_TEST:                                  # (the meter's hook: the fight in the
     p.set(PX, int(3 * ONE)).set(PZ, int(3 * ONE))               # first plaza, the
@@ -2653,7 +2811,7 @@ if BASE:
                 p.load(e_["st"]).push(1).emit("eq", f"jz {tv}")
                 xc_, zc_ = int(e_["pos"]), int(e_["pos"]) + 1
             else:
-                p.load(LVL).push(len(GATES)).emit("lt", f"jz {tv}")
+                item_exists(p).emit(f"jz {tv}")
                 xc_, zc_ = int(KX), int(KZ)
             p.load(xc_).store(int(TPX) + t_).load(zc_).store(int(TPZ) + t_)
             p.load(xc_).load(PX).emit("sub").store(W["qx"]).load(zc_).load(PZ).emit("sub").store(W["qz"])
@@ -2879,15 +3037,91 @@ if BASE:
     # only then: he is never turned or drawn to it.
     kn = p.label("ctx")
     p.set(KNEAR, 0)
-    p.load(LVL).push(len(GATES)).emit("lt", f"jz {kn}")          # (the last district: none)
-    p.load(KEY).emit(f"jz {kn}_k")
-    p.load(LVL).push(GT_N).emit("mul").push(int(GATE_T) + 4).emit("add", "dup", "loadi").store(KX)
-    p.push(1).emit("add", "loadi").store(KZ)
-    p.push32(int(3.9 ** 2 * ONE)).store(W["d2"]).emit(f"jmp {kn}_t")
-    p.mark(f"{kn}_k")
-    p.push(int(KEYPOS)).load(LVL).push(2).emit("mul", "add", "dup", "loadi").store(KX)
-    p.push(1).emit("add", "loadi").store(KZ)
-    p.push32(int(1.4 ** 2 * ONE)).store(W["d2"])
+    if L5:
+        # P38: THE NEAREST BUNKER (its hatch is drawn; standing on it, it is
+        # the last he stood in), and THE HARD WAY'S PACK: asleep at its
+        # street until he comes within a block of it, and home again once
+        # he is two blocks gone.
+        p.push32(FAR_).store(BESTB)
+        for b_, (bx_, bz_) in enumerate(BUNKS):
+            sb_ = f"{kn}_b{b_}"
+            manhattan(p, bx_, bz_, f"{sb_}_a").emit("dup").load(BESTB).emit("lt", f"jz {sb_}_d")
+            p.store(BESTB).push32(bx_).store(BKX).push32(bz_).store(BKZ)
+            p.load(BESTB).push(int(2.0 * ONE)).emit("lt", f"jz {sb_}")
+            p.set(LASTB, b_).emit(f"jmp {sb_}")
+            p.mark(f"{sb_}_d")
+            p.emit("drop")
+            p.mark(sb_)
+        manhattan(p, *PACK_HOME, f"{kn}_ph").store(W["qx"])
+        p.load(PACK).emit(f"jz {kn}_pz")
+        p.push32(int(34 * ONE)).load(W["qx"]).emit("lt", f"jz {kn}_pe")     # (34 < d: he is gone)
+        p.set(PACK, 0).emit(f"jmp {kn}_pe")
+        p.mark(f"{kn}_pz")
+        p.load(W["qx"]).push32(int(16 * ONE)).emit("lt", f"jz {kn}_pe")
+        p.set(PACK, 1)
+        p.mark(f"{kn}_pe")
+        p.push32(PACK_HOME[0]).store(PKX).push32(PACK_HOME[1]).store(PKZ)
+        p.load(PACK).emit(f"jz {kn}_pk")
+        p.load(PX).store(PKX).load(PZ).store(PKZ)
+        p.mark(f"{kn}_pk")
+        # P38: THE WORLD'S ITEMS. The nearest key not yet taken, and the
+        # nearest door still shut (by the place to stand on his side of
+        # it); the nearer of the two is THE ITEM -- what the jab, the lock
+        # and the shot know. Every key and door is the cart's own constant:
+        # the search is written out, one a thing.
+        p.set(K5, -1).set(D5, -1).set(DCAN, 0).push32(FAR_).store(BESTK).push32(FAR_).store(BESTD)
+        for g_, (kx_, kz_) in enumerate(KEYAT):
+            sk = f"{kn}_k{g_}"
+            p.load(TAKEN).push(1 << g_).emit("and", f"jz {sk}_o", f"jmp {sk}")
+            p.mark(f"{sk}_o")
+            manhattan(p, kx_, kz_, f"{sk}_a").emit("dup").load(BESTK).emit("lt", f"jz {sk}_d")
+            p.store(BESTK).set(K5, g_).set(KYB, 1 << g_).push32(kx_).store(KYX).push32(kz_).store(KYZ)
+            p.emit(f"jmp {sk}")
+            p.mark(f"{sk}_d")
+            p.emit("drop")
+            p.mark(sk)
+        for i_, d_ in enumerate(DOORS):
+            sd = f"{kn}_d{i_}"
+            p.load(OPENED).push(1 << i_).emit("and", f"jz {sd}_o", f"jmp {sd}")
+            p.mark(f"{sd}_o")
+            manhattan(p, *d_["pa"], f"{sd}_a").store(W["qx"])
+            manhattan(p, *d_["pb"], f"{sd}_b").store(W["qz"])
+            p.load(W["qx"]).load(W["qz"]).emit("lt", f"jz {sd}_fb")
+            for side_, q_ in (("pa", W["qx"]), ("pb", W["qz"])):
+                p.load(q_).load(BESTD).emit("lt", f"jz {sd}")
+                p.load(q_).store(BESTD).set(D5, i_).set(DRB, 1 << i_)
+                p.set(DRK, (1 << d_["key"]) if d_["kind"] == 0 else 0)
+                p.push32(d_[side_][0]).store(DRX).push32(d_[side_][1]).store(DRZ)
+                p.set(DRY, d_["yaw"]).set(DRM, GATE_M if d_["kind"] == 0 else BOLT_M)
+                if d_["kind"] == 0:                    # a gate: its key in hand, from either side
+                    p.load(KEYS).push(1 << d_["key"]).emit("and").store(DCAN)
+                else:                                  # a bolt: from its own side only
+                    p.set(DCAN, 1 if side_ == "pa" else 0)
+                p.emit(f"jmp {sd}")
+                if side_ == "pa":
+                    p.mark(f"{sd}_fb")
+            p.mark(sd)
+        p.load(K5).push(0).emit("lt", f"jz {kn}_hk")
+        p.load(D5).push(0).emit("lt", f"jz {kn}_door")
+        p.set(ITEM, 0).emit(f"jmp {kn}")                             # (nothing left: no item)
+        p.mark(f"{kn}_hk")
+        p.load(BESTD).load(BESTK).emit("lt", f"jz {kn}_key")
+        p.mark(f"{kn}_door")
+        p.set(ITEM, 1).set(KEY, 1).load(DRX).store(KX).load(DRZ).store(KZ)
+        p.push32(int(3.9 ** 2 * ONE)).store(W["d2"]).emit(f"jmp {kn}_t")
+        p.mark(f"{kn}_key")
+        p.set(ITEM, 1).set(KEY, 0).load(KYX).store(KX).load(KYZ).store(KZ)
+        p.push32(int(1.4 ** 2 * ONE)).store(W["d2"])
+    else:
+        p.load(LVL).push(len(GATES)).emit("lt", f"jz {kn}")          # (the last district: none)
+        p.load(KEY).emit(f"jz {kn}_k")
+        p.load(LVL).push(GT_N).emit("mul").push(int(GATE_T) + 4).emit("add", "dup", "loadi").store(KX)
+        p.push(1).emit("add", "loadi").store(KZ)
+        p.push32(int(3.9 ** 2 * ONE)).store(W["d2"]).emit(f"jmp {kn}_t")
+        p.mark(f"{kn}_k")
+        p.push(int(KEYPOS)).load(LVL).push(2).emit("mul", "add", "dup", "loadi").store(KX)
+        p.push(1).emit("add", "loadi").store(KZ)
+        p.push32(int(1.4 ** 2 * ONE)).store(W["d2"])
     p.mark(f"{kn}_t")
     p.load(KX).load(PX).emit("sub").store(W["qx"]).load(KZ).load(PZ).emit("sub").store(W["qz"])
     # (NEAR ON EACH AXIS FIRST: a square of more than 181 units overflows the
@@ -2905,6 +3139,10 @@ if BASE:
     sin_of(p)
     p.load(W["qx"]).emit("mulq", "sub")                          # fwd . to it
     p.push(0).emit("swap", "lt", f"jz {kn}")                     # ahead
+    if L5:                                                       # (a door he cannot open: no jab's
+        p.load(KEY).emit(f"jz {kn}_can")                         # context -- a gate without its key,
+        p.load(DCAN).emit(f"jz {kn}")                            # a bolt from the wrong side)
+        p.mark(f"{kn}_can")
     p.load(KEY).push(1).emit("add").store(KNEAR)
     p.mark(kn)
 # P13: a FRESH Start in the fight pages in the pause (its words over the end)
@@ -3078,8 +3316,8 @@ if L2:
             p.addi(e_["stun"], -1).set(e_["walk"], 0).emit(f"jmp {ea}")
             p.mark(f"{ea}_free")
             p.set(e_["walk"], 0)
-            p.load(PX).push32(e_["rx"]).emit("add").load(ex_).emit("sub").store(W["qx"])
-            p.load(PZ).push32(e_["rz"]).emit("add").load(ez_).emit("sub").store(W["qz"])
+            p.load(PKX if L5 else PX).push32(e_["rx"]).emit("add").load(ex_).emit("sub").store(W["qx"])
+            p.load(PKZ if L5 else PZ).push32(e_["rz"]).emit("add").load(ez_).emit("sub").store(W["qz"])
             for q_ in (W["qx"], W["qz"]):         # (across town: it waits)
                 p.load(q_).emit("dup").push(0).emit("lt", f"jz {ea}_p{int(q_)}")
                 p.push(0).emit("swap", "sub")
@@ -3108,7 +3346,10 @@ if L2:
             p.mark(f"{ea}_dn")
             p.load(e_["st"]).push(2).emit("eq", f"jz {ea}")
             p.addi(e_["t"], 1).push(DOWN_FOR).load(e_["t"]).emit("lt", f"jz {ea}")
-            p.set(ex_, START_X + e_["dx"]).set(ez_, START_Z + e_["dz"])
+            if L5:                                # (P38: back at the hard way it holds)
+                p.push32(PACK_HOME[0] + e_["rx"]).store(ex_).push32(PACK_HOME[1] + e_["rz"]).store(ez_)
+            else:
+                p.set(ex_, START_X + e_["dx"]).set(ez_, START_Z + e_["dz"])
             p.set(e_["st"], 1).set(e_["hp"], e_["T"]["hp"]).set(e_["stun"], 0).set(e_["walk"], 0)
             p.mark(ea)
     # THE CYLINDER: the mag knob's rounds. The last one gone, it is RELOAD
@@ -3272,15 +3513,31 @@ if BASE:
     p.load(ANIM).push(2).emit("eq", f"jz {cx_}_a", f"jmp {cx_}")   # (mid-swing: a jab)
     p.mark(f"{cx_}_a")
     p.load(KNEAR).push(1).emit("eq", f"jz {cx_}_g")
-    p.set(KEY, 1).set(LFLASH, 6).emit(f"jmp {cx_}_do")             # the key: his
-    p.mark(f"{cx_}_g")                                             # the gate: open
-    p.set(KEY, 0).addi(LVL, 1).set(LFLASH, 20)
-    for half in (0, 2):
-        p.load(LVL).push(GT_N).emit("mul").push(int(GATE_T) - GT_N + half).emit("add")
-        p.emit("dup", "loadi").push(int(CMAP)).emit("add", "dup", "loadi")
-        p.emit("swap").store(CT["k"])
-        p.emit("swap").push(1).emit("add", "loadi", "or")
-        p.load(CT["k"]).emit("storei")
+    if L5:
+        # P38: the key is one of several in hand; the door is whichever
+        # stands here -- a gate eats its key, a bolt asks none
+        p.load(KEYS).load(KYB).emit("or").store(KEYS).load(TAKEN).load(KYB).emit("or").store(TAKEN)
+        p.set(LFLASH, 6).emit(f"jmp {cx_}_do")
+        p.mark(f"{cx_}_g")
+        p.load(OPENED).load(DRB).emit("or").store(OPENED)
+        p.load(DRK).push32(0xFFFFFFFF).emit("xor").load(KEYS).emit("and").store(KEYS)
+        p.set(LFLASH, 20)
+        for half in (0, 2):
+            p.load(D5).push(4).emit("mul").push(int(DOOR_T) + half).emit("add")
+            p.emit("dup", "loadi").push(int(CMAP)).emit("add", "dup", "loadi")
+            p.emit("swap").store(CT["k"])
+            p.emit("swap").push(1).emit("add", "loadi", "or")
+            p.load(CT["k"]).emit("storei")
+    else:
+        p.set(KEY, 1).set(LFLASH, 6).emit(f"jmp {cx_}_do")             # the key: his
+        p.mark(f"{cx_}_g")                                             # the gate: open
+        p.set(KEY, 0).addi(LVL, 1).set(LFLASH, 20)
+        for half in (0, 2):
+            p.load(LVL).push(GT_N).emit("mul").push(int(GATE_T) - GT_N + half).emit("add")
+            p.emit("dup", "loadi").push(int(CMAP)).emit("add", "dup", "loadi")
+            p.emit("swap").store(CT["k"])
+            p.emit("swap").push(1).emit("add", "loadi", "or")
+            p.load(CT["k"]).emit("storei")
     p.mark(f"{cx_}_do")
     knob(p, "pick").store(PICK)
     p.set(KNEAR, 0).set(WSPD, 0)
@@ -4615,6 +4872,13 @@ for k in range(len(GATES)):                     # (P19: and every gate shut agai
     for half in (0, 2):
         a_, bit_ = GT_W[k * GT_N + half], GT_W[k * GT_N + half + 1]
         p.load(int(CMAP) + a_).push32(~bit_ & 0xFFFFFFFF).emit("and").store(int(CMAP) + a_)
+if L5:                                          # (P38: and every bolt, and nothing in hand)
+    for d_ in DOORS:
+        if d_["kind"] == 1:
+            for n_, sd_ in ((d_["a"], d_["sa"]), (d_["b"], d_["sb"])):
+                p.load(int(CMAP) + n_).push32(~(3 << 2 * sd_) & 0xFFFFFFFF).emit("and").store(int(CMAP) + n_)
+    for c_ in (KEYS, TAKEN, OPENED):
+        p.set(c_, 0)
 # (the wave: the three are marked gone, and the fight's own respawn -- below,
 # this same frame -- fetches the new one, as the pause's QUIT always did)
 for d in range(3):
@@ -4788,7 +5052,7 @@ if L3:
     fk_ = p.label("fistkey")
     p.load(KEY).load(F["con"]).emit("or", f"jz {fk_}_k", f"jmp {fk_}")
     p.mark(f"{fk_}_k")
-    p.load(LVL).push(len(GATES)).emit("lt", f"jz {fk_}")
+    item_exists(p).emit(f"jz {fk_}")
     for k_, f_ in ((KX, "fx"), (KZ, "fz")):
         p.load(k_).load(F[f_]).emit("sub", "dup").push(0).emit("lt", f"jz {fk_}_a{f_}")
         p.push(0).emit("swap", "sub")
@@ -6106,20 +6370,31 @@ p.mark(cw_)
 # district being fought; every gate before it is open, every one after it
 # behind it)
 gd_ = p.label("gate")
-p.load(LVL).push(NDIST - 1).emit("lt", f"jz {gd_}")
-p.load(LVL).push(GT_N).emit("mul").push(int(GATE_T)).emit("add").store(CT["k"])
-p.load(CT["k"]).push(4).emit("add", "loadi").store(VIS["cx"])
-p.load(CT["k"]).push(5).emit("add", "loadi").store(VIS["cz"])
-p.push(int(round((7 - 2.15) * ONE))).store(VIS["cy"]).push(int(12 * ONE)).store(VIS["r"])
-p.emit(f"call {L_VIS}", f"jz {gd_}")
-p.object(NOBJ, GATE_M,
-         lambda h: h.load(CT["k"]).push(4).emit("add", "loadi"), 0,
-         lambda h: h.load(CT["k"]).push(5).emit("add", "loadi"),
-         lambda h: h.load(CT["k"]).push(6).emit("add", "loadi"),
-         (lambda h: h.load(KNEAR).push(2).emit("eq").push(spec.OBJ_EDGE).emit("mul"))
-         if BASE else 0)                                              # (both sides; P21b:
-                                                                      # outlined when the
-                                                                      # jab would unlock it)
+if L5:
+    # P38: the nearest door still shut, on HIS side of it (a gate's bars, a
+    # back door's): outlined when the jab would open it from here
+    p.load(D5).push(0).emit("lt", f"jz {gd_}_on", f"jmp {gd_}")
+    p.mark(f"{gd_}_on")
+    p.load(DRX).store(VIS["cx"]).load(DRZ).store(VIS["cz"])
+    p.push(int(round((7 - 2.15) * ONE))).store(VIS["cy"]).push(int(12 * ONE)).store(VIS["r"])
+    p.emit(f"call {L_VIS}", f"jz {gd_}")
+    p.object(NOBJ, (f"load {int(DRM)}",), (f"load {int(DRX)}",), 0, (f"load {int(DRZ)}",), (f"load {int(DRY)}",),
+             lambda h: h.load(KNEAR).push(2).emit("eq").push(spec.OBJ_EDGE).emit("mul"))
+else:
+    p.load(LVL).push(NDIST - 1).emit("lt", f"jz {gd_}")
+    p.load(LVL).push(GT_N).emit("mul").push(int(GATE_T)).emit("add").store(CT["k"])
+    p.load(CT["k"]).push(4).emit("add", "loadi").store(VIS["cx"])
+    p.load(CT["k"]).push(5).emit("add", "loadi").store(VIS["cz"])
+    p.push(int(round((7 - 2.15) * ONE))).store(VIS["cy"]).push(int(12 * ONE)).store(VIS["r"])
+    p.emit(f"call {L_VIS}", f"jz {gd_}")
+    p.object(NOBJ, GATE_M,
+             lambda h: h.load(CT["k"]).push(4).emit("add", "loadi"), 0,
+             lambda h: h.load(CT["k"]).push(5).emit("add", "loadi"),
+             lambda h: h.load(CT["k"]).push(6).emit("add", "loadi"),
+             (lambda h: h.load(KNEAR).push(2).emit("eq").push(spec.OBJ_EDGE).emit("mul"))
+             if BASE else 0)                                              # (both sides; P21b:
+                                                                          # outlined when the
+                                                                          # jab would unlock it)
 p.mark(gd_)
 def flash_flags(hs, out):
     """out = FLASH while the blow is fresh -- the STRUCK body only: hitstop
@@ -6322,23 +6597,35 @@ for i in range(N_IMP):
     p.mark(e)
 if BASE:
     kd_ = p.label("dkey")
-    p.load(KEY).emit(f"jz {kd_}_s", f"jmp {kd_}")
-    p.mark(f"{kd_}_s")
-    p.load(LVL).push(len(GATES)).emit("lt", f"jz {kd_}")
-    p.object(NOBJ, KEY_M, (f"load {int(KX)}",),
+    KDX, KDZ = (KYX, KYZ) if L5 else (KX, KZ)
+    if L5:
+        # P38: the nearest bunker's hatch, and the nearest key not yet taken
+        # (each only within a few blocks: past that the fog has them)
+        p.load(BESTB).push32(int(60 * ONE)).emit("lt", f"jz {kd_}_nb")
+        p.object(NOBJ, BUNK_M, (f"load {int(BKX)}",), 0, (f"load {int(BKZ)}",), 0, 0)
+        p.mark(f"{kd_}_nb")
+        p.load(K5).push(0).emit("lt", f"jz {kd_}_s", f"jmp {kd_}")
+        p.mark(f"{kd_}_s")
+        p.load(BESTK).push32(int(60 * ONE)).emit("lt", f"jz {kd_}")
+    else:
+        p.load(KEY).emit(f"jz {kd_}_s", f"jmp {kd_}")
+        p.mark(f"{kd_}_s")
+        p.load(LVL).push(len(GATES)).emit("lt", f"jz {kd_}")
+    p.object(NOBJ, KEY_M, (f"load {int(KDX)}",),
              (f"load {spec.REG_FRAME}", "push 3", "mul", "push 63", "and", "push 400", "mul",
               f"push {int(0.85 * ONE)}", "add")                  # (it rises and drops)
              + ((f"load {int(KHIT)}", "push 1100", "mul", "add") if L2 else ()),   # (P34: struck, it leaps)
-             (f"load {int(KZ)}",),
+             (f"load {int(KDZ)}",),
              (f"load {spec.REG_FRAME}", "push 5", "mul", f"load {int(KNEAR)}", "push 4", "mul",
               "push 1", "add", "mul", "push 1023", "and"),       # (in reach: it spins fast,
              (f"load {int(KNEAR)}", "push 1", "eq")
              + ((f"load {int(KHIT)}", "push 0", "eq", "push 1", "xor", "or") if L2 else ())
-             + ((f"load {int(LOCK)}",) + ((f"load {int(TSEL)}", f"push {NE}", "eq", "and") if L4 else ()) + ("or",)
+             + ((f"load {int(LOCK)}",) + ((f"load {int(TSEL)}", f"push {NE}", "eq", "and") if L4 else ())
+                + ((f"load {int(KEY)}", "push 0", "eq", "and") if L5 else ()) + ("or",)
                 if L3 else ())
              + (f"push {spec.OBJ_EDGE}", "mul",                                       # outlined)
               f"push {spec.OBJ_CULL}", "or"))
-    p.object(NOBJ, SHADOW_M, (f"load {int(KX)}",), 0, (f"load {int(KZ)}",), 0, spec.OBJ_BLEND)
+    p.object(NOBJ, SHADOW_M, (f"load {int(KDX)}",), 0, (f"load {int(KDZ)}",), 0, spec.OBJ_BLEND)
     p.mark(kd_)
     p.object(NOBJ, SHADOW_M, (f"load {int(PX)}",), (f"load {int(GYC)}",), (f"load {int(PZ)}",),
              (f"load {int(HEAD)}",), spec.OBJ_BLEND)
@@ -6522,6 +6809,8 @@ if BASE:
         p.set(TX[k], v)
     p.emit(f"call {L_TEXT}")
     p.load(TX["n"]).store(spec.DL_BASE)
+    if L5:
+        p.set(PIPN, 0)
     p.emit(f"jmp {hk}")
     p.mark(f"{hk}_nt")
 p.load(SY["g"]).push(int(S_SHOWN)).emit("loadi", "eq", f"jz {hk}_draw", f"jmp {hk}")
@@ -6566,6 +6855,8 @@ p.set(TX["x"], 158).set(TX["y"], 218).set(TX["sc"], 3)
 p.emit(f"call {L_TEXT}")
 p.mark(f"{hk}_out")
 p.load(TX["n"]).store(spec.DL_BASE)
+if L5:
+    p.set(PIPN, 0)
 p.mark(hk)
 # P19: THE POINTER. Away from the district being fought -- a district
 # cleared behind him, its gate open -- a gold arrow at the top of the
@@ -6580,17 +6871,58 @@ p.mark(f"{pt_}_up")
 city_node(p, PX, PZ)
 p.load(CT["n"]).push(0).emit("lt", f"jz {pt_}_on", f"jmp {pt_}_w")
 p.mark(f"{pt_}_on")
-p.set(CT["c"], 27)                                       # the road: to the core,
-p.load(CT["w"]).emit("shr 23").push(15).emit("and").load(LVL).emit("eq")
-p.emit(f"jz {pt_}_away")
-if BASE:                                                 # P21: the key held, on to the
-    p.load(KEY).emit(f"jz {pt_}_nk", f"jmp {pt_}_away")  # gate; else to the plaza it
-    p.mark(f"{pt_}_nk")                                  # lies in (there: no arrow)
-    p.load(CT["w"]).push(0xAA).emit("and", f"jz {pt_}_asl", f"jmp {pt_}_w")
+if L5:
+    # P38: THE ARROW LEADS TO THE WAYMARK. Until the bunker's map sets it
+    # (docs/TND-WORLD.md, step 3) the waymark is the game's own: the first
+    # gate still shut that is not behind him -- its key's dead end, or, the
+    # key in hand, the gate itself; every gate open, the core. The way
+    # there is the generated town's own tree (TREE_T): down into the branch
+    # that holds the waymark, else back toward the start. It knows no
+    # bolts and no hard ways -- those are his to find.
+    p.set(WAYN, CITY.core)
+    p.load(CT["w"]).emit("shr 23").push(15).emit("and").store(W["qx"])
+    for g_, d_ in enumerate(DOORS[:NGATE]):
+        wg = f"{pt_}_g{g_}"
+        p.load(OPENED).push(1 << g_).emit("and", f"jz {wg}_s", f"jmp {wg}")
+        p.mark(f"{wg}_s")
+        p.load(W["qx"]).push(g_ + 1).emit("lt", f"jz {wg}")     # (his sector is past it)
+        p.set(WAYN, d_["a"])
+        p.load(KEYS).push(1 << g_).emit("and", f"jz {wg}_k", f"jmp {pt_}_wd")
+        p.mark(f"{wg}_k")
+        p.set(WAYN, WORLD.keys[GATES[g_][0]]).emit(f"jmp {pt_}_wd")
+        p.mark(wg)
+    p.mark(f"{pt_}_wd")
+    p.load(CT["n"]).load(WAYN).emit("eq", f"jz {pt_}_go", f"jmp {pt_}_w")      # (there: no arrow)
+    p.mark(f"{pt_}_go")
+    p.load(CT["n"]).push(int(TREE_T)).emit("add", "loadi").store(CT["w1"])
+    p.load(WAYN).push(int(TREE_T)).emit("add", "loadi").push(255).emit("and").store(CT["n1"])
+    p.load(CT["w1"]).emit("shr 16").push(3).emit("and").store(CT["c"])        # (not under him: back)
+    p.load(CT["n1"]).load(CT["w1"]).push(255).emit("and", "lt", f"jz {pt_}_ta", f"jmp {pt_}_away")
+    p.mark(f"{pt_}_ta")
+    p.load(CT["w1"]).emit("shr 8").push(255).emit("and").load(CT["n1"]).emit("lt", f"jz {pt_}_tb", f"jmp {pt_}_away")
+    p.mark(f"{pt_}_tb")
+    for k in range(4):
+        tk = f"{pt_}_t{k}"
+        p.load(CT["w1"]).emit(f"shr {18 + k}").push(1).emit("and", f"jz {tk}")
+        p.load(CT["n"]).push(CSTEP[k]).emit("add").push(int(TREE_T)).emit("add", "loadi").store(CT["x"])
+        p.load(CT["n1"]).load(CT["x"]).push(255).emit("and", "lt", f"jz {tk}_a", f"jmp {tk}")
+        p.mark(f"{tk}_a")
+        p.load(CT["x"]).emit("shr 8").push(255).emit("and").load(CT["n1"]).emit("lt", f"jz {tk}_b", f"jmp {tk}")
+        p.mark(f"{tk}_b")
+        p.set(CT["c"], k).emit(f"jmp {pt_}_away")
+        p.mark(tk)
 else:
-    p.load(WOKE).emit(f"jz {pt_}_asl", f"jmp {pt_}_w")       # (the fight: none)
-p.mark(f"{pt_}_asl")
-p.set(CT["c"], 29)                                       # ...or, asleep, its plaza
+    p.set(CT["c"], 27)                                       # the road: to the core,
+    p.load(CT["w"]).emit("shr 23").push(15).emit("and").load(LVL).emit("eq")
+    p.emit(f"jz {pt_}_away")
+    if BASE:                                                 # P21: the key held, on to the
+        p.load(KEY).emit(f"jz {pt_}_nk", f"jmp {pt_}_away")  # gate; else to the plaza it
+        p.mark(f"{pt_}_nk")                                  # lies in (there: no arrow)
+        p.load(CT["w"]).push(0xAA).emit("and", f"jz {pt_}_asl", f"jmp {pt_}_w")
+    else:
+        p.load(WOKE).emit(f"jz {pt_}_asl", f"jmp {pt_}_w")       # (the fight: none)
+    p.mark(f"{pt_}_asl")
+    p.set(CT["c"], 29)                                       # ...or, asleep, its plaza
 p.mark(f"{pt_}_away")
 p.load(CT["n"]).emit("shr 4", f"shl {TSH}").push32(int(OYA * ONE)).emit("swap", "sub")
 p.load(PX).emit("sub").store(CT["x"])                    # node centre - him
@@ -6598,12 +6930,15 @@ p.load(CT["n"]).push(CS - 1).emit("and", f"shl {TSH}").push32(int(OXA * ONE))
 p.emit("sub").load(PZ).emit("sub").store(CT["z"])
 for k in range(4):                                       # ...+ the next street
     dx, dy, _ = city.DIRS[k]
-    p.load(CT["w"]).emit("shr 27").load(CT["c"]).push(29).emit("eq", f"jz {pt_}_s{k}")
-    p.emit("shr 2")                                      # (bits 29-30: the plaza's way.
-                                                         # Until P21b this tested for 27,
-                                                         # and the two ways were swapped)
-    p.mark(f"{pt_}_s{k}")
-    p.push(3).emit("and").push(k).emit("eq", f"jz {pt_}_h{k}")
+    if L5:
+        p.load(CT["c"]).push(k).emit("eq", f"jz {pt_}_h{k}")
+    else:
+        p.load(CT["w"]).emit("shr 27").load(CT["c"]).push(29).emit("eq", f"jz {pt_}_s{k}")
+        p.emit("shr 2")                                      # (bits 29-30: the plaza's way.
+                                                             # Until P21b this tested for 27,
+                                                             # and the two ways were swapped)
+        p.mark(f"{pt_}_s{k}")
+        p.push(3).emit("and").push(k).emit("eq", f"jz {pt_}_h{k}")
     if dy:
         p.load(CT["x"]).push32(-dy * int(TILE * ONE)).emit("add").store(CT["x"])
     if dx:
@@ -6642,6 +6977,28 @@ p.load(spec.DL_BASE).emit(f"jz {pt_}_n1", f"jmp {pt_}")
 p.mark(f"{pt_}_n1")
 p.set(spec.DL_BASE, 1)
 p.mark(pt_)
+if L5:
+    # P38: THE KEYS IN HAND, a gold pip each along the top -- a key's place
+    # in the row is its gate's number
+    # (the display list is KEPT from frame to frame -- the HUD writes its
+    # words only when they change -- so last frame's pips are taken off the
+    # end first: if the count is still the one they left)
+    p.load(PIPN).emit(f"jz {pt_}_pp")
+    p.load(spec.DL_BASE).load(PIPE).emit("eq", f"jz {pt_}_pp")
+    p.load(spec.DL_BASE).load(PIPN).emit("sub").store(spec.DL_BASE)
+    p.mark(f"{pt_}_pp")
+    p.set(PIPN, 0)
+    for g_ in range(NGATE):
+        kp = f"{pt_}_pip{g_}"
+        p.load(KEYS).push(1 << g_).emit("and", f"jz {kp}")
+        p.addi(PIPN, 1)
+        p.push(int(PIPS) + g_ * spec.DL_STRIDE).store(CP["src"])
+        p.load(spec.DL_BASE).push(spec.DL_STRIDE).emit("mul").push(spec.DL_BASE + 1).emit("add").store(CP["dst"])
+        p.push(spec.DL_STRIDE).store(CP["n"])
+        p.emit(f"call {L_COPY}")
+        p.addi(spec.DL_BASE, 1)
+        p.mark(kp)
+    p.load(spec.DL_BASE).store(PIPE)
 
 # ---- THE GAUGE (P6 dresses it): his health, on the compositor's free
 # rectangles, from the first blow either way -- an untouched opening is
@@ -8047,7 +8404,7 @@ if L2:
     # plaza, on the line and nearer than the wall, it is what the shot meets
     p.load(KEY).emit(f"jz {ry}_k", f"jmp {ry}_e")
     p.mark(f"{ry}_k")
-    p.load(LVL).push(len(GATES)).emit("lt", f"jz {ry}_e")
+    item_exists(p).emit(f"jz {ry}_e")
     p.push(int(0.9 * ONE)).load(F["py"]).emit("lt", f"jz {ry}_g", f"jmp {ry}_e")   # (fired from the air: over it)
     p.mark(f"{ry}_g")
     p.load(KX).load(RAY["ox"]).emit("sub").store(W["qx"]).load(KZ).load(RAY["oz"]).emit("sub").store(W["qz"])

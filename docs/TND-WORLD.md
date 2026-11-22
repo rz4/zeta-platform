@@ -1,8 +1,8 @@
 # TEAR NOT DEMON: the world layer (a design; 2026-11-22)
 
-Nothing here is built on the console yet. What exists is the generator's
-prototype (`games/tnd/world.py`, run on the desktop) and the layers under
-it (docs/TND-PORT.md, P21-P37).
+What exists: the generator (`games/tnd/world.py`, run when a cart is
+built), the layers under it (docs/TND-PORT.md, P21-P37), and step 2 of
+the order below as layer 5 (P38). The rest is design.
 
 ## The frame, in the player's words
 
@@ -131,7 +131,9 @@ spends pace.
    doors), and a test that every world drawn can be finished.
 2. **A world in the street**: the generator's keys, bunkers and doors in
    the city the layers already walk (one seed, baked) -- many keys, the
-   bolts, the held ways; the arrow on a waymark.
+   bolts, the held ways; the arrow on a waymark. BUILT: TND_LAYER=5
+   (docs/TND-PORT.md P38), in the emulator and the hardware's simulation;
+   not yet on glass. The pack holds the first hard way but does not strike.
 3. **The bunker's MAP and waymarks** (its own page; the map as geometry).
 4. **The clock, the par, the two ranks; the save across sittings.**
 5. **The pack, the stash, items in the street; weight.**

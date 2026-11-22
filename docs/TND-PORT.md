@@ -1813,3 +1813,72 @@ the cart, and six enemies.
   enemy removed too.
 - tests: 7 layer 4; 12 layer 3 and layer 2's 14 gun tests after it.
   Layers 0 and 1 and the full cart build byte-identical.
+
+## P38: layer 5 -- the world in the street (2026-11-22; not yet on glass)
+
+docs/TND-WORLD.md is the design (the player's frame: the classic Resident
+Evil's world of keys, shortcuts and hard optional ways; sectors with more
+than one way out; bunkers; a random map he solves; two ranks) and its
+order of building. This is its step 2: ONE generated world -- the city the
+layers already walk, seed 666142 -- in the street. TND_LAYER=5: layer 4,
+and over it:
+
+- **The world is the generator's** (`games/tnd/world.py`, run when the
+  cart is built): six gates and a key for each, four bunkers, three back
+  doors, two hard ways. The back doors and the hard ways are streets the
+  generated tree never had; they are added to the town before its pieces
+  and its map are made (the town is still nine pieces), and a back door's
+  street is shut as a gate's is.
+- **A key a gate, several in hand.** Each key lies at a dead end -- its
+  own sector's far end, or a sector or two back -- and the jab takes it
+  (as P21's). The keys in hand are a row of gold pips at the top left: a
+  pip's place in the row is its gate's number. The nearest key not yet
+  taken is the one drawn (within sixty units).
+- **A gate eats its own key, from either side.** The nearest door still
+  shut stands on HIS side of its street (a hard way can bring him round
+  behind one); it is outlined when the jab would open it from where he
+  stands -- a gate with its key in hand. Opened, the key is gone from the
+  row and the street is a street.
+- **A back door opens from its bolt's side only** (bone and black, where
+  a gate is red and black): from the other it is a wall and no outline;
+  from the bolt's the jab draws it and it stays drawn.
+- **A hard way is an open street** that skips a gate and its key. The
+  first is HELD: the six enemies of layer 4 are its pack -- asleep in
+  their ring at its mouth until he is within a block (sixteen units),
+  then layer 4's ring round him; two blocks gone and they walk home; one
+  put down comes back there. (They still do not strike: held is a
+  promise, kept in the design's step 7. The second hard way is empty.)
+- **The bunkers**: a green and black hatch in the road with a green lamp
+  on a post, at a dead end off the route in every second sector -- and
+  the first is under his feet at the start. Standing on one, it is the
+  last he stood in (kept for the save). They do nothing more yet: the
+  map, the waymarks, the pack and the save are steps 3 to 5.
+- **The arrow leads to the waymark.** Until the bunker's map sets it, the
+  waymark is the game's: the first gate still shut that is not behind
+  him -- its key's dead end, or, the key in hand, the gate; every gate
+  open, the core. The way is the generated town's own tree, a word a
+  node (its place in a walk of the tree, the side its parent lies
+  through, the sides that lead down): down into the branch that holds
+  the waymark, else back toward the start. So it shows the gates' way;
+  the bolts and the hard ways are his to find. At the waymark's own node
+  there is no arrow.
+- **The item** the lock, the shot and the fist know (P35-P37) is the
+  nearer of that key and that door.
+- **Found on the way.** The display list is KEPT between frames (the HUD
+  writes its words only when they change), so the first pips were added
+  again every frame: 585 triangles in a few seconds, and a write off the
+  end of memory. Last frame's pips are now taken off the end first, if
+  the count is still the one they left. And key 1 lies the other side of
+  the start's own wall: sixteen units away and a long walk round.
+- **Measured on the silicon** (the simulation; five scenes, begun at
+  their places by a build hook, TND_AT): the start 57% of the frame at
+  the median and 73% at the peak; a key taken 57 / 60; a gate opened and
+  walked through 53 / 63; a bolt drawn and walked through 52 / 61; the
+  pack woken, locked on, shot and struck 67 / 77. Law and silicon agree
+  on every new thing -- the pack's 388 frames to the pixel -- and differ
+  only where the lit town's open fault is in the shot: a wall cut by the
+  lens's near edge (a strip at the screen's side, black or the wrong
+  colour; up to 13,600 pixels in one frame at the start's dead end).
+- tests: 10 layer 5; base 8, layer 1's 7, layer 3's 12, layer 4's 7 and
+  layer 2's 45 after it. Layers 0 to 4 and the full cart build
+  byte-identical.
