@@ -1206,3 +1206,32 @@ law's cart mesh is drawn from a STORE the silicon fills once a frame:
 - *Proved by* the cross on a witness cart and on TND's cart-mesh build,
   then fitted (exp branch, CI). The larger vertex store is a second
   experiment, fitted alone.
+
+**In the silicon** (2026-11-22; zmesh.v, the loader in zeta_top, rd_cart on
+zseq -- as planned above). Proved on the simulation:
+
+- `carts/witness/cartmesh.zol` (the lens turning; culled, outlined,
+  object-tinted lumps; one through the near plane; two poses swapped by
+  their offsets; a refused descriptor; a rank that overruns the store, and
+  a small one after it; a DMEM mesh among them): 40 frames, law and
+  silicon the same to the pixel.
+- TND's cart-mesh build from a state by the key (the lock, shots, the
+  boxer round it, aiming): 288 frames the same.
+- bigclip, edged and cube: unchanged.
+
+And the scenes METERED, not summed (the street from power-on, 111 frames;
+the lit street's own open mismatch is the same 171 pixels a frame in every
+one of these builds, the plain one included -- the cart's meshes add none):
+
+| on the street | median | peak |
+|---|---:|---:|
+| layer 3 as it is (the body in DMEM, the mover) | 50% | 60% |
+| the body from the cart, and the rival | 58% | 68% |
+| ...the rival and three commons | 66% | 76% |
+| ...an elite, two commons, four of the horde | 64% | 73% |
+| ...nine of the horde | 63% | 72% |
+
+(The sums above said +12% for each crowd; the meter says +12 to +16 over
+the plain build, the streams' fetch and the loader's walk in it. A body
+far out of view still costs its transform and its face walk: the game's
+own view cull belongs on the enemies as it is on the town.)
