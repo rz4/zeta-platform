@@ -1122,3 +1122,42 @@ to wall.
   and the lens stays in it at its whole distance, as P21 promised.
   Against a wall and turned 25 degrees off it: the lens 0.17 inside the
   wall's face, 1.87 from him, looking 10 degrees off his heading.
+
+## P24: layer 1 -- the left shoulder (2026-11-21; not yet on glass)
+
+The player's design for the layer above the base: "single click hold is
+boxing camera backs up a bit and it should feel like your squaring up,
+doubble click hold is running parkour, fastest should feel momementum and
+camera trailling to follow. jump and pressed again to flip".
+
+    TND_LAYER=1   the base + L. R is still nothing; no enemies.
+
+Almost all of it was in the game already, behind other inputs (P10's
+parkour, P18's boxer and double jump, P20's free run): the layer rewires
+it to L and gives it a page of knobs.
+
+- **L held: the boxer.** He squares up on the cross he faced (steps the
+  four ways without turning), and the lens eases back from the tank's 2.0
+  to 2.8, square behind.
+- **L clicked twice and held: the run.** L going down within 20 frames of
+  its last going down. The pace builds to 0.13 a frame (twice his walk) in
+  about 0.7 s; he steers as the tank steers but slower (9 a frame), and his
+  path comes round after his heading (the grip): momentum. The lens falls
+  back to 3.4 and TRAILS -- it comes round to his heading by a tenth of the
+  gap a frame (an eighth elsewhere, capped), a unit at least, so it arrives
+  without a snap. Out of the run he slides to a stop on the tank's
+  friction, and the run's lean dies away.
+- **A jumps, in either; A again flips** -- the way the pad points, or
+  forward with none held -- and the flip carries him higher (1.6 up, then
+  to 3.4). In the boxer a direction with A no longer flips from the
+  ground: the jump is the first press, the flip the second. In the tank A
+  is still the dodge, and Down + A the quick turn.
+- **Its knobs** (SELECT + the d-pad, as the base's): 0 the run's pace,
+  1 how fast it builds, 2 its turn, 3 the grip, 4 the run's lens, 5 its
+  trail, 6 the boxer's lens, 7 the boxer's step, 8 the jump, 9 the frames
+  between the two clicks. Each has its least and most, and a test turns
+  them all to both ends and plays. The base's knobs are settled in this
+  build at what the player left them.
+- **Measured on silicon** (boxing, jumping, flipping, then ten seconds of
+  running with turns and flips): peak 57%, median 49%, none dropped.
+- tests/test_tnd_layer1.py: five tests, about half a minute in parallel.

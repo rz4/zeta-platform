@@ -69,8 +69,13 @@ SWARM_TEST = os.environ.get("TND_SWARM") == "1"
 # the d-pad, the dodges, the jab and its context (pick up, unlock), a key and
 # a gate a district; no shoulders, no enemies. A local build (build/layerN/),
 # never a committed cart; what is settled there is merged into the game.
+#   TND_LAYER=1   + THE LEFT SHOULDER (P24, the player's): L held is BOXING --
+#                 the lens backs off and he squares up; L clicked twice and
+#                 held is the RUN -- the fastest, with momentum, the lens
+#                 trailing; A jumps in either, and A again flips.
 LAYER = int(os.environ.get("TND_LAYER", "9"))
-BASE = LAYER == 0
+BASE = LAYER in (0, 1)           # the base's own rules (layer 1 stands on them)
+L1 = LAYER == 1
 SONG_CH = range(4, 11)          # the record's voices (the synth theme's, freed)
 SONG_VOL = 15                   # each voice's level at full bus (x bus / 256)
 OUT = Path(os.environ.get("TND_OUT", ROOT / "build" / f"layer{LAYER}" / "tnd.zol"
@@ -2033,6 +2038,21 @@ KNOBS = (("walk", WALK, int(0.002 * ONE), int(0.01 * ONE), int(0.12 * ONE)),    
          ("grade", 1, 1, 0, 2),                                     # 8 the glass's curve: 0 off, 2 heavy
          ("bow", 40, 8, 0, 128))                                    # 9 how far he bows to pick up
 KNOBS = tuple((k, BASE_SET.get(k, v), st_, lo_, hi_) for k, v, st_, lo_, hi_ in KNOBS)
+# LAYER 1'S PAGE: the left shoulder. (The base's knobs are settled in a
+# layer-1 build -- they read as the constants the player left them at.)
+KNOBS_L1 = (("run", ONE, int(0.08 * ONE), int(0.5 * ONE), int(2.5 * ONE)),     # 0 the run's pace (x 0.13)
+            ("runacc", int(0.30 * ONE), int(0.03 * ONE), int(0.03 * ONE), int(0.9 * ONE)),   # 1 how fast it builds
+            ("runturn", 9, 1, 3, 24),                              # 2 its turn, a frame (the tank's is 14)
+            ("grip", int(0.34 * ONE), int(0.04 * ONE), int(0.06 * ONE), ONE),   # 3 how soon he goes where he faces
+            ("runcam", int(3.4 * ONE), int(0.2 * ONE), ONE, 8 * ONE),   # 4 the run's lens, behind
+            ("trail", int(0.10 * ONE), int(0.01 * ONE), int(0.02 * ONE), int(0.25 * ONE)),   # 5 how soon it comes round
+            ("boxcam", int(2.8 * ONE), int(0.2 * ONE), ONE, 6 * ONE),   # 6 the boxer's lens, behind
+            ("boxstep", int(0.016 * 0.6 * ONE), 60, 200, 2000),    # 7 the boxer's step
+            ("jump", int(round(0.186 * ONE)), int(0.01 * ONE), int(0.08 * ONE), int(0.4 * ONE)),   # 8 the jump
+            ("dclick", 20, 2, 6, 40))                              # 9 frames between the two clicks
+SETTLED = {k_[0]: k_[1] for k_ in KNOBS + KNOBS_L1}
+if L1:
+    KNOBS = KNOBS_L1
 if BASE:
     KN = cart.data(Table([k_[1] for k_ in KNOBS]), "knobs")
     KNOTCH = cart.var("knob_n", len(KNOBS))
@@ -2064,9 +2084,12 @@ if BASE:
 
 
 def knob(g, name):
-    """push the knob: its cell in a base build, its constant in the game"""
-    i = [k_[0] for k_ in KNOBS].index(name)
-    return g.load(int(KN) + i) if BASE else g.push(KNOBS[i][1])
+    """push the knob: its cell where this build's tuner turns it, else the
+    value it is settled at"""
+    names = [k_[0] for k_ in KNOBS]
+    if BASE and name in names:
+        return g.load(int(KN) + names.index(name))
+    return g.push32(SETTLED[name])
 
 
 J = int(0.05 * ONE)                             # the shake, lateral
@@ -2226,7 +2249,7 @@ if BASE:
     p.mark(gr_)
     p.store(spec.GRADE_SRC)
     # no shoulders in the base; and a pick-up holds him, crouched, till it is done
-    p.emit("load 1").push(0xFFFF & ~(spec.PAD_L | spec.PAD_R | spec.PAD_SELECT))
+    p.emit("load 1").push(0xFFFF & ~((0 if L1 else spec.PAD_L) | spec.PAD_R | spec.PAD_SELECT))
     p.emit("and").store(spec.REG_PAD)
     pk = p.label("pick")                          # (he bows to it -- the fold the
     p.push(0).load(PICK).emit("lt", f"jz {pk}_up")   # body already has, part way -- and
@@ -2655,6 +2678,9 @@ p.emit(f"jmp {jp}")
 p.mark(f"{jp}_p")
 p.load(ANIM).push(2).emit("eq", f"jz {jp}_j", f"jmp {jp}")   # not mid-swing
 p.mark(f"{jp}_j")
+if L1:                                            # P24: "jump and pressed again to flip" --
+    knob(p, "jump").store(F["pvy"])               # A is the jump, in the boxer too; the
+    p.set(F["py"], 1).emit(f"jmp {jp}")           # flip is the second press, in the air
 p.set(F["pvy"], JUMP_V0).set(F["py"], 1)
 p.load(F["sty"]).push(2).emit("eq", f"jz {jp}")   # P18: THE BOXER -- a direction with
 p.emit(f"jmp {jp}_f2g")                           # the jump flips that way at once.
@@ -2741,27 +2767,48 @@ p.mark(f"{mvl}_c")
 # first is the run with no lock -- held as long as both are. Steered as the
 # tank steers (Left/Right turn, Up drives), at the run's speed.
 fr_ = p.label("frun")
-p.load(RDT).push(255).emit("lt", f"jz {fr_}_s")
-p.addi(RDT, 1)                                   # frames since R last went down
-p.mark(f"{fr_}_s")
-held(spec.PAD_L)
-p.emit(f"jz {fr_}_no")
-held(spec.PAD_R)
-p.emit(f"jz {fr_}_no")
-p.load(PV).push(spec.PAD_R).emit("and", f"jz {fr_}_dn", f"jmp {fr_}")   # still held
-p.mark(f"{fr_}_dn")                              # R went down this frame, L held:
-p.load(RDT).push(RUN_DT).emit("lt", f"jz {fr_}_1")   # the second press?
-p.set(FRUN, 1)
-p.mark(f"{fr_}_1")
-p.set(RDT, 0).emit(f"jmp {fr_}")
-p.mark(f"{fr_}_no")
-p.set(FRUN, 0)
-held(spec.PAD_R)                                 # (R alone going down still
-p.emit(f"jz {fr_}")                              # starts the count)
-p.load(PV).push(spec.PAD_R).emit("and", f"jz {fr_}_z", f"jmp {fr_}")
-p.mark(f"{fr_}_z")
-p.set(RDT, 0)
-p.mark(fr_)
+if L1:
+    # P24: THE RUN IS L, TWICE (the player: "single click hold is boxing ...
+    # doubble click hold is running parkour"). L going down within the
+    # dclick knob's frames of its last going down is the run, for as long as
+    # it is held; any other press of L is the boxer.
+    p.load(RDT).push(255).emit("lt", f"jz {fr_}_s")
+    p.addi(RDT, 1)                               # frames since L last went down
+    p.mark(f"{fr_}_s")
+    held(spec.PAD_L)
+    p.emit(f"jz {fr_}_no")
+    p.load(PV).push(spec.PAD_L).emit("and", f"jz {fr_}_dn", f"jmp {fr_}")   # still held
+    p.mark(f"{fr_}_dn")
+    p.load(RDT)
+    knob(p, "dclick").emit("lt", f"jz {fr_}_1")
+    p.set(FRUN, 1)
+    p.mark(f"{fr_}_1")
+    p.set(RDT, 0).emit(f"jmp {fr_}")
+    p.mark(f"{fr_}_no")
+    p.set(FRUN, 0)
+    p.mark(fr_)
+else:
+    p.load(RDT).push(255).emit("lt", f"jz {fr_}_s")
+    p.addi(RDT, 1)                                   # frames since R last went down
+    p.mark(f"{fr_}_s")
+    held(spec.PAD_L)
+    p.emit(f"jz {fr_}_no")
+    held(spec.PAD_R)
+    p.emit(f"jz {fr_}_no")
+    p.load(PV).push(spec.PAD_R).emit("and", f"jz {fr_}_dn", f"jmp {fr_}")   # still held
+    p.mark(f"{fr_}_dn")                              # R went down this frame, L held:
+    p.load(RDT).push(RUN_DT).emit("lt", f"jz {fr_}_1")   # the second press?
+    p.set(FRUN, 1)
+    p.mark(f"{fr_}_1")
+    p.set(RDT, 0).emit(f"jmp {fr_}")
+    p.mark(f"{fr_}_no")
+    p.set(FRUN, 0)
+    held(spec.PAD_R)                                 # (R alone going down still
+    p.emit(f"jz {fr_}")                              # starts the count)
+    p.load(PV).push(spec.PAD_R).emit("and", f"jz {fr_}_z", f"jmp {fr_}")
+    p.mark(f"{fr_}_z")
+    p.set(RDT, 0)
+    p.mark(fr_)
 # ---- P11: THE LOCK, held on R (f_tgt = its slot + 1; 0 is none) -----------
 lk = p.label("lock")
 held(spec.PAD_R)
@@ -2980,8 +3027,12 @@ p.load(F["sty"]).push(1).emit("eq", f"jz {ev}_b")
 # him at FREE_TURN, Up drives; nothing held, he coasts
 p.load(F["tgt"]).emit(f"jz {ev}_fr", f"jmp {ev}_lk")
 p.mark(f"{ev}_fr")
-p.if_pad(spec.PAD_LEFT, lambda q: q.addi(YAW, FREE_TURN))
-p.if_pad(spec.PAD_RIGHT, lambda q: q.addi(YAW, -FREE_TURN))
+if L1:
+    p.if_pad(spec.PAD_LEFT, lambda q: knob(q.load(YAW), "runturn").emit("add").store(YAW))
+    p.if_pad(spec.PAD_RIGHT, lambda q: knob(q.load(YAW), "runturn").emit("sub").store(YAW))
+else:
+    p.if_pad(spec.PAD_LEFT, lambda q: q.addi(YAW, FREE_TURN))
+    p.if_pad(spec.PAD_RIGHT, lambda q: q.addi(YAW, -FREE_TURN))
 p.load(YAW).push(1023).emit("and", "dup").store(YAW)
 p.store(F["cgr"])                                # (out of it, he keeps this way)
 held(spec.PAD_UP)
@@ -2999,7 +3050,7 @@ p.load(F["spd"]).push(PK_SEED).emit("lt", f"jz {ev}_sd")
 p.set(F["spd"], PK_SEED)
 p.mark(f"{ev}_sd")
 p.load(F["spd"]).emit("dup", "dup", "mulq").push(PK_INVTOP).emit("mulq", "sub")  # s(1-s/top)
-p.push(PK_GROWTH).emit("mulq").load(F["spd"]).emit("add").store(F["spd"])
+(knob(p, "runacc") if L1 else p.push(PK_GROWTH)).emit("mulq").load(F["spd"]).emit("add").store(F["spd"])
 p.push(PK_TOP).load(F["spd"]).emit("lt", f"jz {ev}_tp")
 p.set(F["spd"], PK_TOP)
 p.mark(f"{ev}_tp")
@@ -3013,7 +3064,8 @@ for vel, plus, neg in ((F["vx"], 0, True), (F["vz"], 256, False)):
     p.load(F["spd"]).emit("mulq")
     if neg:
         p.push(0).emit("swap", "sub")             # want = forward * speed
-    p.load(vel).emit("sub").push(PK_GRIP).emit("mulq").load(vel).emit("add").store(vel)
+    (knob(p.load(vel).emit("sub"), "grip") if L1 else p.load(vel).emit("sub").push(PK_GRIP)).emit(
+        "mulq").load(vel).emit("add").store(vel)
 # the scrub (align ~ (v . forward) / speed): speed = 0.3 speed + 0.7 (v . fwd)
 sin_of(p)
 p.load(F["vx"]).emit("mulq").push(0).emit("swap", "sub")
@@ -3031,7 +3083,8 @@ p.mark(f"{ev}_b")
 p.load(F["sty"]).push(2).emit("eq", f"jz {ev}_tank")
 # (P18: FENCING, the locked boxer, is gone -- locked is targeting or the run)
 p.load(F["latch"]).emit("dup").store(YAW).store(HEAD)
-p.push(BOX_FR).store(W["qx"]).push(BOX_RATE).store(W["qz"])
+(knob(p.push(BOX_FR).store(W["qx"]), "boxstep") if L1
+ else p.push(BOX_FR).store(W["qx"]).push(BOX_RATE)).store(W["qz"])
 for vel, plus, neg in ((F["vx"], 0, True), (F["vz"], 256, False)):
     p.load(vel).load(W["qx"]).emit("mulq").store(vel)
     # + (forward * (up - down) + left * (left - right)) * rate; left = fwd(+256)
@@ -3078,6 +3131,8 @@ if BASE:
     # P21: THE WALK HAS WEIGHT. His pace is a speed that eases to what the pad
     # asks (the ramp knob a frame): he leans into a step and settles out of
     # it. The heading is still the tank's, exact.
+    if L1:                                        # (out of the run: its speed, and the
+        p.load(F["spd"]).push(int(0.8 * ONE)).emit("mulq").store(F["spd"])   # lean it gives him, die away)
     p.push(0)
     p.load(QT).emit(f"jz {wb}_t", f"jmp {wb}_e")          # (mid quick turn: he stands)
     p.mark(f"{wb}_t")
@@ -3154,8 +3209,19 @@ p.load(F["evf"]).emit(f"jz {fr_}")
 p.mark(f"{fr_}_f")
 p.push(ONE).store(W["dg"])
 p.mark(fr_)
+if L1:                                           # P24: the run's pace is a knob -- the
+    rp_ = p.label("runpace")                      # step he takes in the run, not the speed
+    p.push32(ONE)                                 # its own rules are written in
+    p.load(F["sty"]).push(1).emit("eq", f"jz {rp_}")
+    p.emit("drop")
+    knob(p, "run")
+    p.mark(rp_)
+    p.store(W["stop"])
 for pos, vel in ((PX, F["vx"]), (PZ, F["vz"])):
-    p.load(pos).load(vel).emit("add").store(pos)
+    if L1:
+        p.load(pos).load(vel).load(W["stop"]).emit("mulq", "add").store(pos)
+    else:
+        p.load(pos).load(vel).emit("add").store(pos)
     p.load(vel).load(W["dg"]).emit("mulq").store(vel)
 # ---- P9: aloft -- the follow owns him, or his own arc ------------------------
 av = p.label("air")
@@ -3550,6 +3616,21 @@ p.push(1023).emit("and").store(W["oy"])
 p.mark(th_)
 p.load(W["oy"]).load(CY).emit("sub").push(512).emit("add")
 p.push(1023).emit("and").push(512).emit("sub").store(T)   # d in -512..511
+if L1:
+    # P24: IN THE RUN THE LENS TRAILS -- it comes round to his heading by
+    # the trail knob's share of the gap a frame (an eighth, elsewhere), and
+    # by a unit at least, so it arrives without a snap
+    tr_ = p.label("trail")
+    p.load(F["sty"]).push(1).emit("eq", f"jz {tr_}")
+    p.load(T)
+    knob(p, "trail").emit("mulq", "dup", f"jz {tr_}_s")
+    p.emit(f"jmp {tr_}_a")
+    p.mark(f"{tr_}_s")
+    p.emit("drop").push(0).load(T).emit("lt").load(T).push(0).emit("lt", "sub")   # its sign
+    p.mark(f"{tr_}_a")
+    p.load(CY).emit("add").push(1023).emit("and").store(CY)
+    p.emit(f"jmp {snap_l}_d")
+    p.mark(tr_)
 p.load(T).emit("shr 3", "dup", f"jz {snap_l}")
 # P16: ...and no faster than CAM_TURN a frame. An eighth of a half turn is
 # 22 degrees in one frame, and a new lock asks for exactly that: the tape
@@ -3578,7 +3659,10 @@ knob(p, "camd").store(W["dmg"]).push(0).store(W["stop"])
 for sty_, d_, sh_ in ((2, BOX_D, BOX_SH), (1, FENCE_D, BOX_SH), (SQ_TARGET, TGT_D, TGT_SH)):
     nm = p.label("cm")
     p.load(F["sty"]).push(sty_).emit("eq", f"jz {nm}")
-    p.push(int(d_ * ONE)).store(W["dmg"]).push(int(sh_ * ONE)).store(W["stop"])
+    if L1 and sty_ in (1, 2):                    # (P24: the boxer's and the run's, knobs; square)
+        knob(p, "boxcam" if sty_ == 2 else "runcam").store(W["dmg"]).push(0).store(W["stop"])
+    else:
+        p.push(int(d_ * ONE)).store(W["dmg"]).push(int(sh_ * ONE)).store(W["stop"])
     p.mark(nm)
 p.load(F["sty"]).push(SQ_TARGET).emit("eq")      # FOCUS: targeting, an attack held --
 p.push(FOCUS_HOLD).load(GT["carve"]).emit("lt")
