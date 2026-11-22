@@ -102,7 +102,11 @@ SEQS = ("idle", "walk", "air", "jab", "cross", "lead_hook", "rear_hook", "specia
 # forward to a right angle, the upper arm swung 28 degrees ahead and 50
 # behind, close in to his sides. (The game's cart keeps the archive's
 # until the layers merge.)
-CLIP_OF = {"run": "run2"} if BASE else {}
+# P26: THE WALK'S STRIDE (the player: "the base walking leg cycle looks
+# comedically fast, should look more intimidating"). The layers play the
+# walk re-solved at a longer stride (0.75 a step, "walk2"), and slower than
+# the ground asks -- see the legs knob.
+CLIP_OF = {"run": "run2", "walk": "walk2"} if BASE else {}
 
 
 def to_zeta(V):
@@ -1944,9 +1948,11 @@ RUN_TURN = 48                   # the run's turn toward the pad: 17 degrees a fr
 RUN_DT = 20                     # P20: R's second press within this many frames
 FREE_TURN = 12                  # P20: the free run turns as the tank does
 RUN_STAND = int(0.02 * ONE)     # P24: under this speed, in the run, he stands
-WJ_KICK = int(0.20 * ONE)       # P25: the wall jump's push off the wall, a frame (in the run,
-                                # across a street before he is down: the next wall is his)
+WJ_KICK = int(0.30 * ONE)       # P25: the wall jump's push off the wall, a frame: across a
+                                # street (8.1 wall to wall, for him) before he is down, so
+                                # the next wall is his -- in the run and the boxer alike
 WJ_COYOTE, WJ_MAX = 8, 2        # ...the frames a touch still counts, and how many an air
+WJ_FRAMES = 24                  # ...and how long it throws him (a flip's length the spin knows)
 RDT, FRUN = cart.data(Table([255]), "r_dt"), cart.var("f_frun")   # (long ago)
 GUN_CONE = 46                   # the free shot's line: 16 degrees either side
 GUN_AIM2 = int(13.0 ** 2 * ONE)
@@ -2082,7 +2088,11 @@ BASE_SET = dict(walk=int(0.032 * ONE) + 17 * int(0.002 * ONE),      # 0.066: twi
 # pick-up it began counted down from -10 for ever -- he stood bowed for the
 # last seventeen seconds. No knob can now reach a value the game cannot play.
 KNOBS = (("walk", WALK, int(0.002 * ONE), int(0.01 * ONE), int(0.12 * ONE)),            # 0 his pace
-         ("ramp", int(0.22 * ONE), int(0.03 * ONE), int(0.04 * ONE), ONE),              # 1 weight
+         # 1 HIS LEGS: poses of the stride a unit of ground. Planted, the
+         # long stride wants 20 (a pose every 0.05) -- five steps a second
+         # at his pace; at 13.3 it is 3.3 steps a second, and his feet give
+         # up a third of the ground. (Weight, once this knob, is settled.)
+         ("legs", int(ONE / 0.075), int(0.67 * ONE), int(ONE / 0.14), int(ONE / 0.04)),
          ("turn", 12, 1, 2, 40),                                    # 2 the tank's turn, a frame
          ("qturn", 44, 4, 8, 256),                                  # 3 the quick turn's, a frame
          ("camd", int(3.0 * ONE), int(0.2 * ONE), ONE, 6 * ONE),    # 4 the follow's distance
@@ -2094,23 +2104,24 @@ KNOBS = (("walk", WALK, int(0.002 * ONE), int(0.01 * ONE), int(0.12 * ONE)),    
 KNOBS = tuple((k, BASE_SET.get(k, v), st_, lo_, hi_) for k, v, st_, lo_, hi_ in KNOBS)
 # LAYER 1'S PAGE: the left shoulder. (The base's knobs are settled in a
 # layer-1 build -- they read as the constants the player left them at.)
-# (The values are the PLAYER'S, from twenty minutes of the layer on glass,
-# 2026-11-21, read off the tape: the run 1.4x and quicker to build, turning
-# as the tank's 12, gripping more than twice as hard -- less drift than the
-# archive's -- the lenses a notch nearer and the run's trailing longer, the
-# boxer stepping half again as fast, the jump a little lower, and the two
-# clicks allowed two thirds of a second, the most the knob gave.)
-KNOBS_L1 = (("run", ONE + 5 * int(0.08 * ONE), int(0.08 * ONE), int(0.5 * ONE), int(2.5 * ONE)),   # 0 the run's pace (x 0.13)
-            ("runacc", int(0.30 * ONE) + 3 * int(0.03 * ONE), int(0.03 * ONE), int(0.03 * ONE), int(0.9 * ONE)),   # 1 how fast it builds
-            ("runturn", 12, 1, 3, 24),                             # 2 its turn, a frame (the tank's is 14)
-            ("grip", int(0.34 * ONE) + 10 * int(0.04 * ONE), int(0.04 * ONE), int(0.06 * ONE), ONE),   # 3 how soon he goes where he faces
-            ("runcam", int(3.4 * ONE) - int(0.2 * ONE), int(0.2 * ONE), ONE, 8 * ONE),   # 4 the run's lens, behind
-            ("trail", int(0.10 * ONE) - 3 * int(0.01 * ONE), int(0.01 * ONE), int(0.02 * ONE), int(0.25 * ONE)),   # 5 how soon it comes round
-            ("boxcam", int(2.8 * ONE) - int(0.2 * ONE), int(0.2 * ONE), ONE, 6 * ONE),   # 6 the boxer's lens, behind
-            ("boxstep", int(0.016 * 0.6 * ONE) + 6 * 60, 60, 200, 2000),   # 7 the boxer's step
-            ("jump", int(round(0.186 * ONE)) - 2 * int(0.01 * ONE), int(0.01 * ONE), int(0.08 * ONE), int(0.4 * ONE)),   # 8 the jump
-            ("dclick", 40, 2, 6, 60))                              # 9 frames between the two clicks
+# (The values are the PLAYER'S, read off his tapes of the layer on glass,
+# 2026-11-21 -- twenty minutes, then ten more turning them again: the run
+# 1.24x (0.16 a frame), turning 13 a frame, gripping at 0.90 -- almost no
+# drift, where the archive's run had 0.34 -- its lens 3.4 behind and
+# trailing by 0.07; the boxer's lens 2.8 and its step half again the
+# archive's; the jump the archive's own; the two clicks 44 frames apart.)
+KNOBS_L1 = (("run", 81262, int(0.08 * ONE), int(0.5 * ONE), int(2.5 * ONE)),     # 0 the run's pace (x 0.13)
+            ("runacc", 21626, int(0.03 * ONE), int(0.03 * ONE), int(0.9 * ONE)),   # 1 how fast it builds
+            ("runturn", 13, 1, 3, 24),                             # 2 its turn, a frame (the tank's is 14)
+            ("grip", 58976, int(0.04 * ONE), int(0.06 * ONE), ONE),   # 3 how soon he goes where he faces
+            ("runcam", 222822, int(0.2 * ONE), ONE, 8 * ONE),      # 4 the run's lens, behind
+            ("trail", 4588, int(0.01 * ONE), int(0.02 * ONE), int(0.25 * ONE)),   # 5 how soon it comes round
+            ("boxcam", 183500, int(0.2 * ONE), ONE, 6 * ONE),      # 6 the boxer's lens, behind
+            ("boxstep", 989, 60, 200, 2000),                       # 7 the boxer's step
+            ("jump", 12190, int(0.01 * ONE), int(0.08 * ONE), int(0.4 * ONE)),   # 8 the jump
+            ("dclick", 44, 2, 6, 60))                              # 9 frames between the two clicks
 SETTLED = {k_[0]: k_[1] for k_ in KNOBS + KNOBS_L1}
+SETTLED["ramp"] = BASE_SET.get("ramp", int(0.22 * ONE))      # (weight: left at 0.73)
 if L1:
     KNOBS = KNOBS_L1
 if BASE:
@@ -2775,9 +2786,9 @@ if L1:
     p.mark(f"{wj_}_g")
     p.load(F["evx"]).store(F["vx"]).load(F["evz"]).store(F["vz"])
     p.load(YAW).emit("dup").store(F["latch"]).store(F["cgr"])
-    p.set(F["evk"], 0).set(F["evt"], FLIPS[0][1]).set(F["evf"], FLIPS[0][1])
-    p.set(F["pvy"], FLIP_V).set(F["flipu"], 1)
-    p.emit(f"jmp {jp}")
+    p.set(F["evk"], 0).set(F["evt"], WJ_FRAMES).set(F["evf"], WJ_FRAMES)   # (the throw lasts
+    p.set(F["pvy"], FLIP_V).set(F["flipu"], 1)                            # the long flip's 24
+    p.emit(f"jmp {jp}")                                                   # frames: 7.2 across)
     p.mark(wj_)
 p.load(F["acmb"]).load(F["evf"]).emit("or").load(F["flipu"]).emit("or", f"jz {jp}_f1", f"jmp {jp}")
 p.mark(f"{jp}_f1")
@@ -3247,13 +3258,14 @@ if BASE:
     p.load(WSPD).emit("mulq").load(PX).emit("swap", "sub").store(PX)
     sin_of(p, 256)
     p.load(WSPD).emit("mulq").load(PZ).emit("add").store(PZ)
-    # (HIS FEET STAY PLANTED: the stride is 32 poses to 32 frames of the
-    # archive's pace, so the pose advances by the ground he covers, not by
-    # the frame -- at twice the pace, two poses)
+    # (THE STRIDE GOES BY THE GROUND, not by the frame: the legs knob's
+    # poses a unit he covers. P21 kept his feet planted exactly -- and at
+    # the pace the player then chose, the short stride ran at 7.5 steps a
+    # second; P26 gives a longer stride and fewer poses than planting asks.)
     p.load(WSPD).emit("dup").push(0).emit("lt", f"jz {wb}_ab")
     p.push(0).emit("swap", "sub")
     p.mark(f"{wb}_ab")
-    p.push32(int(ONE / 0.032)).emit("mulq").load(WACC).emit("add", "dup")
+    knob(p, "legs").emit("mulq").load(WACC).emit("add", "dup")
     p.push(0xFFFF).emit("and").store(WACC)
     p.emit("shr 16").store(W["dg"])                                    # poses, this frame
     p.push(int(0.004 * ONE)).load(WSPD).emit("lt", f"jz {wb}_b")       # forward
@@ -3310,6 +3322,9 @@ if L1:                                           # P24: the run's pace is a knob
     rp_ = p.label("runpace")                      # step he takes in the run, not the speed
     p.push32(ONE)                                 # its own rules are written in
     p.load(F["sty"]).push(1).emit("eq", f"jz {rp_}")
+    p.load(WJN).emit(f"jz {rp_}_k")               # (but a wall jump's throw is its OWN
+    p.load(F["evf"]).emit(f"jz {rp_}_k", f"jmp {rp_}")   # pace, whatever the run's knob:
+    p.mark(f"{rp_}_k")                            # it must cross the street)
     p.emit("drop")
     knob(p, "run")
     p.mark(rp_)

@@ -1238,3 +1238,34 @@ jump."
 - **Measured on silicon** (the layer's route): peak 64% (57% before the
   light was one level a face: more corners), median 51%, none dropped.
 - tests: 8 for the base, 6 for the layer.
+
+## P26: the walk's stride; the layer's knobs again; the wall jump crosses (2026-11-21)
+
+"this feels good, only thing i found was the base walking leg cycle looks
+comedically fast, should look more intimidating."
+
+- **Why it raced.** P21b tied the stride to the ground covered, so his feet
+  stayed planted -- and at the pace the player then chose (0.066 a frame,
+  twice the archive's) the archive's 0.48-unit shuffle ran at 7.5 steps a
+  second. The rig cannot plant a slow walk at that pace: its legs are 0.7
+  long and its hips do not drop, so the planted foot misses its mark by
+  more than a tenth past a 0.75 step, and even a 1.0 step would be four a
+  second. At 4 units a second he is, in his own body's terms, running.
+- **What was done.** The walk is re-solved on the archive's rig at a longer
+  stride ("walk2": 0.75 a step, the same guard), and played SLOWER than
+  the ground asks: the legs knob (the base's knob 1, where weight was --
+  that is settled at 0.73) is poses of the stride a unit of ground. It
+  starts at 13.3: 3.3 steps a second, his feet giving up a third of the
+  ground. Planted would be 20 (five steps a second). The player chooses
+  between a slower stride and a truer plant on glass.
+- **The layer's knobs, a second time**: ten more minutes turned them again
+  (the run 1.24x, grip 0.90 -- almost no drift -- the lenses back out to
+  3.4 and 2.8, the jump the archive's, the clicks 44 frames); those are
+  the starts.
+- **The wall jump crosses the street at any run pace.** Its throw was the
+  run's pace knob times 0.20, for a flip's 20 frames; at the player's
+  slower run it fell short of the far wall and the second jump never
+  came. The throw is its own now: 0.30 a frame for 24 frames, 7.2 units,
+  whatever the run's knob. Two walls, two jumps, to 4.2 up.
+- **Open, for the player**: Down in the run does nothing (he coasts). On
+  the second tape Down was held 2% of the run.

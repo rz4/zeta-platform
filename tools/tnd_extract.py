@@ -99,6 +99,27 @@ for f in range(2 * STEP):
         down: _at(down, _half - WALK * fs, 0.0),
         swing: _at(swing, -_half + 2 * _half * u * u * (3 - 2 * u), 0.10 * np.sin(np.pi * u))}))
 seqs["walk"] = walk
+# THE WALK AT A LONGER STRIDE (TND-PORT P26). On glass the player set his
+# pace to 0.066 a frame, twice the archive's, and the walk above -- played by
+# the ground covered, to stay planted -- ran its 0.48 steps at 7.5 a second:
+# "comedically fast, should look more intimidating". The rig's legs are 0.7
+# long and its hips do not drop, so no stride is long enough to plant at
+# that pace and look slow. This is the same solve at 0.050 a frame -- steps
+# of 0.75, as far as the legs reach before the plant fails by more than a
+# tenth -- and the cart plays it slower than the ground asks (its legs
+# knob), trading a third of the plant for a third of the cadence.
+def _walk_at(pace, lift):
+    half = pace * (STEP - 1) / 2
+    out = []
+    for f in range(2 * STEP):
+        s, fs = divmod(f, STEP)
+        down, swing = (("rear", "lead"), ("lead", "rear"))[s]
+        u = (fs + 1) / (STEP + 1)
+        out.append(_planted(f / (2.0 * STEP), {
+            down: _at(down, half - pace * fs, 0.0),
+            swing: _at(swing, -half + 2 * half * u * u * (3 - 2 * u), lift * np.sin(np.pi * u))}))
+    return out
+seqs["walk2"] = _walk_at(0.050, 0.13)
 # THE LANDING'S SQUASH (P15): the archive's own absorb (idle_mesh's
 # `squash`, tear.py land_squash) at four strengths -- the touchdown's
 # knees, frozen, since an object on this machine cannot be scaled

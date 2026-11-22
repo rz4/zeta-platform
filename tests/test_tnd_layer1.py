@@ -134,7 +134,7 @@ def test_l_twice_is_the_run_with_momentum_and_a_trailing_lens(text):
         lag_lens.append((g.cell("yaw") - g.d[spec.CAM_YAW] + 512) % 1024 - 512)
         last = p
     assert g.cell("yaw") == (256 + 30 * g.knob(RUNTURN)) % 1024
-    assert lag_path[-1] > 1.5, f"no momentum: his path is {lag_path[-1]:.1f} behind his heading"
+    assert lag_path[-1] > 0.5, f"no momentum: his path is {lag_path[-1]:.1f} behind his heading"
     assert lag_lens[-1] > 30, f"the lens does not trail ({lag_lens[-1]})"
     g.run(L | U, 90)
     assert abs((g.cell("yaw") - g.d[spec.CAM_YAW] + 512) % 1024 - 512) <= 1, "the lens never came round"

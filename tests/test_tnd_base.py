@@ -70,7 +70,7 @@ class Base:
         self.d[self.sym("yaw")] = self.d[self.sym("cam_yaw")] = yaw & 1023
 
     def knob(self, k):
-        """knob k as the game reads it (0 walk, 1 ramp, 2 turn, 3 quick turn,
+        """knob k as the game reads it (0 walk, 1 his legs, 2 turn, 3 quick turn,
         4 the lens's distance, 5 its height, 6 the town's dark, 7 pick-up
         frames, 8 the grade, 9 the pick-up's bow)"""
         return self.cell("knobs", k)
@@ -87,7 +87,7 @@ def test_the_tank_has_weight_and_the_lens_keeps_its_distance(text):
     distance behind as it is in the open street. (The pace, the ramp and
     the distance are knobs: read from the cart, they are the player's.)"""
     b = Base(text)
-    pace, ramp, far = b.knob(0) / 65536, b.knob(1) / 65536, b.knob(4) / 65536
+    pace, legs, far = b.knob(0) / 65536, b.knob(1) / 65536, b.knob(4) / 65536
     b.run(0, 120)                                # (the lens eases to its distance)
     assert abs(b.lens() - far) < 0.05, f"the lens is {b.lens():.2f} behind at the wall, not {far}"
     steps, last = [], b.pos()
@@ -96,13 +96,16 @@ def test_the_tank_has_weight_and_the_lens_keeps_its_distance(text):
         p = b.pos()
         steps.append(np.hypot(p[0] - last[0], p[1] - last[1]))
         last = p
-    assert abs(steps[0] - ramp * pace) < 0.002 and steps[0] < pace, f"no lean into the walk: {steps[:4]}"
+    assert 0.4 * pace < steps[0] < 0.9 * pace, f"no lean into the walk: {steps[:4]}"
     assert abs(steps[-1] - pace) < 0.002, f"he never reached his pace: {steps[-1]:.4f}"
     assert all(b2 >= a2 - 1e-6 for a2, b2 in zip(steps, steps[1:])), "the walk stuttered"
     assert abs(b.lens() - far) < 0.2
     af0 = b.cell("af")
     b.run(U, 32)
-    assert abs((b.cell("af") - af0) - 32 * pace / 0.032) <= 1, "his feet slide: the stride left the ground"
+    # his stride goes by the ground he covers: the legs knob's poses a unit --
+    # under four steps a second (a step is 16 poses), where it was 7.5
+    assert abs((b.cell("af") - af0) - 32 * pace * legs) <= 1, "the stride does not go by the ground"
+    assert pace * legs * 60 / 16 < 4.0, f"his legs still race: {pace * legs * 60 / 16:.1f} steps a second"
     last = b.pos()
     b.run(0, 1)
     assert 0 < np.hypot(*np.subtract(b.pos(), last)) < pace, "he stopped dead"
