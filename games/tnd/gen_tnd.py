@@ -1515,6 +1515,15 @@ if L6:
     # (a waymark: as many pips as its place in the plan, over the node)
     WMK = [_marker(f"mk_way{k_}", [(-0.045 * (k_ + 1) + 0.09 * i_ + 0.012, 0.10, -0.045 * (k_ + 1) + 0.09 * i_ + 0.078, 0.166,
                                     (255, 120, 40)) for i_ in range(k_ + 1)]) for k_ in range(4)]
+    if L7:
+        # (P40b, his tape of the rooms: at gate 1's node he pressed A
+        # fourteen times -- the waymark on, off, on -- because its pips sat
+        # under the cursor's own frame and he could not see it was set. A
+        # waymark is now a solid orange lozenge ON the node, inside the
+        # cursor's frame, its pips above the frame.)
+        WMK = [_marker(f"mk_way{k_}", [_diamond(0.085, (255, 120, 40))] + [
+            (-0.045 * (k_ + 1) + 0.09 * i_ + 0.012, 0.15, -0.045 * (k_ + 1) + 0.09 * i_ + 0.078, 0.216, (255, 120, 40))
+            for i_ in range(k_ + 1)]) for k_ in range(4)]
     SBIT = cart.data(Table([1 << k_ for k_ in range(16)]), "sector_bit")
 if BASE:
     # P21: A KEY A DISTRICT, in the middle of its plaza -- found, picked up
@@ -3024,10 +3033,14 @@ if L6:
     def _knows(tag_, *nodes_):
         """( -- ) jump to tag_ unless he knows the sector of one of these nodes"""
         p.load(KNOWN).push(sum({1 << CITY.district[n_] for n_ in nodes_})).emit("and", f"jz {tag_}")
+    # (P40b: in the rooms' layer B shuts the map too -- he pressed it five
+    # times in there -- and neither button reaches the street till it is up:
+    # no shot fires from the thumb that shut the map)
+    _shut = spec.PAD_SELECT | (spec.PAD_B if L7 else 0)
     p.load(MAPX).emit(f"jz {mp}_nx")                 # (shut, SELECT still down: the knobs
-    held(spec.PAD_SELECT)                            # do not open under his thumb)
+    held(_shut)                                      # do not open under his thumb)
     p.emit(f"jz {mp}_xr")
-    p.emit("load 1").push(0xFFFF & ~spec.PAD_SELECT).emit("and").store(spec.REG_PAD)
+    p.emit("load 1").push(0xFFFF & ~_shut).emit("and").store(spec.REG_PAD)
     p.emit(f"jmp {mp}_nx")
     p.mark(f"{mp}_xr")
     p.set(MAPX, 0)
@@ -3062,7 +3075,7 @@ if L6:
     p.set(MREP, 0)
     p.mark(f"{mp}_r1")
     p.emit("load 1").store(MPV)
-    p.load(BW).push(spec.PAD_SELECT).emit("and", f"jz {mp}_stay")
+    p.load(BW).push(_shut).emit("and", f"jz {mp}_stay")
     p.set(MAPON, 0).set(MAPX, 1).set(spec.FOG_SHIFT, 10).set(PIPN, 0).set(int(S_SHOWN), 255)
     p.emit(f"jmp {mp}_draw")                         # (this frame is still the map's)
     p.mark(f"{mp}_stay")

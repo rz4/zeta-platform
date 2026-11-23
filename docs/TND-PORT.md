@@ -2013,3 +2013,28 @@ layer 6, the hatch gone, and:
   worst frame).
 - tests: 17 layer 7; layer 6's 9 and layer 5's 11 after it. Layers 0 to
   6 and the full cart build byte-identical.
+
+### P40b: his tape of the rooms (2026-11-22; 5m43s of TND L7), and the glass's edge
+
+- **What he did.** The prep table found and the map opened twice; 55
+  seconds on the range (47 rounds rung off its items, ten blows); the
+  ring's six shot down four times, from the ring and through the hub's
+  doorway, and never struck; out by the door, key 1 taken, a plan made at
+  the table, gate 1 opened at his own waymark; then on into the second
+  sector with no plan and no arrow.
+- **The snag: fourteen presses of A on one node** -- the waymark at gate
+  1 on, off, on. Its pips sat under the cursor's own frame and he could
+  not see that it was set. A waymark is now a solid orange lozenge ON the
+  node, inside the cursor's frame, its pips above the frame.
+- **B in the map** (five times): it shuts the map now, as SELECT does,
+  and the thumb that shut it fires no round.
+- **"Fix all of the weird graphic hiccups at the edge of the screen, it
+  shows up on the pocket."** The lit town's open fault, run down at last
+  -- in the silicon, two things where a lit face goes to the clipper
+  (silicon/zseq.v; carts/witness/litclip.zol is its witness):
+  a vertex the machine cannot project was cached with light level ZERO,
+  and a clipped face's third corner took the LAST face's level. So a wall
+  cut by the lens faded to black toward its unseen end, or was black, or
+  wore its neighbour's light: the strips down the side of the glass. The
+  law never did. Five street scenes that differed by up to 16,480 pixels
+  a frame are bit-equal over 1,583 frames with the fix. It is a new core.

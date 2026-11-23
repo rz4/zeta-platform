@@ -239,6 +239,23 @@ def test_the_map_is_the_prep_tables(text):
     assert g.cell("b_desk") == 0 and g.d[spec.DL_BASE] == signs - 2, "the map's sign is not the table's alone"
 
 
+def test_b_shuts_the_map_and_fires_nothing(text):
+    """(his tape: B five times in the map, and nothing)"""
+    g = Game(text)
+    g.stand(HUB, -2.0, 0.0, WEST)
+    g.run(SEL, 2)
+    g.run(0, 4)
+    assert g.cell("m_on") == 1
+    shots = g.cell("gun_shots")
+    g.run(B, 20)                                             # shut with B, the thumb still on it
+    assert g.cell("m_on") == 0
+    g.run(0, 30)
+    assert g.cell("gun_shots") == shots and g.cell("bul_next") == 0, "the B that shut the map fired the gun"
+    g.run(B, 3)                                              # ...and B is the gun again after
+    g.run(0, 30)
+    assert g.cell("gun_shots") != shots or g.cell("gun_reload") > 0 or g.cell("bul_next") != 0
+
+
 def test_the_ranges_items_are_struck_not_taken(text):
     g = Game(text)
     cx, cz = centre(RANGE)
