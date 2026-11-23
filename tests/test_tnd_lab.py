@@ -198,7 +198,7 @@ def test_heavier_it_is_sent_less_and_lighter_more(text):
 
 def test_the_knock_knob_at_nothing_it_does_not_move(text):
     g = Game(text)
-    g.turn("knock", -10)
+    g.turn("knock", -9)                                       # (0.9, to nothing)
     far, _ = sent(g, 3)
     assert abs(far) < 0.05 and g.cell("e6_hp") < 12, "with no knock it still slid (or the blows did not land)"
 
@@ -277,3 +277,107 @@ def test_the_tuner_reaches_fifteen_knobs(text):
     g.run(SEL, 3)
     g.run(0, 4)
     assert g.cell("knobs", 0) == 1 and [g.cell(f"e{k}_st") for k in range(7)] == [1, 0, 0, 0, 0, 0, 1]
+
+
+MOVES = ("jab", "cross", "lead_hook", "rear_hook", "special", "lead_uppercut", "rear_uppercut", "gun", "gun_charged")
+
+
+def press(g, button, k=CLONE, wait=12):
+    """one press: (the move it threw, did it land on body k)"""
+    hp, mv = g.cell(f"e{k}_hp"), None
+    g.run(button, 3)
+    for _ in range(wait):
+        g.run(0, 1)
+        if mv is None and g.cell("anim") == 2:
+            mv = MOVES[g.cell("f_mv")]
+    return mv, g.cell(f"e{k}_hp") < hp
+
+
+@pytest.mark.parametrize("who,k", [(0, 6), (1, 0), (2, 1)])
+@pytest.mark.parametrize("gap,wait", [(1.0, 12), (1.15, 9), (1.3, 16), (1.45, 12)])
+def test_four_jabs_land_the_fourth_the_right_and_a_fifth_misses(text, who, k, gap, wait):
+    """(the player, of the lab: "jabs can follow for at least 4 hits. the fifth
+    should miss and the forth is a right jab")"""
+    g = Game(text)
+    g.turn("who", who)
+    u, v = g.body(k)
+    g.put(u, v - gap, NORTH)
+    got = [press(g, X, k, wait) for _ in range(6)]
+    assert [m for m, _ in got[:4]] == ["jab", "jab", "jab", "cross"], "the fourth X is not the right jab"
+    assert [h for _, h in got] == [True, True, True, True, False, False], f"the string landed {[h for _, h in got]}"
+
+
+def test_y_after_the_fourth_is_a_jab_that_steps_in_and_starts_a_new_string(text):
+    g = Game(text)
+    g.at_the_clone()
+    for _ in range(4):
+        press(g, X)
+    mv, hit = press(g, Y, wait=20)
+    assert mv == "jab" and hit and g.cell("f_c3") == 1, f"Y after the fourth threw {mv} (landed: {hit}), the count {g.cell('f_c3')}"
+    assert press(g, X)[0] == "jab" and g.cell("f_c3") == 2
+    assert press(g, Y, wait=30)[0] == "rear_uppercut", "the new string's count does not choose its special"
+
+
+def test_the_specials_are_by_the_count(text):
+    for jabs, want in ((0, "lead_hook"), (1, "lead_hook"), (2, "rear_uppercut"), (3, "special")):
+        g = Game(text)
+        g.at_the_clone()
+        for _ in range(jabs):
+            press(g, X)
+        assert press(g, Y, wait=30)[0] == want, f"Y after {jabs} jabs"
+
+
+def test_the_gun_is_held_ready_while_b_is_down_whatever_his_legs_do(text):
+    g = Game(text)
+    g.turn("who", 3)
+    up, lo = g.sym("body_desc") + 1, g.sym("body_desc") + 6      # each half's vertices, where its pose is
+    g.put(0, -8, NORTH)
+    g.run(0, 20)
+    idle = g.d[up]
+    g.run(B, 30)                                              # standing, B down: the gun's own pose
+    ready = g.d[up]
+    assert ready != idle
+    seen_legs = set()
+    for _ in range(40):                                       # walking with it down: his legs walk, his arms do not move
+        g.run(B | U, 1)
+        assert g.d[up] == ready, "walking, the gun came down"
+        seen_legs.add(g.d[lo])
+    assert len(seen_legs) > 4, "his legs did not walk"
+    g.run(0, 40)                                              # let go (the shot goes): it comes down
+    assert g.d[up] != ready
+
+
+def test_the_lens_looks_up_with_a_body_thrown(text):
+    g = Game(text)
+    g.run(0, 20)
+    flat = g.d[spec.CAM_PITCH]
+    g.poke("lab_ey", round(3.0 * 65536), CLONE)
+    g.poke("lab_evy", round(0.05 * 65536), CLONE)
+    g.run(0, 12)
+    up = (flat - g.d[spec.CAM_PITCH]) & 1023
+    assert 40 < up <= 100, f"the lens rose {up} with a body three units up"
+    g.run(0, 200)
+    assert g.cell("lab_ey", CLONE) == 0 and abs(((g.d[spec.CAM_PITCH] - flat + 512) & 1023) - 512) <= 2, "it did not come back down"
+
+
+def test_launchers_stacked_do_not_stack_the_rise(text):
+    """(his first tape: chained launchers threw a body 6.5 units up, and he
+    turned the lift off for the last ten minutes)"""
+    g = Game(text)
+    top, rise = 0.0, 0.0
+
+    def watch(pad, n):
+        nonlocal top, rise
+        for _ in range(n):
+            g.run(pad, 1)
+            top = max(top, g.cell("lab_ey", CLONE) / 65536)
+            rise = max(rise, g.cell("lab_evy", CLONE) / 65536)
+    for _ in range(6):                                        # the rear uppercut's string, again and again,
+        g.at_the_clone()                                      # at a body kept in the air
+        g.poke("e6_hp", 12)
+        for b in (X, X, Y):
+            watch(b, 3)
+            watch(0, 11)
+        watch(0, 14)
+    watch(0, 120)
+    assert rise <= 0.2401 and 0.5 < top < 3.2, f"a body rose at {rise:.2f} a frame, to {top:.1f} units"

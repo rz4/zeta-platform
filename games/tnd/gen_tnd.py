@@ -1474,14 +1474,16 @@ if LAB:
     WHO_T = cart.data(Table(LAB_WHO), "lab_who_is")
     # WHAT A BLOW DOES, a move a row (the jab, the cross, the hooks, the haymaker, the two uppercuts, a round, a charged one):
     # how fast it sends a body of the clone's weight (a frame), and how fast it throws one up
-    KNOCK_T = cart.data(Table([int(v_ * ONE) for v_ in (0.05, 0.07, 0.11, 0.11, 0.26, 0.05, 0.05, 0.04, 0.12)]), "lab_knock_by_move")
+    # (P43: the cross is the string's FOURTH, the right jab: it sends the body two and a half units -- out of a fifth's reach)
+    KNOCK_T = cart.data(Table([int(v_ * ONE) for v_ in (0.04, 0.30, 0.11, 0.11, 0.26, 0.05, 0.05, 0.04, 0.12)]), "lab_knock_by_move")
     LIFT_T = cart.data(Table([int(v_ * ONE) for v_ in (0, 0, 0, 0, 0.04, 0.17, 0.20, 0, 0)]), "lab_lift_by_move")
     INVM_T = cart.data(Table([int(v_ * ONE) for v_ in (1.0, 1.25, 1.6, 1.6, 1.6, 1.6, 1.0)]), "lab_invmass")   # one over each one's own weight
-    _wk = ("weight", ONE, int(0.1 * ONE), int(0.4 * ONE), 3 * ONE)     # (the knob, as KNOBS_LAB has it)
+    _wk = ("weight", int(0.9 * ONE), int(0.1 * ONE), int(0.4 * ONE), 3 * ONE)     # (the knob, as KNOBS_LAB has it)
     INVW_LO = (_wk[3] - _wk[1]) // _wk[2]                              # the weight knob's lowest notch
     INVW_T = cart.data(Table([int(ONE * ONE / (_wk[1] + n_ * _wk[2])) for n_ in range(INVW_LO, (_wk[4] - _wk[1]) // _wk[2] + 1)]),
                        "lab_invweight")
     KGLYPH = cart.data(Table([FONT_CH.index(c_) for c_ in "0123456789ABCDE"]), "knob_glyphs")
+    LIFT_MAX = int(0.24 * ONE)                     # the fastest a body rises: 2.4 units up at the lab's gravity
 GATE_T = cart.data(Table(GT_W or [0]), "gates")
 _gb = Build()                      # the gate: a wall of bars across the street,
 for i in range(7):                 # red and black, seen from both sides
@@ -2831,8 +2833,11 @@ SETTLED["ramp"] = BASE_SET.get("ramp", int(0.22 * ONE))      # (weight: left at 
 # THE LAB'S PAGE (P42): who stands there, how heavy they are and what a blow
 # does to one -- and seven of the strikes' and the jump, to turn beside them.
 KNOBS_LAB = (("who", 0, 1, 0, 5),                               # 0 who stands there (see LAB_WHO)
-             ("weight", ONE, int(0.1 * ONE), int(0.4 * ONE), 3 * ONE),   # 1 how heavy they all are (x their own; INVW_T is cut to it)
-             ("knock", ONE, int(0.1 * ONE), 0, 3 * ONE),        # 2 how far a blow sends one (x the move's)
+             # (weight and knock begin where HE left them on his first tape of the lab, 0.9 and 0.9. The lift he had at
+             # 1.0 for 22 minutes and OFF for the last ten -- chained launchers were stacking a body six units up --
+             # so the lift begins at 1.0 again and the RISE is capped instead: see LIFT_MAX)
+             ("weight", int(0.9 * ONE), int(0.1 * ONE), int(0.4 * ONE), 3 * ONE),   # 1 how heavy they all are (x their own; INVW_T is cut to it)
+             ("knock", int(0.9 * ONE), int(0.1 * ONE), 0, 3 * ONE),        # 2 how far a blow sends one (x the move's)
              ("lift", ONE, int(0.1 * ONE), 0, 3 * ONE),         # 3 how high a launcher throws one
              ("stun", ONE, int(0.1 * ONE), 0, 3 * ONE),         # 4 how long a blow holds one (x the move's)
              ("hstop", ONE, int(0.1 * ONE), 0, 3 * ONE),        # 5 the hitstop (x the move's)
@@ -2919,8 +2924,8 @@ if LAB:
     # ago, the lift's top, and their clock; the "who" knob as it last was;
     # a blow's subject, move and way, and what it came to; scratch. And each
     # body's own: its speed along the floor, its height and its rise, its lean.
-    (PGH, PSI, ARP, PLO4, PLOP, PLT5, LABT, WHOP, HK, HM, HDX, HDZ, IMPV, LS0, LS1, LS2) = (cart.var("lab_" + k) for k in (
-        "gh", "si", "arp", "slide", "slide0", "lift", "t", "who", "hk", "hm", "hdx", "hdz", "imp", "s0", "s1", "s2"))
+    (PGH, PSI, ARP, PLO4, PLOP, PLT5, LABT, WHOP, HK, HM, HDX, HDZ, IMPV, LS0, LS1, LS2, LNGX, JUGY) = (cart.var("lab_" + k) for k in (
+        "gh", "si", "arp", "slide", "slide0", "lift", "t", "who", "hk", "hm", "hdx", "hdz", "imp", "s0", "s1", "s2", "lngx", "jugy"))
     EVX, EVZ, EY, EVY, ETL = (cart.var("lab_" + k, len(ENEMY)) for k in ("evx", "evz", "ey", "evy", "tilt"))
     L_HITR = p.label("hitr")
 
@@ -3222,8 +3227,9 @@ if BASE:
         # placed yet (the "who" knob's first reading does that)
         p.push32(LAB_START[0]).store(PX).push32(LAB_START[1]).store(PZ)
         p.set(YAW, 256).set(CY, 256).set(HEAD, 256).set(WHOP, -1)
-        for c_ in (PGH, ARP, PLO4, PLOP, LABT):
+        for c_ in (PGH, ARP, PLO4, PLOP, LABT, JUGY):
             p.set(c_, 0)
+        p.set(LNGX, ONE)
         p.set(PSI, -1).set(PLT5, int(PLAT_LOW * ONE))
     p.set(WR, ONE)
 if SWARM_TEST:                                  # (the meter's hook: the fight in the
@@ -5199,7 +5205,10 @@ if L2:
         p.mark(f"{lg_}_sj")
     p.load(AF).push(int(LDT)).load(F["mv"]).emit("add", "loadi", "eq", f"jz {lg_}")
     row(PMT, F["mv"], "lunge")
-    knob(p, "lunge").emit("mulq", "dup").store(W["dmg"])
+    knob(p, "lunge").emit("mulq")
+    if LAB:                                       # (P43: the step-in jab's own reach)
+        p.load(LNGX).emit("mulq")
+    p.emit("dup").store(W["dmg"])
     sin_of(p, cell=PIVT)
     p.emit("mulq").load(F["vx"]).emit("swap", "sub").store(F["vx"])   # fwd x = -sin
     sin_of(p, 256, cell=PIVT)
@@ -5250,16 +5259,36 @@ if L3:
 # LAUNCH: the buffered move, and its lunge as ONE impulse (tear.py _launch)
 p.load(F["bmv"]).store(F["mv"])
 p.set(ANIM, 2).set(AF, 0).set(F["con"], 0).set(F["buf"], 0)
+if LAB:
+    p.set(LNGX, ONE)
 if L2:
     # P30: THE COUNT BUILDS TO THE TERMINATOR. A jab thrown is one more; Y
     # ends the string with what the count has earned -- none or one: the
     # lead hook; two: the rear uppercut; three or more: the haymaker.
     ct_ = p.label("count")
     p.load(F["mv"]).push(MOVE["jab"]).emit("eq", f"jz {ct_}_y")
-    p.load(F["c3"]).push(3).emit("lt", f"jz {ct_}")
-    p.addi(F["c3"], 1).emit(f"jmp {ct_}")
+    if LAB:
+        # P43 (the player, of the lab): "jabs can follow for at least 4
+        # hits. the fifth should miss and the forth is a right jab." The
+        # count runs to five; the fourth X is the RIGHT jab (the cross),
+        # which sends the body out of a fifth's reach.
+        p.load(F["c3"]).push(5).emit("lt", f"jz {ct_}")
+        p.addi(F["c3"], 1)
+        p.load(F["c3"]).push(4).emit("eq", f"jz {ct_}")
+        p.set(F["mv"], MOVE["cross"]).emit(f"jmp {ct_}")
+    else:
+        p.load(F["c3"]).push(3).emit("lt", f"jz {ct_}")
+        p.addi(F["c3"], 1).emit(f"jmp {ct_}")
     p.mark(f"{ct_}_y")
     p.load(F["mv"]).push(MOVE["special"]).emit("eq", f"jz {ct_}")
+    if LAB:
+        # P43: "the forth can be strung to a new combo, if special is hit
+        # after it's a jab": past the third, Y is a jab -- the first of a
+        # new string
+        p.push(3).load(F["c3"]).emit("lt", f"jz {ct_}_n")
+        p.set(F["mv"], MOVE["jab"]).set(F["c3"], 1)
+        p.push32(int(3.6 * ONE)).store(LNGX).emit(f"jmp {ct_}")   # (it STEPS IN: the body is two units off)
+        p.mark(f"{ct_}_n")
     p.load(F["c3"]).push(2).emit("lt", f"jz {ct_}_2")
     p.set(F["mv"], MOVE["lead_hook"]).emit(f"jmp {ct_}_z")
     p.mark(f"{ct_}_2")
@@ -6114,6 +6143,35 @@ if CARTMESH:                                 # the pose is where its streams are
         if step_:
             p.push(step_).emit("add")
     p.emit("drop")
+    if LAB:
+        # P43 (the player, of the lab): "The gun needs to be always held in
+        # ready position if the gun button is held." His body is two halves
+        # with a pose each: while the gun is up (B down, or just let go) and
+        # he is not throwing a blow, reeling, down or in a flip, his UPPER
+        # half is the gun's own ready pose -- over whatever his legs are
+        # doing: standing, walking, the boxer's steps, the run, the air.
+        # (The locked run has its own one-handed poses and keeps them.)
+        gr = p.label("gunready")
+        p.load(DRAW).emit(f"jz {gr}")
+        p.load(ANIM).push(2).emit("lt").load(ANIM).push(5).emit("eq", "or", f"jz {gr}")
+        p.load(F["evf"]).emit(f"jz {gr}_e", f"jmp {gr}")
+        p.mark(f"{gr}_e")
+        p.load(ANIM).push(5).emit("eq").load(LOCK).emit("and", f"jz {gr}_g", f"jmp {gr}")
+        p.mark(f"{gr}_g")
+        p.load(DRAW).emit("dup").push(4).emit("swap", "lt", f"jz {gr}_c")
+        p.emit("drop").push(4)
+        p.mark(f"{gr}_c")
+        p.push(base["gun"]).emit("add").store(LS0)
+        if DEDUPE:
+            p.load(LS0).emit("shr 1").push(int(PSLOT)).emit("add", "loadi")
+            p.load(LS0).push(1).emit("and", f"jz {gr}_s")
+            p.emit("shr 16")
+            p.mark(f"{gr}_s")
+            p.push(0xFFFF).emit("and")
+        else:
+            p.load(LS0)
+        p.push(SPAN).emit("mul").push(int(BANK)).emit("add", "dup").store(UPPER + 1).push(CM_LEN[0]).emit("add").store(UPPER + 3)
+        p.mark(gr)
     if L3:                                   # the others' clock: two frames a pose, the idle's sixty
         rv_ = p.label("rival")
         p.addi(RIV_T, 1).load(RIV_T).push(2 * NPOSE["idle"]).emit("lt", f"jz {rv_}_w", f"jmp {rv_}")
@@ -6560,7 +6618,32 @@ if L2:
 
 # ---- P12: THE OPERATOR -- the special shots over the follow -----------------
 CW = CAM_W
-p.load(CAM_W["sh"]).push(10).emit("mul", "shr 16").push(20).emit("add").store(spec.CAM_PITCH)
+p.load(CAM_W["sh"]).push(10).emit("mul", "shr 16").push(20).emit("add")
+if LAB:
+    # P43 (the player: "With the camera tracking the juggled enemy"): the
+    # lens looks UP with the highest body off the floor -- about thirty of
+    # the turn's 1,024 a unit of its height, ninety at most, eased a quarter
+    # of the way a frame -- and comes back down with it.
+    jc = p.label("juggle")
+    p.set(LS0, 0)
+    for e_ in ENEMY:
+        p.load(e_["st"]).emit(f"jz {jc}_n{e_['k']}")
+        p.load(LS0).load(int(EY) + e_["k"]).emit("lt", f"jz {jc}_n{e_['k']}")
+        p.load(int(EY) + e_["k"]).store(LS0)
+        p.mark(f"{jc}_n{e_['k']}")
+    p.load(LS0).push(30).emit("mul", "shr 16", "dup").push(90).emit("lt", f"jz {jc}_c")
+    p.emit(f"jmp {jc}_k")
+    p.mark(f"{jc}_c")
+    p.emit("drop").push(90)
+    p.mark(f"{jc}_k")
+    p.load(JUGY).emit("sub", "dup").push(0).emit("lt", f"jz {jc}_p")
+    p.emit(f"jmp {jc}_q")
+    p.mark(f"{jc}_p")
+    p.push(3).emit("add")
+    p.mark(f"{jc}_q")
+    p.emit("shr 2").load(JUGY).emit("add").store(JUGY)
+    p.load(JUGY).emit("sub").push(1023).emit("and")
+p.store(spec.CAM_PITCH)
 
 
 def shot(face_cell, dist_ops, up_ops, sh):
@@ -10056,7 +10139,12 @@ if L2:
         knob(p, "lift").emit("mulq")
         _over_weight()
         p.push(int(EVY)).load(HK).emit("add").store(LS1)
-        p.load(LS1).emit("loadi", "add").load(LS1).emit("storei")
+        p.load(LS1).emit("loadi", "add", "dup").push(LIFT_MAX).emit("lt", f"jz {L_HITR}_lc")     # (a rise is a rise: blows
+        p.emit(f"jmp {L_HITR}_ls")                                                              # stacked do not stack it)
+        p.mark(f"{L_HITR}_lc")
+        p.emit("drop").push(LIFT_MAX)
+        p.mark(f"{L_HITR}_ls")
+        p.load(LS1).emit("storei")
         p.push(int(ETL)).load(HK).emit("add").store(LS1)
         p.load(IMPV).push(600).emit("mul", "shr 16").load(LS1).emit("loadi", "add", "dup").push(150).emit("lt", f"jz {L_HITR}_c")
         p.emit(f"jmp {L_HITR}_s")

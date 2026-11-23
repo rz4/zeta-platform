@@ -2191,3 +2191,71 @@ the full cart as a lab): layer 4's fight, no town.
   wall to anything on the floor, and to him while its top is more than
   a step above his feet. His drawn feet, his shadow and the lens follow.
 - tests: 18. Layers 0 to 8 and the full cart build byte-identical.
+
+## P43: the lab, turned by his first tape of it (2026-11-23)
+
+His words, on the lab: "wow this is getting fucking cool. Couldn't get
+through all the knobs. but what i feel is getting better is understanding
+the subcontext of each held chord. these are typically shoulders, and one
+held action, so three. the way the thumb moves best depends on which was
+held. ergonically, the at command button is special for gun, and jab for
+jump/evade. I found you can hot pass to the command button and then pump
+the previous held action. so you get a heavy hit then gun shots if you
+were holding gun.. when running that could be a tackle taken down and
+close quarters shot. for boxer its a stun and close quarter shot. all
+while still holding slow-mo. Then I assume you could do that move in fast
+mode if the transfer is within range. The gun needs to be always held in
+ready position if the gun button is held. the running needs to be stearing
+down the sights of the gun and of at the taret if targeting is active. The
+melee needs to feel like the movement of the enemy is enough so that jabs
+can follow for at least 4 hits. the fifth should miss and the forth is a
+right jab. the first jab special is left cross, second is right uppercut,
+the third is the haymaker. the forth can be strung to a new combo, if
+special is hit after it's a jab. that jab can be held, and essentially you
+can select the next major special you want. so maybe an uppercut to launch
+the enemy, one jab, then jab held, release held special and then held
+echange back with uppercut submited then gun shot. With the camera
+tracking the juggled enemy."
+
+**The tape (32m26s, TND LAB).** 14 minutes on the clone alone, 10 with
+the elite beside it, 8 with a common and one of the horde. 713 jabs, 191
+terminators, 403 rounds; 720 blows landed, 94 bodies put down. Long jab
+strings kept landing -- eight thrown, 8.8 landed. Y with B held (the
+"hot pass") twenty times, every one in slowed time (the lead hook 11, the
+haymaker 6), and B pressed with Y held 127 times: the pump. B was down
+24% of the tape -- standing 32% of that, running 24%, walking 7%. Knobs:
+weight 1.0 for 14 minutes, then 0.8, then 0.9; knock 1.0 for 21, then
+0.9; LIFT 1.0 for 22 minutes and then OFF for the last ten (a body had
+been thrown 6.5 units up by launchers one on another), 0.3 as it ended;
+the jump tried from 0.146 to 0.226 and left where it was. A fifth of a
+minute on the structures, to the top of the lift.
+
+**Built from it (the lab only):**
+
+- **THE STRING.** Four jabs land and a fifth misses. The count runs to
+  five; the fourth X is the RIGHT jab (the cross), whose knock (0.30)
+  sends the body two and a half units -- out of a fifth's reach; the
+  jab's own is 0.04, which his lunge keeps up with. On the clone, the
+  elite and a common, from 0.9 to 1.45 away and a press every ten to
+  twenty-five frames. (One of the horde is down at the third.)
+- **Y BY THE COUNT**, as it was: none or one, the lead hook (his "left
+  cross": the left hand's); two, the rear -- right -- uppercut; three,
+  the haymaker. PAST the third, Y is a JAB that STEPS IN (3.6 times a
+  jab's lunge) and is the first of a new string.
+- **THE GUN IS HELD READY.** His body is two halves with a pose each:
+  while the gun is up (B down, or just let go) and he is not throwing a
+  blow, reeling, down or in a flip, his upper half is the gun's ready
+  pose over whatever his legs do -- standing, walking, the boxer's
+  steps, the free run, the air. (The locked run keeps its one-handed
+  poses.)
+- **THE LENS LOOKS UP WITH A BODY THROWN**: thirty of the turn's 1,024 a
+  unit of the highest body's height, ninety at most, eased.
+- **A RISE IS CAPPED** at 0.24 a frame (2.4 units up): launchers stacked
+  do not stack it. The lift knob begins at 1.0 again; weight and knock
+  begin at his 0.9.
+- tests: 35 lab. Layers 0 to 8 and the full cart build byte-identical.
+
+**Not built, because they are his to say:** the pass's moves by stance
+(the run's tackle and the boxer's stun, each with a close-quarters shot
+after; and the same in running time); the run "down the sights"; and how
+a HELD jab chooses the next special.
