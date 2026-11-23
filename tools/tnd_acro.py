@@ -87,7 +87,79 @@ def pose(kind, t):
             bm._reach_arm(Vt, arm, body, at, arm.outward, w)
     return frozen(bm._pose_and_skin(p, np.zeros(3), None, repose))
 
+# ---- THE RUN'S AIR, ITS LANDING AND ITS ROLL (TND-PORT P50; the player: "the running should also have an
+# animation while you are falling. just make the whole running feel better like a true parkourist"). The run
+# played its stride in the air -- he sprinted on nothing. A traceur's jump is three shapes by how fast he is
+# rising or falling: the DRIVE off the ground (the lead knee up, the rear leg long behind, the arms opposite),
+# the STRIDE across the gap (the rear heel up to the seat), and the GATHER for the landing (both feet brought
+# forward under him, knees bent to take it, the arms forward and up for balance). Then the landing ABSORBED --
+# deep in the knees, the hands forward -- rising back into the run; and after a flip, a ROLL over the shoulder
+# that keeps his speed, the tuck taken low so the ball runs along the floor.
+RUN = bm._run_pose_dict()
+
+def arms(r_swing, r_elbow, l_swing, l_elbow):
+    """the sprinter's convention (tools/tnd_extract.py _run2): a swing forward is positive, the elbow bent forward"""
+    return {"RightArm": [0, r_swing, 90.0], "RightForeArm": [0, r_elbow, 0],
+            "LeftArm": [0, -l_swing, -90.0], "LeftForeArm": [0, -l_elbow, 0]}
+
+LEAP_KEYS = [
+    (0.0, dict(RUN, **arms(-48, 78, 58, 92), **{"Spine": [20, -4, 0],
+        "RightUpLeg": [-96, 0, -9], "RightLeg": [96, 0, 0], "RightFoot": [8, 0, 0],
+        "LeftUpLeg": [34, 0, 9], "LeftLeg": [18, 0, 0], "LeftFoot": [34, 0, 0]})),
+    (0.45, dict(RUN, **arms(-18, 70, 44, 80), **{"Spine": [16, -4, 0],
+        "RightUpLeg": [-62, 0, -9], "RightLeg": [42, 0, 0], "RightFoot": [0, 0, 0],
+        "LeftUpLeg": [26, 0, 9], "LeftLeg": [104, 0, 0], "LeftFoot": [28, 0, 0]})),
+    (1.0, dict(RUN, **arms(62, 36, 62, 36), **{"Spine": [20, -4, 0], "Neck": [-4, 6, 0],
+        "RightUpLeg": [-56, 0, -12], "RightLeg": [74, 0, 0], "RightFoot": [-6, 0, 0],
+        "LeftUpLeg": [-46, 0, 12], "LeftLeg": [82, 0, 0], "LeftFoot": [-6, 0, 0]})),
+]
+ABSORB = dict(RUN, **arms(56, 44, 56, 44), **{"Hips": [22, -10, 0], "Spine": [30, -4, 0], "Spine1": [18, -3, 0],
+    "Neck": [-12, 6, 0], "RightUpLeg": [-86, 0, -12], "RightLeg": [118, 0, 0], "RightFoot": [30, 0, 0],
+    "LeftUpLeg": [-70, 0, 12], "LeftLeg": [112, 0, 0], "LeftFoot": [30, 0, 0]})
+
+def blend(a_, b_, u):
+    return {k: [a_.get(k, [0, 0, 0])[i] * (1 - u) + b_.get(k, [0, 0, 0])[i] * u for i in range(3)] for k in set(a_) | set(b_)}
+
+def keyed(keys, u):
+    for (u0, a_), (u1, b_) in zip(keys, keys[1:]):
+        if u0 <= u <= u1:
+            return blend(a_, b_, bm._smoothstep((u - u0) / (u1 - u0)))
+    return dict(keys[-1][1])
+
+def grounded(pose_, drop=None):
+    """the pose with its lowest point on the floor (the root lowered until it is)"""
+    if drop is None:
+        drop = 0.0
+        for _ in range(8):
+            drop += frozen(bm._pose_and_skin(pose_, np.array([0.0, -drop, 0.0]), None))[0][:, 2].min()
+    return frozen(bm._pose_and_skin(pose_, np.array([0.0, -drop, 0.0]), None)), drop     # (the root is the rig's: y up)
+
 out = {}
+out["V_acro_leap"], out["S_acro_leap"] = (np.stack(x) for x in zip(*[frozen(bm._pose_and_skin(keyed(LEAP_KEYS, k / 6), np.zeros(3), None))
+                                                                  for k in range(7)]))
+land_end = bm._run_cycle(0.0, RUN)[0]
+land = [grounded(blend(ABSORB, land_end, bm._smoothstep(k / 7)))[0] for k in range(8)]
+out["V_acro_land"], out["S_acro_land"] = (np.stack(x) for x in zip(*land))
+# the roll: the tuck, its ball brought down until it touches the floor; the cart turns it about the ball's middle
+full = pose("acro_tuck", 0.5)[0]
+mid = full.mean(0)
+r = np.sqrt(((full - mid) ** 2).sum(1)).max()
+DROP = mid[2] - r
+roll = []
+for f in range(16):
+    t = f / 15
+    w = bm._smoothstep(min(1.0, t / 0.25, (1.0 - t) / 0.25))
+    p_ = {k: [bm._guard_pose_dict()[k][i] + (SHAPES["acro_tuck"].get(k, bm._guard_pose_dict()[k])[i] - bm._guard_pose_dict()[k][i]) * w
+              for i in range(3)] for k in bm._guard_pose_dict()}
+    def repose(Vt, skel_, angles, w=w):
+        body = anat.pose(angles)
+        for who in ("lead", "rear"):
+            arm, leg = anat.arm(who), anat.leg(who)
+            shin = leg.shin_foot & ~leg.foot
+            bm._reach_arm(Vt, arm, body, Vt[shin].mean(0) + 0.06 * arm.outward, arm.outward, w)
+    roll.append(frozen(bm._pose_and_skin(p_, np.array([0.0, -DROP * w, 0.0]), None, repose)))
+out["V_acro_roll"], out["S_acro_roll"] = (np.stack(x) for x in zip(*roll))
+out["roll_centre"] = np.array([r])                 # the ball's middle, over the floor, at the full tuck
 for kind, n in LENGTH.items():
     frames = [pose(kind, f / (n - 1)) for f in range(n)]
     out["V_" + kind] = np.stack([v for v, _ in frames])

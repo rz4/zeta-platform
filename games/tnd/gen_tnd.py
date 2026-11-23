@@ -160,6 +160,8 @@ if L1:
     SEQS += tuple("sj_" + k_ for k_ in SJ_WAYS)
 if L3:
     SEQS += ("run_gun_r", "run_gun_l", "run_gun_f")   # P36: the run, the gun out in one hand
+if LAYER in (10, 11):
+    SEQS += ("acro_leap", "acro_land", "acro_roll")   # P50: the run's air, its landing, its roll
 
 
 def to_zeta(V):
@@ -2888,6 +2890,17 @@ JUMP_RISE, JUMP_FALL = int(round(0.010 * ONE)), int(round(0.024 * ONE))
 if LAB:
     QD_F = 6                                       # the tank's dodge: frames
     AIR_SH = -0.9                                  # how far to his right the lens stands while he is in the air
+    # P50 (the player: "the running should also have an animation while you
+    # are falling. just make the whole running feel better like a true
+    # parkourist"): in the air the run is a LEAP (tools/tnd_acro.py: the
+    # drive, the stride, the gather -- seven shapes by how fast he rises or
+    # falls); he comes down ABSORBED, deep in the knees, rising into the
+    # stride over LAND_RF frames; and down from a flip with his speed, he
+    # ROLLS over the shoulder, ROLL_F frames, keeping it.
+    LEAP_TOP, LEAP_BOT = int(0.19 * ONE), int(-0.25 * ONE)   # the vertical speeds the leap's first and last shapes are at
+    LAND_RF, ROLL_F, ROLL_K = 8, 16, 8             # the absorb's frames; the roll's; its evade kind
+    ROLL_C = int(round(float(np.load(ROOT / "assets" / "tnd" / "acro.npz")["roll_centre"][0]) * ONE))   # its ball's middle
+    ROLL_SPD = int(0.05 * ONE)                     # he must be going at least this fast to roll
     QF_V0 = int(0.08 * ONE)                        # the boxer's flip: its rise
 
     def _air_frames(v0_):
@@ -3094,6 +3107,7 @@ if LAB:
     L_QDIV = p.label("qdiv")
     # P48: where he will come down (and whether he is on his way there); how far the lens looks down for it
     LNDX, LNDZ, LNDON, AIRP = (cart.var("land_" + k) for k in ("x", "z", "on", "look"))
+    RLND, RFLIP, RCEN = cart.var("run_land"), cart.var("run_flipped"), cart.var("spin_centre")   # P50
     assert all(e_["k"] == i_ for i_, e_ in enumerate(ENEMY))
     if REACTOR:
         MIRY = cart.var("rx_miry")                   # (P45: his double's height is his)
@@ -3402,7 +3416,7 @@ if BASE:
         # placed yet (the "who" knob's first reading does that)
         p.push32(LAB_START[0]).store(PX).push32(LAB_START[1]).store(PZ)
         p.set(YAW, LAB_YAW).set(CY, LAB_YAW).set(HEAD, LAB_YAW).set(WHOP, -1)
-        for c_ in (PGH, ARP, PLO4, PLOP, LABT, JUGY, PASSK, SELN, WBEND, WBTO, WBD, GUNK, MUZT, HNDON, LNDON, AIRP, int(BSL), int(BSL) + 1,
+        for c_ in (PGH, ARP, PLO4, PLOP, LABT, JUGY, PASSK, SELN, WBEND, WBTO, WBD, GUNK, MUZT, HNDON, LNDON, AIRP, RLND, RFLIP, int(BSL), int(BSL) + 1,
                    int(UXS), int(UXS) + 1, int(UXS) + 2) + ((MIRY, int(RXV), int(RXV) + 1) if REACTOR else ()):
             p.set(c_, 0)
         p.set(LNGX, ONE).set(HITZ, 1)
@@ -4979,6 +4993,11 @@ else:
     p.load(GT["jump"]).push(1).emit("eq", f"jz {jp}")   # (P18: no chords)
 p.load(F["py"]).load(F["acmb"]).emit("or", f"jz {jp}_g", f"jmp {jp}_fl")   # aloft: flip?
 p.mark(f"{jp}_g")
+if LAB:                                           # (P50: a jump out of a roll: the roll is over)
+    p.load(F["evk"]).push(ROLL_K).emit("eq", f"jz {jp}_nr")      # (not "and" with evf: that is a bit, not a truth)
+    p.load(F["evf"]).emit(f"jz {jp}_nr")
+    p.set(F["evf"], 0).set(F["evk"], 0)
+    p.mark(f"{jp}_nr")
 dg_ = p.label("dodge")                           # P18: THE DODGE is A in the tank
 p.load(F["sty"]).push(SQ_TARGET).emit("eq")      # and in targeting -- the way the
 p.load(F["sty"]).push(0).emit("eq", "or", f"jz {dg_}")   # pad points, or back
@@ -6165,7 +6184,21 @@ p.mark(f"{av}_int")
 p.load(F["py"]).load(F["pvy"]).emit("add").store(F["py"])
 p.push(0).load(F["py"]).emit("lt", f"jz {av}_land", f"jmp {av}_e")
 p.mark(f"{av}_land")
+if LAB:
+    p.load(F["flipu"]).store(RFLIP)                       # (P50: was it a flip he came down from?)
 p.set(F["py"], 0).set(F["pvy"], 0).set(F["flipu"], 0)   # (a landing re-arms the flip)
+if LAB:
+    # P50: IN THE RUN, A LANDING IS TAKEN: from a flip, going, a ROLL over
+    # the shoulder that keeps the speed he has; else ABSORBED in the knees.
+    rl = p.label("runland")
+    p.load(F["sty"]).push(1).emit("eq", f"jz {rl}")
+    p.load(RFLIP).emit(f"jz {rl}_ab")
+    p.push(ROLL_SPD).load(F["spd"]).emit("lt", f"jz {rl}_ab")
+    p.set(F["evk"], ROLL_K).set(F["evt"], ROLL_F).set(F["evf"], ROLL_F)
+    p.load(F["vx"]).store(F["evx"]).load(F["vz"]).store(F["evz"]).set(RLND, 0).emit(f"jmp {rl}")
+    p.mark(f"{rl}_ab")
+    p.set(RLND, LAND_RF)
+    p.mark(rl)
 if L1:
     p.set(WJN, 0).set(WALLT, 0)                           # (...and the wall jumps)
     sjl = p.label("sjland")                               # (P33: the strafe jump lands,
@@ -6281,7 +6314,9 @@ if LAB:
     # clip a pose a frame: the boxer's quick flip (ten frames) and the
     # tank's dodge (six) showed the first half of theirs and were cut off
     # mid-shape. Now the pose is the clip's own at the same fraction.
-    EV_LENS = sorted({QD_F, QF_T, WJ_FRAMES} | {n_ for _, n_ in FLIPS})
+    EV_LENS = sorted({QD_F, QF_T, WJ_FRAMES, ROLL_F} | {n_ for _, n_ in FLIPS})
+    _EV_SEQS = _EV_SEQS + ("acro_roll",)          # (P50: evade kind 8, the roll)
+    assert _EV_SEQS[ROLL_K] == "acro_roll"
     p.push(ONE).emit("mul").store(LS0)                       # (progress, in frames x ONE)
     for n_ in EV_LENS:
         nk = p.label("fpn")
@@ -6319,6 +6354,26 @@ if L1:
     p.push(base["slide"]).emit("add").store(POSE).emit(f"jmp {L['pd']}")
     p.mark(sp7)
 p.load(ANIM).push(5).emit("eq", f"jz {gp_}_k")
+if LAB:
+    # P50: THE RUN, IN THE AIR, LEAPS -- its shape by how fast he rises or
+    # falls -- and COMING DOWN, it is absorbed before the stride takes up
+    lpo = p.label("leap")
+    p.load(F["py"]).emit(f"jz {lpo}_g")
+    p.load(F["acmb"]).emit(f"jz {lpo}_a", f"jmp {lpo}_g")
+    p.mark(f"{lpo}_a")
+    p.push(LEAP_TOP).load(F["pvy"]).emit("sub").push(int(round(6 * ONE / ((LEAP_TOP - LEAP_BOT) / ONE)))).emit("mulq", "shr 16")
+    p.emit("dup").push(0).emit("lt", f"jz {lpo}_lo")
+    p.emit("drop").push(0)
+    p.mark(f"{lpo}_lo")
+    p.emit("dup").push(6).emit("swap", "lt", f"jz {lpo}_hi")
+    p.emit("drop").push(6)
+    p.mark(f"{lpo}_hi")
+    p.push(base["acro_leap"]).emit("add").store(POSE).set(RLND, 0).emit(f"jmp {L['pd']}")
+    p.mark(f"{lpo}_g")
+    p.load(RLND).emit(f"jz {lpo}")
+    p.addi(RLND, -1)
+    p.push(LAND_RF - 1).load(RLND).emit("sub").push(base["acro_land"]).emit("add").store(POSE).emit(f"jmp {L['pd']}")
+    p.mark(lpo)
 p.load(F["ph"]).emit("shr 16").push(15).emit("and").push(base["run"])
 if L3:
     # P36: locked, B down or a shot just gone: the near arm is out at the
@@ -8346,7 +8401,7 @@ p.load(F["evt"]).load(F["evf"]).emit("sub").push(ONE).emit("mul")       # prog *
 p.store(W["k"])
 # (P49: in the lab, the quick flip's length too -- without it the boxer's
 # flip did not turn at all: its progress, unscaled, made whole turns)
-for n in sorted({n for _, n in FLIPS} | ({QF_T, WJ_FRAMES} if LAB else set())):   # (no divide: one
+for n in sorted({n for _, n in FLIPS} | ({QF_T, WJ_FRAMES, ROLL_F} if LAB else set())):   # (no divide: one
     nk = p.label("sn")                                           # reciprocal per length)
     p.load(F["evt"]).push(n).emit("eq", f"jz {nk}")
     p.load(W["k"]).push(int(round(ONE / n))).emit("mulq").store(W["k"])
@@ -8354,7 +8409,12 @@ for n in sorted({n for _, n in FLIPS} | ({QF_T, WJ_FRAMES} if LAB else set())): 
 p.load(W["k"]).emit("dup", "mulq").push(3 * ONE).load(W["k"]).emit("dup", "add", "sub", "mulq")   # smoothstep
 p.push(1024).emit("mul", "shr 16").push(1023).emit("and").store(W["dg"])   # the angle
 CENTER = int(0.9 * ONE)
-for k, (cell, sign) in enumerate(((W["qx"], 1), (W["qx"], -1), (W["qy"], 1), (W["qy"], -1))):
+_SPINS = ((W["qx"], 1), (W["qx"], -1), (W["qy"], 1), (W["qy"], -1))
+if LAB:
+    _SPINS += ((None, 0),) * (ROLL_K - 4) + ((W["qx"], 1),)       # (P50: the roll turns forward)
+for k, (cell, sign) in enumerate(_SPINS):
+    if cell is None:
+        continue
     nk = p.label("sk")
     p.load(F["evk"]).push(k).emit("eq", f"jz {nk}")
     p.load(W["dg"]) if sign > 0 else p.push(1024).load(W["dg"]).emit("sub")
@@ -8362,11 +8422,23 @@ for k, (cell, sign) in enumerate(((W["qx"], 1), (W["qx"], -1), (W["qy"], 1), (W[
     p.mark(nk)
 # the pivot: pitch a -> shift (sinH c sin a, c (1 - cos a), -cosH c sin a);
 #            roll r  -> shift (cosH c sin r, c (1 - cos r), sinH c sin r)
+if LAB:                                           # (P50: the roll turns about its ball's middle, low)
+    rc = p.label("rollc")
+    p.set(RCEN, CENTER)
+    p.load(F["evk"]).push(ROLL_K).emit("eq", f"jz {rc}")
+    p.load(F["evf"]).emit(f"jz {rc}")
+    p.set(RCEN, ROLL_C)
+    p.mark(rc)
+
+
+def _centre():
+    return p.load(RCEN) if LAB else p.push(CENTER)
 for cell, isroll in ((W["qx"], False), (W["qy"], True)):
     sin_of(p, cell=cell)
-    p.push(CENTER).emit("mulq").store(W["s"])                    # c sin
+    _centre().emit("mulq").store(W["s"])                         # c sin
     sin_of(p, 256, cell=cell)
-    p.push(CENTER).emit("mulq").push(CENTER).emit("swap", "sub")  # c (1 - cos)
+    _centre().emit("mulq")
+    _centre().emit("swap", "sub")                                # c (1 - cos)
     p.load(W["y"]).emit("add").store(W["y"])
     for out, plus, sgn in (((W["x"], 0, 1), (W["z"], 256, -1)) if not isroll
                            else ((W["x"], 256, 1), (W["z"], 0, 1))):

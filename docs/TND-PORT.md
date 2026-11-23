@@ -2580,3 +2580,41 @@ arcrobatics poses." The lab and the reactor only.
   283, bit-equal; the frame 49% / 65% and 59% / 61%. On the card
   2026-11-23.
 - His tape: `experiments/tnd/tnd-lab-0004.json`.
+
+## P50: the run as a traceur's -- the leap, the landing taken, the roll (2026-11-23)
+
+The player: "the running should also have an animation while you are
+falling. just make the whole running feel better like a true
+parkourist". The lab and the reactor only.
+
+- **WHAT WAS THERE**: in the run the stride's clock went on in the air,
+  so he sprinted on nothing, up and down; and he came down straight into
+  the stride.
+- **THE LEAP** (`tools/tnd_acro.py`, seven shapes on the archive's rig,
+  chosen by how fast he rises or falls): the DRIVE off the ground -- the
+  lead knee up, the rear leg long behind, the arms opposite; the STRIDE
+  across -- the rear heel up to the seat; and the GATHER -- both feet
+  brought forward under him, the knees bent to take it, the arms
+  forward and up. A run off an edge falls in the gather.
+- **THE LANDING TAKEN**: in the run he comes down deep in the knees, the
+  hands forward, and rises into the stride over eight frames.
+- **THE ROLL**: down from a flip in the run, going, he rolls over the
+  shoulder -- the tuck, its ball brought down to the floor and turned
+  about its own middle -- sixteen frames, KEEPING his speed (1.2 units
+  and more), and runs on. A jump during the roll ends it and jumps.
+  Standing still a flip lands taken in the knees.
+- READINGS OF MINE: the three shapes, the absorb, the roll and that a
+  flip (not a plain jump) is what rolls.
+- Found on the way, mine: two tests in the new code read "is the roll
+  on" as `evk == 8 AND evf` -- a bitwise and of a truth and a count:
+  12 is even, so a roll of twelve frames left was "off". Each is two
+  tests now.
+- tests: `tests/test_tnd_move.py`, 4 more (23): the leap goes from the
+  drive to the gather and never shows the stride; the landing is taken
+  and the stride takes up; a flip rolls over, keeps his speed and runs
+  on; a jump ends a roll and a flip standing still does not roll. 90 pass
+  across the lab, the reactor and the tools. Layers 0, 4, 8 and the full
+  cart byte-identical.
+- the law against the simulated silicon: the lab 361 frames, the reactor
+  258, bit-equal; the frame 49% / 63% and 57% / 61%. On the card
+  2026-11-23.

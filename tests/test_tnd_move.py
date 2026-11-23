@@ -209,3 +209,90 @@ def test_the_boxers_flip_turns_once_round_and_plays_its_whole_shape(rx_text, pad
     assert len(seen) >= 6, f"the flip did not go round: {turn}"
     flip = [x for x in poses if x != poses[-1]]
     assert max(flip) - min(flip) >= 18, f"the flip played {max(flip) - min(flip) + 1} of its poses"
+
+
+# ---- P50: the run as a traceur's -- the leap in the air, the landing absorbed, the roll out of a flip ----
+
+def _running(lab_text):
+    g = LAB.Game(lab_text)
+    _run_up(g)
+    return g
+
+
+def test_in_the_air_the_run_leaps_by_how_fast_he_rises_or_falls(lab_text):
+    g = _running(lab_text)
+    stride = {g.cell("pose") for _ in range(16) if not g.run(L | U, 1)}
+    g.run(L | U | A, 3)
+    seen = []
+    while g.cell("f_py") > 0:
+        seen.append((g.cell("f_pvy"), g.cell("pose")))
+        g.run(L | U, 1)
+    poses = [q for _, q in seen]
+    assert not (set(poses) & stride), "he ran the stride in the air"
+    assert len(set(poses)) >= 5, f"the leap showed {len(set(poses))} shapes"
+    assert poses == sorted(poses), "the leap's shapes did not go from the drive to the gather as he went from rising to falling"
+    assert seen[0][1] <= min(poses) + 1 and seen[-1][1] >= max(poses) - 1
+
+
+def test_a_run_jump_lands_absorbed_then_the_stride_takes_up(lab_text):
+    g = _running(lab_text)
+    g.run(L | U | A, 3)
+    while g.cell("f_py") > 0:
+        g.run(L | U, 1)
+    land = []
+    for _ in range(12):
+        land.append((g.cell("run_land"), g.cell("pose")))
+        g.run(L | U, 1)
+    absorbed = [q for n, q in land if n > 0] + [land[0][1]]
+    assert len(set(absorbed)) >= 6, "the landing was not taken in the knees"
+    assert g.cell("run_land") == 0 and g.cell("anim") == 5, "he did not run on"
+    assert g.cell("f_evf") == 0, "a plain jump rolled"
+
+
+def test_from_a_flip_he_rolls_out_keeping_his_speed(lab_text):
+    g = _running(lab_text)
+    pace = g.cell("f_spd")
+    g.run(L | U | A, 3)
+    g.run(L | U, 8)
+    g.run(L | U | A, 3)                                       # the flip
+    while g.cell("f_py") > 0 or g.cell("f_evk") != 8:
+        g.run(L | U, 1)
+        assert g.cell("f_evf") >= 0
+    u0, v0 = g.uv()
+    assert g.cell("f_evk") == 8 and g.cell("f_evf") == 16, "he did not roll"
+    from zeta import spec
+    body, pitches = g.sym("body_desc"), []
+    while g.cell("f_evf") > 0:
+        n = g.d[spec.OL_BASE]
+        rows = [g.d[spec.OL_BASE + 1 + i * spec.OL_STRIDE: spec.OL_BASE + 1 + (i + 1) * spec.OL_STRIDE] for i in range(n)]
+        pitches.append((next(r[4] for r in rows if r[0] == body) >> 10) & 1023)
+        g.run(L | U, 1)
+    assert len({round(a / 128) % 8 for a in pitches}) >= 6, "the roll did not go over"
+    gone = float(np.hypot(g.uv()[0] - u0, g.uv()[1] - v0))
+    assert gone > 1.2, f"he rolled {gone:.2f}: his speed was lost"
+    g.run(L | U, 30)
+    assert g.cell("anim") == 5 and g.cell("f_spd") > pace // 2, "he did not run on out of the roll"
+
+
+def test_a_jump_out_of_the_roll_ends_it_and_standing_still_he_does_not_roll(lab_text):
+    g = _running(lab_text)
+    g.run(L | U | A, 3)
+    g.run(L | U, 8)
+    g.run(L | U | A, 3)
+    while g.cell("f_evk") != 8:
+        g.run(L | U, 1)
+    g.run(L | U, 4)
+    g.run(L | U | A, 3)
+    assert g.cell("f_evf") == 0 and g.cell("f_py") > 0, "the jump did not take him out of the roll"
+    s = LAB.Game(lab_text)                                    # in the run, but not going: a flip lands absorbed
+    s.put(0.0, -12.0, LAB.NORTH)
+    s.run(L, 2)
+    s.run(0, 3)
+    s.run(L, 3)
+    s.run(L, 10)
+    s.run(L | A, 3)
+    s.run(L, 6)
+    s.run(L | A, 3)
+    for _ in range(60):
+        s.run(L, 1)
+        assert s.cell("f_evk") != 8, "standing still, he rolled"
