@@ -579,3 +579,47 @@ def _angle_deg(g, x, z, y):
     s32 = lambda v: v - (1 << 32) if v & (1 << 31) else v      # noqa: E731
     cx, cy, cz = (s32(g.d[r]) / ONE for r in (spec.CAM_X, spec.CAM_Y, spec.CAM_Z))
     return float(np.degrees(np.arctan2(cy - y / ONE, np.hypot(x / ONE - cx, z / ONE - cz))))
+
+
+# ---- P54: the marks against his own jumps (his tape of P53's lab; local: the tape is not in the repository) ----
+
+TAPE = ROOT / "build" / "tapes" / "20261123-135757.ztp"
+SONG = ROOT / "build" / "layer10" / "tnd-song.zol"
+
+
+@pytest.mark.skipif(not TAPE.is_file(), reason="his tape of P53's lab (build/tapes) is local")
+def test_on_his_own_jumps_the_first_mark_is_where_he_lands():
+    """the first mark of every jump with no flip, no wall jump and no steering in the air, against where he came
+    down: he climbed the steps on this tape, and before P54 16 of 36 were off by more than a third of a unit"""
+    import os
+    import subprocess
+    import sys as _sys
+    from zeta import cabinet, deploy, experience as X, tape as ztape
+    env = dict(os.environ, TND_LAYER="10", TND_SONG="1", TND_OUT=str(SONG))
+    env.pop("TND_AT", None)
+    subprocess.run([_sys.executable, str(LAB.GEN)], check=True, env=env, cwd=ROOT, stdout=subprocess.DEVNULL)
+    header, pads = ztape.decode(TAPE.read_bytes())
+    cart = cabinet.load_cart(SONG)
+    cart["sd"] = deploy.card_images(ROOT / "build" / "tapes" / "20261121-172911.card.bin")
+    sym = X.symbols(SONG.read_text())
+    cells = ["px", "pz", "f_py", "land_on", "land_x", "land_z", "f_flipu", "wall_n"]
+    t = X.replay(cart, pads, sym, cells, [])
+    c = t.col
+    py = c("f_py")
+    air = py > 0
+    starts = np.flatnonzero(air[1:] & ~air[:-1]) + 1
+    ends = np.flatnonzero(~air[1:] & air[:-1]) + 1
+    first = []
+    for s0 in starts:
+        e = ends[ends > s0]
+        if not len(e):
+            break
+        e = e[0]
+        if c("f_flipu")[s0:e].max() or c("wall_n")[e] > c("wall_n")[s0] or ((t.pad[s0:e] & 12) != 0).any():
+            continue
+        on = np.flatnonzero(c("land_on")[s0:e]) + s0
+        if len(on):
+            first.append(float(np.hypot((c("land_x")[on[0]] - c("px")[e]) / ONE, (c("land_z")[on[0]] - c("pz")[e]) / ONE)))
+    first = np.array(first)
+    assert len(first) >= 30
+    assert np.median(first) < 0.05 and (first > 0.3).sum() <= 8, f"median {np.median(first):.3f}, {(first > 0.3).sum()} over 0.3"

@@ -2751,3 +2751,30 @@ player enters parkour from stationary." The lab and the reactor only.
 - the law against the simulated silicon: the lab 428 frames, the reactor
   217, bit-equal; the frame 47% / 63% and 59% / 63%. On the card
   2026-11-23.
+
+## P54: the marks against his own jumps (2026-11-23)
+
+His tape of P53's lab (4m33, `experiments/tnd/tnd-lab-0006.json`): the
+course again, 74% in the run; the long jump from a stand armed eight
+times and thrown four (one onto the lift, 6.3 units); 61 walls touched
+and 25 wall jumps, the wall's dot showing in 1,072 frames. His motion
+replays the same on a build whose marks differ (the marks move nothing),
+so the marks can be judged against where he really came down: of 36
+jumps with no flip, wall jump or steering in the air, the FIRST mark
+was off by more than a third of a unit 16 times -- climbing the steps.
+
+- **Two faults of mine, both the arc not following the game**: a way the
+  arc found blocked stayed blocked for the rest of the jump (the arena
+  tries the whole step again every frame); and it waited to come DOWN
+  onto a step's top, where the game steps him up onto a top the moment
+  his feet are within a step of it, rising or not, and the arc goes on
+  from there. Both follow the game now.
+- On the same tape: the first mark's median 0.011 units, 8 of 36 over a
+  third -- the lift and the slider move under the arc (the mark takes
+  them where they are), a run still gathering pace at the jump, and a
+  slide along the south wall; each converges as he flies.
+- tests: `tests/test_tnd_move.py`, 41: one replays his tape (local:
+  tapes are not in the repository) and holds the marks to that. 107 pass
+  besides. Layers 0, 4, 8 and the full cart byte-identical.
+- the law against the simulated silicon: the lab 353 frames, bit-equal;
+  the frame 47% / 59%. On the card 2026-11-23.

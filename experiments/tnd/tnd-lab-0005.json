@@ -455,7 +455,9 @@
   ]
  },
  "result": {
-  "commits": [],
+  "commits": [
+   "c6f0bdf"
+  ],
   "changed": "games/tnd/gen_tnd.py (the lab and the reactor): docs/TND-PORT.md P53",
   "proved": [
    "tests/test_tnd_move.py: 40",
@@ -463,8 +465,8 @@
    "law against the simulated silicon: 428 and 217 frames bit-equal"
   ],
   "cart": "TND LAB and TND REACTOR, on the card 2026-11-23",
-  "next_record": null,
-  "verdict": "pending: not played",
+  "next_record": "tnd-lab-0006",
+  "verdict": "played (tnd-lab-0006)",
   "imprints": [
    "tnd-022"
   ],
