@@ -2259,3 +2259,18 @@ minute on the structures, to the top of the lift.
 (the run's tackle and the boxer's stun, each with a close-quarters shot
 after; and the same in running time); the run "down the sights"; and how
 a HELD jab chooses the next special.
+
+### P43b: the loop written down (2026-11-23)
+
+The developer's proposal of this date ("Zeta Experience Imprinting and
+Architectural Evolution") asked for the loop this file has been running
+by hand to be made a thing with records. Now: `docs/ZETA-N-HYPOTHESIS.md`
+(the machine's loop: the hypothesis, and what is established against
+what is hoped), `docs/EXPERIENCE-IMPRINTING.md` (the player's loop),
+`CLAUDE.md` (a session's orientation), `zeta/experience.py` (a tape and
+its cart to a record), `games/tnd/axes.json` (the lab's knobs as named
+axes), `games/tnd/observe.py`, `experiments/tnd/tnd-lab-0001.json` (the
+first record: his 32-minute tape of the lab, his words, P43's changes),
+`games/tnd/IMPRINTS.md` (what has been kept, thirteen entries) and
+`experiments/tnd/REJECTED.md` (what was turned down, nine). The next
+tape of the lab is the comparison; it has not been played.

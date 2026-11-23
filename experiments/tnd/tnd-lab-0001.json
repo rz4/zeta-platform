@@ -1,0 +1,1260 @@
+{
+ "schema": "zeta-xp-1",
+ "id": "tnd-lab-0001",
+ "machine": {
+  "tape": {
+   "file": "20261123-001849.ztp",
+   "sha256": "32148d16a6d6bb691f164702511d541c50f7806f975d8ef758c957587e647ab0",
+   "format": "ZTP0",
+   "loader_build": 107,
+   "cart_sum": "0x1545e030",
+   "runs": 7324
+  },
+  "cart": {
+   "file": "lab-on-card.zbin",
+   "sum": "0x1545e030",
+   "built_at_commit": "42fb6cd",
+   "recipe": "TND_SONG=1 TND_LAYER=10 python3 games/tnd/gen_tnd.py",
+   "symbols_sha256": "462a11dcf53c39c1f543d6f6a75ff2c6b4376249590205b29dedf04644c318ed"
+  },
+  "card_at_start": "20261121-172911.card.bin",
+  "backend": "law (zeta.cabinet.VirtualMachine)",
+  "spec_loader_build": 107,
+  "ingested_at_commit": "aceb4ac"
+ },
+ "evidence": {
+  "frames": 116786,
+  "seconds": 1946.4,
+  "end_state_sha256": "b864dde781e0e7e77fc900d337c455637cbbf458608e5cbc988fbd4080b2c2ae",
+  "reproduce": "python3 -m zeta.experience ingest 20261123-001849.ztp --game lab-on-card.zbin --symbols ..."
+ },
+ "knobs": [
+  {
+   "axis": "tnd.lab.who",
+   "knob": "who",
+   "index": 0,
+   "default": 0,
+   "final": 1,
+   "signed_notches": 1,
+   "step": 1,
+   "unit": "index",
+   "dwell_frames": {
+    "0": 51157,
+    "1": 36219,
+    "2": 27437,
+    "3": 547,
+    "4": 724,
+    "5": 702
+   },
+   "changes": [
+    [
+     50558,
+     1
+    ],
+    [
+     50589,
+     2
+    ],
+    [
+     50627,
+     1
+    ],
+    [
+     50728,
+     2
+    ],
+    [
+     51017,
+     1
+    ],
+    [
+     51045,
+     2
+    ],
+    [
+     51061,
+     3
+    ],
+    [
+     51461,
+     4
+    ],
+    [
+     51916,
+     5
+    ],
+    [
+     52417,
+     4
+    ],
+    [
+     52616,
+     3
+    ],
+    [
+     52705,
+     2
+    ],
+    [
+     52761,
+     1
+    ],
+    [
+     52787,
+     0
+    ],
+    [
+     52839,
+     1
+    ],
+    [
+     52899,
+     2
+    ],
+    [
+     79673,
+     3
+    ],
+    [
+     79718,
+     4
+    ],
+    [
+     79772,
+     5
+    ],
+    [
+     79973,
+     4
+    ],
+    [
+     79989,
+     3
+    ],
+    [
+     80002,
+     2
+    ],
+    [
+     80266,
+     1
+    ],
+    [
+     80403,
+     0
+    ],
+    [
+     80950,
+     1
+    ]
+   ],
+   "changes_total": 25
+  },
+  {
+   "axis": "tnd.lab.weight",
+   "knob": "weight",
+   "index": 1,
+   "default": 65536,
+   "final": 58983,
+   "signed_notches": -1,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "52430": 28126,
+    "58983": 33187,
+    "65536": 50942,
+    "72089": 80,
+    "78642": 2630,
+    "85195": 44,
+    "91748": 23,
+    "98301": 26,
+    "104854": 1728
+   },
+   "changes": [
+    [
+     50905,
+     72089
+    ],
+    [
+     50946,
+     78642
+    ],
+    [
+     53424,
+     85195
+    ],
+    [
+     53458,
+     91748
+    ],
+    [
+     53470,
+     98301
+    ],
+    [
+     53484,
+     104854
+    ],
+    [
+     55212,
+     98301
+    ],
+    [
+     55224,
+     91748
+    ],
+    [
+     55235,
+     85195
+    ],
+    [
+     55245,
+     78642
+    ],
+    [
+     55257,
+     72089
+    ],
+    [
+     55269,
+     65536
+    ],
+    [
+     55282,
+     58983
+    ],
+    [
+     55302,
+     52430
+    ],
+    [
+     83428,
+     58983
+    ],
+    [
+     83463,
+     65536
+    ],
+    [
+     83476,
+     72089
+    ],
+    [
+     83491,
+     78642
+    ],
+    [
+     83631,
+     72089
+    ],
+    [
+     83643,
+     65536
+    ],
+    [
+     83654,
+     58983
+    ]
+   ],
+   "changes_total": 21
+  },
+  {
+   "axis": "tnd.lab.knock",
+   "knob": "knock",
+   "index": 2,
+   "default": 65536,
+   "final": 58983,
+   "signed_notches": -1,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "6": 626,
+    "6559": 24,
+    "13112": 47,
+    "19665": 25,
+    "26218": 34,
+    "32771": 161,
+    "39324": 22,
+    "45877": 58,
+    "52430": 948,
+    "58983": 28872,
+    "65536": 76116,
+    "72089": 505,
+    "78642": 360,
+    "85195": 661,
+    "91748": 6611,
+    "98301": 50,
+    "104854": 22,
+    "111407": 24,
+    "117960": 22,
+    "124513": 24,
+    "131066": 24,
+    "137619": 21,
+    "144172": 24,
+    "150725": 23,
+    "157278": 23,
+    "163831": 86,
+    "170384": 22,
+    "176937": 22,
+    "183490": 26,
+    "190043": 1303
+   },
+   "changes": [
+    [
+     75793,
+     72089
+    ],
+    [
+     75817,
+     78642
+    ],
+    [
+     76109,
+     85195
+    ],
+    [
+     76147,
+     91748
+    ],
+    [
+     76159,
+     98301
+    ],
+    [
+     76170,
+     104854
+    ],
+    [
+     76181,
+     111407
+    ],
+    [
+     76193,
+     117960
+    ],
+    [
+     76204,
+     124513
+    ],
+    [
+     76216,
+     131066
+    ],
+    [
+     76229,
+     137619
+    ],
+    [
+     76240,
+     144172
+    ],
+    [
+     76252,
+     150725
+    ],
+    [
+     76265,
+     157278
+    ],
+    [
+     76277,
+     163831
+    ],
+    [
+     76289,
+     170384
+    ],
+    [
+     76300,
+     176937
+    ],
+    [
+     76312,
+     183490
+    ],
+    [
+     76325,
+     190043
+    ],
+    [
+     77628,
+     183490
+    ],
+    [
+     77641,
+     176937
+    ],
+    [
+     77651,
+     170384
+    ],
+    [
+     77662,
+     163831
+    ],
+    [
+     77736,
+     157278
+    ],
+    [
+     77747,
+     150725
+    ],
+    [
+     77757,
+     144172
+    ],
+    [
+     77769,
+     137619
+    ],
+    [
+     77779,
+     131066
+    ],
+    [
+     77790,
+     124513
+    ],
+    [
+     77802,
+     117960
+    ],
+    [
+     77813,
+     111407
+    ],
+    [
+     77825,
+     104854
+    ],
+    [
+     77836,
+     98301
+    ],
+    [
+     77847,
+     91748
+    ],
+    [
+     83685,
+     98301
+    ],
+    [
+     83713,
+     91748
+    ],
+    [
+     83730,
+     85195
+    ],
+    [
+     83750,
+     78642
+    ],
+    [
+     83780,
+     72089
+    ],
+    [
+     83798,
+     65536
+    ],
+    [
+     83816,
+     58983
+    ],
+    [
+     83851,
+     52430
+    ],
+    [
+     84780,
+     45877
+    ],
+    [
+     84827,
+     39324
+    ],
+    [
+     84838,
+     32771
+    ],
+    [
+     84849,
+     26218
+    ],
+    [
+     84861,
+     19665
+    ],
+    [
+     84873,
+     13112
+    ],
+    [
+     84895,
+     6559
+    ],
+    [
+     84906,
+     6
+    ],
+    [
+     85532,
+     6559
+    ],
+    [
+     85545,
+     13112
+    ],
+    [
+     85570,
+     19665
+    ],
+    [
+     85583,
+     26218
+    ],
+    [
+     85605,
+     32771
+    ],
+    [
+     85755,
+     39324
+    ],
+    [
+     85766,
+     45877
+    ],
+    [
+     85777,
+     52430
+    ],
+    [
+     85796,
+     58983
+    ],
+    [
+     85838,
+     65536
+    ],
+    [
+     86075,
+     72089
+    ],
+    [
+     86091,
+     78642
+    ],
+    [
+     86118,
+     85195
+    ],
+    [
+     86153,
+     91748
+    ],
+    [
+     86530,
+     85195
+    ],
+    [
+     87087,
+     91748
+    ],
+    [
+     87454,
+     85195
+    ],
+    [
+     87465,
+     78642
+    ],
+    [
+     87476,
+     72089
+    ],
+    [
+     87923,
+     65536
+    ],
+    [
+     87991,
+     58983
+    ]
+   ],
+   "changes_total": 71
+  },
+  {
+   "axis": "tnd.lab.lift",
+   "knob": "lift",
+   "index": 3,
+   "default": 65536,
+   "final": 19665,
+   "signed_notches": -7,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "6": 34193,
+    "6559": 34,
+    "13112": 23,
+    "19665": 466,
+    "26218": 11,
+    "32771": 2629,
+    "39324": 60,
+    "45877": 19,
+    "52430": 11,
+    "58983": 1411,
+    "65536": 77903,
+    "72089": 26
+   },
+   "changes": [
+    [
+     77866,
+     58983
+    ],
+    [
+     79266,
+     65536
+    ],
+    [
+     79291,
+     72089
+    ],
+    [
+     79317,
+     65536
+    ],
+    [
+     79329,
+     58983
+    ],
+    [
+     79340,
+     52430
+    ],
+    [
+     79351,
+     45877
+    ],
+    [
+     79370,
+     39324
+    ],
+    [
+     79400,
+     32771
+    ],
+    [
+     81973,
+     39324
+    ],
+    [
+     82003,
+     32771
+    ],
+    [
+     82059,
+     26218
+    ],
+    [
+     82070,
+     19665
+    ],
+    [
+     82080,
+     13112
+    ],
+    [
+     82090,
+     6559
+    ],
+    [
+     82111,
+     6
+    ],
+    [
+     116304,
+     6559
+    ],
+    [
+     116317,
+     13112
+    ],
+    [
+     116330,
+     19665
+    ]
+   ],
+   "changes_total": 19
+  },
+  {
+   "axis": "tnd.lab.stun",
+   "knob": "stun",
+   "index": 4,
+   "default": 65536,
+   "final": 65536,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "65536": 116786
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.hstop",
+   "knob": "hstop",
+   "index": 5,
+   "default": 65536,
+   "final": 65536,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "65536": 116786
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.slide",
+   "knob": "slide",
+   "index": 6,
+   "default": 57671,
+   "final": 57671,
+   "signed_notches": 0,
+   "step": 655,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "57671": 116786
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.egrav",
+   "knob": "egrav",
+   "index": 7,
+   "default": 786,
+   "final": 786,
+   "signed_notches": 0,
+   "step": 65,
+   "unit": "Q16.16 (65536 = 1.0) a frame squared",
+   "dwell_frames": {
+    "786": 116786
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.pivot",
+   "knob": "pivot",
+   "index": 8,
+   "default": 176,
+   "final": 176,
+   "signed_notches": 0,
+   "step": 16,
+   "unit": "of 1024 a frame",
+   "dwell_frames": {
+    "176": 116786
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.lunge",
+   "knob": "lunge",
+   "index": 9,
+   "default": 58983,
+   "final": 58983,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "58983": 116786
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.keep",
+   "knob": "keep",
+   "index": 10,
+   "default": 40,
+   "final": 40,
+   "signed_notches": 0,
+   "step": 4,
+   "unit": "frames",
+   "dwell_frames": {
+    "40": 116786
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.hold",
+   "knob": "hold",
+   "index": 11,
+   "default": 14,
+   "final": 14,
+   "signed_notches": 0,
+   "step": 2,
+   "unit": "frames",
+   "dwell_frames": {
+    "14": 116786
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.slow",
+   "knob": "slow",
+   "index": 12,
+   "default": 3,
+   "final": 3,
+   "signed_notches": 0,
+   "step": 1,
+   "unit": "frames",
+   "dwell_frames": {
+    "3": 116786
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.dodge",
+   "knob": "dodge",
+   "index": 13,
+   "default": 13107,
+   "final": 13107,
+   "signed_notches": 0,
+   "step": 655,
+   "unit": "Q16.16 (65536 = 1.0) a frame",
+   "dwell_frames": {
+    "13107": 116786
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.jump",
+   "knob": "jump",
+   "index": 14,
+   "default": 12190,
+   "final": 12190,
+   "signed_notches": 0,
+   "step": 655,
+   "unit": "Q16.16 (65536 = 1.0) a frame",
+   "dwell_frames": {
+    "9570": 37,
+    "10225": 35,
+    "10880": 28,
+    "11535": 158,
+    "12190": 116265,
+    "12845": 183,
+    "13500": 30,
+    "14155": 32,
+    "14810": 18
+   },
+   "changes": [
+    [
+     80069,
+     11535
+    ],
+    [
+     80090,
+     10880
+    ],
+    [
+     80107,
+     10225
+    ],
+    [
+     80131,
+     9570
+    ],
+    [
+     80168,
+     10225
+    ],
+    [
+     80179,
+     10880
+    ],
+    [
+     80190,
+     11535
+    ],
+    [
+     80211,
+     12190
+    ],
+    [
+     80466,
+     12845
+    ],
+    [
+     80539,
+     12190
+    ],
+    [
+     80571,
+     12845
+    ],
+    [
+     80668,
+     13500
+    ],
+    [
+     80687,
+     14155
+    ],
+    [
+     80706,
+     14810
+    ],
+    [
+     80724,
+     14155
+    ],
+    [
+     80737,
+     13500
+    ],
+    [
+     80748,
+     12845
+    ],
+    [
+     80761,
+     12190
+    ],
+    [
+     80773,
+     11535
+    ],
+    [
+     80889,
+     12190
+    ]
+   ],
+   "changes_total": 20
+  }
+ ],
+ "observed": {
+  "minutes": 32.44,
+  "buttons": {
+   "a": {
+    "presses": 105,
+    "held_share": 0.071
+   },
+   "b": {
+    "presses": 704,
+    "held_share": 0.237
+   },
+   "x": {
+    "presses": 761,
+    "held_share": 0.057
+   },
+   "y": {
+    "presses": 192,
+    "held_share": 0.146
+   },
+   "l": {
+    "presses": 192,
+    "held_share": 0.611
+   },
+   "r": {
+    "presses": 103,
+    "held_share": 0.546
+   },
+   "select": {
+    "presses": 37,
+    "held_share": 0.056
+   }
+  },
+  "held_together_share": {
+   "l+r": 0.458,
+   "b+r": 0.195,
+   "y+b": 0.042,
+   "x+a": 0.007,
+   "l+a": 0.059
+  },
+  "slowed_share": 0.355,
+  "stance_share": {
+   "tank": 0.395,
+   "boxer": 0.204,
+   "run": 0.401
+  },
+  "blows": {
+   "thrown": 1307,
+   "a_minute": 40.3,
+   "by_move": {
+    "jab": 713,
+    "lead_hook": 56,
+    "special": 80,
+    "rear_uppercut": 55,
+    "gun": 294,
+    "gun_charged": 109
+   },
+   "begun_in_slowed_time_share": 0.151
+  },
+  "bodies": {
+   "blows_landed": 720,
+   "landed_a_minute": 22.2,
+   "put_down": 94,
+   "highest_thrown": 6.47,
+   "frames_one_was_above_half_a_unit": 1335,
+   "above_three_units": {
+    "frames": 174,
+    "ranges": [
+     [
+      60626,
+      60695
+     ],
+     [
+      57876,
+      57931
+     ],
+     [
+      55883,
+      55906
+     ],
+     [
+      56123,
+      56146
+     ]
+    ]
+   },
+   "struck_in_the_air": 6
+  },
+  "jab_strings": {
+   "that_began_with_a_hit": 172,
+   "mean_landed_in_a_row_by_length": {
+    "1": 1.0,
+    "2": 1.76,
+    "3": 2.33,
+    "4": 2.83,
+    "5": 3.86,
+    "6": 4.67,
+    "7": 1.0,
+    "8": 8.75
+   },
+   "five_or_more_in_a_row": {
+    "count": 12,
+    "frames": [
+     [
+      88691,
+      88937,
+      12
+     ],
+     [
+      89175,
+      89343,
+      12
+     ],
+     [
+      111624,
+      111800,
+      12
+     ],
+     [
+      92313,
+      92493,
+      11
+     ],
+     [
+      87620,
+      87877,
+      8
+     ],
+     [
+      109848,
+      109942,
+      8
+     ],
+     [
+      91711,
+      91787,
+      6
+     ],
+     [
+      92839,
+      92912,
+      6
+     ]
+    ]
+   }
+  },
+  "passes": {
+   "y_with_b_held": {
+    "count": 20,
+    "frames": [
+     12081,
+     22900,
+     23820,
+     61846,
+     61967,
+     62334,
+     63278,
+     68081,
+     68213,
+     68286,
+     70245,
+     71753,
+     72036,
+     72065,
+     78576,
+     98107,
+     98466,
+     98542,
+     104345,
+     105005
+    ],
+    "in_slowed_time": 20,
+    "stance": {
+     "tank": 7,
+     "boxer": 8,
+     "run": 5
+    }
+   },
+   "b_with_y_held": {
+    "count": 127
+   },
+   "x_with_a_held": {
+    "count": 40
+   }
+  },
+  "jumps": 94,
+  "dodges_and_flips": 44,
+  "structures": {
+   "minutes_on_one": 0.2,
+   "frames_on_each": {
+    "0": 156,
+    "4": 19,
+    "5": 194,
+    "6": 353
+   },
+   "highest_stood": 4.0
+  },
+  "tuner_open_minutes": 1.81,
+  "b_held": {
+   "share": 0.237,
+   "of_which": {
+    "standing": 0.322,
+    "walking": 0.067,
+    "running": 0.235
+   }
+  }
+ },
+ "title": "The lab's first session: the jab string, the pass, and the lift turned off",
+ "human": {
+  "said_on": "2026-11-23",
+  "said": [
+   "wow this is getting fucking cool. Couldn't get through all the knobs.",
+   "what i feel is getting better is understanding the subcontext of each held chord. these are typically shoulders, and one held action, so three.",
+   "I found you can hot pass to the command button and then pump the previous held action. so you get a heavy hit then gun shots if you were holding gun.",
+   "The gun needs to be always held in ready position if the gun button is held.",
+   "The melee needs to feel like the movement of the enemy is enough so that jabs can follow for at least 4 hits. the fifth should miss and the forth is a right jab.",
+   "the first jab special is left cross, second is right uppercut, the third is the haymaker. the forth can be strung to a new combo, if special is hit after it's a jab.",
+   "With the camera tracking the juggled enemy."
+  ],
+  "full_text": "docs/TND-PORT.md, P43",
+  "knobs_chosen": "see `knobs`: the tuner is on the tape. He ended at weight -1 and knock -1 notch from their defaults of 1.0, and the lift at 0.3 after ten minutes at 0."
+ },
+ "agent": {
+  "observations": [
+   {
+    "what": "Long jab strings kept landing: of strings of eight or more presses that began with a hit, a mean of 8.8 landed in a row.",
+    "see": "observed.jab_strings"
+   },
+   {
+    "what": "Y pressed with B held twenty times, every one in slowed time; B pressed with Y held 127 times.",
+    "see": "observed.passes"
+   },
+   {
+    "what": "The lift knob stood at 0.9-1.1 for 21.9 minutes, was taken down to 0.5 at frame 79,400 and to 0 at frame 82,111, and stayed there 9.5 minutes; raised to 0.3 in the last eight seconds.",
+    "frames": [
+     79329,
+     116330
+    ]
+   },
+   {
+    "what": "The highest a body was thrown: 6.47 units, at frame 57,900, with the weight knob at 0.8 and the lift at 1.0.",
+    "frames": [
+     57900,
+     57900
+    ]
+   },
+   {
+    "what": "His own A/B inside the session. Lift 0.9-1.1 (frames 600-79,329): 37.1 blows a minute, 19.9 landed, 2.06 rear uppercuts, 2.93 haymakers, 14.5 rounds; a body above half a unit for 1,335 frames. Lift 0 (frames 82,111-116,304): 51.2 blows a minute, 29.2 landed, 0.95 rear uppercuts, 1.58 haymakers, 8.9 rounds; no body off the floor.",
+    "frames": [
+     600,
+     116304
+    ],
+    "caution": "Not a controlled comparison: who stood there changed between the two stretches, and the second is later in his first hour with the lab."
+   },
+   {
+    "what": "B held 24% of the session; of that he was standing 32%, running 24%, walking 7%.",
+    "see": "observed.b_held"
+   }
+  ],
+  "readings": [
+   {
+    "supposes": "Jabs that never miss leave the string no shape; he wants a string with an end.",
+    "or": [],
+    "confidence": "high",
+    "because": "he said so: four, and the fifth should miss"
+   },
+   {
+    "supposes": "With the lift at 1.0 bodies left his reach and the fight; he turned it off to keep them in front of him.",
+    "or": [
+     "he was only trying the knob's ends, as he did the knock (to 2.9 and back)",
+     "a launch is wanted but lower and heavier -- his words ask for a launch and a juggle"
+    ],
+    "confidence": "low",
+    "because": "no words about the lift; the last eight seconds raise it again"
+   },
+   {
+    "supposes": "The pass (Y from a held B, then B pumped) is a move he found and wants to mean something by stance.",
+    "or": [],
+    "confidence": "medium",
+    "because": "his words; but its forms -- the run's tackle, the boxer's stun, the close shot -- he gave as 'could be'"
+   }
+  ],
+  "proposed": [
+   "the string: four land, the fourth the right jab, a fifth misses; Y past the third a jab that steps in (built)",
+   "the gun's ready pose on his upper half whenever B is down (built)",
+   "the lens up with a body thrown (built)",
+   "a cap on a body's rise instead of the lift at 0, the lift back at 1.0 (built; his to judge)",
+   "the pass's moves by stance; the run down the sights; a held jab choosing the special (NOT built: asked of him)"
+  ]
+ },
+ "result": {
+  "commits": [
+   "aceb4ac"
+  ],
+  "changed": "games/tnd/gen_tnd.py (the lab only): KNOCK_T, the count, LNGX, the upper half's pose, CAM_PITCH, LIFT_MAX; the weight and knock knobs' defaults to 0.9",
+  "proved": [
+   "tests/test_tnd_lab.py: 35 pass",
+   "law against the simulated silicon: 654 frames bit-equal",
+   "layers 0 to 8 and the full cart byte-identical"
+  ],
+  "cost": "frame 49% at the median, 59% at the peak (the simulated silicon's meter); program 23,172 words of 32,768",
+  "cart": "TND LAB, pushed to the card 2026-11-23",
+  "next_record": null,
+  "verdict": "pending: the changed lab has not come back on a tape",
+  "imprints": [
+   "tnd-010",
+   "tnd-011",
+   "tnd-012"
+  ],
+  "rejected": [
+   "the lift at 1.0 with no cap on a rise (experiments/tnd/REJECTED.md)"
+  ]
+ }
+}
