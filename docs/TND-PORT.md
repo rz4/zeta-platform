@@ -2703,3 +2703,51 @@ jump, olympic style". The lab and the reactor only.
 - the law against the simulated silicon: the lab 406 frames, the reactor
   232, bit-equal; the frame 49% / 58% and 58% / 60%. On the card
   2026-11-23.
+
+## P53: reading a route -- the arc through the room, the wall's dot, the lens (2026-11-23)
+
+The player: "i like how it starting to feel. learn a bit about what ive
+been trying to do on the platforming. there are some visual bugs and the
+held jump landing to precise put the player in slow motion is fun. also
+a dot where the player would hit on the wall for a wall jump. make those
+dots for jumping yellow. the long jump would be if jump is held and the
+player enters parkour from stationary." The lab and the reactor only.
+
+- **WHAT HE HAS BEEN DOING** (`experiments/tnd/tnd-lab-0005.json`, his
+  5m49 of P51's lab): a COURSE through the structures along the north
+  wall, run again and again -- the steps 0.8, 1.6, 2.4, the ledge, the
+  slider, the lift, the 4.0 platform, and back -- in the run 61% of the
+  time; 151 jumps and falls, 87 onto a structure; flips to reach the lift
+  and the platform; 55 walls touched.
+- **THE VISUAL BUGS, in his own frames**: the landing mark floating in
+  the air or drawn on a step's side -- it was drawn at the height of what
+  he stood on, and its arc knew nothing of the structures; and the glass
+  dark purple -- the lens inside the lift.
+- **THE ARC IS WALKED THROUGH THE ROOM**, a frame at a time as he will go
+  (the same pull, the same paces): a structure's side or the hall's wall
+  stops it the way the arena stops him (the axis it blocks, the other
+  kept); a structure's top under him as he comes down is where he lands;
+  else the floor. The mark is drawn there, AT ITS HEIGHT. On the floor,
+  onto a step and along a wall it is right to a hundredth of a unit from
+  his first frame in the air. About 4,000 more instructions a frame at
+  most (18,700 of 65,536).
+- **THE WALL'S DOT**: the first wall the arc meets, a yellow dot on its
+  face at his chest -- where he will touch it, the wall jump's place.
+- **THE JUMP'S MARKS ARE YELLOW** (the gun's stay red).
+- **THE LENS**: a lens inside a structure's box is lifted over its top;
+  and in the air it now looks halfway between the spot and his chest
+  (P51 looked at the spot alone: a high flip toward the lift took him
+  off the top of the glass).
+- **THE LONG JUMP IS FROM A STAND**: A goes down with him standing in
+  the run (or he goes into the run with A down), he runs up, and lets
+  go: the long jump. Held while he is already running, time slows (as
+  for any held button: "the held jump ... in slow motion is fun") and
+  let go it is the running jump.
+- tests: `tests/test_tnd_move.py`, 40 (the mark on the step at its
+  height, the wall's dot on the east wall at his chest, the lens never
+  inside a structure, a high flip keeping him and the spot in the glass,
+  the long jump from a stand, held at speed in slowed time). 107 pass.
+  Layers 0, 4, 8 and the full cart byte-identical.
+- the law against the simulated silicon: the lab 428 frames, the reactor
+  217, bit-equal; the frame 47% / 63% and 59% / 63%. On the card
+  2026-11-23.

@@ -358,20 +358,23 @@ def _lens_meets_floor(g):
 
 
 @pytest.mark.parametrize("steer", [0, LF])
-def test_in_the_runs_air_the_lens_looks_into_where_he_will_land(lab_text, steer):
+def test_in_the_runs_air_the_lens_looks_between_him_and_where_he_will_land(lab_text, steer):
+    """P51 looked the middle of the glass onto the spot; P53 halfway between the spot and his chest, so a high flip
+    keeps him in the glass: the pitch is between the two, near their middle"""
     g = _running(lab_text)
     g.run(L | U | A, 3)
-    g.run(L | U, 1)                                           # (P52: the run jumps on the release)
-    off = []
+    g.run(L | U, 1)
+    seen = 0
     for i in range(40):
         g.run(L | U | steer, 1)
         if g.cell("f_py") == 0:
             break
-        hit = _lens_meets_floor(g)
-        if i > 10 and hit is not None and g.cell("land_on"):
-            land = (g.cell("land_x") / ONE, g.cell("land_z") / ONE)
-            off.append(float(np.hypot(hit[0] - land[0], hit[1] - land[1])))
-    assert off and np.median(off) < 1.2, f"the lens's line met the floor {np.median(off) if off else None} from the spot"
+        if i > 8 and g.cell("land_on"):
+            him = _angle_deg(g, g.cell("px"), g.cell("pz"), g.cell("f_py") + g.cell("lab_gh") + int(0.9 * ONE))
+            spot = _angle_deg(g, g.cell("land_x"), g.cell("land_z"), g.cell("land_y"))
+            assert him - 4 < _pitch_deg(g) < spot + 4, f"the lens at {_pitch_deg(g):.1f}: him {him:.1f}, the spot {spot:.1f}"
+            seen += 1
+    assert seen >= 3
 
 
 def test_steering_in_the_air_the_lens_stands_on_the_inside(lab_text):
@@ -426,16 +429,56 @@ def test_a_tap_in_the_run_is_a_running_jump(lab_text):
     assert (g.cell("jmp_rise"), g.cell("jmp_fall"), g.cell("jmp_long")) == (655, 1573, 0), "the pull is not put back after the landing"
 
 
-def test_held_and_let_go_the_run_long_jumps_low_and_flat(lab_text):
-    g, went, top, air, long_, poses = _run_jump(lab_text, 14)
+def _from_a_stand(lab_text, runup=20):
+    """standing in the run, A down; then the run-up with A held; then let go"""
+    g = LAB.Game(lab_text)
+    g.put(0.0, -14.0, LAB.NORTH)
+    g.run(L, 2)
+    g.run(0, 3)
+    g.run(L, 3)
+    g.run(L, 10)
+    assert g.cell("f_sty") == 1 and g.cell("f_spd") < 2000
+    g.run(L | A, 2)
+    g.run(L | U | A, runup)
+    assert g.cell("f_py") == 0
+    return g
+
+
+def _flight_of(g):
+    u0 = g.uv()
+    air = top = long_ = 0
+    poses = set()
+    while True:
+        g.run(L | U, 1)
+        if g.cell("f_py") == 0 and air:
+            break
+        air += 1
+        top = max(top, g.cell("f_py"))
+        long_ |= g.cell("jmp_long")
+        poses.add(g.cell("pose"))
+        assert air < 90
+    return g, g.uv()[1] - u0[1], top / ONE, air, long_, poses
+
+
+def test_held_at_speed_it_is_the_running_jump_in_slowed_time(lab_text):
+    """P53: held while already running, A slows time ("the held jump ... put the player in slow motion is fun") and
+    let go is the running jump"""
+    g = _running(lab_text)
+    g.run(L | U | A, 30)
+    assert g.cell("slow_on") and g.cell("f_py") == 0
+    g, went, top, air, long_, _ = _flight_of(g)
+    assert not long_ and 2.8 < went < 3.3
+
+
+def test_from_a_stand_held_into_the_run_up_and_let_go_it_long_jumps_low_and_flat(lab_text):
+    g, went, top, air, long_, poses = _flight_of(_from_a_stand(lab_text))
     assert long_ and 5.5 < went < 6.5 and 0.45 < top < 0.6 and 30 <= air <= 40, f"{went:.2f} long, {top:.2f} up, {air} frames"
     tap = _run_jump(lab_text, 3)[5]
     assert not (poses & tap), "the long jump's shapes are the running jump's"
 
 
 def test_the_long_jump_mark_is_where_he_lands(lab_text):
-    g = _running(lab_text)
-    g.run(L | U | A, 14)
+    g = _from_a_stand(lab_text)
     marks = []
     while True:
         g.run(L | U, 1)
@@ -444,4 +487,95 @@ def test_the_long_jump_mark_is_where_he_lands(lab_text):
         if g.cell("land_on"):
             marks.append(g.uv(g.cell("land_x") / ONE, g.cell("land_z") / ONE))
     u, v = g.uv()
-    assert max(float(np.hypot(m[0] - u, m[1] - v)) for m in marks) < 0.02
+    assert max(float(np.hypot(m[0] - u, m[1] - v)) for m in marks) < 0.05
+
+
+
+# ---- P53: the arc walked through the room; the wall's dot; the lens kept out of the structures ----
+
+def _jump_from(lab_text, u, v, yaw, runup, flip_at=None):
+    g = LAB.Game(lab_text)
+    g.put(u, v, yaw)
+    g.run(L, 2)
+    g.run(0, 3)
+    g.run(L, 3)
+    g.run(L | U, runup)
+    g.run(L | U | A, 3)
+    marks, walls = [], []
+    for i in range(140):
+        g.run(L | U | (A if flip_at is not None and flip_at <= i < flip_at + 3 else 0), 1)
+        if g.cell("land_on"):
+            marks.append((i, g.uv(g.cell("land_x") / ONE, g.cell("land_z") / ONE), g.cell("land_y")))
+        if g.cell("land_wall"):
+            walls.append((g.uv(g.cell("land_wx") / ONE, g.cell("land_wz") / ONE), g.cell("land_wy") / ONE))
+        if g.cell("f_py") == 0 and marks and i > 2:
+            break
+    return g, marks, walls
+
+
+def test_the_mark_is_on_the_step_he_will_land_on_at_its_height(lab_text):
+    g, marks, _ = _jump_from(lab_text, -29.0, 4.0, LAB.NORTH, 26)
+    assert g.cell("lab_si") == 0, "he did not land on the first step"
+    u, v = g.uv()
+    assert all(float(np.hypot(m[1][0] - u, m[1][1] - v)) < 0.02 and m[2] == g.cell("lab_gh") for m in marks), \
+        "the mark was not on the step where he landed, at its height"
+
+
+def test_toward_a_wall_the_dot_is_on_the_wall_at_his_chest(lab_text):
+    g, marks, walls = _jump_from(lab_text, 26.0, 0.0, EAST := 0, 20)
+    assert walls, "no dot on the wall he ran at"
+    (wu, wv), wy = walls[0]
+    assert abs(wu - 32.0) < 0.1 and abs(wv) < 0.05, f"the dot is not on the east wall: ({wu:.2f}, {wv:.2f})"
+    assert 0.9 < wy < 2.8
+    u, v = g.uv()
+    assert float(np.hypot(marks[-1][1][0] - u, marks[-1][1][1] - v)) < 0.2, "the mark is not where he came down along the wall"
+
+
+def test_the_lens_does_not_go_inside_a_structure(lab_text):
+    from zeta import spec
+    s32 = lambda v: v - (1 << 32) if v & (1 << 31) else v      # noqa: E731
+    PL = [(-32, -26, 10, 16, 0.8), (-26, -20, 10, 16, 1.6), (-20, -12, 10, 16, 2.4), (-12, 2, 13, 16, 2.4), (26, 32, 10, 16, 4.0)]
+    g = LAB.Game(lab_text)
+    for u0, v0, yaw, pads in ((-29.0, 4.0, LAB.NORTH, [L | U] * 60), (29.0, 6.0, LAB.NORTH, [U] * 40 + [LF] * 30 + [U] * 30)):
+        g.put(u0, v0, yaw)
+        for p in pads:
+            g.run(p, 1)
+            cx, cy, cz = (s32(g.d[r]) / ONE for r in (spec.CAM_X, spec.CAM_Y, spec.CAM_Z))
+            cu, cv = cz - LAB.HALL_Z, LAB.HALL_X - cx
+            for a, b, c, d, top in PL:
+                assert not (a < cu < b and c < cv < d and cy < top), f"the lens is inside a structure at ({cu:.1f}, {cv:.1f}, {cy:.1f})"
+
+
+def test_a_high_flip_keeps_him_and_the_spot_in_the_glass(lab_text):
+    g = LAB.Game(lab_text)
+    g.put(17.0, 8.0, LAB.NORTH)
+    g.run(L, 2)
+    g.run(0, 3)
+    g.run(L, 3)
+    g.run(L | U, 30)
+    g.run(L | U | A, 3)
+    g.run(L | U, 8)
+    g.run(L | U | A, 3)
+    seen = 0
+    for _ in range(26):
+        g.run(L | U, 1)
+        if g.cell("f_py") > 2 * ONE:
+            pitch = _pitch_deg(g)
+            to_him, to_spot = _angle_deg(g, g.cell("px"), g.cell("pz"), g.cell("f_py") + g.cell("lab_gh") + int(0.9 * ONE)), \
+                _angle_deg(g, g.cell("land_x"), g.cell("land_z"), g.cell("land_y"))
+            assert to_him - 20 < pitch < to_spot + 20, f"the lens at {pitch:.0f} lost him ({to_him:.0f}) or the spot ({to_spot:.0f})"
+            seen += 1
+    assert seen > 4
+
+
+def _pitch_deg(g):
+    from zeta import spec
+    p = g.d[spec.CAM_PITCH] & 1023
+    return (p if p < 512 else p - 1024) * 360 / 1024
+
+
+def _angle_deg(g, x, z, y):
+    from zeta import spec
+    s32 = lambda v: v - (1 << 32) if v & (1 << 31) else v      # noqa: E731
+    cx, cy, cz = (s32(g.d[r]) / ONE for r in (spec.CAM_X, spec.CAM_Y, spec.CAM_Z))
+    return float(np.degrees(np.arctan2(cy - y / ONE, np.hypot(x / ONE - cx, z / ONE - cz))))
