@@ -655,6 +655,20 @@ CLAIMS: list[Claim] = [
           "cart's meshes reach no pixel -- or no descriptor's vertices ever "
           "moved to another stream, which is the whole of a pose",
           frames=40),
+    # LIT FACES THROUGH THE CLIPPER (2026-11-22). shaded's two spheres
+    # never come near the lens, so the silicon's lit path had never been
+    # crossed where a lit face is CUT: a vertex the machine cannot project
+    # was cached with level zero, and the clipper took a face's third
+    # corner's level from a stale register -- black and wrong-coloured
+    # strips down the side of the glass in TND's lit town, on the Pocket
+    # and never in the law. The claim is the clipper's own mutation on a
+    # cart that is lit and nothing else; the cross does the rest.
+    Claim("litclip", "spec.OBJ_LIT through the clipper: a lit face cut by the lens",
+          lambda o: o.any_flag(spec.OBJ_LIT) and o.clip_px > 5000,
+          "either nothing is lit, or switching the clipper off changes "
+          "almost nothing -- no lit face is being cut on the glass, which "
+          "is the only place the silicon's lit levels were ever wrong",
+          frames=40),
     # THE GAME, and the line that would have caught the defect it found:
     # a backdrop AND more than one mesh, which no other cart in this table
     # combines. hall proves the backdrop with ONE object, which is exactly

@@ -1187,7 +1187,16 @@ module zseq (
         vc_we <= 1'b1;
         vc_wa <= cl_prj ? (CL_SLOT[11:0] + {9'd0, cl_vi})
                         : (vb_at + {4'd0, vi[7:0]});
-        vc_wd <= {71'd0, vinv_near};
+        // ...AND ITS LEVEL STAYS (spec.OBJ_LIT, bits 71:66). This wrote
+        // zeros there: a vertex that cannot be projected -- behind the
+        // near plane, or past the guard band -- had NO LIGHT, and a face
+        // sent to the clipper is exactly a face with such a corner. The
+        // clipper interpolates the corners' COLOURS (S_FLB, S_FT, S_CLC:
+        // the face's colour dimmed by each corner's level), so a wall cut
+        // by the lens faded to black toward its unseen end, and one with
+        // all three corners out of reach was black. The law lights every
+        // corner before it cuts (gpu.py, vattr).
+        vc_wd <= {nlev, 65'd0, vinv_near};
         st <= cl_prj ? S_CLPN : S_VST;
       end
       S_VST: begin
@@ -1282,6 +1291,15 @@ module zseq (
           // deferred to S_CLDN and accumulated in cl_lo/cl_hi.
           cl_on <= 1'b1;                 // (cb_r was taken at S_FT)
           cl_lo <= 9'd511; cl_hi <= 9'd0;
+          // VERTEX C'S LEVEL, for S_CLC's cc_r <= vword (spec.OBJ_LIT).
+          // It was latched only in the fast path below, so a lit face
+          // sent to the clipper dimmed its third corner by whatever the
+          // LAST face left in lc_r -- another face's level, or an unlit
+          // object's stray bits -- and the gradient that made, carried
+          // across a wall cut by the near plane, was a strip of black or
+          // the wrong colour down the side of the glass. On the Pocket
+          // from the day the town was lit; never in the law.
+          lc_r <= pc[71:66];
           st <= S_CLC;
         end else begin
         // THE OBJECT'S SPAN IS MEASURED HERE, before the band reject --
