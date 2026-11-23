@@ -1,4 +1,110 @@
 {
+ "title": "The lab's first session: the jab string, the pass, and the lift turned off",
+ "human": {
+  "said_on": "2026-11-23",
+  "said": [
+   "wow this is getting fucking cool. Couldn't get through all the knobs.",
+   "what i feel is getting better is understanding the subcontext of each held chord. these are typically shoulders, and one held action, so three.",
+   "I found you can hot pass to the command button and then pump the previous held action. so you get a heavy hit then gun shots if you were holding gun.",
+   "The gun needs to be always held in ready position if the gun button is held.",
+   "The melee needs to feel like the movement of the enemy is enough so that jabs can follow for at least 4 hits. the fifth should miss and the forth is a right jab.",
+   "the first jab special is left cross, second is right uppercut, the third is the haymaker. the forth can be strung to a new combo, if special is hit after it's a jab.",
+   "With the camera tracking the juggled enemy."
+  ],
+  "full_text": "docs/TND-PORT.md, P43",
+  "knobs_chosen": "see `knobs`: the tuner is on the tape. He ended at weight -1 and knock -1 notch from their defaults of 1.0, and the lift at 0.3 after ten minutes at 0."
+ },
+ "agent": {
+  "observations": [
+   {
+    "what": "Long jab strings kept landing: of strings of eight or more presses that began with a hit, a mean of 8.8 landed in a row.",
+    "see": "observed.jab_strings"
+   },
+   {
+    "what": "Y pressed with B held twenty times, every one in slowed time; B pressed with Y held 127 times. By stance: 7 standing, 8 in the run, 5 in the boxer.",
+    "see": "observed.passes"
+   },
+   {
+    "what": "The lift knob stood at 0.9-1.1 for 21.9 minutes, was taken down to 0.5 at frame 79,400 and to 0 at frame 82,111, and stayed there 9.5 minutes; raised to 0.3 in the last eight seconds.",
+    "frames": [
+     79329,
+     116330
+    ]
+   },
+   {
+    "what": "The highest a body was thrown: 6.47 units, at frame 57,900, with the weight knob at 0.8 and the lift at 1.0.",
+    "frames": [
+     57900,
+     57900
+    ]
+   },
+   {
+    "what": "His own A/B inside the session. Lift 0.9-1.1 (frames 600-79,329): 37.1 blows a minute, 19.9 landed, 2.06 rear uppercuts, 2.93 haymakers, 14.5 rounds; a body above half a unit for 1,335 frames. Lift 0 (frames 82,111-116,304): 51.2 blows a minute, 29.2 landed, 0.95 rear uppercuts, 1.58 haymakers, 8.9 rounds; no body off the floor.",
+    "frames": [
+     600,
+     116304
+    ],
+    "caution": "Not a controlled comparison: who stood there changed between the two stretches, and the second is later in his first hour with the lab."
+   },
+   {
+    "what": "B held 24% of the session; of that he was standing 32%, running 24%, walking 7%.",
+    "see": "observed.b_held"
+   }
+  ],
+  "readings": [
+   {
+    "supposes": "Jabs that never miss leave the string no shape; he wants a string with an end.",
+    "or": [],
+    "confidence": "high",
+    "because": "he said so: four, and the fifth should miss"
+   },
+   {
+    "supposes": "With the lift at 1.0 bodies left his reach and the fight; he turned it off to keep them in front of him.",
+    "or": [
+     "he was only trying the knob's ends, as he did the knock (to 2.9 and back)",
+     "a launch is wanted but lower and heavier -- his words ask for a launch and a juggle"
+    ],
+    "confidence": "low",
+    "because": "no words about the lift; the last eight seconds raise it again"
+   },
+   {
+    "supposes": "The pass (Y from a held B, then B pumped) is a move he found and wants to mean something by stance.",
+    "or": [],
+    "confidence": "medium",
+    "because": "his words; but its forms -- the run's tackle, the boxer's stun, the close shot -- he gave as 'could be'"
+   }
+  ],
+  "proposed": [
+   "the string: four land, the fourth the right jab, a fifth misses; Y past the third a jab that steps in (built)",
+   "the gun's ready pose on his upper half whenever B is down (built)",
+   "the lens up with a body thrown (built)",
+   "a cap on a body's rise instead of the lift at 0, the lift back at 1.0 (built; his to judge)",
+   "the pass's moves by stance; the run down the sights; a held jab choosing the special (asked of him; then built as the agent's readings in P44 when he asked for a card)"
+  ]
+ },
+ "result": {
+  "commits": [
+   "aceb4ac"
+  ],
+  "changed": "games/tnd/gen_tnd.py (the lab only): KNOCK_T, the count, LNGX, the upper half's pose, CAM_PITCH, LIFT_MAX; the weight and knock knobs' defaults to 0.9",
+  "proved": [
+   "tests/test_tnd_lab.py: 35 pass",
+   "law against the simulated silicon: 654 frames bit-equal",
+   "layers 0 to 8 and the full cart byte-identical"
+  ],
+  "cost": "frame 49% at the median, 59% at the peak (the simulated silicon's meter); program 23,172 words of 32,768",
+  "cart": "TND LAB, pushed to the card 2026-11-23",
+  "next_record": "tnd-lab-0002",
+  "verdict": "played (tnd-lab-0002): what the tape shows is in that record; his words about it have not come yet",
+  "imprints": [
+   "tnd-010",
+   "tnd-011",
+   "tnd-012"
+  ],
+  "rejected": [
+   "the lift at 1.0 with no cap on a rise (experiments/tnd/REJECTED.md)"
+  ]
+ },
  "schema": "zeta-xp-1",
  "id": "tnd-lab-0001",
  "machine": {
@@ -20,7 +126,7 @@
   "card_at_start": "20261121-172911.card.bin",
   "backend": "law (zeta.cabinet.VirtualMachine)",
   "spec_loader_build": 107,
-  "ingested_at_commit": "aceb4ac"
+  "ingested_at_commit": "58a9b58"
  },
  "evidence": {
   "frames": 116786,
@@ -987,8 +1093,9 @@
   "slowed_share": 0.355,
   "stance_share": {
    "tank": 0.395,
-   "boxer": 0.204,
-   "run": 0.401
+   "run": 0.204,
+   "boxer": 0.401,
+   "targeting": 0.0
   },
   "blows": {
    "thrown": 1307,
@@ -1118,8 +1225,9 @@
     "in_slowed_time": 20,
     "stance": {
      "tank": 7,
-     "boxer": 8,
-     "run": 5
+     "run": 8,
+     "boxer": 5,
+     "targeting": 0
     }
    },
    "b_with_y_held": {
@@ -1151,110 +1259,7 @@
    }
   }
  },
- "title": "The lab's first session: the jab string, the pass, and the lift turned off",
- "human": {
-  "said_on": "2026-11-23",
-  "said": [
-   "wow this is getting fucking cool. Couldn't get through all the knobs.",
-   "what i feel is getting better is understanding the subcontext of each held chord. these are typically shoulders, and one held action, so three.",
-   "I found you can hot pass to the command button and then pump the previous held action. so you get a heavy hit then gun shots if you were holding gun.",
-   "The gun needs to be always held in ready position if the gun button is held.",
-   "The melee needs to feel like the movement of the enemy is enough so that jabs can follow for at least 4 hits. the fifth should miss and the forth is a right jab.",
-   "the first jab special is left cross, second is right uppercut, the third is the haymaker. the forth can be strung to a new combo, if special is hit after it's a jab.",
-   "With the camera tracking the juggled enemy."
-  ],
-  "full_text": "docs/TND-PORT.md, P43",
-  "knobs_chosen": "see `knobs`: the tuner is on the tape. He ended at weight -1 and knock -1 notch from their defaults of 1.0, and the lift at 0.3 after ten minutes at 0."
- },
- "agent": {
-  "observations": [
-   {
-    "what": "Long jab strings kept landing: of strings of eight or more presses that began with a hit, a mean of 8.8 landed in a row.",
-    "see": "observed.jab_strings"
-   },
-   {
-    "what": "Y pressed with B held twenty times, every one in slowed time; B pressed with Y held 127 times.",
-    "see": "observed.passes"
-   },
-   {
-    "what": "The lift knob stood at 0.9-1.1 for 21.9 minutes, was taken down to 0.5 at frame 79,400 and to 0 at frame 82,111, and stayed there 9.5 minutes; raised to 0.3 in the last eight seconds.",
-    "frames": [
-     79329,
-     116330
-    ]
-   },
-   {
-    "what": "The highest a body was thrown: 6.47 units, at frame 57,900, with the weight knob at 0.8 and the lift at 1.0.",
-    "frames": [
-     57900,
-     57900
-    ]
-   },
-   {
-    "what": "His own A/B inside the session. Lift 0.9-1.1 (frames 600-79,329): 37.1 blows a minute, 19.9 landed, 2.06 rear uppercuts, 2.93 haymakers, 14.5 rounds; a body above half a unit for 1,335 frames. Lift 0 (frames 82,111-116,304): 51.2 blows a minute, 29.2 landed, 0.95 rear uppercuts, 1.58 haymakers, 8.9 rounds; no body off the floor.",
-    "frames": [
-     600,
-     116304
-    ],
-    "caution": "Not a controlled comparison: who stood there changed between the two stretches, and the second is later in his first hour with the lab."
-   },
-   {
-    "what": "B held 24% of the session; of that he was standing 32%, running 24%, walking 7%.",
-    "see": "observed.b_held"
-   }
-  ],
-  "readings": [
-   {
-    "supposes": "Jabs that never miss leave the string no shape; he wants a string with an end.",
-    "or": [],
-    "confidence": "high",
-    "because": "he said so: four, and the fifth should miss"
-   },
-   {
-    "supposes": "With the lift at 1.0 bodies left his reach and the fight; he turned it off to keep them in front of him.",
-    "or": [
-     "he was only trying the knob's ends, as he did the knock (to 2.9 and back)",
-     "a launch is wanted but lower and heavier -- his words ask for a launch and a juggle"
-    ],
-    "confidence": "low",
-    "because": "no words about the lift; the last eight seconds raise it again"
-   },
-   {
-    "supposes": "The pass (Y from a held B, then B pumped) is a move he found and wants to mean something by stance.",
-    "or": [],
-    "confidence": "medium",
-    "because": "his words; but its forms -- the run's tackle, the boxer's stun, the close shot -- he gave as 'could be'"
-   }
-  ],
-  "proposed": [
-   "the string: four land, the fourth the right jab, a fifth misses; Y past the third a jab that steps in (built)",
-   "the gun's ready pose on his upper half whenever B is down (built)",
-   "the lens up with a body thrown (built)",
-   "a cap on a body's rise instead of the lift at 0, the lift back at 1.0 (built; his to judge)",
-   "the pass's moves by stance; the run down the sights; a held jab choosing the special (NOT built: asked of him)"
-  ]
- },
- "result": {
-  "commits": [
-   "aceb4ac"
-  ],
-  "changed": "games/tnd/gen_tnd.py (the lab only): KNOCK_T, the count, LNGX, the upper half's pose, CAM_PITCH, LIFT_MAX; the weight and knock knobs' defaults to 0.9",
-  "proved": [
-   "tests/test_tnd_lab.py: 35 pass",
-   "law against the simulated silicon: 654 frames bit-equal",
-   "layers 0 to 8 and the full cart byte-identical"
-  ],
-  "cost": "frame 49% at the median, 59% at the peak (the simulated silicon's meter); program 23,172 words of 32,768",
-  "cart": "TND LAB, pushed to the card 2026-11-23",
-  "next_record": null,
-  "verdict": "pending: the changed lab has not come back on a tape",
-  "imprints": [
-   "tnd-010",
-   "tnd-011",
-   "tnd-012"
-  ],
-  "rejected": [
-   "the lift at 1.0 with no cap on a rise (experiments/tnd/REJECTED.md)"
-  ]
- }
+ "corrections": [
+  "2026-11-23: the observer had the run and the boxer the wrong way round (the stance cell is 0 tank, 1 run, 2 boxer); re-ingested, same end state."
+ ]
 }

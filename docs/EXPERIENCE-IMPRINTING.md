@@ -154,5 +154,12 @@ Pocket. Observed: long jab strings never missed; the pass (Y with B
 held) twenty times, all in slowed time; the lift knob at 1.0 for 22
 minutes and then at 0 for ten, after bodies went 6.5 units up. Said: the
 string should be four and a miss, the gun held ready, the lens on the
-juggled body. Changed: TND-PORT P43. The next tape is the comparison;
-it has not been played yet.
+juggled body. Changed: TND-PORT P43.
+
+`experiments/tnd/tnd-lab-0002.json`: the comparison -- 38 minutes of
+P43's lab, the same observer (`python3 -m zeta.experience compare`).
+The cap held (highest body 2.28 units against 6.47) and he left every
+knob but `who` alone; five or more jabs in a row still landed twenty
+times, so "the fifth should miss" is not yet met. He has not spoken of
+the session, so nothing in it is judged: the loop has gone round once
+on the machine's side and is waiting on its other half.

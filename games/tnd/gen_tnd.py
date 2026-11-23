@@ -1475,8 +1475,8 @@ if LAB:
     # WHAT A BLOW DOES, a move a row (the jab, the cross, the hooks, the haymaker, the two uppercuts, a round, a charged one):
     # how fast it sends a body of the clone's weight (a frame), and how fast it throws one up
     # (P43: the cross is the string's FOURTH, the right jab: it sends the body two and a half units -- out of a fifth's reach)
-    KNOCK_T = cart.data(Table([int(v_ * ONE) for v_ in (0.04, 0.30, 0.11, 0.11, 0.26, 0.05, 0.05, 0.04, 0.12)]), "lab_knock_by_move")
-    LIFT_T = cart.data(Table([int(v_ * ONE) for v_ in (0, 0, 0, 0, 0.04, 0.17, 0.20, 0, 0)]), "lab_lift_by_move")
+    KNOCK_T = cart.data(Table([int(v_ * ONE) for v_ in (0.04, 0.30, 0.11, 0.11, 0.26, 0.05, 0.05, 0.04, 0.12, 0.01, 0.05)]), "lab_knock_by_move")   # (...then the pass's stun, and its tackle)
+    LIFT_T = cart.data(Table([int(v_ * ONE) for v_ in (0, 0, 0, 0, 0.04, 0.17, 0.20, 0, 0, 0, 0)]), "lab_lift_by_move")
     INVM_T = cart.data(Table([int(v_ * ONE) for v_ in (1.0, 1.25, 1.6, 1.6, 1.6, 1.6, 1.0)]), "lab_invmass")   # one over each one's own weight
     _wk = ("weight", int(0.9 * ONE), int(0.1 * ONE), int(0.4 * ONE), 3 * ONE)     # (the knob, as KNOBS_LAB has it)
     INVW_LO = (_wk[3] - _wk[1]) // _wk[2]                              # the weight knob's lowest notch
@@ -1484,6 +1484,8 @@ if LAB:
                        "lab_invweight")
     KGLYPH = cart.data(Table([FONT_CH.index(c_) for c_ in "0123456789ABCDE"]), "knob_glyphs")
     LIFT_MAX = int(0.24 * ONE)                     # the fastest a body rises: 2.4 units up at the lab's gravity
+    HM_STUN, HM_TACKLE = 9, 10                     # KNOCK_T's rows for the pass's blows
+    CQ_REACH = int(2.6 * ONE)                      # a round fired at a body nearer than this is a CLOSE-QUARTERS shot
 GATE_T = cart.data(Table(GT_W or [0]), "gates")
 _gb = Build()                      # the gate: a wall of bars across the street,
 for i in range(7):                 # red and black, seen from both sides
@@ -2926,6 +2928,8 @@ if LAB:
     # body's own: its speed along the floor, its height and its rise, its lean.
     (PGH, PSI, ARP, PLO4, PLOP, PLT5, LABT, WHOP, HK, HM, HDX, HDZ, IMPV, LS0, LS1, LS2, LNGX, JUGY) = (cart.var("lab_" + k) for k in (
         "gh", "si", "arp", "slide", "slide0", "lift", "t", "who", "hk", "hm", "hdx", "hdz", "imp", "s0", "s1", "s2", "lngx", "jugy"))
+    # P44: the pass's kind at the last launch (0 none, 1 the boxer's stun, 2 the run's tackle), and the special chosen under a held jab
+    PASSK, SELN = cart.var("lab_pass"), cart.var("lab_seln")
     EVX, EVZ, EY, EVY, ETL = (cart.var("lab_" + k, len(ENEMY)) for k in ("evx", "evz", "ey", "evy", "tilt"))
     L_HITR = p.label("hitr")
 
@@ -3227,7 +3231,7 @@ if BASE:
         # placed yet (the "who" knob's first reading does that)
         p.push32(LAB_START[0]).store(PX).push32(LAB_START[1]).store(PZ)
         p.set(YAW, 256).set(CY, 256).set(HEAD, 256).set(WHOP, -1)
-        for c_ in (PGH, ARP, PLO4, PLOP, LABT, JUGY):
+        for c_ in (PGH, ARP, PLO4, PLOP, LABT, JUGY, PASSK, SELN):
             p.set(c_, 0)
         p.set(LNGX, ONE)
         p.set(PSI, -1).set(PLT5, int(PLAT_LOW * ONE))
@@ -4577,8 +4581,28 @@ def chord(a, b, move):
 # the special: its own tap
 sp = p.label("g_sp")
 p.load(GTAP["special"]).emit(f"jz {sp}")          # (P30, layer 2: Y is the string's
+if LAB:
+    # P44 (the player: "that jab can be held, and essentially you can
+    # select the next major special you want" -- MY READING of it, to be
+    # judged on glass): while X is DOWN a press of Y throws nothing; it
+    # STEPS THE CHOICE -- once the lead hook, twice the rear uppercut,
+    # three times the haymaker -- with a blink of the light each; and the
+    # choice is thrown when X is let go.
+    p.load(GT["carve"]).emit(f"jz {sp}_n")
+    p.load(SELN).push(3).emit("lt", f"jz {sp}_f")
+    p.addi(SELN, 1)
+    p.mark(f"{sp}_f")
+    p.set(LFLASH, 4).emit(f"jmp {sp}")
+    p.mark(f"{sp}_n")
 choose(MOVE["special"])                           # TERMINATOR -- which, the launch says)
 p.mark(sp)
+if LAB:
+    p.load(SELN).emit(f"jz {sp}_r")
+    p.load(GT["carve"]).emit(f"jz {sp}_go", f"jmp {sp}_r")
+    p.mark(f"{sp}_go")
+    p.load(SELN).store(F["c3"]).set(SELN, 0)
+    choose(MOVE["special"])
+    p.mark(f"{sp}_r")
 # the carve string
 p.load(GTAP["carve"]).emit(f"jz {L['notap']}")
 if BASE:
@@ -5260,7 +5284,7 @@ if L3:
 p.load(F["bmv"]).store(F["mv"])
 p.set(ANIM, 2).set(AF, 0).set(F["con"], 0).set(F["buf"], 0)
 if LAB:
-    p.set(LNGX, ONE)
+    p.set(LNGX, ONE).set(PASSK, 0)
 if L2:
     # P30: THE COUNT BUILDS TO THE TERMINATOR. A jab thrown is one more; Y
     # ends the string with what the count has earned -- none or one: the
@@ -5282,6 +5306,24 @@ if L2:
     p.mark(f"{ct_}_y")
     p.load(F["mv"]).push(MOVE["special"]).emit("eq", f"jz {ct_}")
     if LAB:
+        # P44: THE PASS (the player: "you can hot pass to the command button
+        # ... when running that could be a tackle taken down and close
+        # quarters shot. for boxer its a stun and close quarter shot ...
+        # Then I assume you could do that move in fast mode if the transfer
+        # is within range" -- MY READING). Y thrown with the GUN UP (B down,
+        # or let go within the nine frames it takes to come down -- which
+        # is the transfer's range, in running time too): in the BOXER it is
+        # the STUN, a lead hook that holds a body four times as long and
+        # hardly moves it; in the locked RUN the leap at the target is not
+        # a leap but a TACKLE along the floor that puts the body down.
+        # Standing, it is the heavy blow it was.
+        p.load(DRAW).emit(f"jz {ct_}_np")
+        p.load(F["sty"]).push(2).emit("eq", f"jz {ct_}_nb")
+        p.set(PASSK, 1).set(F["mv"], MOVE["lead_hook"]).set(F["c3"], 0).emit(f"jmp {ct_}")
+        p.mark(f"{ct_}_nb")
+        p.load(SJD).emit(f"jz {ct_}_np")
+        p.set(PASSK, 2).set(F["py"], 0).set(F["pvy"], 0)
+        p.mark(f"{ct_}_np")
         # P43: "the forth can be strung to a new combo, if special is hit
         # after it's a jab": past the third, Y is a jab -- the first of a
         # new string
@@ -5526,6 +5568,15 @@ if L3:
     p.mark(f"{ev}_lb")
 p.emit("load 1").push(15).emit("and", "dup", f"jz {ev}_nd")
 p.push(int(OCTANT)).emit("add", "loadi").load(F["brg"]).emit("add")
+if LAB:
+    # P44 (the player: "the running needs to be stearing down the sights of
+    # the gun and of at the taret if targeting is active" -- MY READING):
+    # locked, with B HELD past the hold (the aim), whatever way the pad
+    # points he runs straight AT the target, down the gun's own line. A
+    # tapped B is still the one-handed shot off the circle.
+    knob(p, "hold").load(GT["shoot"]).emit("lt", f"jz {ev}_sg")      # (the hold knob's frames < B's)
+    p.emit("drop").load(F["brg"])
+    p.mark(f"{ev}_sg")
 p.push(1023).emit("and").store(W["head"])
 if L3:
     # P36: ...AND STAYS ON ITS CIRCLE. A step along the tangent ends a little
@@ -6127,6 +6178,14 @@ p.load(PX).store(AR["ox"]).load(PZ).store(AR["oz"])
 
 p.mark(L["frozen"])
 # ---- one mover request: the whole posed body ----------------------------------
+if LAB:                        # (P44: the tackle goes in low: the slide's poses, not the haymaker's)
+    tp = p.label("tacklepose")
+    p.load(PASSK).push(2).emit("eq").load(ANIM).push(2).emit("eq", "and", f"jz {tp}")
+    p.load(AF).emit("shr 2", "dup").push(NPOSE["slide"] - 1).emit("swap", "lt", f"jz {tp}_c")
+    p.emit("drop").push(NPOSE["slide"] - 1)
+    p.mark(f"{tp}_c")
+    p.push(base["slide"]).emit("add").store(POSE)
+    p.mark(tp)
 if DEDUPE:                     # the pose's slot: two 16-bit slots a word
     _ps = p.label("pslot")
     p.load(POSE).emit("shr 1").push(int(PSLOT)).emit("add", "loadi")
@@ -6379,8 +6438,16 @@ if L4:
             # way his body faced, by the move, the knobs and its weight
             p.load(W["stop"])
             knob(p, "stun").emit("mul", "shr 16").store(W["stop"])
+            p.load(PASSK).push(1).emit("eq", f"jz {fn_}_ns")       # (P44: the stun holds it four times as long)
+            p.load(W["stop"]).push(4).emit("mul").store(W["stop"])
+            p.mark(f"{fn_}_ns")
             enemy_hurt(p, e_)
             p.set(HK, e_["k"]).load(F["mv"]).store(HM)
+            p.load(PASSK).emit(f"jz {fn_}_np")
+            p.load(PASSK).push(HM_STUN - 1).emit("add").store(HM)  # (...and its own small send)
+            p.load(PASSK).push(2).emit("eq", f"jz {fn_}_np")
+            p.set(e_["st"], 2).set(e_["t"], 0).set(F["vx"], 0).set(F["vz"], 0)     # the tackle: it is DOWN, and he stops
+            p.mark(f"{fn_}_np")
             sin_of(p, cell=HEAD)
             p.push(0).emit("swap", "sub").store(HDX)
             sin_of(p, 256, cell=HEAD)
@@ -9988,13 +10055,20 @@ if L2:
         # number). The same test the key has; nothing is aimed for him.
         for e_ in ENEMY:
             rn = p.label("rayenemy")
-            p.load(e_["st"]).push(1).emit("eq", f"jz {rn}")
+            if LAB:                               # (P44: one that is DOWN can be shot too -- from close: below)
+                p.load(e_["st"]).emit(f"jz {rn}")
+            else:
+                p.load(e_["st"]).push(1).emit("eq", f"jz {rn}")
             p.load(int(e_["pos"])).load(RAY["ox"]).emit("sub").store(W["qx"])
             p.load(int(e_["pos"]) + 1).load(RAY["oz"]).emit("sub").store(W["qz"])
             p.load(W["qx"]).load(RAY["dx"]).emit("mulq").load(W["qz"]).load(RAY["dz"]).emit("mulq", "add")
             p.store(W["d2"])
             p.push(0).load(W["d2"]).emit("lt", f"jz {rn}")
             p.load(W["d2"]).load(RAY["len"]).emit("lt", f"jz {rn}")
+            if LAB:
+                p.load(e_["st"]).push(2).emit("eq", f"jz {rn}_up")
+                p.load(W["d2"]).push(CQ_REACH).emit("lt", f"jz {rn}")
+                p.mark(f"{rn}_up")
             p.load(W["qx"]).load(RAY["dz"]).emit("mulq").load(W["qz"]).load(RAY["dx"]).emit("mulq", "sub")
             p.emit("dup").push(E_R).emit("lt", f"jz {rn}_x")
             p.push(-E_R).emit("swap", "lt", f"jz {rn}")
@@ -10046,6 +10120,8 @@ if L2:
                       # (the hit's word. Layer 4: what it meets, 0..15 | charged << 4 | spot << 5)
                       ("hit", (f"load {int(F['mv'])}", f"push {MOVE['gun']}", "sub", "push 16", "mul",
                                f"load {int(RAY['hit'])}", "add", f"load {int(W['bz'])}", "push 32", "mul", "add")
+                       # (P44, the lab: | 256 for a round whose line met its mark nearer than CQ_REACH)
+                       + ((f"load {int(RAY['len'])}", f"push {CQ_REACH}", "lt", "push 256", "mul", "add") if LAB else ())
                        if L4 else
                        (f"load {int(F['mv'])}", f"push {MOVE['gun']}", "sub", "push 4", "mul",
                         f"load {int(RAY['hit'])}", "add"))):
@@ -10098,15 +10174,32 @@ if L2:
         p.mark(f"{ld}_hi")
         p.emit("drop").load(W["dmg"]).push(2).emit("mul").store(W["dmg"])
         p.mark(f"{ld}_e")
+        if LAB:
+            # P44: THE CLOSE-QUARTERS SHOT: three times the round, and it
+            # holds the body twenty-four frames more
+            bf("hit")
+            p.push(256).emit("and", f"jz {ld}_ncq")
+            p.load(W["dmg"]).push(3).emit("mul").store(W["dmg"]).addi(W["stop"], 24)
+            p.mark(f"{ld}_ncq")
         for e_ in ENEMY:
             le = p.label("lande")
             bf("hit")
             p.push(15).emit("and").push(3 + e_["k"]).emit("eq", f"jz {le}")
+            if LAB:                                  # (P44: a round into a body already DOWN does not stand it up to fall again)
+                p.load(e_["st"]).push(2).emit("eq").store(LS0).load(e_["t"]).store(LS1)
             enemy_hurt(p, e_)
+            if LAB:
+                p.load(LS0).emit(f"jz {le}_wu")
+                p.load(LS1).store(e_["t"])
+                p.mark(f"{le}_wu")
             if LAB:                                  # (P42: a round sends it along the round's own way)
                 p.set(HK, e_["k"])
                 bf("hit")
                 p.emit("shr 4").push(1).emit("and").push(MOVE["gun"]).emit("add").store(HM)
+                bf("hit")
+                p.push(256).emit("and", f"jz {le}_ncq")
+                p.set(HM, MOVE["gun_charged"])
+                p.mark(f"{le}_ncq")
                 bf("dx")
                 p.store(HDX)
                 bf("dz")

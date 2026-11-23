@@ -1,0 +1,586 @@
+{
+ "schema": "zeta-xp-1",
+ "id": "tnd-lab-0002",
+ "machine": {
+  "tape": {
+   "file": "20261123-020051.ztp",
+   "sha256": "5835c5e78da7ff7ae314d2a22cd0502b004be803d8843fba3df088e8bd4edc59",
+   "format": "ZTP0",
+   "loader_build": 107,
+   "cart_sum": "0xef769d87",
+   "runs": 8933
+  },
+  "cart": {
+   "file": "lab-on-card-p43.zbin",
+   "sum": "0xef769d87",
+   "built_at_commit": "aceb4ac",
+   "recipe": "TND_SONG=1 TND_LAYER=10 python3 games/tnd/gen_tnd.py",
+   "symbols_sha256": "e17efd9edbf267ae94824a75358105e4497fd54e5c7fedb596bfd6c4686c81a3"
+  },
+  "card_at_start": "20261121-172911.card.bin",
+  "backend": "law (zeta.cabinet.VirtualMachine)",
+  "spec_loader_build": 107,
+  "ingested_at_commit": "58a9b58"
+ },
+ "evidence": {
+  "frames": 139210,
+  "seconds": 2320.2,
+  "end_state_sha256": "f154db030df9534687d7510b8ac20779dab32ec89d26cee9972ae7820262c029",
+  "reproduce": "python3 -m zeta.experience ingest 20261123-020051.ztp --game lab-on-card-p43.zbin --symbols ..."
+ },
+ "knobs": [
+  {
+   "axis": "tnd.lab.who",
+   "knob": "who",
+   "index": 0,
+   "default": 0,
+   "final": 0,
+   "signed_notches": 0,
+   "step": 1,
+   "unit": "index",
+   "dwell_frames": {
+    "0": 98534,
+    "1": 153,
+    "2": 261,
+    "3": 70,
+    "4": 86,
+    "5": 40106
+   },
+   "changes": [
+    [
+     2411,
+     1
+    ],
+    [
+     2526,
+     2
+    ],
+    [
+     2682,
+     3
+    ],
+    [
+     2720,
+     2
+    ],
+    [
+     2811,
+     3
+    ],
+    [
+     2826,
+     4
+    ],
+    [
+     2868,
+     5
+    ],
+    [
+     42974,
+     4
+    ],
+    [
+     43018,
+     3
+    ],
+    [
+     43035,
+     2
+    ],
+    [
+     43049,
+     1
+    ],
+    [
+     43061,
+     0
+    ],
+    [
+     62191,
+     1
+    ],
+    [
+     62217,
+     0
+    ]
+   ],
+   "changes_total": 14
+  },
+  {
+   "axis": "tnd.lab.weight",
+   "knob": "weight",
+   "index": 1,
+   "default": 58982,
+   "final": 58982,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "58982": 139210
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.knock",
+   "knob": "knock",
+   "index": 2,
+   "default": 58982,
+   "final": 58982,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "58982": 139210
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.lift",
+   "knob": "lift",
+   "index": 3,
+   "default": 65536,
+   "final": 65536,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "65536": 139210
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.stun",
+   "knob": "stun",
+   "index": 4,
+   "default": 65536,
+   "final": 65536,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "65536": 139210
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.hstop",
+   "knob": "hstop",
+   "index": 5,
+   "default": 65536,
+   "final": 65536,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "65536": 139210
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.slide",
+   "knob": "slide",
+   "index": 6,
+   "default": 57671,
+   "final": 57671,
+   "signed_notches": 0,
+   "step": 655,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "57671": 139210
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.egrav",
+   "knob": "egrav",
+   "index": 7,
+   "default": 786,
+   "final": 786,
+   "signed_notches": 0,
+   "step": 65,
+   "unit": "Q16.16 (65536 = 1.0) a frame squared",
+   "dwell_frames": {
+    "786": 139210
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.pivot",
+   "knob": "pivot",
+   "index": 8,
+   "default": 176,
+   "final": 176,
+   "signed_notches": 0,
+   "step": 16,
+   "unit": "of 1024 a frame",
+   "dwell_frames": {
+    "176": 139210
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.lunge",
+   "knob": "lunge",
+   "index": 9,
+   "default": 58983,
+   "final": 58983,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "58983": 139210
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.keep",
+   "knob": "keep",
+   "index": 10,
+   "default": 40,
+   "final": 40,
+   "signed_notches": 0,
+   "step": 4,
+   "unit": "frames",
+   "dwell_frames": {
+    "40": 139210
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.hold",
+   "knob": "hold",
+   "index": 11,
+   "default": 14,
+   "final": 14,
+   "signed_notches": 0,
+   "step": 2,
+   "unit": "frames",
+   "dwell_frames": {
+    "14": 139210
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.slow",
+   "knob": "slow",
+   "index": 12,
+   "default": 3,
+   "final": 3,
+   "signed_notches": 0,
+   "step": 1,
+   "unit": "frames",
+   "dwell_frames": {
+    "3": 139210
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.dodge",
+   "knob": "dodge",
+   "index": 13,
+   "default": 13107,
+   "final": 13107,
+   "signed_notches": 0,
+   "step": 655,
+   "unit": "Q16.16 (65536 = 1.0) a frame",
+   "dwell_frames": {
+    "13107": 139210
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.jump",
+   "knob": "jump",
+   "index": 14,
+   "default": 12190,
+   "final": 12190,
+   "signed_notches": 0,
+   "step": 655,
+   "unit": "Q16.16 (65536 = 1.0) a frame",
+   "dwell_frames": {
+    "12190": 139210
+   },
+   "changes": [],
+   "changes_total": 0
+  }
+ ],
+ "observed": {
+  "minutes": 38.67,
+  "buttons": {
+   "a": {
+    "presses": 411,
+    "held_share": 0.116
+   },
+   "b": {
+    "presses": 704,
+    "held_share": 0.264
+   },
+   "x": {
+    "presses": 880,
+    "held_share": 0.097
+   },
+   "y": {
+    "presses": 340,
+    "held_share": 0.212
+   },
+   "l": {
+    "presses": 161,
+    "held_share": 0.544
+   },
+   "r": {
+    "presses": 138,
+    "held_share": 0.423
+   },
+   "select": {
+    "presses": 5,
+    "held_share": 0.005
+   }
+  },
+  "held_together_share": {
+   "l+r": 0.314,
+   "b+r": 0.177,
+   "y+b": 0.081,
+   "x+a": 0.012,
+   "l+a": 0.091
+  },
+  "slowed_share": 0.459,
+  "stance_share": {
+   "tank": 0.453,
+   "run": 0.12,
+   "boxer": 0.427,
+   "targeting": 0.0
+  },
+  "blows": {
+   "thrown": 1646,
+   "a_minute": 42.6,
+   "by_move": {
+    "jab": 791,
+    "cross": 62,
+    "lead_hook": 105,
+    "special": 22,
+    "rear_uppercut": 36,
+    "gun": 424,
+    "gun_charged": 206
+   },
+   "begun_in_slowed_time_share": 0.157
+  },
+  "bodies": {
+   "blows_landed": 862,
+   "landed_a_minute": 22.3,
+   "put_down": 161,
+   "highest_thrown": 2.28,
+   "frames_one_was_above_half_a_unit": 1068,
+   "above_three_units": {
+    "frames": 0,
+    "ranges": []
+   },
+   "struck_in_the_air": 8
+  },
+  "jab_strings": {
+   "that_began_with_a_hit": 181,
+   "mean_landed_in_a_row_by_length": {
+    "1": 1.0,
+    "2": 1.92,
+    "3": 2.5,
+    "4": 2.75,
+    "5": 3.91,
+    "6": 4.75,
+    "7": 7.0,
+    "8": 6.4
+   },
+   "five_or_more_in_a_row": {
+    "count": 20,
+    "frames": [
+     [
+      118512,
+      118976,
+      12
+     ],
+     [
+      110031,
+      110154,
+      11
+     ],
+     [
+      130102,
+      130213,
+      10
+     ],
+     [
+      130606,
+      130681,
+      7
+     ],
+     [
+      114935,
+      115046,
+      6
+     ],
+     [
+      116073,
+      116136,
+      6
+     ],
+     [
+      117525,
+      117831,
+      6
+     ],
+     [
+      120459,
+      120552,
+      6
+     ]
+    ]
+   }
+  },
+  "passes": {
+   "y_with_b_held": {
+    "count": 13,
+    "frames": [
+     15466,
+     16245,
+     16492,
+     16573,
+     16705,
+     16730,
+     17085,
+     17199,
+     17625,
+     58060,
+     60678,
+     93738,
+     93941
+    ],
+    "in_slowed_time": 13,
+    "stance": {
+     "tank": 1,
+     "run": 0,
+     "boxer": 12,
+     "targeting": 0
+    }
+   },
+   "b_with_y_held": {
+    "count": 106
+   },
+   "x_with_a_held": {
+    "count": 82
+   }
+  },
+  "jumps": 188,
+  "dodges_and_flips": 203,
+  "structures": {
+   "minutes_on_one": 2.8,
+   "frames_on_each": {
+    "0": 812,
+    "1": 588,
+    "2": 699,
+    "3": 853,
+    "4": 2370,
+    "5": 2769,
+    "6": 1981
+   },
+   "highest_stood": 4.0
+  },
+  "tuner_open_minutes": 0.21,
+  "b_held": {
+   "share": 0.264,
+   "of_which": {
+    "standing": 0.523,
+    "walking": 0.115,
+    "running": 0.017
+   }
+  }
+ },
+ "title": "The lab with the four-jab string, the gun held ready, the capped lift (P43), played",
+ "baseline": "tnd-lab-0001",
+ "human": {
+  "said_on": null,
+  "said": [],
+  "note": "No words about this session yet. His messages after it were 'get something on my card now.' and a note on ordering computation by scale; neither speaks of how P43 played.",
+  "knobs_chosen": "see `knobs`: he turned only `who` (which bodies stand there) and left it where it began. Every other knob stayed at its default, the lift at 1.0 among them; the tuner was open 0.2 minutes against 1.8."
+ },
+ "agent": {
+  "observations": [
+   {
+    "what": "The highest a body was thrown: 2.28 units (6.47 before); no frame with a body above three units (174 before). The lift knob was not touched.",
+    "see": "observed.bodies"
+   },
+   {
+    "what": "The right jab (the cross) was thrown 62 times. Five or more jabs landed in a row 20 times (12 before); strings of eight presses landed 6.4 in a row.",
+    "see": "observed.jab_strings",
+    "caution": "Not yet examined where those were: against a wall, against which body, or with him stepping in."
+   },
+   {
+    "what": "Haymakers 22 (80 before), lead hooks 105 (56), rear uppercuts 36 (55): with the count running past three, Y after the third jab is now a jab.",
+    "see": "observed.blows.by_move"
+   },
+   {
+    "what": "Y with B held 13 times, 12 of them in the boxer (before: 7 standing, 8 in the run, 5 in the boxer); B pressed with Y held 106 times.",
+    "see": "observed.passes"
+   },
+   {
+    "what": "On the structures 2.8 minutes (0.2 before), all seven stood on; 188 jumps (94); 203 dodges and flips (44).",
+    "see": "observed.structures"
+   },
+   {
+    "what": "Slowed time 45.9% of the session (35.5%); rounds 630 (403), of them charged 206 (109). The run 12% of his stance (20%); B held at a run 1.7% of B's time (23.5%).",
+    "see": "observed"
+   }
+  ],
+  "readings": [
+   {
+    "supposes": "'The fifth should miss' is not yet what the build does: the cross does not always put a body out of a fifth's reach.",
+    "or": [
+     "those strings were at a wall, where a body cannot be sent",
+     "they were against the heavy ones, which the cross moves least"
+    ],
+    "confidence": "medium",
+    "because": "the count of fives landed rose; where they were is not examined"
+   },
+   {
+    "supposes": "The capped lift is acceptable to him: he left the knob alone for 38 minutes.",
+    "or": [
+     "he did not open the tuner at all this session, so nothing is said by a knob left alone"
+    ],
+    "confidence": "low",
+    "because": "no words"
+   },
+   {
+    "supposes": "The platforms are wanted: fourteen times the minutes on them.",
+    "or": [
+     "he was trying what he had not got to in the first session ('Couldn't get through all the knobs')"
+    ],
+    "confidence": "low",
+    "because": "no words"
+   }
+  ],
+  "proposed": [
+   "look at where the fives landed before changing the cross's send",
+   "nothing else until he speaks of it"
+  ]
+ },
+ "result": {
+  "commits": [],
+  "changed": "nothing was changed for this record. P44 (the pass by stance, the close shot, the held jab's choice, the aimed run) was built beside it from his earlier words, not from this tape.",
+  "proved": [],
+  "cart": null,
+  "next_record": null,
+  "verdict": "P43's changes: observed here, unjudged by him. tnd-010, tnd-011, tnd-012 stay candidates.",
+  "imprints": [],
+  "rejected": []
+ }
+}

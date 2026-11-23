@@ -2125,9 +2125,11 @@ minutes in the RANGE, on its three items; two in the ring.
   most. 757 times an item rang.
 - **Slowed time is half of it**: 53% of the tape; a third of his blows
   begin in it.
-- **He circles**: L and R held together a quarter of the tape (the run
-  round the target; the run is 29% of his stance, the tank 62%, the
-  boxer 9%), with rounds off the run and the superman punch.
+- **He steps round the target**: L and R held together a quarter of the
+  tape -- the BOXER's steps round what he has locked (the boxer is 29% of
+  his stance, the tank 62%, the run 9%). (CORRECTED 2026-11-23: this
+  first read "he circles at a run". The stance cell is 0 tank, 1 run, 2
+  boxer, and the reading had 1 and 2 the wrong way round.)
 - **The spot is used**: high 43% of his locked time, mid 41%, low 14%;
   seventy changes. Thirty changes of target.
 - **153 dodges and flips, 76 jumps**; nine blows in 989 thrown from the
@@ -2274,3 +2276,43 @@ first record: his 32-minute tape of the lab, his words, P43's changes),
 `games/tnd/IMPRINTS.md` (what has been kept, thirteen entries) and
 `experiments/tnd/REJECTED.md` (what was turned down, nine). The next
 tape of the lab is the comparison; it has not been played.
+
+## P44: the lab -- the pass, the close shot, the held jab's choice, the run down the sights (2026-11-23)
+
+"get something on my card now." Three things of P43 had been asked of
+him rather than built; they are built here as THE AGENT'S READINGS of
+his words, to be judged on glass and corrected. The lab only.
+
+- **THE PASS** (Y thrown with the gun up -- B down, or let go within
+  the nine frames it takes to come down, which is the transfer's range
+  in running time too). Standing: the heavy blow it was. In the BOXER:
+  the STUN -- a lead hook that holds the body four times as long and
+  hardly sends it. In the locked RUN: the leap at the target is a
+  TACKLE along the floor (the slide's poses), and where it lands the
+  body is DOWN and he stops.
+- **THE CLOSE-QUARTERS SHOT**: a round whose line meets its mark nearer
+  than 2.6 units is three times the round, holds the body 24 frames
+  more, sends it as a charged one does -- and from that close a round
+  reaches a body that is down.
+- **A HELD JAB CHOOSES THE SPECIAL**: while X is down a press of Y
+  throws nothing and steps the choice -- once the lead hook, twice the
+  rear uppercut, three times the haymaker, the light blinking for each
+  -- and letting X go throws it.
+- **LOCKED, AIMING, THE RUN GOES DOWN THE SIGHTS**: with B held past the
+  hold knob he runs straight at the target whatever way the pad points.
+  A tapped B is still the one-handed shot off the circle.
+- tests: 40 lab (each of the four has its own). Layers 0 to 8 and the
+  full cart build byte-identical.
+- the law against the simulated silicon: 708 frames of the four,
+  bit-equal; the frame 51% at the median, 54% at the peak. (The scene
+  showed a round into a body already down standing it up to fall again;
+  it no longer restarts the fall. That mend is staged, NOT on the card:
+  the card went home with the build before it.)
+- **His second tape of the lab came home on this visit** (38m40s, of
+  P43's build): `experiments/tnd/tnd-lab-0002.json`, compared with the
+  first by `python3 -m zeta.experience compare`. He turned no knob but
+  `who`. Highest body 2.28 units (6.47); 62 crosses; five or more jabs
+  in a row still landed 20 times (12); haymakers 22 (80); the pass 13
+  times, 12 in the boxer; 2.8 minutes on the structures (0.2); 188
+  jumps (94), 203 dodges and flips (44); slowed 46% (36%). He has not
+  yet spoken of it.

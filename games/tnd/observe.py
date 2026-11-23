@@ -16,6 +16,7 @@ MOVES = ("jab", "cross", "lead_hook", "rear_hook", "special", "lead_uppercut", "
 CELLS = ["px", "pz", "f_mv", "f_sty", "anim", "af", "f_py", "f_evf", "f_c3", "slow_on", "gun_draw", "knob_on", "t_spot",
          "lab_gh", "lab_si", "b_in", "p_hp"] + [f"e{k}_{c}" for k in range(7) for c in ("st", "hp")]
 ARRAYS = ["lab_ey"]
+STANCES = ("tank", "run", "boxer", "targeting")      # f_sty: 0 the tank, 1 the run (L twice), 2 the boxer (L), 3 targeting
 
 
 def _pad_bits():
@@ -51,7 +52,7 @@ def observe(t):
         out["slowed_share"] = round(float((t.col("slow_on") != 0).mean()), 3)
     if t.has("f_sty"):
         s = t.col("f_sty")
-        out["stance_share"] = {n: round(float((s == k).mean()), 3) for k, n in enumerate(("tank", "boxer", "run"))}
+        out["stance_share"] = {n: round(float((s == k).mean()), 3) for k, n in enumerate(STANCES)}
     if not (t.has("anim") and t.has("f_mv") and t.has("af")):
         return out
     anim, mv, af = t.col("anim"), t.col("f_mv"), t.col("af")
@@ -101,7 +102,7 @@ def observe(t):
         out["passes"]["y_with_b_held"]["in_slowed_time"] = int((t.col("slow_on")[y_on_b] != 0).sum())
     if t.has("f_sty") and y_on_b:
         s = t.col("f_sty")[y_on_b]
-        out["passes"]["y_with_b_held"]["stance"] = {n: int((s == k).sum()) for k, n in enumerate(("tank", "boxer", "run"))}
+        out["passes"]["y_with_b_held"]["stance"] = {n: int((s == k).sum()) for k, n in enumerate(STANCES)}
     if t.has("f_py"):
         py = t.col("f_py")
         out["jumps"] = int(((py[1:] > 0) & (py[:-1] == 0)).sum())

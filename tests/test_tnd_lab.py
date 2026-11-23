@@ -381,3 +381,123 @@ def test_launchers_stacked_do_not_stack_the_rise(text):
         watch(0, 14)
     watch(0, 120)
     assert rise <= 0.2401 and 0.5 < top < 3.2, f"a body rose at {rise:.2f} a frame, to {top:.1f} units"
+
+
+# ---- P44: the pass, the close shot, the held jab's choice, the run down the sights (the agent's readings of his words) ----
+
+def test_a_held_jab_chooses_the_special_and_letting_go_throws_it(text):
+    for taps, want in ((1, "lead_hook"), (2, "rear_uppercut"), (3, "special"), (5, "special")):
+        g = Game(text)
+        g.at_the_clone()
+        g.run(X, 20)                                          # the jab, and X stays down
+        thrown = set()
+        for _ in range(taps):
+            g.run(X | Y, 3)
+            for _ in range(8):
+                g.run(X, 1)
+                if g.cell("anim") == 2:
+                    thrown.add(MOVES[g.cell("f_mv")])
+        assert thrown <= {"jab"}, f"with X held, Y threw {thrown}"
+        assert g.cell("lab_seln") == min(taps, 3)
+        mv = None
+        for _ in range(40):                                   # X let go: the choice is thrown
+            g.run(0, 1)
+            if mv is None and g.cell("anim") == 2 and g.cell("f_mv") != 0:
+                mv = MOVES[g.cell("f_mv")]
+        assert mv == want and g.cell("lab_seln") == 0, f"{taps} presses of Y under a held jab threw {mv}"
+
+
+def test_the_boxers_pass_is_a_stun(text):
+    g = Game(text)
+    g.at_the_clone()
+    g.run(L, 10)                                              # the boxer
+    hooks = 0
+
+    def hook(pads):
+        g.run(pads | Y, 3)
+        st = 0
+        for _ in range(60):
+            g.run(L, 1)
+            st = max(st, g.cell("e6_stun"))
+        return st
+    plain = hook(L)                                           # a lead hook, the gun down
+    assert g.cell("lab_pass") == 0
+    g.at_the_clone()
+    g.run(L, 30)
+    g.run(L | B, 6)                                           # the gun up, and the pass
+    stunned = hook(L | B)
+    assert g.cell("lab_pass") == 1, "Y with the gun up in the boxer was not the stun"
+    assert plain > 0 and stunned >= 3 * plain, f"the stun held it {stunned} frames; a plain hook {plain}"
+
+
+def test_the_runs_pass_is_a_tackle_along_the_floor_and_puts_it_down(text):
+    g = Game(text)
+    u, v = g.body()
+    g.put(u, v - 7.0, NORTH)
+    g.run(L, 2)                                               # L, twice: the run
+    g.run(0, 3)
+    g.run(L, 3)
+    g.run(L | R | U, 24)                                      # locked, and at it
+    assert g.cell("f_sty") == 1 and g.cell("locked") == 1, "he is not in the locked run"
+    g.run(L | R | U | B, 6)
+    g.run(L | R | U | B | Y, 3)
+    high, kinds = 0, set()
+    for _ in range(90):
+        g.run(L | R | U, 1)
+        high = max(high, g.cell("f_py"))
+        kinds.add(g.cell("lab_pass"))
+        if g.cell("e6_st") == 2:
+            break
+    assert 2 in kinds, "Y with the gun up in the locked run was not the tackle"
+    assert high == 0, "the tackle left the floor"
+    assert g.cell("e6_st") == 2, "the tackle did not put the body down"
+
+
+def _shot(g, k=CLONE):
+    hp = g.cell(f"e{k}_hp")
+    g.run(R, 12)
+    g.run(R | B, 4)
+    g.run(R, 40)
+    return hp - g.cell(f"e{k}_hp")
+
+
+def test_a_round_from_close_is_three_and_reaches_a_body_that_is_down(text):
+    far = Game(text)
+    far.at_the_clone(6.0)
+    near = Game(text)
+    near.at_the_clone(1.4)
+    assert (_shot(far), _shot(near)) == (1, 3), "a close-quarters round is not three times the round"
+    down = Game(text)
+    down.at_the_clone(1.4)
+    down.poke("e6_st", 2)
+    down.poke("e6_hp", 9)
+    hp = down.cell("e6_hp")
+    down.poke("e6_t", 40)
+    down.run(B, 4)
+    t0 = down.cell("e6_t")
+    down.run(0, 40)
+    assert down.cell("e6_hp") < hp, "a round from close did not reach the body on the floor"
+    assert down.cell("e6_t") >= t0, "a round into a body on the floor stood it up to fall again"
+    away = Game(text)
+    away.at_the_clone(6.0)
+    away.poke("e6_st", 2)
+    hp = away.cell("e6_hp")
+    away.run(B, 4)
+    away.run(0, 40)
+    assert away.cell("e6_hp") == hp, "a round from across the room hit a body on the floor"
+
+
+def test_locked_and_aiming_the_run_goes_down_the_sights(text):
+    def gap_after(aim):
+        g = Game(text)
+        u, v = g.body()
+        g.put(u, v - 9.0, NORTH)
+        g.run(L, 2)
+        g.run(0, 3)
+        g.run(L, 3)
+        g.run(L | R | LF | (B if aim else 0), 70)             # the pad says: round it
+        (hu, hv), (bu, bv) = g.uv(), g.body()
+        return float(np.hypot(hu - bu, hv - bv))
+    circle, charge = gap_after(False), gap_after(True)
+    assert circle > 7.5, f"without the gun he did not keep his circle ({circle:.1f})"
+    assert charge < circle - 2.0, f"aiming, he did not run at the target ({charge:.1f} against {circle:.1f})"
