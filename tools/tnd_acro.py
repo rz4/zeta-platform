@@ -134,30 +134,85 @@ def grounded(pose_, drop=None):
             drop += frozen(bm._pose_and_skin(pose_, np.array([0.0, -drop, 0.0]), None))[0][:, 2].min()
     return frozen(bm._pose_and_skin(pose_, np.array([0.0, -drop, 0.0]), None)), drop     # (the root is the rig's: y up)
 
+# P51 (the player: "the parkour feels better but can be improved so animations feel like smooth transitions and
+# more realistic runs"). THE STRIDE, A TRACEUR'S: sixteen poses, the thigh driven well forward (65 degrees) and
+# back (30), the heel folded to the seat in the recovery, a light knee at contact that catches the weight just
+# after, the arms pumping opposite with the elbow closing as the hand comes up, the pelvis turning with the
+# stride and the shoulders against it, and the body highest between contacts, lowest just after each. Every
+# clip that hands him to the stride ends in ITS first pose, and the cart starts the stride there.
+def knee_at(ph):
+    keys = [(0.0, 95), (0.12, 55), (0.25, 16), (0.36, 38), (0.55, 26), (0.72, 22), (0.82, 78), (0.92, 120), (1.0, 95)]
+    ph = ph % 1.0
+    for (a0, k0), (a1, k1) in zip(keys, keys[1:]):
+        if a0 <= ph <= a1:
+            return k0 + (k1 - k0) * bm._smoothstep((ph - a0) / (a1 - a0))
+
+def stride(ph):
+    p_ = dict(RUN)
+    for side, m, q in (("Right", 1.0, ph), ("Left", -1.0, ph + 0.5)):
+        sn = np.sin(2 * np.pi * q)
+        p_[side + "UpLeg"] = [-17.5 - 47.5 * sn, 0, -9.0 * m]
+        p_[side + "Leg"] = [knee_at(q), 0, 0]
+        p_[side + "Foot"] = [10 + 18 * max(0.0, np.sin(2 * np.pi * (q - 0.5))), 0, 0]
+        p_.update({k_: v_ for k_, v_ in arms(-42 * sn, 88 - 18 * sn, 0, 0).items() if k_.startswith(side)} if side == "Right"
+                  else {k_: v_ for k_, v_ in arms(0, 0, -42 * sn, 88 - 18 * sn).items() if k_.startswith(side)})
+    tw = np.sin(2 * np.pi * ph)
+    p_["Hips"] = [RUN["Hips"][0], RUN["Hips"][1] + 7 * tw, RUN["Hips"][2]]
+    p_["Spine1"] = [RUN["Spine1"][0], RUN["Spine1"][1] - 7 * tw, RUN["Spine1"][2]]
+    return p_
+
+def run_frame(ph):
+    """the lower foot on the floor: the body rides up and down on the stride's own legs (lowest in the loading,
+    highest as the stance leg straightens under him)"""
+    return grounded(stride(ph))[0]
+
+def mirror(p_):
+    """the same shape, the other side leading"""
+    q = {}
+    for k_, v_ in p_.items():
+        if k_.startswith("Left") or k_.startswith("Right"):
+            o_ = ("Right" + k_[4:]) if k_.startswith("Left") else ("Left" + k_[5:])
+            q[o_] = [v_[0], -v_[1], -v_[2]]
+        else:
+            q[k_] = [v_[0], -v_[1], -v_[2]]
+    return q
+
 out = {}
-out["V_acro_leap"], out["S_acro_leap"] = (np.stack(x) for x in zip(*[frozen(bm._pose_and_skin(keyed(LEAP_KEYS, k / 6), np.zeros(3), None))
-                                                                  for k in range(7)]))
-land_end = bm._run_cycle(0.0, RUN)[0]
-land = [grounded(blend(ABSORB, land_end, bm._smoothstep(k / 7)))[0] for k in range(8)]
+out["V_acro_run"], out["S_acro_run"] = (np.stack(x) for x in zip(*[run_frame(f / 16) for f in range(16)]))
+LEAP_N = 13
+for name, mk in (("acro_leap", lambda p_: p_), ("acro_leap_l", mirror)):
+    out["V_" + name], out["S_" + name] = (np.stack(x) for x in zip(*[frozen(bm._pose_and_skin(mk(keyed(LEAP_KEYS, k / (LEAP_N - 1))), np.zeros(3), None))
+                                                                      for k in range(LEAP_N)]))
+# the landing: from the gather into the knees (three frames), and up into the stride's first pose (five)
+GATHER, RUN0 = LEAP_KEYS[-1][1], stride(0.0)
+land = [grounded(blend(GATHER, ABSORB, bm._smoothstep(k / 2)))[0] for k in range(3)] + \
+       [grounded(blend(ABSORB, RUN0, bm._smoothstep(k / 5)))[0] for k in range(1, 6)]
 out["V_acro_land"], out["S_acro_land"] = (np.stack(x) for x in zip(*land))
-# the roll: the tuck, its ball brought down until it touches the floor; the cart turns it about the ball's middle
+# the roll: from the knees into the tuck, over, and up into the stride's first pose -- its lowest point on the floor
+# throughout; the cart turns it about the ball's middle
 full = pose("acro_tuck", 0.5)[0]
 mid = full.mean(0)
 r = np.sqrt(((full - mid) ** 2).sum(1)).max()
-DROP = mid[2] - r
+TUCK = SHAPES["acro_tuck"]
 roll = []
 for f in range(16):
     t = f / 15
-    w = bm._smoothstep(min(1.0, t / 0.25, (1.0 - t) / 0.25))
-    p_ = {k: [bm._guard_pose_dict()[k][i] + (SHAPES["acro_tuck"].get(k, bm._guard_pose_dict()[k])[i] - bm._guard_pose_dict()[k][i]) * w
-              for i in range(3)] for k in bm._guard_pose_dict()}
+    if t < 0.25:
+        p_, w = blend(ABSORB, TUCK, bm._smoothstep(t / 0.25)), bm._smoothstep(t / 0.25)
+    elif t > 0.75:
+        p_, w = blend(TUCK, RUN0, bm._smoothstep((t - 0.75) / 0.25)), bm._smoothstep((1.0 - t) / 0.25)
+    else:
+        p_, w = dict(TUCK), 1.0
     def repose(Vt, skel_, angles, w=w):
         body = anat.pose(angles)
         for who in ("lead", "rear"):
             arm, leg = anat.arm(who), anat.leg(who)
             shin = leg.shin_foot & ~leg.foot
             bm._reach_arm(Vt, arm, body, Vt[shin].mean(0) + 0.06 * arm.outward, arm.outward, w)
-    roll.append(frozen(bm._pose_and_skin(p_, np.array([0.0, -DROP * w, 0.0]), None, repose)))
+    drop = 0.0
+    for _ in range(8):
+        drop += frozen(bm._pose_and_skin(p_, np.array([0.0, -drop, 0.0]), None, repose))[0][:, 2].min()
+    roll.append(frozen(bm._pose_and_skin(p_, np.array([0.0, -drop, 0.0]), None, repose)))
 out["V_acro_roll"], out["S_acro_roll"] = (np.stack(x) for x in zip(*roll))
 out["roll_centre"] = np.array([r])                 # the ball's middle, over the floor, at the full tuck
 for kind, n in LENGTH.items():

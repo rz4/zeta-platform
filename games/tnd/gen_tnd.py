@@ -154,6 +154,7 @@ CLIP_OF = dict({"run": "run2", "walk": "walk2", "idle": "guard2"},
                **{k_: k_ + "_n" for k_ in STRIKES}) if BASE else {}
 if LAYER in (10, 11):                                       # (P49: the lab's acrobatics)
     CLIP_OF.update(flip_fwd="acro_tuck", flip_back="acro_back", flip_cart="acro_side")
+    CLIP_OF.update(run="acro_run")                         # (P51: the traceur's stride)
 if BASE:
     SEQS += ("slide",)           # P27: the run's slide (the layers only; four poses)
 if L1:
@@ -161,7 +162,7 @@ if L1:
 if L3:
     SEQS += ("run_gun_r", "run_gun_l", "run_gun_f")   # P36: the run, the gun out in one hand
 if LAYER in (10, 11):
-    SEQS += ("acro_leap", "acro_land", "acro_roll")   # P50: the run's air, its landing, its roll
+    SEQS += ("acro_leap", "acro_leap_l", "acro_land", "acro_roll")   # P50: the run's air (P51: either leg), its landing, its roll
 
 
 def to_zeta(V):
@@ -2901,7 +2902,13 @@ if LAB:
     LAND_RF, ROLL_F, ROLL_K = 8, 16, 8             # the absorb's frames; the roll's; its evade kind
     ROLL_C = int(round(float(np.load(ROOT / "assets" / "tnd" / "acro.npz")["roll_centre"][0]) * ONE))   # its ball's middle
     ROLL_SPD = int(0.05 * ONE)                     # he must be going at least this fast to roll
-    QF_V0 = int(0.08 * ONE)                        # the boxer's flip: its rise
+    # P51 (the player: "the boxing jump flips should be calibrated by being
+    # able to jump over the clone in all four directions"): the boxer's flip
+    # goes OVER a body -- from a jab's reach on this side of it to a jab's
+    # reach on the other: FOUR of his widths, its tuck clear of a head 1.41
+    # up as it passes over (its rise 0.17: 1.4 at the top).
+    QF_V0 = int(0.17 * ONE)                        # the boxer's flip: its rise
+    QF_W = 4                                       # ...and how far, in his widths x the dodge knob
 
     def _air_frames(v0_):
         """frames his arc is integrated before he is down again (the aloft code's own steps)"""
@@ -3108,6 +3115,7 @@ if LAB:
     # P48: where he will come down (and whether he is on his way there); how far the lens looks down for it
     LNDX, LNDZ, LNDON, AIRP = (cart.var("land_" + k) for k in ("x", "z", "on", "look"))
     RLND, RFLIP, RCEN = cart.var("run_land"), cart.var("run_flipped"), cart.var("spin_centre")   # P50
+    RPH, CAMP = cart.var("run_last_step"), cart.var("cam_pitch_base")   # P51: the stride's pose as he left the floor; the lens's pitch
     assert all(e_["k"] == i_ for i_, e_ in enumerate(ENEMY))
     if REACTOR:
         MIRY = cart.var("rx_miry")                   # (P45: his double's height is his)
@@ -5085,7 +5093,7 @@ if L1:                                            # P24: "jump and pressed again
         # thrown, nothing takes from it, and it lands stopped). No second.
         p.set(F["pvy"], QF_V0)
         p.push(int(SJ_TURN)).load(SJD).emit("add", "loadi").load(F["latch"]).emit("add").store(W["qx"])
-        knob(p, "dodge").push(int(round(2 * BODY_W * ONE / QF_T))).emit("mulq").store(W["qy"])
+        knob(p, "dodge").push(int(round(QF_W * BODY_W * ONE / QF_T))).emit("mulq").store(W["qy"])
         sin_of(p, cell=W["qx"])
         p.load(W["qy"]).emit("mulq").push(0).emit("swap", "sub", "dup").store(F["evx"]).store(F["vx"])
         sin_of(p, 256, cell=W["qx"])
@@ -5717,6 +5725,13 @@ else:
 ev = p.label("evade")
 p.load(F["evf"]).emit(f"jz {ev}_n")
 p.addi(F["evf"], -1)
+if LAB:                                           # (P51: out of the roll, the stride from its first pose)
+    re_ = p.label("rollend")
+    p.load(F["evf"]).emit(f"jz {re_}_z", f"jmp {re_}")
+    p.mark(f"{re_}_z")
+    p.load(F["evk"]).push(ROLL_K).emit("eq", f"jz {re_}")
+    p.set(F["ph"], 0)
+    p.mark(re_)
 p.load(F["evx"]).store(F["vx"]).load(F["evz"]).store(F["vz"])
 p.set(ANIM, 0).emit(f"jmp {L['motion']}")
 p.mark(f"{ev}_n")
@@ -6361,19 +6376,29 @@ if LAB:
     p.load(F["py"]).emit(f"jz {lpo}_g")
     p.load(F["acmb"]).emit(f"jz {lpo}_a", f"jmp {lpo}_g")
     p.mark(f"{lpo}_a")
-    p.push(LEAP_TOP).load(F["pvy"]).emit("sub").push(int(round(6 * ONE / ((LEAP_TOP - LEAP_BOT) / ONE)))).emit("mulq", "shr 16")
+    _ln = NPOSE["acro_leap"] - 1
+    p.push(LEAP_TOP).load(F["pvy"]).emit("sub").push(int(round(_ln * ONE / ((LEAP_TOP - LEAP_BOT) / ONE)))).emit("mulq", "shr 16")
     p.emit("dup").push(0).emit("lt", f"jz {lpo}_lo")
     p.emit("drop").push(0)
     p.mark(f"{lpo}_lo")
-    p.emit("dup").push(6).emit("swap", "lt", f"jz {lpo}_hi")
-    p.emit("drop").push(6)
+    p.emit("dup").push(_ln).emit("swap", "lt", f"jz {lpo}_hi")
+    p.emit("drop").push(_ln)
     p.mark(f"{lpo}_hi")
-    p.push(base["acro_leap"]).emit("add").store(POSE).set(RLND, 0).emit(f"jmp {L['pd']}")
+    # (P51: the leg that drives is the one that was swinging: off the right
+    # foot -- the stride's middle half, its stance -- the LEFT knee comes up)
+    p.push(base["acro_leap"]).load(RPH).push(4).emit("sub").push(8).emit("lt", f"jz {lpo}_r")
+    p.emit("drop").push(base["acro_leap_l"])
+    p.mark(f"{lpo}_r")
+    p.emit("add").store(POSE).set(RLND, 0).emit(f"jmp {L['pd']}")
     p.mark(f"{lpo}_g")
     p.load(RLND).emit(f"jz {lpo}")
     p.addi(RLND, -1)
+    p.load(RLND).emit(f"jz {lpo}_end")
     p.push(LAND_RF - 1).load(RLND).emit("sub").push(base["acro_land"]).emit("add").store(POSE).emit(f"jmp {L['pd']}")
+    p.mark(f"{lpo}_end")                                       # (P51: the landing ends in the stride's first pose:
+    p.set(F["ph"], 0)                                          # the stride takes up from it)
     p.mark(lpo)
+    p.load(F["ph"]).emit("shr 16").push(15).emit("and").store(RPH)
 p.load(F["ph"]).emit("shr 16").push(15).emit("and").push(base["run"])
 if L3:
     # P36: locked, B down or a shot just gone: the near arm is out at the
@@ -6692,7 +6717,11 @@ if REACTOR:
     sd = p.label("solid")
     _bw = int(BODY_W * ONE)
     p.load(_dbl["st"]).push(1).emit("eq", f"jz {sd}")
-    p.load(F["py"]).push(int(1.5 * ONE)).emit("lt", f"jz {sd}")
+    p.load(F["py"])                                                     # (P51: tucked in a flip his feet are drawn
+    p.load(F["evf"]).emit(f"jz {sd}_nt")                                 # up: his lowest is half a unit above them)
+    p.push(int(0.5 * ONE)).emit("add")
+    p.mark(f"{sd}_nt")
+    p.push(int(1.5 * ONE)).emit("lt", f"jz {sd}")
     for him_, it_, d_, a_ in ((PX, _dx, LS0, W["qx"]), (PZ, _dz, LS1, W["qz"])):
         p.load(him_).load(it_).emit("sub", "dup").store(d_)
         p.emit("dup").push(0).emit("lt", f"jz {sd}_p{it_}")
@@ -7054,6 +7083,27 @@ if L2:
     p.addi(AIMT, -1)
     p.load(HEAD).store(W["oy"])
     p.mark(al_)
+if LAB:
+    # P51 (the player: "the camera when jumping should be like the inner
+    # tangent of the curve, so the point of view is going into where
+    # you'll land to help with precision"): IN THE RUN'S AIR the lens's line
+    # comes round to the way from him to where he will come down -- steering
+    # in the air, it follows him into the turn -- and, below, it stands on
+    # the INSIDE of that turn and pitches down to the spot.
+    ay_ = p.label("airyaw")
+    p.set(LS2, 0)
+    p.load(LNDON).emit(f"jz {ay_}")
+    p.load(LOCK).emit(f"jz {ay_}_u", f"jmp {ay_}")
+    p.mark(f"{ay_}_u")
+    p.load(F["sty"]).push(1).emit("eq", f"jz {ay_}")
+    p.load(LNDX).load(PX).emit("sub").store(W["qx"]).load(LNDZ).load(PZ).emit("sub").store(W["qz"])
+    p.load(W["qx"]).emit("dup", "mulq").load(W["qz"]).emit("dup", "mulq", "add").push(int(0.25 * ONE)).emit("lt", f"jz {ay_}_f", f"jmp {ay_}")
+    p.mark(f"{ay_}_f")                                       # (nearer than half a unit: no line to speak of)
+    p.load(F["brg"]).store(LS1).emit(f"call {L_YAW}")
+    p.load(F["brg"]).emit("dup").store(W["oy"])
+    p.load(YAW).emit("sub").push(512).emit("add").push(1023).emit("and").push(512).emit("sub").store(LS2)   # (+: to his left)
+    p.load(LS1).store(F["brg"])
+    p.mark(ay_)
 # P18: THE THREAT IS IN THE FRAME. On glass: "getting hit from behind is
 # annoying -- if I'm about to be attacked the camera pans just enough to
 # have the enemy in view." The most urgent demon -- swinging, or in the
@@ -7096,7 +7146,12 @@ if L1:
     tr_ = p.label("trail")
     p.load(F["sty"]).push(1).emit("eq", f"jz {tr_}")
     p.load(T)
-    knob(p, "trail").emit("mulq", "dup", f"jz {tr_}_s")
+    knob(p, "trail").emit("mulq")
+    if LAB:                                       # (P51: in the air, into where he will land -- a quarter of the gap a frame)
+        p.load(LNDON).emit(f"jz {tr_}_g")
+        p.emit("drop").load(T).emit("shr 2")
+        p.mark(f"{tr_}_g")
+    p.emit("dup", f"jz {tr_}_s")
     p.emit(f"jmp {tr_}_a")
     p.mark(f"{tr_}_s")
     p.emit("drop").push(0).load(T).emit("lt").load(T).push(0).emit("lt", "sub")   # its sign
@@ -7159,6 +7214,8 @@ if LAB:
     p.load(LOCK).emit(f"jz {as_}_u", f"jmp {as_}")
     p.mark(f"{as_}_u")
     p.push(int(AIR_SH * ONE)).store(W["stop"])
+    p.push(16).load(LS2).emit("lt", f"jz {as_}")            # (P51: the turn is to his left: the lens on his left)
+    p.push(int(-AIR_SH * ONE)).store(W["stop"])
     p.mark(as_)
 if L2:
     # P31: TIME SLOWED, THE LENS GOES TO WHERE THE BLOW LANDS (the player:
@@ -7246,14 +7303,37 @@ if LAB:
     # sixteen of the turn's 1,024 a unit of his height, sixty at most,
     # eased a quarter of the way a frame -- the floor he is coming to
     # stays in the glass. Not while he is locked: that lens has its work.
+    # P51: ...and DOWN AT THE SPOT: the pitch whose line from the lens
+    # meets the floor where he will come down (its slope's angle, s / (1 +
+    # 0.28 s^2), less the pitch it has without this), up to 150 of 1,024
     al = p.label("airlook")
+    p.emit("dup").store(CAMP)
     p.push(0)
+    p.load(LNDON).emit(f"jz {al}")
     p.load(LOCK).emit(f"jz {al}_u", f"jmp {al}")
     p.mark(f"{al}_u")
-    p.emit("drop").load(F["py"]).push(16).emit("mul", "shr 16", "dup").push(60).emit("lt", f"jz {al}_c")
-    p.emit(f"jmp {al}")
-    p.mark(f"{al}_c")
-    p.emit("drop").push(60)
+    p.emit("drop")
+    for c_, me_, o_ in ((LNDX, spec.CAM_X, W["qx"]), (LNDZ, spec.CAM_Z, W["qz"])):
+        p.load(c_).load(me_).emit("sub", "dup").push(0).emit("lt", f"jz {al}_a{int(o_)}")
+        p.push(0).emit("swap", "sub")
+        p.mark(f"{al}_a{int(o_)}")
+        p.store(o_)
+    p.load(W["qx"]).load(W["qz"]).emit("lt", f"jz {al}_o")
+    p.load(W["qx"]).load(W["qz"]).store(W["qx"]).store(W["qz"])
+    p.mark(f"{al}_o")                                         # (qx the longer side)
+    p.load(W["qz"]).push(int(0.41 * ONE)).emit("mulq").load(W["qx"]).emit("add")
+    p.emit("dup").push(int(0.75 * ONE)).emit("lt", f"jz {al}_d")
+    p.emit("drop").push(int(0.75 * ONE))
+    p.mark(f"{al}_d")
+    p.store(DVD).load(spec.CAM_Y).load(GYC).emit("sub").store(DVR).emit(f"call {L_QDIV}")
+    p.load(DVQ).store(DVR).load(DVQ).emit("dup", "mulq").push(int(0.28 * ONE)).emit("mulq").push(ONE).emit("add").store(DVD)
+    p.emit(f"call {L_QDIV}")
+    p.load(DVQ).push(163).emit("mul", "shr 16").load(CAMP).emit("sub")
+    p.emit("dup").push(0).emit("lt", f"jz {al}_lo")
+    p.emit("drop").push(0)
+    p.mark(f"{al}_lo")
+    p.emit("dup").push(150).emit("swap", "lt", f"jz {al}")
+    p.emit("drop").push(150)
     p.mark(al)
     p.load(AIRP).emit("sub", "dup").push(0).emit("swap", "lt", f"jz {al}_p")
     p.push(3).emit("add")
@@ -8793,6 +8873,8 @@ if L2:
     p.addi(W["k"], -1).load(W["k"]).emit(f"jz {sg_}_d", f"jmp {sg_}_l")
     p.mark(f"{sg_}_d")
     p.load(RAY["hit"]).emit(f"jz {sg_}")
+    if LAB:                                       # (P51, the player: "the gun aiming still shows the hit spark on
+        p.emit(f"jmp {sg_}")                      # the target, that is only on hit": the laser is the whole sight)
 
     def dot_mesh(h):
         dm = h.label("dotm")

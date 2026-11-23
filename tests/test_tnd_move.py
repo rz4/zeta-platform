@@ -20,7 +20,7 @@ import test_tnd_lab as LAB                                  # noqa: E402
 import test_tnd_reactor as RX                               # noqa: E402
 from test_tnd_lab import no_paint, pytestmark               # noqa: E402,F401
 
-A, L, R, U, D, LF, RT = RX.A, RX.L, RX.R, RX.U, RX.D, RX.LF, RX.RT
+A, B, L, R, U, D, LF, RT = RX.A, RX.B, RX.L, RX.R, RX.U, RX.D, RX.LF, RX.RT
 W = RX.W
 ONE = 65536
 
@@ -72,15 +72,15 @@ def test_the_tanks_dodge_is_one_of_his_widths_exactly(rx_text, pad, want):
     assert (e, n) == (2 * want[0], 2 * want[1])
 
 
-@pytest.mark.parametrize("pad,want", [(U, (0, 2)), (D, (0, -2)), (LF, (-2, 0)), (RT, (2, 0))])
-def test_the_boxers_flip_is_one_press_two_widths_and_quick(rx_text, pad, want):
+@pytest.mark.parametrize("pad,want", [(U, (0, 4)), (D, (0, -4)), (LF, (-4, 0)), (RT, (4, 0))])
+def test_the_boxers_flip_is_one_press_four_widths(rx_text, pad, want):
     g = RX.Game(rx_text)
     g.put(0.0, 0.0, RX.NORTH)
     g.run(L, 10)
     assert g.cell("f_sty") == 2
     e, n, high, air = went(g, pad, hold=L)
     assert (e, n) == want, f"the flip went ({e}, {n}) of his widths"
-    assert 0.15 < high < 0.5 and air <= 12, f"it rose {high:.2f} and took {air} frames"
+    assert 1.3 < high < 1.6 and air <= 32, f"it rose {high:.2f} and took {air} frames"   # (P51: over a body)
 
 
 def test_the_flip_has_no_second_and_the_plain_jump_is_still_the_jump(rx_text):
@@ -92,7 +92,7 @@ def test_the_flip_has_no_second_and_the_plain_jump_is_still_the_jump(rx_text):
     g.run(L, 2)
     g.run(L | LF | A, 3)                                      # again, in the air: nothing
     g.run(L, 30)
-    assert round((g.uv()[0] - u0) / W, 2) == -2.0
+    assert round((g.uv()[0] - u0) / W, 2) == -4.0
     g.put(0.0, 0.0, RX.NORTH)
     g.run(L, 10)
     e, n, high, air = went(g, 0, hold=L)
@@ -189,7 +189,7 @@ def _flip(g, pad):
     from zeta import spec
     body = g.sym("body_desc")
     g.run(L | pad | A, 3)
-    for _ in range(14):
+    for _ in range(34):
         n = g.d[spec.OL_BASE]
         rows = [g.d[spec.OL_BASE + 1 + i * spec.OL_STRIDE: spec.OL_BASE + 1 + (i + 1) * spec.OL_STRIDE] for i in range(n)]
         ang = next(r[4] for r in rows if r[0] == body)
@@ -296,3 +296,93 @@ def test_a_jump_out_of_the_roll_ends_it_and_standing_still_he_does_not_roll(lab_
     for _ in range(60):
         s.run(L, 1)
         assert s.cell("f_evk") != 8, "standing still, he rolled"
+
+
+
+# ---- P51: the boxer's flip goes over a body; the sight has no spark; the lens looks into the landing ----
+
+@pytest.mark.parametrize("pad,side", [(U, (0, 1)), (D, (0, -1)), (LF, (-1, 0)), (RT, (1, 0))])
+def test_the_boxers_flip_clears_the_clone_every_way(lab_text, pad, side):
+    """from a jab's reach on one side of it to a jab's reach on the other, the tuck (its lowest half a unit above
+    his feet) over its head (1.41) all the while he is over it"""
+    g = LAB.Game(lab_text)
+    cu, cv = g.body()
+    reach = 2 * W
+    g.put(cu - side[0] * reach, cv - side[1] * reach, LAB.NORTH)
+    g.run(L, 12)
+    g.run(L | pad | A, 3)
+    over = []
+    for _ in range(40):
+        g.run(L, 1)
+        u, v = g.uv()
+        if max(abs(u - cu), abs(v - cv)) < 0.35:
+            over.append(g.cell("f_py") / ONE)
+    u, v = g.uv()
+    assert over, "he did not pass over it"
+    assert min(over) + 0.5 > 1.41, f"he went through its head: {min(over):.2f} up"
+    assert abs(u - (cu + side[0] * reach)) < 0.05 and abs(v - (cv + side[1] * reach)) < 0.05, "he did not land a reach beyond it"
+
+
+def test_aiming_draws_the_laser_and_no_spark_until_a_round_lands(lab_text):
+    from zeta import spec
+    g = LAB.Game(lab_text)
+    g.at_the_clone(4.0)
+    g.run(R, 12)
+    dots = {g.sym(n) for n in ("lab_dot", "lab_dot_hot", "dot_m", "hot_m")}
+    for _ in range(40):
+        g.run(R | B, 1)
+        n = g.d[spec.OL_BASE]
+        rows = [g.d[spec.OL_BASE + 1 + i * spec.OL_STRIDE] for i in range(n)]
+        assert not (set(rows) & dots), "a spark is drawn on the target with no round landed"
+
+
+def _lens_meets_floor(g):
+    """where the line through the middle of the glass meets the floor (the lens's own place, yaw and pitch)"""
+    from zeta import spec
+    s32 = lambda v: v - (1 << 32) if v & (1 << 31) else v      # noqa: E731
+    x, y, z = (s32(g.d[r]) / ONE for r in (spec.CAM_X, spec.CAM_Y, spec.CAM_Z))
+    yaw, pitch = g.d[spec.CAM_YAW] & 1023, g.d[spec.CAM_PITCH] & 1023
+    a, b = 2 * np.pi * yaw / 1024, 2 * np.pi * (pitch if pitch < 512 else pitch - 1024) / 1024
+    if b <= 0:
+        return None
+    run = (y - g.cell("curb_y") / ONE) / np.tan(b)
+    return x - np.sin(a) * run, z + np.cos(a) * run
+
+
+@pytest.mark.parametrize("steer", [0, LF])
+def test_in_the_runs_air_the_lens_looks_into_where_he_will_land(lab_text, steer):
+    g = _running(lab_text)
+    g.run(L | U | A, 3)
+    off = []
+    for i in range(40):
+        g.run(L | U | steer, 1)
+        if g.cell("f_py") == 0:
+            break
+        hit = _lens_meets_floor(g)
+        if i > 10 and hit is not None and g.cell("land_on"):
+            land = (g.cell("land_x") / ONE, g.cell("land_z") / ONE)
+            off.append(float(np.hypot(hit[0] - land[0], hit[1] - land[1])))
+    assert off and np.median(off) < 1.2, f"the lens's line met the floor {np.median(off) if off else None} from the spot"
+
+
+def test_steering_in_the_air_the_lens_stands_on_the_inside(lab_text):
+    from zeta import spec
+    g = _running(lab_text)
+    g.run(L | U | A, 3)
+    g.run(L | U | LF, 14)
+    s32 = lambda v: v - (1 << 32) if v & (1 << 31) else v      # noqa: E731
+    yaw = 2 * np.pi * (g.d[spec.CAM_YAW] & 1023) / 1024
+    fx, fz = -np.sin(yaw), np.cos(yaw)                        # the lens's forward
+    dx, dz = (g.cell("px") - s32(g.d[spec.CAM_X])) / ONE, (g.cell("pz") - s32(g.d[spec.CAM_Z])) / ONE
+    left = fx * dz - fz * dx                                  # (> 0: he is to the lens's right, the lens on his left)
+    assert left > 0.2, "turning left, the lens is not on the inside of the turn"
+
+
+def test_the_landing_and_the_roll_hand_him_to_the_strides_first_pose(lab_text):
+    g = _running(lab_text)
+    g.run(L | U | A, 3)
+    while g.cell("f_py") > 0:
+        g.run(L | U, 1)
+    while g.cell("run_land") > 0:
+        g.run(L | U, 1)
+    assert g.cell("f_ph") >> 16 == 0, "the stride did not take up from its first pose"

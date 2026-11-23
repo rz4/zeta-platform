@@ -17,6 +17,7 @@ where there are any, and where the account is.
 | 2026-11-23 | The lock's mark as an outline AND a diamond at the spot; the sight as beads with a large point where it lands (P35, P37, P46). | "the outline and the diamond are too much ui, just a red outline would be good. also the line of sight marker and target are too imprecise, smaller would be better". | `tnd-reactor-0002`; P47 |
 | 2026-11-23 | In the boxer: A with a direction a strafe jump of three units, the flip a second press in the air (P24, P31). The tank's dodge of 2.4 units (P33). | "for the boxing I think we want an exact left right up down flip jump, not the double press one, this is to quick dodge maybe two units, the none boxing is a single unit dodge". (In the lab and the reactor; the layers keep theirs.) | `tnd-reactor-0003`; P48 |
 | 2026-11-23 | The side flip as the archive's cartwheel: a straddle star, the legs thrown wide and straight. | "the legs on the side flip should be tucked too, work on the arcrobatics poses". (In the lab and the reactor.) | `tnd-lab-0004`; P49 |
+| 2026-11-23 | The boxer's flip as a quick low dodge of two widths (P48). The point where a round will land drawn on the target (P34, kept small in P47). | "the boxing jump flips should be calibrated by being able to jump over the clone in all four directions. the gun aiming still shows the hit spark on the target, that is only on hit." | P51 |
 
 Not rejections, though a tape made them look like one:
 

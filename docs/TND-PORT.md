@@ -2618,3 +2618,51 @@ parkourist". The lab and the reactor only.
 - the law against the simulated silicon: the lab 361 frames, the reactor
   258, bit-equal; the frame 49% / 63% and 57% / 61%. On the card
   2026-11-23.
+
+## P51: over the clone; the traceur's stride; the lens into the landing (2026-11-23)
+
+The player, of P50 on glass: "the boxing jump flips should be calibrated
+by being able to jump over the clone in all four directions. the gun
+aiming still shows the hit spark on the target, that is only on hit.
+also the parkour feels better but can be improved so animations feel
+like smooth transitions and more realistic runs and the camera when
+jumping should be like the inner tangent of the curve, so the point of
+view is going into where you'll land to help with precision." The lab
+and the reactor only.
+
+- **THE BOXER'S FLIP GOES OVER A BODY**: from a jab's reach on this side
+  to a jab's reach on the other -- four of his widths (it was two), the
+  dodge knob still its length -- rising to 1.4, so the tuck (its lowest
+  half a unit over his feet) clears a head 1.41 up the whole time he is
+  over it. A test does it all four ways. In the reactor the double is
+  not solid to a flip that clears it.
+- **NO SPARK UNTIL A ROUND LANDS**: the point at the laser's end is gone;
+  the laser is the whole sight, and the red burst is the hit.
+- **A TRACEUR'S STRIDE** (`tools/tnd_acro.py`, `acro_run`, sixteen poses
+  on the archive's rig, for the lab's run): the thigh driven 65 degrees
+  forward and 30 back, the heel folded to the seat in the recovery, a
+  light knee at contact catching the weight just after, the arms pumping
+  opposite with the elbow closing as the hand comes up, the pelvis
+  turning with the stride and the shoulders against it, the lower foot
+  always on the floor.
+- **TRANSITIONS WITHOUT A POP**: the leap has thirteen shapes (it had
+  seven) and two sides -- the knee that drives is the one that was
+  swinging when he left the floor; the landing goes from the gather into
+  the knees and up into the stride's FIRST pose, and the stride takes up
+  from there; the roll goes from the knees into the tuck and up into the
+  same pose, and the stride takes up from there too.
+- **THE LENS IN THE AIR LOOKS INTO THE LANDING**: in the run its line
+  comes round to the way from him to where he will come down (a quarter
+  of the gap a frame), so steering in the air it goes into the turn; it
+  stands on the INSIDE of that turn (on his right when straight); and in
+  any jump it pitches so that the middle of the glass is on the spot --
+  over the line of his own body, the spot below him in the frame. A test
+  holds the middle of the glass within a unit of the spot.
+- READINGS OF MINE: "the inner tangent of the curve" as the lens on the
+  inside of his turn looking into the landing; every shape.
+- tests: `tests/test_tnd_move.py`, 32 (9 more). 99 pass across the lab,
+  the reactor and the tools. Layers 0, 4, 8 and the full cart
+  byte-identical.
+- the law against the simulated silicon: the lab 586 frames, the reactor
+  323, bit-equal; the frame 50% / 62% and 57% / 62%. On the card
+  2026-11-23.
