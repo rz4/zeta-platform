@@ -2316,3 +2316,61 @@ his words, to be judged on glass and corrected. The lab only.
   times, 12 in the boxer; 2.8 minutes on the structures (0.2); 188
   jumps (94), 203 dodges and flips (44); slowed 46% (36%). He has not
   yet spoken of it.
+
+## P45: the REACTOR -- the lab drawn in, its checks his width, his double in the corner (2026-11-23)
+
+The player, of the game as it stands: "It feels like we are getting
+closer to an infinite imersive game where we can play fast with the
+controls of the Pocket. Feels good just needs more finesse. the camera
+angles, where the enemies are." And the test he asked for: "the world
+we made for the lab but more concentrated like a reactor. same
+checkboard but are unit to the player width a spacial economy of
+motion moves to pressed. this way all the physics is naturalized. now
+its a corner with the doupleganger except its at the corner, its
+facing you and what it does is the exact mirror of the moves you are
+doing. This will help with calibration of the games bodies. The hits
+can be made felt as if the bodies are responding to eachother."
+
+`TND_LAYER=11` (a variant of the lab: everything P42-P44 is in it).
+
+- **A CHECK IS HIS BODY'S WIDTH**, measured off his own idle: 0.58
+  units. The room is sixteen checks square and eight high (9.28 by 4.64
+  units; the lab's hall was 64 by 32 with checks of 4). Three meshes,
+  twelve objects; no structures. A body's middle comes to half a check
+  of a wall: its shoulder touches.
+- **HIS DOUBLE IS IN THE NORTH-EAST CORNER**, on the middle of the
+  corner's own check, facing him; he begins six checks down the
+  diagonal. Nobody else is in the room.
+- **IT DOES WHAT HE DOES** (the first knob, `mirror`, on): up and free
+  of a blow, its two halves take his two halves' poses of the same
+  frame, and its height is his. Held by a blow or down, it is in its
+  own idle -- a blow breaks off what it was doing. THE SAME HAND, not
+  the other: the machine has no way to turn a mesh inside out, so this
+  is a twin and not a reflection. It does not copy his steps: the
+  corner is its place, and knocked out of it, it walks back.
+- **A BLOW OF HIS THAT LANDS IS A BLOW OF ITS THAT LANDS ON HIM**: he
+  is sent back by exactly what it is sent by (the move, the knock and
+  weight knobs), and slides as a body slides (the slide knob), a wall
+  a wall. It is in the corner and cannot go; he can -- so how many
+  checks he goes is how far that blow sends a body. At the knobs'
+  beginnings, from a check and a quarter: a jab a quarter of a check;
+  the lead hook 1.2; the rear uppercut 0.5; the cross 4.1; the
+  haymaker 3.3. (He is not thrown up, and its rounds are not fired.)
+- **TWO BODIES DO NOT STAND IN ONE PLACE**: up, his double is a check
+  of floor he cannot be on (over its head he may pass). The lab let
+  him walk through it.
+- READINGS OF MINE, to be judged: that "mirror" is of his MOVES and
+  not of his steps (a reflection that walked toward him as he walked
+  toward it is the other reading); that the hits "responding to each
+  other" is his own body being sent.
+- NOT TOUCHED: the lens. At a check apart it looks over his shoulder
+  and his own back hides most of his double.
+- tests: `tests/test_tnd_reactor.py`, 6. The lab and layers 0, 4, 8 and
+  the full cart build byte-identical. `games/tnd/axes-reactor.json` is
+  its knob registry.
+- the law against the simulated silicon: 652 frames, bit-equal; the
+  frame 56% at the median, 72% at the peak (the lab: 51% and 54% --
+  the room is more faces, nearer the lens).
+- on the card 2026-11-23 as TND REACTOR, with the lab's mend of P44.
+  The card brought back his tape of P44's lab (35m25s):
+  `experiments/tnd/tnd-lab-0003.json`.

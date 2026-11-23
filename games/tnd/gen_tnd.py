@@ -82,12 +82,14 @@ SWARM_TEST = os.environ.get("TND_SWARM") == "1"
 #                 where the blow lands.
 LAYER = int(os.environ.get("TND_LAYER", "9"))
 # (9 is NOT a layer: it is the default, the whole game. The lab is 10.)
-BASE = LAYER in (0, 1, 2, 3, 4, 5, 6, 7, 8, 10)  # the base's own rules (the layers stand on them)
-L1 = LAYER in (1, 2, 3, 4, 5, 6, 7, 8, 10)  # the left shoulder
-L2 = LAYER in (2, 3, 4, 5, 6, 7, 8, 10)  # shadow boxing, and the gun
-L3 = LAYER in (3, 4, 5, 6, 7, 8, 10)  # the right shoulder: targeting (P35)
-L4 = LAYER in (4, 5, 6, 7, 8, 10)  # the enemies (P37): bodies from the cart (frontier 20's core)
-LAB = LAYER == 10                # THE LAB (P42): a white room to tune the fight in -- layer 4, no town
+BASE = LAYER in (0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11)  # the base's own rules (the layers stand on them)
+L1 = LAYER in (1, 2, 3, 4, 5, 6, 7, 8, 10, 11)  # the left shoulder
+L2 = LAYER in (2, 3, 4, 5, 6, 7, 8, 10, 11)  # shadow boxing, and the gun
+L3 = LAYER in (3, 4, 5, 6, 7, 8, 10, 11)  # the right shoulder: targeting (P35)
+L4 = LAYER in (4, 5, 6, 7, 8, 10, 11)  # the enemies (P37): bodies from the cart (frontier 20's core)
+LAB = LAYER in (10, 11)          # THE LAB (P42): a white room to tune the fight in -- layer 4, no town
+REACTOR = LAYER == 11            # THE REACTOR (P45): the lab drawn in to one small room, its checks his own width,
+                                 # and in its corner his double, doing what he does
 L5 = LAYER in (5, 6, 7, 8)       # the world (P38, docs/TND-WORLD.md): a key a gate, bolts, bunkers
 L6 = LAYER in (6, 7, 8)          # the bunker's map and his waymarks (P39, TND-WORLD step 3)
 L7 = LAYER in (7, 8)             # the bunker is a door and rooms: the prep table, the ring, the range (P40)
@@ -338,7 +340,7 @@ END_PAUSE = cart.cram(Table(_pend), "pause_end")
 # twice the room it had, and a page-in copies 16K words -- a frame's work at
 # the SRAM's pace, on the frames the intro or the pause come and go.
 PAGE = 16384
-if os.environ.get("TND_CARTMESH") == "1" or LAYER in (4, 5, 6, 7, 8, 10):   # (the whole of IMEM is the page --
+if os.environ.get("TND_CARTMESH") == "1" or LAYER in (4, 5, 6, 7, 8, 10, 11):   # (the whole of IMEM is the page --
     PAGE = spec.IMEM_WORDS                    # the machine holds 32,768; a page-in is two frames' work)
 INTRO_PROG = cart.cram(Table([0] * PAGE), "intro_prog")
 PAUSE_PROG = cart.cram(Table([0] * PAGE), "pause_prog")
@@ -1449,16 +1451,62 @@ if LAB:
                     b_.quad(pts_, n_, c_)
         assert len(b_.v) <= spec.MESH_NV_MAX and len(b_.f) <= spec.MESH_NF_MAX
         return int(cart.data(b_.mesh(), f"lab_tile{int(west_)}{int(east_)}{int(south_)}"))
-    _t_sw, _t_s, _t_se = _lab_tile(True, False, True), _lab_tile(False, False, True), _lab_tile(False, True, True)
-    # (the north row is the south row turned half round: the checks fall the same)
-    LAB_TILES = [(lab_xz(-24 + 16 * i_, -8), m_, 0) for i_, m_ in enumerate((_t_sw, _t_s, _t_s, _t_se))] + \
-                [(lab_xz(-24 + 16 * i_, 8), m_, 512) for i_, m_ in enumerate((_t_se, _t_s, _t_s, _t_sw))]
-    # THE STRUCTURES along the north wall: (u0, u1, v0, v1, its top, how it moves)
-    PLATS = [(-32, -26, 10, 16, 0.8, None), (-26, -20, 10, 16, 1.6, None), (-20, -12, 10, 16, 2.4, None),
-             (-12, 2, 13, 16, 2.4, None),                # a ledge along the wall
-             (2, 6, 12, 15, 2.4, "u"),                   # it slides ten units east and back
-             (20, 26, 10, 16, 4.0, "y"),                 # it rises from 0.4 to 4.0 and sinks
-             (26, 32, 10, 16, 4.0, None)]                # ...to this one
+    if not REACTOR:
+        _t_sw, _t_s, _t_se = _lab_tile(True, False, True), _lab_tile(False, False, True), _lab_tile(False, True, True)
+        # (the north row is the south row turned half round: the checks fall the same)
+        LAB_TILES = [(lab_xz(-24 + 16 * i_, -8), m_, 0) for i_, m_ in enumerate((_t_sw, _t_s, _t_s, _t_se))] + \
+                    [(lab_xz(-24 + 16 * i_, 8), m_, 512) for i_, m_ in enumerate((_t_se, _t_s, _t_s, _t_sw))]
+        # THE STRUCTURES along the north wall: (u0, u1, v0, v1, its top, how it moves)
+        PLATS = [(-32, -26, 10, 16, 0.8, None), (-26, -20, 10, 16, 1.6, None), (-20, -12, 10, 16, 2.4, None),
+                 (-12, 2, 13, 16, 2.4, None),                # a ledge along the wall
+                 (2, 6, 12, 15, 2.4, "u"),                   # it slides ten units east and back
+                 (20, 26, 10, 16, 4.0, "y"),                 # it rises from 0.4 to 4.0 and sinks
+                 (26, 32, 10, 16, 4.0, None)]                # ...to this one
+    else:
+        # P45: THE REACTOR (the player, 2026-11-23: "the world we made for the
+        # lab but more concentrated like a reactor. same checkboard but are
+        # unit to the player width ... this way all the physics is
+        # naturalized. now its a corner with the doupleganger except its at
+        # the corner, its facing you and what it does is the exact mirror of
+        # the moves you are doing"). ONE CHECK IS HIS BODY'S WIDTH, measured
+        # off his own idle; the room is sixteen checks square and eight high,
+        # so every distance in it -- a step, a lunge, how far a blow sends a
+        # body -- can be counted in bodies. No structures.
+        BODY_W = round(float(np.ptp(to_zeta(d["V_idle"][0])[:, 0])), 2)
+        RX_N = 8                                                       # half the room, in checks
+        HALL_U = HALL_V = RX_N * BODY_W
+        HALL_H = 8 * BODY_W
+        LAB_EDGE = BODY_W / 2                                          # a body's middle comes to half a check of a wall: its shoulder touches
+        RX_PACE = int(0.03 * ONE)                                      # his double's pace back to its corner, a frame
+        _q = 4 * BODY_W
+
+        def _rx_floor():
+            b_ = Build()
+            for i_ in range(8):
+                for j_ in range(8):
+                    x0_, y0_ = (i_ - 4) * BODY_W, (j_ - 4) * BODY_W
+                    b_.quad([(x0_, y0_, 0.0), (x0_ + BODY_W, y0_, 0.0), (x0_ + BODY_W, y0_ + BODY_W, 0.0), (x0_, y0_ + BODY_W, 0.0)],
+                            (0, 0, 1), _GRN if (i_ + j_) % 2 == 0 else _WHT)
+            b_.quad([(-_q, -_q, HALL_H), (_q, -_q, HALL_H), (_q, _q, HALL_H), (-_q, _q, HALL_H)], (0, 0, -1), _WHT)
+            return int(cart.data(b_.mesh(), "rx_floor"))
+
+        def _rx_wall(ax_):
+            """eight checks of wall by eight, about the middle of its foot: facing east (ax 0) or north (ax 1)"""
+            b_ = Build()
+            for i_ in range(8):
+                for j_ in range(8):
+                    a0_, z0_ = (i_ - 4) * BODY_W, j_ * BODY_W
+                    c_ = _WHT if (i_ + j_) % 2 == 0 else _GRY
+                    pts_ = [(0.0, a0_, z0_), (0.0, a0_ + BODY_W, z0_), (0.0, a0_ + BODY_W, z0_ + BODY_W), (0.0, a0_, z0_ + BODY_W)] \
+                        if ax_ == 0 else \
+                        [(a0_, 0.0, z0_), (a0_ + BODY_W, 0.0, z0_), (a0_ + BODY_W, 0.0, z0_ + BODY_W), (a0_, 0.0, z0_ + BODY_W)]
+                    b_.quad(pts_, (1, 0, 0) if ax_ == 0 else (0, 1, 0), c_)
+            return int(cart.data(b_.mesh(), f"rx_wall{ax_}"))
+        _rf, _rw0, _rw1 = _rx_floor(), _rx_wall(0), _rx_wall(1)
+        LAB_TILES = [(lab_xz(su_ * _q, sv_ * _q), _rf, 0) for su_ in (-1, 1) for sv_ in (-1, 1)] + \
+                    [(lab_xz(su_ * _q, -HALL_V), _rw1, 0) for su_ in (-1, 1)] + [(lab_xz(su_ * _q, HALL_V), _rw1, 512) for su_ in (-1, 1)] + \
+                    [(lab_xz(-HALL_U, sv_ * _q), _rw0, 0) for sv_ in (-1, 1)] + [(lab_xz(HALL_U, sv_ * _q), _rw0, 512) for sv_ in (-1, 1)]
+        PLATS = []
     PLAT_SLIDE, PLAT_LOW, PLAT_STEP = 10.0, 0.25, 0.3
     PLAT_M = []
     for k_, (u0_, u1_, v0_, v1_, top_, how_) in enumerate(PLATS):
@@ -1471,6 +1519,13 @@ if LAB:
     # WHO STANDS THERE (the knob): slots 0 the elite, 1 the common, 2-5 the horde, 6 the clone
     LAB_WHO = (0b1000000, 0b1000001, 0b1000110, 0b0000001, 0b0001111, 0b0111111)
     LAB_MARK = [lab_xz(u_, 2.0) for u_ in (-4, 4, -8, 8, -12, 12, 0)]
+    LAB_YAW, LAB_FACE = 256, 768                                       # he begins facing north; they, south
+    if REACTOR:
+        # his double stands IN the north-east corner: the middle of the corner's own check, a shoulder to each wall;
+        # he begins six checks down the diagonal from it, on the middle of a check, facing it (yaw 0 is east, 256 north)
+        LAB_START = lab_xz(1.5 * BODY_W, 1.5 * BODY_W)
+        LAB_MARK = [lab_xz(7.5 * BODY_W - 0.02, 7.5 * BODY_W - 0.02)] * 7        # (a hair inside the bound, which is strict)
+        LAB_YAW, LAB_FACE = 128, 640
     WHO_T = cart.data(Table(LAB_WHO), "lab_who_is")
     # WHAT A BLOW DOES, a move a row (the jab, the cross, the hooks, the haymaker, the two uppercuts, a round, a charged one):
     # how fast it sends a body of the clone's weight (a frame), and how fast it throws one up
@@ -2849,10 +2904,13 @@ KNOBS_LAB = (("who", 0, 1, 0, 5),                               # 0 who stands t
               + tuple(k_ for k_ in KNOBS_L1 if k_[0] == "jump")
 assert len(KNOBS_LAB) == 15
 SETTLED.update({k_[0]: k_[1] for k_ in KNOBS_LAB})
+# (P45, the reactor: nobody else is there, so the first knob is the DOUBLE'S: 1 it does what he does, 0 it stands as the lab's did)
+KNOBS_REACTOR = (("mirror", 1, 1, 0, 1),) + KNOBS_LAB[1:]
+SETTLED["mirror"] = 1
 if LAYER == 1:
     KNOBS = KNOBS_L1
 if LAB:
-    KNOBS = KNOBS_LAB
+    KNOBS = KNOBS_REACTOR if REACTOR else KNOBS_LAB
 if LAYER in (2, 3, 4, 5, 6, 7, 8):
     KNOBS = KNOBS_L2
 if BASE:
@@ -2930,6 +2988,9 @@ if LAB:
         "gh", "si", "arp", "slide", "slide0", "lift", "t", "who", "hk", "hm", "hdx", "hdz", "imp", "s0", "s1", "s2", "lngx", "jugy"))
     # P44: the pass's kind at the last launch (0 none, 1 the boxer's stun, 2 the run's tackle), and the special chosen under a held jab
     PASSK, SELN = cart.var("lab_pass"), cart.var("lab_seln")
+    if REACTOR:
+        MIRY = cart.var("rx_miry")                   # (P45: his double's height is his)
+        RXV, RXO = cart.var("rx_sent", 2), cart.var("rx_was", 2)     # how fast HE is being sent (x, z), and where he was
     EVX, EVZ, EY, EVY, ETL = (cart.var("lab_" + k, len(ENEMY)) for k in ("evx", "evz", "ey", "evy", "tilt"))
     L_HITR = p.label("hitr")
 
@@ -3230,8 +3291,8 @@ if BASE:
         # P42: he begins at the hall's south, facing its middle; nobody is
         # placed yet (the "who" knob's first reading does that)
         p.push32(LAB_START[0]).store(PX).push32(LAB_START[1]).store(PZ)
-        p.set(YAW, 256).set(CY, 256).set(HEAD, 256).set(WHOP, -1)
-        for c_ in (PGH, ARP, PLO4, PLOP, LABT, JUGY, PASSK, SELN):
+        p.set(YAW, LAB_YAW).set(CY, LAB_YAW).set(HEAD, LAB_YAW).set(WHOP, -1)
+        for c_ in (PGH, ARP, PLO4, PLOP, LABT, JUGY, PASSK, SELN) + ((MIRY, int(RXV), int(RXV) + 1) if REACTOR else ()):
             p.set(c_, 0)
         p.set(LNGX, ONE)
         p.set(PSI, -1).set(PLT5, int(PLAT_LOW * ONE))
@@ -4240,7 +4301,7 @@ if L2:
         # Down, it lies DOWN_FOR frames and gets up where it lies. And WHO
         # stands there is the knob's: turned, they are put back on their marks.
         wh = p.label("who")
-        knob(p, "who").emit("dup").load(WHOP).emit("eq", f"jz {wh}_set", "drop", f"jmp {wh}")
+        (p.push(0) if REACTOR else knob(p, "who")).emit("dup").load(WHOP).emit("eq", f"jz {wh}_set", "drop", f"jmp {wh}")
         p.mark(f"{wh}_set")
         p.emit("dup").store(WHOP).push(int(WHO_T)).emit("add", "loadi").store(LS0)
         for e_ in ENEMY:
@@ -4248,7 +4309,7 @@ if L2:
             p.load(LS0).emit(f"shr {k_}").push(1).emit("and").store(e_["st"])
             for c_, v_ in zip((int(e_["pos"]), int(e_["pos"]) + 1, int(e_["old"]), int(e_["old"]) + 1), LAB_MARK[k_] * 2):
                 p.push32(v_).store(c_)
-            p.set(e_["yaw"], 768).set(e_["hp"], e_["T"]["hp"]).set(e_["stun"], 0).set(e_["t"], 0)
+            p.set(e_["yaw"], LAB_FACE).set(e_["hp"], e_["T"]["hp"]).set(e_["stun"], 0).set(e_["t"], 0)
             for a_ in (EVX, EVZ, EY, EVY, ETL):
                 p.set(int(a_) + k_, 0)
         p.mark(wh)
@@ -4280,6 +4341,9 @@ if L2:
                 p.set(v_, 0)
                 p.mark(f"{ea}_k{v_}")
             p.mark(f"{ea}_still")
+            if REACTOR and e_.get("rival"):
+                p.load(MIRY).emit(f"jz {ea}_own", f"jmp {ea}_gr")       # (P45: its height is his: see the poses)
+                p.mark(f"{ea}_own")
             # up and down
             p.load(ey_).load(vy_).emit("or", f"jz {ea}_gr")
             p.load(vy_)
@@ -4313,6 +4377,21 @@ if L2:
             p.emit("drop").push(-E_TURN)
             p.mark(f"{ea}_t2")
             p.load(e_["yaw"]).emit("add").push(1023).emit("and").store(e_["yaw"])
+            if REACTOR and e_.get("rival"):
+                # P45: THE CORNER IS ITS PLACE: free, on the floor and at rest, it goes back to it at a walk
+                rt = p.label("tocorner")
+                p.load(vx_).load(vz_).emit("or").load(ey_).emit("or", f"jz {rt}_go", f"jmp {rt}")
+                p.mark(f"{rt}_go")
+                for c_, m_ in ((ex_, LAB_MARK[k_][0]), (ez_, LAB_MARK[k_][1])):
+                    p.push32(m_).load(c_).emit("sub")
+                    p.emit("dup").push(RX_PACE).emit("swap", "lt", f"jz {rt}_a{c_}")
+                    p.emit("drop").push(RX_PACE)
+                    p.mark(f"{rt}_a{c_}")
+                    p.emit("dup").push(-RX_PACE).emit("lt", f"jz {rt}_b{c_}")
+                    p.emit("drop").push(-RX_PACE)
+                    p.mark(f"{rt}_b{c_}")
+                    p.load(c_).emit("add").store(c_)
+                p.mark(rt)
             p.mark(ea)
     if L4 and not LAB:
         # P37: THE ENEMIES MOVE (the player: "lets have then move and make them
@@ -6248,6 +6327,32 @@ if CARTMESH:                                 # the pose is where its streams are
     for e_ in ENEMY:                         # each of the crowd: its own place in its size's idle
         en_ = p.label("enemy")
         if e_.get("rival"):                  # (P42: the clone: the player's own idle, through the rival's descriptors)
+            if REACTOR:
+                # P45: HIS DOUBLE DOES WHAT HE DOES: up and free of a blow,
+                # its two halves are his two halves' poses of this very
+                # frame. (The same hand, not the other: the machine cannot
+                # turn a body inside out. Held by a blow, or down, it is in
+                # its own idle -- a blow breaks off what it was doing.)
+                mp = p.label("mirpose")
+                knob(p, "mirror").load(e_["st"]).push(1).emit("eq", "and").load(e_["stun"]).push(0).emit("eq", "and", f"jz {mp}")
+                for dst_, src_ in ((int(RDESC) + 1, UPPER + 1), (int(RDESC) + 3, UPPER + 3),
+                                   (int(RDESC) + 6, LOWER + 1), (int(RDESC) + 8, LOWER + 3)):
+                    p.load(src_).store(dst_)
+                # ...AND LEAVES THE FLOOR WHEN HE DOES: not itself thrown (a
+                # rise a blow has just given it is its own, and lets it go),
+                # its height is his, of this frame
+                _ey, _vy = int(EY) + e_["k"], int(EVY) + e_["k"]
+                p.load(_vy).emit(f"jz {mp}_h")
+                p.set(MIRY, 0).emit(f"jmp {mp}_d")
+                p.mark(f"{mp}_h")
+                p.push(0).load(F["py"]).emit("lt", f"jz {mp}_dn")
+                p.load(MIRY).load(_ey).push(0).emit("eq", "or", f"jz {mp}_d")
+                p.load(F["py"]).store(_ey).set(MIRY, 1).emit(f"jmp {mp}_d")
+                p.mark(f"{mp}_dn")
+                p.load(MIRY).emit(f"jz {mp}_d")
+                p.set(_ey, 0).set(MIRY, 0).emit(f"jmp {mp}_d")
+                p.mark(mp)
+                p.set(MIRY, 0)
             p.load(e_["clk"]).emit("shr 1").push(base["idle"]).emit("add").push(SPAN).emit("mul").push(int(BANK)).emit("add")
             for cell_, step_ in ((int(RDESC) + 1, CM_LEN[0]), (int(RDESC) + 3, CM_LEN[1]),
                                  (int(RDESC) + 6, CM_LEN[2]), (int(RDESC) + 8, 0)):
@@ -6255,6 +6360,8 @@ if CARTMESH:                                 # the pose is where its streams are
                 if step_:
                     p.push(step_).emit("add")
             p.emit("drop")
+            if REACTOR:
+                p.mark(f"{mp}_d")
             continue
         if L4:                               # (P37: the guard by its own clock; walking, the stride)
             p.load(e_["clk"]).emit("shr 1")
@@ -6306,6 +6413,50 @@ if L1:
     p.mark(f"{wd_}_d")
     p.emit("drop")
     p.mark(wd_)
+if REACTOR:
+    _dbl = ENEMY[-1]
+    _dx, _dz = int(_dbl["pos"]), int(_dbl["pos"]) + 1
+    # P45: HE IS SENT as a body is: along the floor, a wall a wall, the floor's grip the slide knob's
+    sn = p.label("sent")
+    p.load(int(RXV)).load(int(RXV) + 1).emit("or", f"jz {sn}")
+    p.load(PX).store(int(RXO)).load(PZ).store(int(RXO) + 1)
+    p.load(PX).load(int(RXV)).emit("add").store(PX).load(PZ).load(int(RXV) + 1).emit("add").store(PZ)
+    keep_in_arena(PX, PZ, RXO, int(RXO) + 1)
+    for k2_ in (0, 1):
+        p.load(int(RXV) + k2_)
+        knob(p, "slide").emit("mulq", "dup").store(int(RXV) + k2_)
+        p.emit("dup").push(0).emit("lt", f"jz {sn}_p{k2_}")
+        p.push(0).emit("swap", "sub")
+        p.mark(f"{sn}_p{k2_}")
+        p.push(48).emit("lt", f"jz {sn}_k{k2_}")
+        p.set(int(RXV) + k2_, 0)
+        p.mark(f"{sn}_k{k2_}")
+    p.mark(sn)
+    # P45: TWO BODIES DO NOT STAND IN ONE PLACE. Up, it is a check
+    # of floor he cannot be on: found inside it, he is put at its
+    # edge the short way out. (Over its head he may pass.)
+    sd = p.label("solid")
+    _bw = int(BODY_W * ONE)
+    p.load(_dbl["st"]).push(1).emit("eq", f"jz {sd}")
+    p.load(F["py"]).push(int(1.5 * ONE)).emit("lt", f"jz {sd}")
+    for him_, it_, d_, a_ in ((PX, _dx, LS0, W["qx"]), (PZ, _dz, LS1, W["qz"])):
+        p.load(him_).load(it_).emit("sub", "dup").store(d_)
+        p.emit("dup").push(0).emit("lt", f"jz {sd}_p{it_}")
+        p.push(0).emit("swap", "sub")
+        p.mark(f"{sd}_p{it_}")
+        p.store(a_)
+    p.load(W["qx"]).push(_bw).emit("lt").load(W["qz"]).push(_bw).emit("lt", "and", f"jz {sd}")
+    p.load(W["qx"]).load(W["qz"]).emit("lt", f"jz {sd}_x")
+    for him_, it_, d_, tag_ in ((PZ, _dz, LS1, "z"), (PX, _dx, LS0, "x")):
+        if tag_ == "x":
+            p.mark(f"{sd}_x")
+        p.load(d_).push(0).emit("lt", f"jz {sd}_{tag_}p")
+        p.load(it_).push(_bw).emit("sub").store(him_).emit(f"jmp {sd}")
+        p.mark(f"{sd}_{tag_}p")
+        p.load(it_).push(_bw).emit("add").store(him_)
+        if tag_ == "z":
+            p.emit(f"jmp {sd}")
+    p.mark(sd)
 # (P21 gave the base a softened slide along walls, on a knob; the player
 # turned it all the way off on glass -- "a wall is a wall" -- and P22 took
 # it out. The archive's slide, above, is the base's.)
@@ -6452,6 +6603,20 @@ if L4:
             p.push(0).emit("swap", "sub").store(HDX)
             sin_of(p, 256, cell=HEAD)
             p.store(HDZ).emit(f"call {L_HITR}")
+            if REACTOR and e_.get("rival"):
+                # P45 ("The hits can be made felt as if the bodies are
+                # responding to eachother"): his double threw the same blow
+                # in the same frame, so where his lands, ITS lands on him --
+                # he is sent back by exactly what it was sent by (the move,
+                # the knock and weight knobs; the two weigh the same), and
+                # slides as a body slides (the slide knob), not as he walks.
+                # It is in the corner and cannot go; he can, and how many
+                # checks he goes is how far that blow sends a body.
+                rc = p.label("recoil")
+                knob(p, "mirror").emit(f"jz {rc}")
+                for k2_, d_ in ((0, HDX), (1, HDZ)):
+                    p.load(int(RXV) + k2_).load(d_).load(IMPV).emit("mulq", "sub").store(int(RXV) + k2_)
+                p.mark(rc)
         else:
             enemy_hurt(p, e_)
             p.load(ex_).store(int(e_["old"])).load(ez_).store(int(e_["old"]) + 1)
