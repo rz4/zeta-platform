@@ -2441,3 +2441,54 @@ pose did not change; a fist's height was nothing.
   bit-equal; the frame 51% at the median, 58% at the peak.
 - on the card 2026-11-23, both.
 - The reactor's first tape: `experiments/tnd/tnd-reactor-0001.json`.
+
+## P47: the lock is a red outline; a locked round always lands; the laser (2026-11-23)
+
+The player, of P46 on glass (4m45s of the reactor): "i think this is
+starting to feel better. the targeting needs a bit more work, the
+outline and the diamond are too much ui, just a red outline would be
+good. also the line of sight marker and target are too imprecise,
+smaller would be better, a targeted gun shot should always land, and a
+red hit like the punches so you know when the shot lands and where."
+And while it was being built: "are we able to do a laser sight? like a
+line to the target?" The lab and the reactor only.
+
+- **WHAT HIS TAPE SAID, and it was mine: of 59 rounds he fired locked on
+  his double, ONE reached it** (and none of 20 with no lock). In the
+  reactor the double's middle is a fiftieth of a unit inside the floor's
+  bound; the gun's line finds where it leaves the floor to a sixteenth,
+  so the wall had the line a hair before the body did. He never saw a
+  round land because none did. A body standing against a wall is now in
+  front of the wall (the line that met a wall runs a fifth of a unit on
+  while the bodies are tried).
+- **A LOCKED ROUND ALWAYS LANDS**: locked on a body, it is what the line
+  meets, whatever else stands on it; and the round carries the part he
+  chose, so it does that part's work wherever the body has got to since
+  it left the gun. With no lock a round is still judged by the height
+  it lands at.
+- **THE LOCK'S MARK IS A RED OUTLINE** and nothing else: the diamond is
+  gone, the outline's colour red.
+- **THE LASER** replaces the beads: a red line from his hand to where
+  the round will land, on whenever the gun is out with B down -- in
+  running time too. The machine draws no lines and scales no mesh, so
+  it is laid from seven pieces (eight units down to an eighth), the
+  longest that fits first, each two thin blades crossed. Its pitch is
+  the angle of its slope (s / (1 + 0.28 s^2): two of the cart's own
+  divides a frame). The point where it lands is less than half its old
+  size.
+- **THE LINE BEGINS AT THE GUN**: with the gun in his hand the line, the
+  round and the laser start at the hand itself, not at a fixed place
+  beside him.
+- **WHERE A ROUND LANDS: a red burst**, on the body where the body now
+  is; and the body flashes red as it does for a fist (it always did --
+  once a round lands).
+- tests: 12 in `test_tnd_aim.py` (the red outline alone, the laser from
+  hand to spot in running time, a locked round landing on a body thrown
+  up under it), 7 in `test_tnd_reactor.py` (a round reaches his double
+  in its corner, locked and not); the lab's 40 pass. Layers 0, 4, 8 and
+  the full cart byte-identical.
+- NOT DONE: the beads counted the rounds left in the gun; the laser
+  does not.
+- the law against the simulated silicon: the lab 495 frames, the
+  reactor 381, bit-equal; the frame 51% / 58% and 55% / 61% (median /
+  peak). On the card 2026-11-23.

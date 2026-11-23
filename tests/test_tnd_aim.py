@@ -149,3 +149,62 @@ def test_a_charged_round_at_the_legs_takes_them_from_under_it_and_it_gets_up_wit
     assert 0 < left < hp
     g.run(0, 60)
     assert g.cell("e6_st") == 1 and g.cell("e6_hp") == left, "it got up healed"
+
+
+# ---- P47: the lock's mark is a red outline; a locked round always lands ----
+
+def test_the_locks_mark_is_a_red_outline_and_nothing_more(text):
+    from zeta import spec
+    g = locked(text, 4.0, HEAD)
+    g.run(R | B, 20)                                          # (slowed: the sight is drawn too)
+    assert g.d[spec.EDGE_RGB] == 0xE01818
+    aware = g.sym("aware")
+    n = g.d[spec.OL_BASE]
+    rows = [g.d[spec.OL_BASE + 1 + i * spec.OL_STRIDE: spec.OL_BASE + 1 + (i + 1) * spec.OL_STRIDE] for i in range(n)]
+    assert all(r[0] != aware for r in rows), "the diamond is still drawn"
+    assert sum(1 for r in rows if r[5] & spec.OBJ_EDGE) == 2, "the clone's two halves are not the outlined ones"
+    assert abs(g.cell("lab_dot", 2)) * 2 < abs(g.cell("dot_m", 2)), "the point where it will land is no smaller"
+    lasers = {g.sym(f"lab_laser{k}") for k in range(7)}
+    assert not any(r[0] == g.sym("bead_m") for r in rows) and any(r[0] in lasers for r in rows), "the sight is not the laser"
+
+
+@pytest.mark.parametrize("spot,took", [(HEAD, 2), (LEGS, 1)])
+def test_a_locked_round_lands_wherever_the_body_has_got_to(text, spot, took):
+    g = locked(text, 6.0, spot)
+    hp = g.cell("e6_hp")
+    g.run(R | B, 6)
+    for _ in range(8):
+        g.run(R, 1)
+        if any(g.cell(f"bul{i}_rem") > 0 for i in (0, 1)):
+            break
+    assert any(g.cell(f"bul{i}_rem") > 0 for i in (0, 1)), "no round is in the air"
+    g.poke("lab_ey", int(1.4 * ONE), CLONE)                   # it is thrown up under the round
+    g.poke("lab_evy", int(0.05 * ONE), CLONE)
+    g.run(R, 12)
+    assert hp - g.cell("e6_hp") == took and g.cell("aim_zone") == spot, "a round fired locked did not land on what he chose"
+    assert g.cell("spark", 1) > int(1.5 * ONE), "its burst is not on the body where the body now is"
+
+
+def test_the_laser_runs_from_his_hand_to_where_the_round_will_land(text):
+    """P47: "are we able to do a laser sight? like a line to the target?" -- laid from pieces, in running time too"""
+    from zeta import spec
+    for spot in (HEAD, LEGS):
+        g = locked(text, 5.0, spot)
+        g.run(R | B, 5)
+        assert g.cell("slow_on") == 0, "the test means to look in running time"
+        g.run(R | B, 1)
+        n = g.d[spec.OL_BASE]
+        rows = [g.d[spec.OL_BASE + 1 + i * spec.OL_STRIDE: spec.OL_BASE + 1 + (i + 1) * spec.OL_STRIDE] for i in range(n)]
+        length = {g.sym(f"lab_laser{k}"): 8.0 / 2 ** k for k in range(7)}
+        beam = [(r, length[r[0]]) for r in rows if r[0] in length]
+        assert beam, "no laser"
+        s32 = lambda v: v - (1 << 32) if v & (1 << 31) else v      # noqa: E731
+        first, (last, last_len) = beam[0][0], beam[-1]
+        hand = [g.cell("aim_hand", k) for k in range(3)]
+        assert all(abs(s32(first[1 + k]) - hand[k]) < 2000 for k in range(3)), "the laser does not begin at his hand"
+        run = sum(ln for _, ln in beam)
+        assert abs(run - g.cell("ray_len") / ONE) < 0.2 + 0.02 * run, f"the laser is {run} long; the line {g.cell('ray_len') / ONE}"
+        ys = [s32(r[2]) for r, _ in beam]
+        assert (ys == sorted(ys)) if spot == HEAD else (ys == sorted(ys, reverse=True)), "the laser does not climb to the head or fall to the knee"
+        end_y = ys[-1] + (g.cell("aim_tgt_y") - hand[1]) * last_len / (g.cell("ray_len") / ONE) / 1
+        assert abs(end_y - g.cell("aim_tgt_y")) < int(0.08 * ONE), "the laser does not end on the spot"

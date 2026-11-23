@@ -1,0 +1,449 @@
+{
+ "schema": "zeta-xp-1",
+ "id": "tnd-reactor-0002",
+ "machine": {
+  "tape": {
+   "file": "20261123-105514.ztp",
+   "sha256": "8ce3a4fbcb8c5fb5c1e3d5e9d4e892db3092f1f1e0caa37497eb09a0e60896a0",
+   "format": "ZTP0",
+   "loader_build": 107,
+   "cart_sum": "0x0d9e5f83",
+   "runs": 866
+  },
+  "cart": {
+   "file": "reactor-on-card-p46.zbin",
+   "sum": "0x0d9e5f83",
+   "built_at_commit": "a7b4639",
+   "recipe": "TND_SONG=1 TND_LAYER=11 python3 games/tnd/gen_tnd.py",
+   "symbols_sha256": "4a42de208951077d73bd153bea39218f70612fb518bae36472992fbf3dd4943c"
+  },
+  "card_at_start": "20261121-172911.card.bin",
+  "backend": "law (zeta.cabinet.VirtualMachine)",
+  "spec_loader_build": 107,
+  "ingested_at_commit": "a7b4639"
+ },
+ "evidence": {
+  "frames": 17106,
+  "seconds": 285.1,
+  "end_state_sha256": "06039bbf24af3b1ea7fa26927faa48ef59110d82ab273e5daa76ede9678093fe",
+  "reproduce": "python3 -m zeta.experience ingest 20261123-105514.ztp --game reactor-on-card-p46.zbin --symbols ..."
+ },
+ "knobs": [
+  {
+   "axis": "tnd.reactor.mirror",
+   "knob": "mirror",
+   "index": 0,
+   "default": 1,
+   "final": 1,
+   "signed_notches": 0,
+   "step": 1,
+   "unit": "on/off",
+   "dwell_frames": {
+    "1": 17106
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.weight",
+   "knob": "weight",
+   "index": 1,
+   "default": 58982,
+   "final": 58982,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "58982": 17106
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.knock",
+   "knob": "knock",
+   "index": 2,
+   "default": 58982,
+   "final": 58982,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "58982": 17106
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.lift",
+   "knob": "lift",
+   "index": 3,
+   "default": 65536,
+   "final": 65536,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "65536": 17106
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.stun",
+   "knob": "stun",
+   "index": 4,
+   "default": 65536,
+   "final": 65536,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "65536": 17106
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.hstop",
+   "knob": "hstop",
+   "index": 5,
+   "default": 65536,
+   "final": 65536,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "65536": 17106
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.slide",
+   "knob": "slide",
+   "index": 6,
+   "default": 57671,
+   "final": 57671,
+   "signed_notches": 0,
+   "step": 655,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "57671": 17106
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.egrav",
+   "knob": "egrav",
+   "index": 7,
+   "default": 786,
+   "final": 786,
+   "signed_notches": 0,
+   "step": 65,
+   "unit": "Q16.16 (65536 = 1.0) a frame squared",
+   "dwell_frames": {
+    "786": 17106
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.pivot",
+   "knob": "pivot",
+   "index": 8,
+   "default": 176,
+   "final": 176,
+   "signed_notches": 0,
+   "step": 16,
+   "unit": "of 1024 a frame",
+   "dwell_frames": {
+    "176": 17106
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.lunge",
+   "knob": "lunge",
+   "index": 9,
+   "default": 58983,
+   "final": 58983,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "58983": 17106
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.keep",
+   "knob": "keep",
+   "index": 10,
+   "default": 40,
+   "final": 40,
+   "signed_notches": 0,
+   "step": 4,
+   "unit": "frames",
+   "dwell_frames": {
+    "40": 17106
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.hold",
+   "knob": "hold",
+   "index": 11,
+   "default": 14,
+   "final": 14,
+   "signed_notches": 0,
+   "step": 2,
+   "unit": "frames",
+   "dwell_frames": {
+    "14": 17106
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.slow",
+   "knob": "slow",
+   "index": 12,
+   "default": 3,
+   "final": 3,
+   "signed_notches": 0,
+   "step": 1,
+   "unit": "frames",
+   "dwell_frames": {
+    "3": 17106
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.dodge",
+   "knob": "dodge",
+   "index": 13,
+   "default": 13107,
+   "final": 13107,
+   "signed_notches": 0,
+   "step": 655,
+   "unit": "Q16.16 (65536 = 1.0) a frame",
+   "dwell_frames": {
+    "13107": 17106
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.jump",
+   "knob": "jump",
+   "index": 14,
+   "default": 12190,
+   "final": 12190,
+   "signed_notches": 0,
+   "step": 655,
+   "unit": "Q16.16 (65536 = 1.0) a frame",
+   "dwell_frames": {
+    "12190": 17106
+   },
+   "changes": [],
+   "changes_total": 0
+  }
+ ],
+ "observed": {
+  "minutes": 4.75,
+  "buttons": {
+   "a": {
+    "presses": 18,
+    "held_share": 0.135
+   },
+   "b": {
+    "presses": 96,
+    "held_share": 0.456
+   },
+   "x": {
+    "presses": 66,
+    "held_share": 0.041
+   },
+   "y": {
+    "presses": 16,
+    "held_share": 0.145
+   },
+   "l": {
+    "presses": 38,
+    "held_share": 0.268
+   },
+   "r": {
+    "presses": 34,
+    "held_share": 0.483
+   },
+   "select": {
+    "presses": 0,
+    "held_share": 0.0
+   }
+  },
+  "held_together_share": {
+   "l+r": 0.141,
+   "b+r": 0.281,
+   "y+b": 0.068,
+   "x+a": 0.004,
+   "l+a": 0.007
+  },
+  "slowed_share": 0.586,
+  "stance_share": {
+   "tank": 0.733,
+   "run": 0.081,
+   "boxer": 0.186,
+   "targeting": 0.0
+  },
+  "blows": {
+   "thrown": 160,
+   "a_minute": 33.7,
+   "by_move": {
+    "jab": 62,
+    "cross": 4,
+    "lead_hook": 9,
+    "rear_uppercut": 6,
+    "gun": 37,
+    "gun_charged": 42
+   },
+   "begun_in_slowed_time_share": 0.244
+  },
+  "bodies": {
+   "blows_landed": 69,
+   "landed_a_minute": 14.5,
+   "put_down": 8,
+   "highest_thrown": 2.73,
+   "frames_one_was_above_half_a_unit": 367,
+   "above_three_units": {
+    "frames": 0,
+    "ranges": []
+   },
+   "struck_in_the_air": 0
+  },
+  "jab_strings": {
+   "that_began_with_a_hit": 24,
+   "mean_landed_in_a_row_by_length": {
+    "1": 1.0,
+    "2": 2.0,
+    "3": 2.5,
+    "4": 2.5,
+    "5": 4.0
+   },
+   "five_or_more_in_a_row": {
+    "count": 0,
+    "frames": []
+   }
+  },
+  "passes": {
+   "y_with_b_held": {
+    "count": 0,
+    "frames": []
+   },
+   "b_with_y_held": {
+    "count": 17
+   },
+   "x_with_a_held": {
+    "count": 0
+   },
+   "thrown_as": {
+    "the_boxers_stun": 0,
+    "the_runs_tackle": 0
+   }
+  },
+  "special_chosen_under_a_held_jab": {
+   "steps": 0,
+   "thrown": 0,
+   "as": {
+    "lead_hook": 0,
+    "rear_uppercut": 0,
+    "haymaker": 0
+   }
+  },
+  "close_quarters_rounds_at_least": 9,
+  "jumps": 5,
+  "dodges_and_flips": 10,
+  "structures": {
+   "minutes_on_one": 0.05,
+   "frames_on_each": {
+    "0": 164
+   },
+   "highest_stood": 0.0
+  },
+  "tuner_open_minutes": 0.0,
+  "b_held": {
+   "share": 0.456,
+   "of_which": {
+    "standing": 0.598,
+    "walking": 0.093,
+    "running": 0.066
+   }
+  }
+ },
+ "title": "The reactor with where-it-lands (P46): his locked rounds were stopping at the wall",
+ "baseline": "tnd-reactor-0001",
+ "human": {
+  "said_on": "2026-11-23",
+  "said": [
+   "plugged i think this is starting to feel better. the targeting needs a bit more work, the outline and the diamond are too much ui, just a red outline would be good. also the line of sight marker and target are too imprecise, smaller would be better, a targeted gun shot should always land, and a red hit like the punches so you know when the shot lands and where.",
+   "are we able to do a laser sight? like a line to the target?"
+  ],
+  "knobs_chosen": "see `knobs`."
+ },
+ "agent": {
+  "observations": [
+   {
+    "what": "79 rounds: 59 fired locked, 20 not. ONE of the 59 reached his double; none of the 20. Every other round's line ended on the wall (the ray's own word for it: 1).",
+    "how": "a replay reading each round's word as it left the gun (scratch analysis; the observer does not carry it yet)"
+   },
+   {
+    "what": "Locked 47% of the session; the spot at the head 53% of that, the body 39%, the legs 8%.",
+    "how": "the same replay"
+   }
+  ],
+  "readings": [
+   {
+    "supposes": "'a targeted gun shot should always land' and 'so you know when the shot lands' were both this one fault: in the corner the wall took the line before his double's middle did, so he never saw a round land.",
+    "or": [
+     "he also wants, as a rule of the design, that a lock cannot miss -- built so too"
+    ],
+    "confidence": "high",
+    "because": "58 of 59; the lab's own tests had passed because its clone stands in the open"
+   },
+   {
+    "supposes": "The marks were too big for a room this small, where the body is a few checks away.",
+    "or": [],
+    "confidence": "medium",
+    "because": "his words"
+   }
+  ],
+  "proposed": [
+   "P47 (built): a body against a wall is in front of it; a locked round always lands on the part chosen; the lock's mark a red outline alone; the laser for the beads; a red burst where a round lands"
+  ]
+ },
+ "result": {
+  "commits": [],
+  "changed": "games/tnd/gen_tnd.py (the lab and the reactor): docs/TND-PORT.md P47",
+  "proved": [
+   "tests/test_tnd_aim.py: 12",
+   "tests/test_tnd_reactor.py: 7 (a round reaches his double in its corner)",
+   "tests/test_tnd_lab.py: 40",
+   "law against the simulated silicon: 495 and 381 frames bit-equal"
+  ],
+  "cart": "TND LAB and TND REACTOR, on the card 2026-11-23",
+  "next_record": null,
+  "verdict": "pending: not played",
+  "imprints": [
+   "tnd-016"
+  ],
+  "rejected": [
+   "the diamond over a locked target (experiments/tnd/REJECTED.md)"
+  ],
+  "lesson": "the reactor's own test of a shot did not exist: the lab's tests cannot stand for a room built differently"
+ }
+}

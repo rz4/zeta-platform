@@ -14,8 +14,12 @@ where there are any, and where the account is.
 | 2026-11-22 | One fixed city, for the sake of speedrunning (the agent's suggestion). | "each game is a random map so the player solves the puzzle". | TND-WORLD |
 | 2026-11-22 | The bunker as a hatch in the road, its map on SELECT while standing on it (layer 6). | "i was thinking the bunkers were more of doors against a building, and an actual room you enter". | P39, P40 |
 | 2026-11-23 | The lab's lift at 1.0 with nothing capping a rise: launchers one on another threw a body 6.5 units up. | No words: on his tape he turned the lift to 0 and left it there ten minutes. (Read as: too high. The rise is now capped; whether that is what he wanted is open.) | `tnd-lab-0001`; P43 |
+| 2026-11-23 | The lock's mark as an outline AND a diamond at the spot; the sight as beads with a large point where it lands (P35, P37, P46). | "the outline and the diamond are too much ui, just a red outline would be good. also the line of sight marker and target are too imprecise, smaller would be better". | `tnd-reactor-0002`; P47 |
 
 Not rejections, though a tape made them look like one:
 
 - Two minutes in the ring against twenty-four in the range (layer 7):
   the ring's dummies were coming back in the street. A bug (P41b).
+- No red flash when a round landed (the reactor, P46): no round was
+  landing. Fifty-eight of his fifty-nine locked rounds ended on the wall
+  behind his double. A bug (P47).

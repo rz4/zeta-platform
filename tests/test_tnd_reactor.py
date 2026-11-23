@@ -199,3 +199,26 @@ def test_its_place_is_the_corner_and_it_goes_back_to_it(text):
     g.run(0, 160)
     du, dv = g.double()
     assert abs(du - CORNER) < 0.02 and abs(dv - CORNER) < 0.02
+
+
+def test_a_round_reaches_his_double_in_its_corner(text):
+    """P47, from his tape: 59 rounds fired locked on it and one arrived -- the line left the floor a hair short of its
+    middle, so the wall had them. A body against a wall is in front of the wall; and a locked round always lands."""
+    g = Game(text)                                            # locked, from where he begins
+    hp = g.cell(f"e{DOUBLE}_hp")
+    g.run(R, 12)
+    assert g.cell("locked") == 1
+    g.run(R | B, 6)
+    g.run(R, 30)
+    assert g.cell(f"e{DOUBLE}_hp") < hp, "a locked round did not reach his double"
+    free = Game(text)                                         # no lock: he faces it as he begins
+    hp = free.cell(f"e{DOUBLE}_hp")
+    free.run(B, 6)
+    free.run(0, 30)
+    assert free.cell(f"e{DOUBLE}_hp") < hp, "a round straight at his double stopped at the wall behind it"
+    side = Game(text)                                         # at the wall two and a half checks beside it: the wall
+    side.put(0.0, 5.0 * W, EAST)
+    hp = side.cell(f"e{DOUBLE}_hp")
+    side.run(B, 6)
+    side.run(0, 30)
+    assert side.cell(f"e{DOUBLE}_hp") == hp

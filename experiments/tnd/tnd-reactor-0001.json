@@ -448,7 +448,9 @@
   ]
  },
  "result": {
-  "commits": [],
+  "commits": [
+   "a7b4639"
+  ],
   "changed": "games/tnd/gen_tnd.py (the lab and the reactor): docs/TND-PORT.md P46",
   "proved": [
    "tests/test_tnd_aim.py: 9",
@@ -456,8 +458,8 @@
    "tests/test_tnd_reactor.py: 6"
   ],
   "cart": "TND LAB and TND REACTOR",
-  "next_record": null,
-  "verdict": "pending: not played",
+  "next_record": "tnd-reactor-0002",
+  "verdict": "played (tnd-reactor-0002): 'starting to feel better'; the targeting sent back for work",
   "imprints": [
    "tnd-016"
   ],

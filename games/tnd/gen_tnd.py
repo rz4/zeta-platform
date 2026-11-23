@@ -2014,6 +2014,22 @@ if L2:
     if LAB:
         ZMESH_T = ZONE_MESH()                    # the burst by zone: white-hot the head, the spark the body, red the legs
         FLASH_M = int(cart.data(tetra_mesh(0.085, (255, 226, 140)), "lab_flash"))     # the flash at the gun's mouth
+        # P47 ("the line of sight marker and target are too imprecise, smaller would be better"): the lab's own beads
+        # and point, about half the size; and where a round lands, a red burst ("a red hit like the punches")
+        SBEAD_M = int(cart.data(tetra_mesh(0.026, (255, 48, 36)), "lab_bead"))
+        SDOT_M = int(cart.data(tetra_mesh(0.06, (255, 48, 36)), "lab_dot"))
+        SHOT_M = int(cart.data(tetra_mesh(0.075, (255, 244, 214)), "lab_dot_hot"))
+        RHIT_M = int(cart.data(tetra_mesh(0.12, (255, 36, 28)), "lab_round_hit"))
+        # P47 (the player: "are we able to do a laser sight? like a line to the target?"): THE LASER. The machine draws
+        # no lines and scales no mesh, so the line is LAID from pieces -- eight units, four, two ... an eighth -- each
+        # two thin blades crossed along its length, the longest that still fits put down first.
+        LASER_W = 0.016
+        LASER = []
+        for len_ in (8.0, 4.0, 2.0, 1.0, 0.5, 0.25, 0.125):
+            b_ = Build()
+            b_.quad([(0.0, -LASER_W, 0.0), (len_, -LASER_W, 0.0), (len_, LASER_W, 0.0), (0.0, LASER_W, 0.0)], (0, 0, 1), (255, 28, 22))
+            b_.quad([(0.0, 0.0, -LASER_W), (len_, 0.0, -LASER_W), (len_, 0.0, LASER_W), (0.0, 0.0, LASER_W)], (0, 1, 0), (255, 28, 22))
+            LASER.append((int(len_ * ONE), int(cart.data(b_.mesh(), f"lab_laser{len(LASER)}"))))
     SPKM = cart.data(Table([SPARK_M]), "spark_mesh")   # which spark: a fist's point, a bullet's burst
     BK = {k: i for i, k in enumerate(("ex", "ez", "dx", "dz", "rem", "y", "yaw", "hit"))}
     _bl, _br = 0.75, 0.035
@@ -3144,7 +3160,9 @@ def _grade(gr, gg, gb, lift=0.0):
 if BASE:
     GRADES = [cart.data(Table(_grade(*k)), f"grade{i}") for i, k in enumerate(
         ((1.0, 1.22, 1.16), (1.08, 1.5, 1.4)) + (((1.45, 2.2, 2.0),) if L2 else ()))]   # (the third: time, slowed)
-    cart.boot(spec.EDGE_RGB, 0xFFF4D8)            # the outline: bone-white, on what the jab would take
+    # the outline: bone-white, on what the jab would take. (P47, the lab -- the player: "the outline and the diamond are
+    # too much ui, just a red outline would be good": red, and it is the whole of the lock's mark)
+    cart.boot(spec.EDGE_RGB, 0xE01818 if LAB else 0xFFF4D8)
 
 
 if L2:
@@ -8474,7 +8492,8 @@ if L2:
         p.load(TGTY).store(W["oy"])
         p.mark(f"{sg_}_ly")
     p.load(GT["shoot"]).emit(f"jz {sg_}")
-    p.load(SLOWON).emit(f"jz {sg_}")              # (P35, the player: "the targeting should
+    p.load(HNDON if LAB else SLOWON).emit(f"jz {sg_}")   # (P47, the lab: a laser is on while the gun is out)
+    #                                               (P35, the player: "the targeting should
     p.load(GC["shoot"]).load(RLD).emit("or", f"jz {sg_}_c", f"jmp {sg_}")   # really only show in slow motion")
     p.mark(f"{sg_}_c")
     p.load(HEAD).store(W["head"])
@@ -8489,6 +8508,31 @@ if L2:
     p.load(YAW).emit("add").push(1023).emit("and").store(W["head"])
     p.mark(f"{sg_}_h")
     p.emit(f"call {L_RAY}")
+    if LAB:
+        # THE LASER: from his hand to where the round will land. Its slope
+        # is rise over run; its pitch the angle of that (s / (1 + 0.28 s^2),
+        # good to a third of a degree); each piece is put where the line is.
+        p.push(int(0.75 * ONE)).load(RAY["len"]).emit("lt", f"jz {sg_}_d")
+        p.load(W["oy"]).load(SGY).emit("sub").store(DVR).load(RAY["len"]).store(DVD).emit(f"call {L_QDIV}")
+        p.load(DVQ).store(SGD)
+        p.load(SGD).store(DVR)
+        p.load(SGD).emit("dup", "mulq").push(int(0.28 * ONE)).emit("mulq").push(ONE).emit("add").store(DVD).emit(f"call {L_QDIV}")
+        p.push(0).load(DVQ).push(163).emit("mul", "shr 16", "sub").push(1023).emit("and").store(LS0)
+        sin_of(p, 256, cell=LS0)
+        p.store(LS1)
+        p.load(RAY["len"]).store(W["d2"]).set(LS2, 0)
+        for len_, mesh_ in LASER:
+            lz = p.label("laser")
+            p.push32(len_).load(LS1).emit("mulq").store(W["k"])
+            p.load(W["d2"]).load(W["k"]).emit("lt", f"jz {lz}_go", f"jmp {lz}")
+            p.mark(f"{lz}_go")
+            p.object(NOBJ, mesh_, (f"load {int(RAY['ox'])}", f"load {int(RAY['dx'])}", f"load {int(LS2)}", "mulq", "add"),
+                     (f"load {int(SGY)}", f"load {int(SGD)}", f"load {int(LS2)}", "mulq", "add"),
+                     (f"load {int(RAY['oz'])}", f"load {int(RAY['dz'])}", f"load {int(LS2)}", "mulq", "add"),
+                     (f"load {int(W['head'])}", f"load {int(LS0)}", "shl 10", "or"), 0)
+            p.load(LS2).load(W["k"]).emit("add").store(LS2).load(W["d2"]).load(W["k"]).emit("sub").store(W["d2"])
+            p.mark(lz)
+        p.emit(f"jmp {sg_}_d")
     p.push(6)
     knob(p, "mag")
     p.emit(f"jz {sg_}_n", "drop")
@@ -8507,7 +8551,7 @@ if L2:
         p.load(W[at]).load(W[st_]).emit("add").store(W[at])
     if LAB:
         p.load(SGY).load(SGD).emit("add").store(SGY)
-    p.object(NOBJ, BEAD_M, (f"load {int(W['bx'])}",), (f"load {int(SGY if LAB else W['oy'])}",),
+    p.object(NOBJ, SBEAD_M if LAB else BEAD_M, (f"load {int(W['bx'])}",), (f"load {int(SGY if LAB else W['oy'])}",),
              (f"load {int(W['bz'])}",), (f"load {spec.REG_FRAME}", "push 37", "mul", "push 1023", "and"), 0)
     p.addi(W["k"], -1).load(W["k"]).emit(f"jz {sg_}_d", f"jmp {sg_}_l")
     p.mark(f"{sg_}_d")
@@ -8515,8 +8559,8 @@ if L2:
 
     def dot_mesh(h):
         dm = h.label("dotm")
-        h.push(DOT_M).push(CHARGE - 1).load(GT["shoot"]).emit("lt", f"jz {dm}")
-        h.emit("drop").push(HOT_M)
+        h.push(SDOT_M if LAB else DOT_M).push(CHARGE - 1).load(GT["shoot"]).emit("lt", f"jz {dm}")
+        h.emit("drop").push(SHOT_M if LAB else HOT_M)
         h.mark(dm)
     p.object(NOBJ, dot_mesh, (f"load {int(RAY['x'])}",), (f"load {int(W['oy'])}",),
              (f"load {int(RAY['z'])}",),
@@ -8533,8 +8577,9 @@ if L2:
             def mark_z(h):
                 sin_of(h, 256, cell=LBRG)
                 h.push(int(0.45 * ONE)).emit("mulq").load(TGTZ).emit("swap", "sub")
-            p.object(NOBJ, AWARE_M, mark_x, (f"load {int(TGTY)}",) if LAB else (f"push {int(SPOTY)}", f"load {int(SPOT)}", "add", "loadi"), mark_z,
-                     (f"load {spec.REG_FRAME}", "push 23", "mul", "push 1023", "and"), 0)
+            if not LAB:                         # (P47: in the lab the red outline is the mark, and nothing else)
+                p.object(NOBJ, AWARE_M, mark_x, (f"push {int(SPOTY)}", f"load {int(SPOT)}", "add", "loadi"), mark_z,
+                         (f"load {spec.REG_FRAME}", "push 23", "mul", "push 1023", "and"), 0)
         else:
             p.object(NOBJ, AWARE_M, (f"load {int(KX)}",), int(1.9 * ONE), (f"load {int(KZ)}",),
                      (f"load {spec.REG_FRAME}", "push 23", "mul", "push 1023", "and"), 0)
@@ -10364,6 +10409,10 @@ if L2:
     for o_, me, a_, b_, sg in (("ox", PX, "dx", "dz", "add"), ("oz", PZ, "dz", "dx", "sub")):
         p.load(RAY[a_]).push(GUN_F).emit("mulq").load(RAY[b_]).push(GUN_R).emit("mulq", sg)
         p.load(me).emit("add").store(RAY[o_])
+    if LAB:                                                  # (P47: with the gun in his hand, from the hand itself)
+        p.load(HNDON).emit(f"jz {ry}_hand")
+        p.load(int(HNDW)).store(RAY["ox"]).load(int(HNDW) + 2).store(RAY["oz"])
+        p.mark(f"{ry}_hand")
     p.set(AWC, SHOT_W).set(RAY["len"], 0).set(RAY["hit"], 0).set(RAY["step"], ONE)
     p.mark(f"{ry}_l")
     p.load(RAY["len"]).load(RAY["step"]).emit("add").store(RAY["len"])
@@ -10402,6 +10451,17 @@ if L2:
         # P37: ...or AN ENEMY that is up: on the line, within its body's
         # width of it, and nearer than whatever the line met before (3 + its
         # number). The same test the key has; nothing is aimed for him.
+        if LAB:
+            # P47 (his tape of the reactor: 59 rounds fired locked on his
+            # double in its corner, and ONE reached it -- the line left the
+            # floor a hair before the body's middle, so the wall had it): a
+            # body standing against a wall is in FRONT of the wall. The line
+            # that met a wall is let run a fifth of a unit on while the
+            # bodies are tried, and put back if none is there.
+            rw = p.label("raywall")
+            p.load(RAY["hit"]).push(1).emit("eq", f"jz {rw}")
+            p.load(RAY["len"]).push(int(0.2 * ONE)).emit("add").store(RAY["len"]).set(RAY["hit"], -1)
+            p.mark(rw)
         for e_ in ENEMY:
             rn = p.label("rayenemy")
             if LAB:                               # (P44: one that is DOWN can be shot too -- from close: below)
@@ -10426,6 +10486,21 @@ if L2:
             p.mark(f"{rn}_x")
             p.emit("drop")
             p.mark(rn)
+        if LAB:
+            rw2 = p.label("raywall")
+            p.load(RAY["hit"]).push(-1).emit("eq", f"jz {rw2}")
+            p.load(RAY["len"]).push(int(0.2 * ONE)).emit("sub").store(RAY["len"]).set(RAY["hit"], 1)
+            p.mark(rw2)
+            # P47 ("a targeted gun shot should always land"): locked on a
+            # body, IT is what the line meets -- whatever else stands on it
+            rl = p.label("raylock")
+            p.load(LOCK).emit(f"jz {rl}")
+            p.push(-1).load(TSEL).emit("lt").load(TSEL).push(NE).emit("lt", "and", f"jz {rl}")
+            p.load(TGTX).load(RAY["ox"]).emit("sub").load(RAY["dx"]).emit("mulq")
+            p.load(TGTZ).load(RAY["oz"]).emit("sub").load(RAY["dz"]).emit("mulq", "add").store(W["d2"])
+            p.push(0).load(W["d2"]).emit("lt", f"jz {rl}")
+            p.load(W["d2"]).store(RAY["len"]).load(TSEL).push(3).emit("add").store(RAY["hit"])
+            p.mark(rl)
     for c_, me, d_ in ((RAY["x"], RAY["ox"], "dx"), (RAY["z"], RAY["oz"], "dz")):
         p.load(RAY[d_]).load(RAY["len"]).emit("mulq").load(me).emit("add").store(c_)
     p.set(AWC, AR_W)
@@ -10463,9 +10538,9 @@ if L2:
             p.load(HNDON).emit(f"jz {fy_}_g")
             p.load(int(HNDW) + 1).store(LS0)
             p.mark(f"{fy_}_g")
-            p.load(LS0).store(W["bx"]).set(W["bz"], 1).set(DVQ, 0)
+            p.load(LS0).store(W["bx"]).set(W["bz"], 3).set(DVQ, 0)
             p.load(LOCK).emit(f"jz {fy_}")
-            p.load(TGTY).store(W["bx"])
+            p.load(TGTY).store(W["bx"]).load(SPOT).store(W["bz"])
             p.load(TGTY).load(LS0).emit("sub").store(DVR)
             p.load(RAY["len"]).emit("dup").push(int(0.75 * ONE)).emit("lt", f"jz {fy_}_d")
             p.emit("drop").push(int(0.75 * ONE))
@@ -10537,13 +10612,14 @@ if L2:
         bf("hit")
         p.emit("shr 4").push(1).emit("and").push(2).emit("mul").push(1).emit("add").store(W["dmg"])
         p.push(12).store(W["stop"])
-        bf("hit")
-        p.emit("shr 5").push(3).emit("and", "dup", f"jz {ld}_hi")
-        p.push(2).emit("eq", f"jz {ld}_e")
-        p.push(36).store(W["stop"]).emit(f"jmp {ld}_e")
-        p.mark(f"{ld}_hi")
-        p.emit("drop").load(W["dmg"]).push(2).emit("mul").store(W["dmg"])
-        p.mark(f"{ld}_e")
+        if not LAB:                              # (the lab: by where it lands, a body at a time -- below)
+            bf("hit")
+            p.emit("shr 5").push(3).emit("and", "dup", f"jz {ld}_hi")
+            p.push(2).emit("eq", f"jz {ld}_e")
+            p.push(36).store(W["stop"]).emit(f"jmp {ld}_e")
+            p.mark(f"{ld}_hi")
+            p.emit("drop").load(W["dmg"]).push(2).emit("mul").store(W["dmg"])
+            p.mark(f"{ld}_e")
         if LAB:
             # P44: THE CLOSE-QUARTERS SHOT: three times the round, and it
             # holds the body twenty-four frames more
@@ -10561,17 +10637,30 @@ if L2:
                 # the round and holds it twelve frames more; the LEGS hold it
                 # three times as long -- and a charged or a close round there
                 # takes them from under it. (Down, it is all body.)
-                p.set(HITZ, 1)
+                # (P47: a round fired LOCKED lands -- on the part he chose,
+                # wherever the body has got to since; its burst is there, red)
+                p.set(HITZ, 1).set(SPKM, RHIT_M)
                 p.load(e_["st"]).push(2).emit("eq", f"jz {le}_zu", f"jmp {le}_zz")
                 p.mark(f"{le}_zu")
+                bf("hit")
+                p.emit("shr 5").push(3).emit("and", "dup").store(HITZ).push(3).emit("eq", f"jz {le}_zl")
+                p.set(HITZ, 1)
                 bf("y")
                 p.load(int(EY) + e_["k"]).emit("sub").store(LS2)
                 p.load(LS2).push(ZONE_TOP).emit("lt").push(-1).load(LS2).emit("lt", "and", f"jz {ld}")
                 p.load(LS2).push(ZONE_HEAD).emit("lt", f"jz {le}_zh")
-                p.load(LS2).push(ZONE_LEGS).emit("lt", f"jz {le}_zz")
-                p.set(HITZ, 2).load(W["stop"]).push(3).emit("mul").store(W["stop"]).set(SPKM, DOT_M).emit(f"jmp {le}_zz")
+                p.load(LS2).push(ZONE_LEGS).emit("lt", f"jz {le}_ze")
+                p.set(HITZ, 2).emit(f"jmp {le}_ze")
                 p.mark(f"{le}_zh")
-                p.set(HITZ, 0).load(W["dmg"]).push(2).emit("mul").store(W["dmg"]).addi(W["stop"], 12)
+                p.set(HITZ, 0).emit(f"jmp {le}_ze")
+                p.mark(f"{le}_zl")
+                p.push(int(SPOTY)).load(HITZ).emit("add", "loadi").load(int(EY) + e_["k"]).emit("add").store(int(SPK) + 1)
+                p.mark(f"{le}_ze")
+                p.load(HITZ).emit(f"jz {le}_eh")
+                p.load(HITZ).push(2).emit("eq", f"jz {le}_zz")
+                p.load(W["stop"]).push(3).emit("mul").store(W["stop"]).emit(f"jmp {le}_zz")
+                p.mark(f"{le}_eh")
+                p.load(W["dmg"]).push(2).emit("mul").store(W["dmg"]).addi(W["stop"], 12)
                 p.mark(f"{le}_zz")
                 # (P44: a round into a body already DOWN does not stand it up to fall again)
                 p.load(e_["st"]).push(2).emit("eq").store(LS0).load(e_["t"]).store(LS1)
