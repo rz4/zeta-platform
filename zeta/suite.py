@@ -57,6 +57,7 @@ class Observed:
         m.vm.frame_no = start          # some carts only reach their claim
                                        # after a while (choir ramps for 8 s)
         boot_imem = list(m.vm.imem)
+        self.ops = {w >> 24 for w in boot_imem}   # (the instructions the cart is made of)
         self.flags: set[int] = set()
         self.bg = self.texsrc = self.lodflat = self.wavsrc = 0
         self.dma_len = self.ovl_len = 0
@@ -663,6 +664,17 @@ CLAIMS: list[Claim] = [
     # strips down the side of the glass in TND's lit town, on the Pocket
     # and never in the law. The claim is the clipper's own mutation on a
     # cart that is lit and nothing else; the cross does the rest.
+    # ISA GENERATION 2 (experiments/isa/): the nine instructions of the
+    # second set, each on its edges against the first set's long way; the
+    # glass all green or the failures in red. A machine without the set
+    # traps at the first and draws nothing; one that differs draws red.
+    Claim("isa2", "the second instruction set: pushh ori abs neg mini maxi jnlt jne",
+          lambda o: {spec.OPS[k][0] for k in ("pushh", "ori", "abs", "neg", "mini", "maxi", "jnlt", "jne")} <= o.ops
+          and (o.pictures[-1][..., 1] > 150).mean() > 0.95 and not (o.pictures[-1][..., 0] > 100).any(),
+          "either the cart no longer uses every new instruction, or one of "
+          "them answered differently from the first set's long way (the "
+          "glass is red where green was due)",
+          frames=4),
     Claim("litclip", "spec.OBJ_LIT through the clipper: a lit face cut by the lens",
           lambda o: o.any_flag(spec.OBJ_LIT) and o.clip_px > 5000,
           "either nothing is lit, or switching the clipper off changes "

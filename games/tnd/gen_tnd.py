@@ -11614,11 +11614,18 @@ p.emit("ret")
 
 
 # ---- P8's images, now that everything is placed ------------------------------
+# (ISA generation 2, experiments/isa/: the lab and the reactor are built for
+# the second instruction set -- their idioms its instructions. TND_ISA=1
+# builds them for the first; every other layer is the first set's, as it was.)
+ISA = int(os.environ.get("TND_ISA", "2" if LAB else "1"))
+
+
 def _imem(g):
     import tempfile
     from zeta import asm
+    from zeta.forge import isa2
     with tempfile.NamedTemporaryFile("w", suffix=".zol", delete=False) as f:
-        f.write("\n".join(g.lines()) + "\n")
+        f.write("\n".join(isa2(g.lines()) if ISA >= 2 else g.lines()) + "\n")
     words = asm.assemble(f.name)["imem"]
     os.unlink(f.name)
     assert len(words) <= PAGE, f"a program of {len(words)} words"

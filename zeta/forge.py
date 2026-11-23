@@ -928,6 +928,63 @@ class Program:
         return list(self._out)
 
 
+def isa2(lines: list[str]) -> list[str]:
+    """ISA GENERATION 2 (spec.OPS; experiments/isa/): a program's spelled-out
+    idioms as the second set's instructions. Exact: each rewrite computes the
+    same words, and a label is never crossed (an idiom is only its own lines,
+    consecutive, and a jump's target at its end is kept). For carts that ask
+    for it: a cart built for a machine without the second set must not."""
+    out, i, n = [], 0, len(lines)
+
+    def ops(k):
+        return [ln.split() for ln in lines[i:i + k]] if i + k <= n else None
+
+    def is_(t, op, arg=None):
+        return t and t[0] == op and (arg is None or (len(t) > 1 and t[1] == str(arg)))
+    while i < n:
+        t = ops(10)
+        if t and is_(t[0], "push") and all(is_(t[1 + 3 * k], "shl", 8) and is_(t[2 + 3 * k], "push") and is_(t[3 + 3 * k], "or")
+                                           for k in range(3)):
+            bs = [int(t[0][1])] + [int(t[2 + 3 * k][1]) for k in range(3)]
+            if all(0 <= b < 256 for b in bs):
+                v = (bs[0] << 24) | (bs[1] << 16) | (bs[2] << 8) | bs[3]
+                out.append(f"pushh {(v >> 8) & 0xFFFFFF}")
+                if v & 0xFF:
+                    out.append(f"ori {v & 0xFF}")
+                i += 10
+                continue
+        t = ops(8)
+        if t and is_(t[0], "dup") and is_(t[1], "push", 0) and is_(t[2], "lt") and is_(t[3], "jz") and is_(t[4], "push", 0) \
+                and is_(t[5], "swap") and is_(t[6], "sub") and t[7] == [t[3][1] + ":"]:
+            out += ["abs", lines[i + 7]]
+            i += 8
+            continue
+        if t and is_(t[0], "dup") and is_(t[1], "push") and is_(t[2], "swap") and is_(t[3], "lt") and is_(t[4], "jz") \
+                and is_(t[5], "drop") and is_(t[6], "push", t[1][1]) and t[7] == [t[4][1] + ":"]:
+            out += [f"mini {t[1][1]}", lines[i + 7]]
+            i += 8
+            continue
+        t = ops(7)
+        if t and is_(t[0], "dup") and is_(t[1], "push") and is_(t[2], "lt") and is_(t[3], "jz") and is_(t[4], "drop") \
+                and is_(t[5], "push", t[1][1]) and t[6] == [t[3][1] + ":"]:
+            out += [f"maxi {t[1][1]}", lines[i + 6]]
+            i += 7
+            continue
+        t = ops(3)
+        if t and is_(t[0], "push", 0) and is_(t[1], "swap") and is_(t[2], "sub"):
+            out.append("neg")
+            i += 3
+            continue
+        t = ops(2)
+        if t and (is_(t[0], "lt") or is_(t[0], "eq")) and is_(t[1], "jz"):
+            out.append(f"{'jnlt' if t[0][0] == 'lt' else 'jne'} {t[1][1]}")
+            i += 2
+            continue
+        out.append(lines[i])
+        i += 1
+    return out
+
+
 def sine_table(n=128, step=8, scale=1.0):
     """The table every cart that moves has rebuilt for itself."""
     return Table([int(round(math.sin(i * step * math.tau / 1024)

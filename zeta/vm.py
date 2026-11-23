@@ -265,6 +265,19 @@ class VM:
                 elif op == 0x30: pc = imm                               # jmp
                 elif op == 0x31:                                        # jz
                     if pop() == 0: pc = imm
+                # ---- ISA generation 2 (spec.OPS) ----
+                elif op == 0x06: push(((imm & 0xFFFFFF) << 8) & spec.WORD_MASK)   # pushh
+                elif op == 0x07: push(pop() | (imm & 0xFFFFFF))         # ori
+                elif op == 0x1B: a = s32(pop()); push((-a if a < 0 else a) & spec.WORD_MASK)   # abs
+                elif op == 0x1C: push((-s32(pop())) & spec.WORD_MASK)   # neg
+                elif op == 0x1D: a = s32(pop()); push((a if a < imm else imm) & spec.WORD_MASK)   # mini
+                elif op == 0x1E: a = s32(pop()); push((imm if a < imm else a) & spec.WORD_MASK)   # maxi
+                elif op == 0x34:                                        # jnlt
+                    b, a = pop(), pop()
+                    if not s32(a) < s32(b): pc = imm
+                elif op == 0x35:                                        # jne
+                    b, a = pop(), pop()
+                    if a != b: pc = imm
                 elif op == 0x32:                                        # call
                     if len(rs) == spec.RSTACK_MAX:
                         raise Trap(f"return stack overflow at pc {pc - 1}")

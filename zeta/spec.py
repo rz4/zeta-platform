@@ -1398,6 +1398,17 @@ OPS = {  # name: (code, takes_immediate)
     "jz":    (0x31, True),   # if pop==0: pc = imm
     "call":  (0x32, True),   # rstack.push(pc); pc = imm
     "ret":   (0x33, False),  # pc = rstack.pop()
+    # ---- ISA GENERATION 2 (experiments/isa/: the idioms TEAR NOT DEMON's lab
+    # spelled out, as instructions -- 2,635 of its 28,916 program words; a
+    # cart that uses none of them is the same cart, word for word) ----------
+    "pushh": (0x06, True),   # push (imm24 & 0xFFFFFF) << 8: a constant's high 24 bits
+    "ori":   (0x07, True),   # tos |= imm24 & 0xFFFFFF: ...and its low byte
+    "abs":   (0x1B, False),  # tos = |tos| (wrapping: |-2^31| is -2^31, as 0 - tos is)
+    "neg":   (0x1C, False),  # tos = 0 - tos
+    "mini":  (0x1D, True),   # tos = min(tos, imm), signed
+    "maxi":  (0x1E, True),   # tos = max(tos, imm), signed
+    "jnlt":  (0x34, True),   # b=pop; a=pop; if not a<b (signed): pc = imm  -- `lt` then `jz`
+    "jne":   (0x35, True),   # b=pop; a=pop; if a != b: pc = imm            -- `eq` then `jz`
 }
 CODE_TO_NAME = {c: n for n, (c, _) in OPS.items()}
 

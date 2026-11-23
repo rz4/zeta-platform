@@ -96,12 +96,19 @@ module zvm #(
   wire tos_bad_addr = (tos < 0) || (tos >= DMEM_WORDS);
   wire imm_bad_sh   = (imm < 0) || (imm > 31);
   wire jz_taken = (op == OP_JZ) && (sp != 0) && (tos == 32'd0);
+  // ISA GENERATION 2: the compare-and-branches pop both and jump on the
+  // compare's failure (exactly `lt`/`eq` then `jz`); the unary ops and the
+  // wide constant's halves are one cycle each
+  wire j2 = (op == OP_JNLT) || (op == OP_JNE);
+  wire j2_cond = (op == OP_JNLT) ? !(nos < tos) : (nos != tos);
+  wire j2_taken = j2 && (sp >= 2) && j2_cond;
+  wire signed [31:0] imm_z = {8'd0, iq[23:0]};
   wire ret_taken = (op == OP_RET) && (rsp != 0);
   wire [IMEM_BITS-1:0] rtgt = rstack[rsp - 1'b1];
   // vm.py checks 0 <= pc < IMEM_WORDS after every step: running off the end
   // of IMEM this instruction is a trap (its effects still apply, as there)
   wire pc_over = (pc == IMEM_WORDS[IMEM_BITS-1:0] - 1'b1) &&
-                 !(op == OP_HALT || op == OP_JMP || jz_taken ||
+                 !(op == OP_HALT || op == OP_JMP || jz_taken || j2_taken ||
                    op == OP_CALL || ret_taken);
   wire [IMEM_BITS-1:0] pc_seq = pc + 1'b1;
 
@@ -123,6 +130,7 @@ module zvm #(
                (op == OP_XOR) || (op == OP_LT) || (op == OP_EQ);
   wire ex = running && (vst == V_EXEC) && (fuel != 0) && hit;
   wire do_push = ex && ((op == OP_PUSH && sp != STACK_MAX) ||
+                        (op == OP_PUSHH && sp != STACK_MAX) ||
                         (op == OP_DUP  && sp != 0 && sp != STACK_MAX) ||
                         (op == OP_OVER && sp >= 2 && sp != STACK_MAX));
   wire do_lpush = running && (vst == V_LOAD) && !ld_replace;
@@ -130,6 +138,7 @@ module zvm #(
                         (op == OP_STOREI && !(sp < 2 || tos_bad_addr)) ||
                         (op == OP_DROP && sp != 0) ||
                         (op == OP_JZ   && sp != 0) ||
+                        (j2 && sp >= 2) ||
                         (binop && sp >= 2))) ||
                 (running && (vst == V_ST2));   // storei's second pop
   wire [6:0] sp_nxt = (do_push || do_lpush) ? sp + 1'b1 :
@@ -247,6 +256,34 @@ module zvm #(
                 endcase
                 t1 <= below;
                 sp <= sp - 1'b1;
+              end
+            OP_PUSHH:
+              if (sp == STACK_MAX) `TRAP
+              else begin t0 <= {iq[23:0], 8'd0}; t1 <= t0; sp <= sp + 1'b1; end
+            OP_ORI:
+              if (sp == 0) `TRAP
+              else t0 <= tos | imm_z;
+            OP_ABS:
+              if (sp == 0) `TRAP
+              else t0 <= tos[31] ? (32'd0 - tos) : tos;
+            OP_NEG:
+              if (sp == 0) `TRAP
+              else t0 <= 32'd0 - tos;
+            OP_MINI:
+              if (sp == 0) `TRAP
+              else t0 <= (tos < imm) ? tos : imm;
+            OP_MAXI:
+              if (sp == 0) `TRAP
+              else t0 <= (tos < imm) ? imm : tos;
+            OP_JNLT, OP_JNE:            // pops two: one here, one in V_ST2
+              if (sp < 2) `TRAP
+              else begin
+                sp <= sp - 1'b1; t0 <= t1; t1 <= below;
+                vst <= V_ST2;
+                if (j2_cond) begin
+                  if (imm < 0 || imm >= IMEM_WORDS) `TRAP
+                  else pc <= imm[IMEM_BITS-1:0];
+                end
               end
             OP_SHL:
               if (sp == 0 || imm_bad_sh) `TRAP
