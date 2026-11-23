@@ -13,6 +13,8 @@ for the loop you are about to touch before changing anything in it.
 - **The player's loop** -- play on the Pocket, bring the tape home, read
   it, let the player turn knobs, change the game, play again:
   `docs/EXPERIENCE-IMPRINTING.md`, `experiments/README.md`.
+- Experiments on the machine's loop that are not yet part of it:
+  `experiments/scale/` (computation ordered by scale).
 - The flagship game and its history: `docs/TND-PORT.md`,
   `docs/TND-WORLD.md`, `games/tnd/IMPRINTS.md`.
 

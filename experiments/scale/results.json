@@ -1,0 +1,695 @@
+{
+ "frames": 2200,
+ "pv": 0.125,
+ "vmax": 0.03125,
+ "draw": 16.0,
+ "rows": [
+  {
+   "mode": "flat",
+   "n": 128,
+   "world": 256,
+   "ratio": 8,
+   "scales": 4,
+   "frames": 2200,
+   "instructions": {
+    "median": 11613,
+    "worst": 11803,
+    "ceiling": 65536
+   },
+   "frames_out_of_instructions": 0,
+   "working_set_words": {
+    "median": 418,
+    "worst": 436
+   },
+   "words_moved": {
+    "median": 4220,
+    "worst": 4298
+   },
+   "frames_state_differs_from_the_law": 0,
+   "frames_drawn_set_differs": 0,
+   "first_frame_wrong": null,
+   "late": 0,
+   "over": 0,
+   "drop": 0,
+   "taken": 1,
+   "program_words": 300
+  },
+  {
+   "mode": "burst",
+   "n": 128,
+   "world": 256,
+   "ratio": 8,
+   "scales": 4,
+   "frames": 2200,
+   "instructions": {
+    "median": 292,
+    "worst": 16809,
+    "ceiling": 65536
+   },
+   "frames_out_of_instructions": 0,
+   "working_set_words": {
+    "median": 41,
+    "worst": 727
+   },
+   "words_moved": {
+    "median": 118,
+    "worst": 6866
+   },
+   "frames_state_differs_from_the_law": 0,
+   "frames_drawn_set_differs": 0,
+   "first_frame_wrong": null,
+   "late": 0,
+   "over": 0,
+   "drop": 0,
+   "taken": 1,
+   "program_words": 1060,
+   "list_lengths": {
+    "median": [
+     1,
+     2,
+     60,
+     64
+    ],
+    "worst": [
+     5,
+     6,
+     74,
+     83
+    ],
+    "capacity": [
+     32,
+     24,
+     128,
+     128
+    ],
+    "visits_a_frame": [
+     0,
+     4,
+     3,
+     1
+    ],
+    "period": [
+     1,
+     8,
+     64,
+     512
+    ],
+    "radius_units": [
+     17.2,
+     26.0,
+     96.0
+    ]
+   }
+  },
+  {
+   "mode": "scaled",
+   "n": 128,
+   "world": 256,
+   "ratio": 8,
+   "scales": 4,
+   "frames": 2200,
+   "instructions": {
+    "median": 1245,
+    "worst": 1790,
+    "ceiling": 65536
+   },
+   "frames_out_of_instructions": 0,
+   "working_set_words": {
+    "median": 77,
+    "worst": 110
+   },
+   "words_moved": {
+    "median": 517,
+    "worst": 725
+   },
+   "frames_state_differs_from_the_law": 0,
+   "frames_drawn_set_differs": 0,
+   "first_frame_wrong": null,
+   "late": 0,
+   "over": 0,
+   "drop": 0,
+   "taken": 1,
+   "program_words": 1033,
+   "list_lengths": {
+    "median": [
+     1,
+     2,
+     70,
+     55
+    ],
+    "worst": [
+     5,
+     6,
+     75,
+     60
+    ],
+    "capacity": [
+     32,
+     24,
+     128,
+     128
+    ],
+    "visits_a_frame": [
+     0,
+     4,
+     3,
+     1
+    ],
+    "period": [
+     1,
+     8,
+     64,
+     512
+    ],
+    "radius_units": [
+     17.2,
+     26.0,
+     96.0
+    ]
+   }
+  },
+  {
+   "mode": "flat",
+   "n": 512,
+   "world": 512,
+   "ratio": 8,
+   "scales": 4,
+   "frames": 2200,
+   "instructions": {
+    "median": 45937,
+    "worst": 46078,
+    "ceiling": 65536
+   },
+   "frames_out_of_instructions": 0,
+   "working_set_words": {
+    "median": 1570,
+    "worst": 1588
+   },
+   "words_moved": {
+    "median": 16706,
+    "worst": 16767
+   },
+   "frames_state_differs_from_the_law": 0,
+   "frames_drawn_set_differs": 0,
+   "first_frame_wrong": null,
+   "late": 0,
+   "over": 0,
+   "drop": 0,
+   "taken": 4,
+   "program_words": 300
+  },
+  {
+   "mode": "burst",
+   "n": 512,
+   "world": 512,
+   "ratio": 8,
+   "scales": 4,
+   "frames": 2200,
+   "instructions": {
+    "median": 417,
+    "worst": 63849,
+    "ceiling": 65536
+   },
+   "frames_out_of_instructions": 0,
+   "working_set_words": {
+    "median": 51,
+    "worst": 2634
+   },
+   "words_moved": {
+    "median": 166,
+    "worst": 26137
+   },
+   "frames_state_differs_from_the_law": 0,
+   "frames_drawn_set_differs": 0,
+   "first_frame_wrong": null,
+   "late": 0,
+   "over": 0,
+   "drop": 0,
+   "taken": 4,
+   "program_words": 1060,
+   "list_lengths": {
+    "median": [
+     2,
+     2,
+     59,
+     449
+    ],
+    "worst": [
+     4,
+     7,
+     71,
+     463
+    ],
+    "capacity": [
+     32,
+     24,
+     216,
+     512
+    ],
+    "visits_a_frame": [
+     0,
+     4,
+     5,
+     2
+    ],
+    "period": [
+     1,
+     8,
+     64,
+     512
+    ],
+    "radius_units": [
+     17.2,
+     26.0,
+     96.0
+    ]
+   }
+  },
+  {
+   "mode": "scaled",
+   "n": 512,
+   "world": 512,
+   "ratio": 8,
+   "scales": 4,
+   "frames": 2200,
+   "instructions": {
+    "median": 1703,
+    "worst": 2062,
+    "ceiling": 65536
+   },
+   "frames_out_of_instructions": 0,
+   "working_set_words": {
+    "median": 100,
+    "worst": 123
+   },
+   "words_moved": {
+    "median": 695,
+    "worst": 853
+   },
+   "frames_state_differs_from_the_law": 0,
+   "frames_drawn_set_differs": 0,
+   "first_frame_wrong": null,
+   "late": 0,
+   "over": 0,
+   "drop": 0,
+   "taken": 4,
+   "program_words": 1033,
+   "list_lengths": {
+    "median": [
+     2,
+     2,
+     62,
+     446
+    ],
+    "worst": [
+     4,
+     7,
+     68,
+     453
+    ],
+    "capacity": [
+     32,
+     24,
+     216,
+     512
+    ],
+    "visits_a_frame": [
+     0,
+     4,
+     5,
+     2
+    ],
+    "period": [
+     1,
+     8,
+     64,
+     512
+    ],
+    "radius_units": [
+     17.2,
+     26.0,
+     96.0
+    ]
+   }
+  },
+  {
+   "mode": "flat",
+   "n": 2048,
+   "world": 1024,
+   "ratio": 8,
+   "scales": 4,
+   "frames": 2200,
+   "instructions": {
+    "median": 65536,
+    "worst": 65536,
+    "ceiling": 65536
+   },
+   "frames_out_of_instructions": 2200,
+   "working_set_words": {
+    "median": 2226,
+    "worst": 2232
+   },
+   "words_moved": {
+    "median": 23830,
+    "worst": 23868
+   },
+   "frames_state_differs_from_the_law": 2200,
+   "frames_drawn_set_differs": 2117,
+   "first_frame_wrong": 0,
+   "late": 0,
+   "over": 0,
+   "drop": 0,
+   "taken": 3,
+   "program_words": 300
+  },
+  {
+   "mode": "burst",
+   "n": 2048,
+   "world": 1024,
+   "ratio": 8,
+   "scales": 4,
+   "frames": 2200,
+   "instructions": {
+    "median": 591,
+    "worst": 65536,
+    "ceiling": 65536
+   },
+   "frames_out_of_instructions": 4,
+   "working_set_words": {
+    "median": 61,
+    "worst": 2704
+   },
+   "words_moved": {
+    "median": 240,
+    "worst": 26801
+   },
+   "frames_state_differs_from_the_law": 1689,
+   "frames_drawn_set_differs": 0,
+   "first_frame_wrong": 511,
+   "late": 18,
+   "over": 0,
+   "drop": 0,
+   "taken": 3,
+   "program_words": 1060,
+   "list_lengths": {
+    "median": [
+     3,
+     3,
+     45,
+     1996
+    ],
+    "worst": [
+     6,
+     7,
+     84,
+     2006
+    ],
+    "capacity": [
+     32,
+     24,
+     216,
+     2048
+    ],
+    "visits_a_frame": [
+     0,
+     4,
+     5,
+     5
+    ],
+    "period": [
+     1,
+     8,
+     64,
+     512
+    ],
+    "radius_units": [
+     17.2,
+     26.0,
+     96.0
+    ]
+   }
+  },
+  {
+   "mode": "scaled",
+   "n": 2048,
+   "world": 1024,
+   "ratio": 8,
+   "scales": 4,
+   "frames": 2200,
+   "instructions": {
+    "median": 2273,
+    "worst": 2605,
+    "ceiling": 65536
+   },
+   "frames_out_of_instructions": 0,
+   "working_set_words": {
+    "median": 133,
+    "worst": 160
+   },
+   "words_moved": {
+    "median": 932,
+    "worst": 1079
+   },
+   "frames_state_differs_from_the_law": 0,
+   "frames_drawn_set_differs": 0,
+   "first_frame_wrong": null,
+   "late": 0,
+   "over": 0,
+   "drop": 0,
+   "taken": 3,
+   "program_words": 1033,
+   "list_lengths": {
+    "median": [
+     3,
+     4,
+     64,
+     1978
+    ],
+    "worst": [
+     6,
+     9,
+     84,
+     1992
+    ],
+    "capacity": [
+     32,
+     24,
+     216,
+     2048
+    ],
+    "visits_a_frame": [
+     0,
+     4,
+     5,
+     5
+    ],
+    "period": [
+     1,
+     8,
+     64,
+     512
+    ],
+    "radius_units": [
+     17.2,
+     26.0,
+     96.0
+    ]
+   }
+  },
+  {
+   "mode": "scaled",
+   "n": 2048,
+   "world": 1024,
+   "ratio": 4,
+   "scales": 6,
+   "frames": 2200,
+   "instructions": {
+    "median": 2300,
+    "worst": 3120,
+    "ceiling": 65536
+   },
+   "frames_out_of_instructions": 0,
+   "working_set_words": {
+    "median": 127,
+    "worst": 154
+   },
+   "words_moved": {
+    "median": 904,
+    "worst": 1246
+   },
+   "frames_state_differs_from_the_law": 0,
+   "frames_drawn_set_differs": 0,
+   "first_frame_wrong": null,
+   "late": 0,
+   "over": 0,
+   "drop": 0,
+   "taken": 3,
+   "program_words": 2009,
+   "list_lengths": {
+    "median": [
+     3,
+     0,
+     3,
+     25,
+     201,
+     1816
+    ],
+    "worst": [
+     5,
+     5,
+     8,
+     29,
+     234,
+     1835
+    ],
+    "capacity": [
+     32,
+     17,
+     23,
+     73,
+     668,
+     2048
+    ],
+    "visits_a_frame": [
+     0,
+     6,
+     2,
+     2,
+     4,
+     3
+    ],
+    "period": [
+     1,
+     4,
+     16,
+     64,
+     256,
+     1024
+    ],
+    "radius_units": [
+     16.6,
+     18.5,
+     26.0,
+     56.0,
+     176.0
+    ]
+   }
+  },
+  {
+   "mode": "scaled",
+   "n": 2048,
+   "world": 1024,
+   "ratio": 16,
+   "scales": 3,
+   "frames": 2200,
+   "instructions": {
+    "median": 2629,
+    "worst": 3053,
+    "ceiling": 65536
+   },
+   "frames_out_of_instructions": 0,
+   "working_set_words": {
+    "median": 153,
+    "worst": 178
+   },
+   "words_moved": {
+    "median": 1083,
+    "worst": 1255
+   },
+   "frames_state_differs_from_the_law": 0,
+   "frames_drawn_set_differs": 0,
+   "first_frame_wrong": null,
+   "late": 0,
+   "over": 0,
+   "drop": 0,
+   "taken": 3,
+   "program_words": 704,
+   "list_lengths": {
+    "median": [
+     4,
+     25,
+     2020
+    ],
+    "worst": [
+     7,
+     31,
+     2028
+    ],
+    "capacity": [
+     32,
+     81,
+     2048
+    ],
+    "visits_a_frame": [
+     0,
+     7,
+     10
+    ],
+    "period": [
+     1,
+     16,
+     256
+    ],
+    "radius_units": [
+     18.5,
+     56.0
+    ]
+   }
+  },
+  {
+   "mode": "scaled",
+   "n": 2048,
+   "world": 1024,
+   "ratio": 64,
+   "scales": 2,
+   "frames": 2200,
+   "instructions": {
+    "median": 5471,
+    "worst": 6024,
+    "ceiling": 65536
+   },
+   "frames_out_of_instructions": 0,
+   "working_set_words": {
+    "median": 276,
+    "worst": 310
+   },
+   "words_moved": {
+    "median": 2276,
+    "worst": 2514
+   },
+   "frames_state_differs_from_the_law": 0,
+   "frames_drawn_set_differs": 0,
+   "first_frame_wrong": null,
+   "late": 0,
+   "over": 0,
+   "drop": 0,
+   "taken": 3,
+   "program_words": 463,
+   "list_lengths": {
+    "median": [
+     6,
+     2042
+    ],
+    "worst": [
+     11,
+     2046
+    ],
+    "capacity": [
+     37,
+     2048
+    ],
+    "visits_a_frame": [
+     0,
+     40
+    ],
+    "period": [
+     1,
+     64
+    ],
+    "radius_units": [
+     26.0
+    ]
+   }
+  }
+ ]
+}

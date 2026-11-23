@@ -75,7 +75,22 @@ the tree; none is offered as proof of the general claim.
   ran from a third of what was fitted to ninety times it, which is why
   the method is "fit before pricing".
 
+- **Ordering by scale** (`experiments/scale/`, 2026-11-23; a cart, no
+  change to the machine). One world scheduled three ways and checked
+  against a model of its law every frame. Staggered scales of ratio 8:
+  the same world as every-mover-every-frame, and sixteen times the
+  movers (128 to 2,048) cost 1.46 times the worst frame in
+  instructions, where flat cannot run 2,048 at all. Unstaggered scales
+  have a worst frame WORSE than flat. In clocks the program is small
+  (about 1.3 clocks an instruction; the whole ceiling a tenth of a
+  frame): what this buys is instructions and working set.
+
 ### The limits met so far (evidence against "always")
+
+- A scale-ordered world is wrong after a sudden change of viewpoint --
+  for up to its top period, or for good if a permanent event fell in
+  that window; and data memory bounds its size before computation does
+  (`experiments/scale/README.md`).
 
 - Doubling the frame's vertex cache wants about 17 M10K; 9 are free
   beside the mesh store. It does not fit.
@@ -99,6 +114,9 @@ the tree; none is offered as proof of the general claim.
   capability list, its resource table and its witnesses, so that
   C(H, Aₙ₊₁) > C(H, Aₙ) is a comparison between two written things.
 - A stream table for this core (next section).
+- The scale hierarchy shared by memory (the top scale on the card) and
+  by geometry, under one schedule. Only the simulation's has been
+  tried.
 
 ## The machine as bounded streams
 
