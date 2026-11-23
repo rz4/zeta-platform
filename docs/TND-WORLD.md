@@ -134,7 +134,11 @@ spends pace.
    bolts, the held ways; the arrow on a waymark. BUILT: TND_LAYER=5
    (docs/TND-PORT.md P38), in the emulator and the hardware's simulation;
    not yet on glass. The pack holds the first hard way but does not strike.
-3. **The bunker's MAP and waymarks** (its own page; the map as geometry).
+3. **The bunker's MAP and waymarks** (the map as geometry). BUILT:
+   TND_LAYER=6 (docs/TND-PORT.md P39), in the emulator and the hardware's
+   simulation; not yet on glass. A mode of the street's own program, not a
+   page; the fog is by sector (the one he stands in, and from a hatch the
+   next), not by node; the arrow's way is searched over the open streets.
 4. **The clock, the par, the two ranks; the save across sittings.**
 5. **The pack, the stash, items in the street; weight.**
 6. **Random worlds**: a library in the cart, the seed from NEW GAME.

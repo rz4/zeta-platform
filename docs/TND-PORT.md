@@ -1903,3 +1903,47 @@ and over it:
   he stopped. In the world the rule is gone: the jab that reaches a key
   or a door he can open IS that, string or no string. (A test mashes X
   all the way up to gate 1: shut before the change, open after.)
+
+## P39: layer 6 -- the bunker's map, and his waymarks (2026-11-22; not yet on glass)
+
+docs/TND-WORLD.md's step 3 ("the bunker is where you prep, setting your
+way marks planning routes"). TND_LAYER=6: layer 5, and:
+
+- **On a bunker's hatch, SELECT opens the map** (a green square under
+  the key pips says so while he stands on one) and the street stops:
+  nothing of the fight runs, so its time does not either. SELECT shuts
+  it. Off a hatch SELECT is the knobs, as it was -- and shutting the map
+  does not open them under his thumb.
+- **The map is geometry read from the cart** (frontier 20): a quad a
+  street and a square a plaza, in the colour of its sector's danger, cut
+  by sector into meshes of sixty streets at most, standing upright
+  before a lens at the world's origin, north up. It costs the data
+  memory five words a mesh; a sector he does not know is not listed.
+- **What he knows** is by sector: the one he stands in, and from a
+  bunker's hatch the next one along too (its survey) -- so the first
+  hatch shows two sectors of seven. In them: the keys still lying (gold),
+  the gates still shut (red), bunkers (green), the hard ways (white), the
+  back doors (blue; a white bolt across one still bolted), the core, and
+  himself, blinking. The cursor on a key frames that key's gate as well,
+  and on a gate's end its key: which key is which gate's.
+- **The plan**: the pad moves the cursor a node (held twelve frames, it
+  runs); A puts a waymark under it -- only where he knows the town, four
+  at most, each with as many pips as its place in the plan -- or takes
+  off the one there (the rest move up); Y clears the plan.
+- **The arrow leads to HIS waymark**, the first of the plan -- and no
+  plan, no arrow (layer 5's arrow, which chose for him, is gone).
+  Reaching its node takes it off, with the light's flash, and the next
+  is first.
+- **The way is searched, not the tree's.** From the waymark outward over
+  the streets OPEN NOW (the map's own bits: a gate opened, a bolt drawn,
+  the hard ways), a way out of every node, made again whenever the
+  waymark or the doors change: 256 nodes, in the frame it happens. So a
+  hard way IS a way, and a bolt drawn is one from then on. Where the
+  search finds none -- the waymark behind a gate still shut -- the
+  arrow goes by layer 5's tree, which leads to that gate.
+- **Measured on the silicon** (the simulation): a map of two sectors is
+  17% of the frame, the whole town 29%; the street with a plan 53-57% at
+  the median and 59% at its peak, the frame of the search among them.
+  Every map frame, law and silicon the same to the pixel (293 frames).
+- tests: 9 layer 6; layer 5's 11 after it. Layers 0 to 5 and the full
+  cart build byte-identical.
