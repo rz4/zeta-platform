@@ -80,8 +80,18 @@ the tree; none is offered as proof of the general claim.
   unchanged. What binds is PROGRAM SPACE (28,916 of 32,768 words), not
   time (frame peak 58-65%, instructions about 27,000 of 65,536). Five
   spelled-out idioms as instructions would give back 2,635 words (9.1%)
-  and only 4.8% of the instructions: a prediction for A(n+1), not yet
-  tested.
+  and only 4.8% of the instructions: a prediction for A(n+1).
+- **The prediction, tested** (ISA generation 2, exp/isa2, 2026-11-23):
+  nine instructions built in the law and the silicon, witnessed,
+  crossed, fitted at four corners (18,194 of 18,480 ALMs, +0.706 ns worst
+  setup). The lab gave back 2,697 words against 2,635 predicted, on the
+  same game (his 16,109-frame session replays to the same end state).
+  The first A(n+1) of this loop measured before it was built. Its price:
+  260 ALMs, leaving 286 -- the next one must make room first. Correction
+  to the line above: the instruction count's worst frame was ~55,000,
+  not ~27,000 (the earlier figure sampled 2,340 frames; the census read
+  all of them), and the frame clock's worst was a page swap at 98%, not
+  game work. Both are fixed in the cart (`experiments/isa/README.md`).
 
 ### The limits met so far (evidence against "always")
 

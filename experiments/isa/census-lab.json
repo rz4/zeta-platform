@@ -1,0 +1,48 @@
+{
+ "cart": "lab_song_isa2.zol",
+ "frames": 16049,
+ "per_frame": {
+  "objects": {
+   "median": 19,
+   "p99": 24,
+   "worst": 59,
+   "limit": 64,
+   "worst_share": 0.922
+  },
+  "display-list triangles": {
+   "median": 1,
+   "p99": 76,
+   "worst": 146,
+   "limit": 256,
+   "worst_share": 0.57
+  },
+  "cart-mesh vertices": {
+   "median": 994,
+   "p99": 994,
+   "worst": 994,
+   "limit": 2048,
+   "worst_share": 0.485
+  },
+  "cart-mesh faces": {
+   "median": 1474,
+   "p99": 1474,
+   "worst": 1474,
+   "limit": 2048,
+   "worst_share": 0.72
+  },
+  "data-memory mesh faces": {
+   "median": 410,
+   "p99": 656,
+   "worst": 940,
+   "limit": null,
+   "worst_share": null
+  },
+  "instructions": {
+   "median": 12010,
+   "p99": 50654,
+   "worst": 53389,
+   "limit": 65536,
+   "worst_share": 0.815
+  }
+ }
+}

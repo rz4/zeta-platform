@@ -364,6 +364,20 @@ if os.environ.get("TND_CARTMESH") == "1" or LAYER in (4, 5, 6, 7, 8, 10, 11):   
 INTRO_PROG = cart.cram(Table([0] * PAGE), "intro_prog")
 PAUSE_PROG = cart.cram(Table([0] * PAGE), "pause_prog")
 MAIN_PROG = cart.cram(Table([0] * PAGE), "main_prog")
+
+
+def page_len(g, which):
+    """OVL_LEN for a page swap. P57 (the lab): the incoming program's own
+    length, not the whole page -- the swap into the pause was the only frame
+    of his 268-second session past the ceiling (847,024 clocks, 98%), most of
+    it copying 32,768 words to bring in 10,400. The names are .consts the
+    assembly fills (_imem); what the copy leaves past a program's end is
+    never reached."""
+    if LAB:
+        g.emit(f"push PAGE_{which}")
+    else:
+        g.push(PAGE)
+    g.store(spec.OVL_LEN)
 END_MAIN = cart.cram(Table([0] * B_END), "main_end")
 FRONT_MAIN = cart.cram(Table([0] * B_FRONT), "main_front")
 
@@ -3493,7 +3507,8 @@ p.set(TT, 0)
 p.set(spec.DMA_SRC, int(END_INTRO)).set(spec.DMA_DST, END_LO)
 p.set(spec.DMA_LEN, B_END).set(spec.DMA_GO, 1)
 p.set(spec.OVL_SRC, int(INTRO_PROG)).set(spec.OVL_DST, 0)
-p.set(spec.OVL_LEN, PAGE).set(spec.OVL_GO, 1)
+page_len(p, "INTRO")
+p.set(spec.OVL_GO, 1)
 p.set(spec.BG_SRC, 0).set(spec.CO_BASE, 1)
 p.rect(0, 0, 0, spec.W - 1, spec.H - 1, 0x000000, 16)
 p.emit(f"jmp {L_MUSIC}")
@@ -4342,7 +4357,8 @@ p.mark(f"{pa_}_go")
 p.set(spec.DMA_SRC, int(END_PAUSE)).set(spec.DMA_DST, END_LO)
 p.set(spec.DMA_LEN, B_END).set(spec.DMA_GO, 1)
 p.set(spec.OVL_SRC, int(PAUSE_PROG)).set(spec.OVL_DST, 0)
-p.set(spec.OVL_LEN, PAGE).set(spec.OVL_GO, 1)
+page_len(p, "PAUSE")
+p.set(spec.OVL_GO, 1)
 p.mark(pa_)
 p.load(PX).store(AR["ox"]).load(PZ).store(AR["oz"])     # where he stood
 L = {k: p.label(k) for k in ("dead", "frozen", "free", "walk", "idle",
@@ -6387,16 +6403,25 @@ if LAB:
     pk = L_PROK
     p.push32(_sx0).load(PTX).emit("lt").load(PTX).push32(_sx1).emit("lt", "and")
     p.push32(_sz0).load(PTZ).emit("lt", "and").load(PTZ).push32(_sz1).emit("lt", "and", f"jz {pk}_hall")
+    # (P57: each test gives up at its first failed bound -- along the north
+    # wall's line first, which every structure shares, so a place out in the
+    # hall is done with in one test; his heaviest frame spent 40,000 of its
+    # 54,898 instructions walking the arc, a structure's four bounds every
+    # step, three times a step along a wall)
+    if PLATS:
+        _wx0, _wx1 = lab_xz(0, max(v1_ for _, _, _, v1_, _, _ in PLATS) + 0.35)[0], lab_xz(0, min(v0_ for _, _, v0_, _, _, _ in PLATS) - 0.35)[0]
+        p.push32(_wx0).load(PTX).emit("lt", f"jz {pk}_open").load(PTX).push32(_wx1).emit("lt", f"jz {pk}_open")
     for k_, (u0_, u1_, v0_, v1_, top_, how_) in enumerate(PLATS):
         (bx0_, bz0_), (bx1_, bz1_) = lab_xz(u0_ - 0.35, v1_ + 0.35), lab_xz(u1_ + 0.35, v0_ - 0.35)
-        p.push32(bx0_).load(PTX).emit("lt").load(PTX).push32(bx1_).emit("lt", "and")
         if how_ == "u":
             p.load(PTZ).load(PLO4).emit("sub").store(PSZ)
         zc_ = PSZ if how_ == "u" else PTZ
-        p.push32(bz0_).load(zc_).emit("lt", "and").load(zc_).push32(bz1_).emit("lt", "and", f"jz {pk}_n{k_}")
+        p.push32(bz0_).load(zc_).emit("lt", f"jz {pk}_n{k_}").load(zc_).push32(bz1_).emit("lt", f"jz {pk}_n{k_}")
+        p.push32(bx0_).load(PTX).emit("lt", f"jz {pk}_n{k_}").load(PTX).push32(bx1_).emit("lt", f"jz {pk}_n{k_}")
         (p.load(PLT5) if how_ == "y" else p.push32(int(top_ * ONE)))
         p.push(int(PLAT_STEP * ONE) + 1).emit("sub").load(PTY).emit("lt", f"jz {pk}_side")
         p.mark(f"{pk}_n{k_}")
+    p.mark(f"{pk}_open")
     p.push(1).emit("ret")
     p.mark(f"{pk}_hall")
     p.set(PRKIND, 1).push(0).emit("ret")
@@ -6484,19 +6509,24 @@ if LAB:
     # at once, rising or not -- coming down, that is the landing -- and the
     # arc goes on from there; he lands when he comes down to it.)
     p.set(LNDY, 0)
+    nw_ = p.label("arcwall")
+    if PLATS:
+        _tx0, _tx1 = lab_xz(0, max(v1_ for _, _, _, v1_, _, _ in PLATS))[0], lab_xz(0, min(v0_ for _, _, v0_, _, _, _ in PLATS))[0]
+        p.push32(_tx0).load(PRX).emit("lt", f"jz {nw_}").load(PRX).push32(_tx1).emit("lt", f"jz {nw_}")
     for k_, (u0_, u1_, v0_, v1_, top_, how_) in enumerate(PLATS):
         (bx0_, bz0_), (bx1_, bz1_) = lab_xz(u0_, v1_), lab_xz(u1_, v0_)
         nt_ = p.label("arctop")
-        p.push32(bx0_).load(PRX).emit("lt").load(PRX).push32(bx1_).emit("lt", "and")
         if how_ == "u":
             p.load(PRZ).load(PLO4).emit("sub").store(PSZ)
         zc_ = PSZ if how_ == "u" else PRZ
-        p.push32(bz0_).load(zc_).emit("lt", "and").load(zc_).push32(bz1_).emit("lt", "and", f"jz {nt_}")
+        p.push32(bz0_).load(zc_).emit("lt", f"jz {nt_}").load(zc_).push32(bz1_).emit("lt", f"jz {nt_}")
+        p.push32(bx0_).load(PRX).emit("lt", f"jz {nt_}").load(PRX).push32(bx1_).emit("lt", f"jz {nt_}")
         (p.load(PLT5) if how_ == "y" else p.push32(int(top_ * ONE))).store(PTY)
         p.load(PTY).push(int(PLAT_STEP * ONE) + 1).emit("sub").load(PRY).emit("lt")          # (within a step of his feet)
         p.load(LNDY).load(PTY).emit("lt", "and", f"jz {nt_}")
         p.load(PTY).store(LNDY)
         p.mark(nt_)
+    p.mark(nw_)
     p.load(PRY).load(LNDY).emit("lt", f"jz {lp}_ns")                    # (his feet under it: stepped up)
     p.load(LNDY).store(PRY)
     p.push(0).load(PRVY).emit("lt", f"jz {lp}_d")                       # (coming down: there he is)
@@ -8456,7 +8486,9 @@ ix = q.label("ix")
 q.load(I_X).emit(f"jz {ix}")
 black(q)
 mover(q, DMA1, int(END_MAIN), END_LO, B_END)
-mover(q, OVL, int(MAIN_PROG), 0, PAGE)
+q.set(spec.OVL_SRC, int(MAIN_PROG)).set(spec.OVL_DST, 0)
+page_len(q, "MAIN")
+q.set(spec.OVL_GO, 1)
 q.set(spec.CAM_Y, int(2.15 * ONE)).set(spec.CAM_PITCH, 20).set(spec.CAM_ROLL, 0)
 q.load(YAW).store(CY)
 q.emit(f"jmp {L_MUSIC}")
@@ -8557,7 +8589,8 @@ for b, _ in BTN:                                 # resuming: every button spent
 pz.set(spec.DMA_SRC, int(END_MAIN)).set(spec.DMA_DST, END_LO)
 pz.set(spec.DMA_LEN, B_END).set(spec.DMA_GO, 1)
 pz.set(spec.OVL_SRC, int(MAIN_PROG)).set(spec.OVL_DST, 0)
-pz.set(spec.OVL_LEN, PAGE).set(spec.OVL_GO, 1)
+page_len(pz, "MAIN")
+pz.set(spec.OVL_GO, 1)
 pz.set(spec.DL_BASE, 0).emit(f"jmp {L_MUSIC}")
 pz.mark(f"{pc_}_dr")
 # the dim and the two words
@@ -11620,19 +11653,26 @@ p.emit("ret")
 ISA = int(os.environ.get("TND_ISA", "2" if LAB else "1"))
 
 
-def _imem(g):
+def _imem(g, lens=None):
     import tempfile
     from zeta import asm
     from zeta.forge import isa2
+    head = [f".const PAGE_{k} {v}" for k, v in (lens or {}).items()]
     with tempfile.NamedTemporaryFile("w", suffix=".zol", delete=False) as f:
-        f.write("\n".join(isa2(g.lines()) if ISA >= 2 else g.lines()) + "\n")
+        f.write("\n".join(head + (isa2(g.lines()) if ISA >= 2 else g.lines())) + "\n")
     words = asm.assemble(f.name)["imem"]
     os.unlink(f.name)
     assert len(words) <= PAGE, f"a program of {len(words)} words"
     return words
 
 
-_main_w, _intro_w, _pause_w = _imem(p_main), _imem(q), _imem(pz)
+_lens = {"MAIN": PAGE, "INTRO": PAGE, "PAUSE": PAGE} if LAB else None
+_main_w, _intro_w, _pause_w = _imem(p_main, _lens), _imem(q, _lens), _imem(pz, _lens)
+if LAB:                                  # (P57: again, each swap told the length it brings)
+    _lens = {"MAIN": len(_main_w), "INTRO": len(_intro_w), "PAUSE": len(_pause_w)}
+    _again = _imem(p_main, _lens), _imem(q, _lens), _imem(pz, _lens)
+    assert [len(w) for w in _again] == [len(_main_w), len(_intro_w), len(_pause_w)]
+    _main_w, _intro_w, _pause_w = _again
 if os.environ.get("TND_LIST"):          # (a debugging aid: each program's ZOL)
     for nm, g in (("main", p_main), ("intro", q), ("pause", pz)):
         (OUT.parent / f"tnd-{nm}.lst").write_text("\n".join(g.lines()) + "\n")
@@ -11652,6 +11692,8 @@ for k, v in (("INTRO_PROG", INTRO_PROG), ("MAIN_PROG", MAIN_PROG), ("INTRO_LEN",
              ("PAGE", PAGE), ("DL_LEASE", DL_LEASE), ("CITY_OXA", OXA), ("CITY_OYA", OYA), ("AR_W", AR_W),
              ("CITY_TILE", int(TILE))):
     cart.const(k, int(v))                       # (for the gates: tests/test_tnd.py)
+for k, v in (_lens or {}).items():               # (P57: the lab's page swaps, by length)
+    cart.const(f"PAGE_{k}", int(v))
 out = cart.write(OUT)
 print(cart.report())
 print(f"programs: the game {len(_main_w)} words, the intro {len(_intro_w)}, "
