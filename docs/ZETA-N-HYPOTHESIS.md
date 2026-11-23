@@ -75,6 +75,14 @@ the tree; none is offered as proof of the general claim.
   ran from a third of what was fitted to ninety times it, which is why
   the method is "fit before pricing".
 
+- **One architecture, filled** (TND's lab, P42-P56, `experiments/isa/`):
+  seventeen commits of new capability with the law and the silicon
+  unchanged. What binds is PROGRAM SPACE (28,916 of 32,768 words), not
+  time (frame peak 58-65%, instructions about 27,000 of 65,536). Five
+  spelled-out idioms as instructions would give back 2,635 words (9.1%)
+  and only 4.8% of the instructions: a prediction for A(n+1), not yet
+  tested.
+
 ### The limits met so far (evidence against "always")
 
 - Doubling the frame's vertex cache wants about 17 M10K; 9 are free

@@ -1,0 +1,62 @@
+{
+ "cart": "tnd-song.zol",
+ "program_words": 28916,
+ "page": 32768,
+ "frames_profiled": 2340,
+ "instructions_a_frame": 13928,
+ "idioms": {
+  "abs": {
+   "places": 72,
+   "words_back": 432,
+   "instructions_back_a_frame": 45
+  },
+  "min/max": {
+   "places": 77,
+   "words_back": 426,
+   "instructions_back_a_frame": 75
+  },
+  "wide constant": {
+   "places": 83,
+   "words_back": 664,
+   "instructions_back_a_frame": 200
+  },
+  "compare and branch": {
+   "places": 1029,
+   "words_back": 1029,
+   "instructions_back_a_frame": 275
+  },
+  "negate": {
+   "places": 42,
+   "words_back": 84,
+   "instructions_back_a_frame": 71
+  }
+ },
+ "words_back_total": 2635,
+ "instructions_back_a_frame_total": 666,
+ "most_called": [
+  [
+   115,
+   28493
+  ],
+  [
+   31,
+   9857
+  ],
+  [
+   21,
+   24651
+  ],
+  [
+   18,
+   24633
+  ],
+  [
+   18,
+   22721
+  ],
+  [
+   14,
+   28100
+  ]
+ ]
+}
