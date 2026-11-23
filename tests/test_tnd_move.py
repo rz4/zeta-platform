@@ -679,3 +679,47 @@ def test_the_rolls_arms_hold_its_shins():
     tuck, roll = acro["V_acro_tuck"][10], acro["V_acro_roll"][8]
     for ax in (0, 1, 2):
         assert np.ptp(roll[:, ax]) < np.ptp(tuck[:, ax]) + 0.05, f"the roll is {np.ptp(roll[:, ax]):.2f} across axis {ax}"
+
+
+# ---- P56: the lens drawn in clear of the structures; the course's clock ----
+
+def test_the_lens_is_never_just_over_a_structures_top(lab_text):
+    """his tape of P55: the lens 0.1 to 0.4 over a top in 232 frames, and the top cut at the glass"""
+    from zeta import spec
+    s32 = lambda v: v - (1 << 32) if v & (1 << 31) else v      # noqa: E731
+    PL = [(-32, -26, 10, 16, 0.8), (-26, -20, 10, 16, 1.6), (-20, -12, 10, 16, 2.4), (-12, 2, 13, 16, 2.4), (26, 32, 10, 16, 4.0)]
+    g = LAB.Game(lab_text)
+    for u0, v0, yaw, pads in ((-29.0, 6.0, LAB.NORTH, [U] * 40 + [LF] * 20 + [U] * 30), (29.0, 6.0, LAB.NORTH, [U] * 40 + [LF] * 30),
+                              (24.0, 9.0, LAB.SOUTH, [0] * 60), (-23.0, 9.4, LAB.SOUTH, [RT] * 40)):
+        g.put(u0, v0, yaw)
+        for p in pads:
+            g.run(p, 1)
+            cx, cy, cz = (s32(g.d[r]) / ONE for r in (spec.CAM_X, spec.CAM_Y, spec.CAM_Z))
+            cu, cv = cz - LAB.HALL_Z, LAB.HALL_X - cx
+            for a, b, c, d, top in PL:
+                assert not (a - 0.2 < cu < b + 0.2 and c - 0.2 < cv < d + 0.2 and cy < top + 0.6), \
+                    f"the lens {cy - top:.2f} over a top at ({cu:.1f}, {cv:.1f})"
+
+
+def test_the_course_clock_runs_from_the_first_step_to_the_top_and_keeps_the_best(lab_text):
+    g = LAB.Game(lab_text)
+    g.poke("f_py", int(1.5 * ONE))
+    g.put(-29.0, 13.0, LAB.NORTH)
+    g.run(0, 60)
+    assert g.cell("lab_si") == 0 and g.cell("course_state") == 1
+    g.poke("f_py", int(5.0 * ONE))                            # off the first step...
+    g.put(-23.0, 13.0, LAB.NORTH)
+    g.run(0, 94)
+    assert g.cell("course_state") == 1 and 10 <= g.cell("course_shown") <= 20
+    g.poke("f_py", int(5.0 * ONE))                            # ...to the top
+    g.put(29.0, 13.0, LAB.NORTH)
+    g.run(0, 60)
+    assert g.cell("lab_si") == 6 and g.cell("course_state") == 2
+    best = g.cell("course_best")
+    assert best == g.cell("course_shown") > 0
+    g.poke("f_py", int(1.5 * ONE))                            # again, and down to the floor: void, the best kept
+    g.put(-29.0, 13.0, LAB.NORTH)
+    g.run(0, 60)
+    g.put(-29.0, 4.0, LAB.NORTH)
+    g.run(0, 10)
+    assert g.cell("course_state") == 0 and g.cell("course_best") == best

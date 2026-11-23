@@ -1,0 +1,531 @@
+{
+ "schema": "zeta-xp-1",
+ "id": "tnd-lab-0007",
+ "machine": {
+  "tape": {
+   "file": "20261123-145331.ztp",
+   "sha256": "611e8f0731c0bc7f69dc8e4e37124dac058edf7bfdb1ea45d39518e219a1af57",
+   "format": "ZTP0",
+   "loader_build": 107,
+   "cart_sum": "0x04ae73de",
+   "runs": 7053
+  },
+  "cart": {
+   "file": "lab-on-card-p54.zbin",
+   "sum": "0x04ae73de",
+   "built_at_commit": "939fbb4",
+   "recipe": "TND_SONG=1 TND_LAYER=10 python3 games/tnd/gen_tnd.py",
+   "symbols_sha256": "a40da51bda07bd8245b9749d238cec93b106294a072bc50aaffa495b598fada0"
+  },
+  "card_at_start": "20261121-172911.card.bin",
+  "backend": "law (zeta.cabinet.VirtualMachine)",
+  "spec_loader_build": 107,
+  "ingested_at_commit": "27fc87c"
+ },
+ "evidence": {
+  "frames": 113518,
+  "seconds": 1892.0,
+  "end_state_sha256": "3cb65e92fa6172d27e52f9debe419d6ea7839f76508504165d52a61f23b73b6b",
+  "reproduce": "python3 -m zeta.experience ingest 20261123-145331.ztp --game lab-on-card-p54.zbin --symbols ..."
+ },
+ "knobs": [
+  {
+   "axis": "tnd.lab.who",
+   "knob": "who",
+   "index": 0,
+   "default": 0,
+   "final": 0,
+   "signed_notches": 0,
+   "step": 1,
+   "unit": "index",
+   "dwell_frames": {
+    "0": 113518
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.weight",
+   "knob": "weight",
+   "index": 1,
+   "default": 58982,
+   "final": 58982,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "58982": 113518
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.knock",
+   "knob": "knock",
+   "index": 2,
+   "default": 58982,
+   "final": 58982,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "58982": 113518
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.lift",
+   "knob": "lift",
+   "index": 3,
+   "default": 65536,
+   "final": 65536,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "65536": 113518
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.stun",
+   "knob": "stun",
+   "index": 4,
+   "default": 65536,
+   "final": 65536,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "65536": 113518
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.hstop",
+   "knob": "hstop",
+   "index": 5,
+   "default": 65536,
+   "final": 65536,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "65536": 113518
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.slide",
+   "knob": "slide",
+   "index": 6,
+   "default": 57671,
+   "final": 57671,
+   "signed_notches": 0,
+   "step": 655,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "57671": 113518
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.egrav",
+   "knob": "egrav",
+   "index": 7,
+   "default": 786,
+   "final": 786,
+   "signed_notches": 0,
+   "step": 65,
+   "unit": "Q16.16 (65536 = 1.0) a frame squared",
+   "dwell_frames": {
+    "786": 113518
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.pivot",
+   "knob": "pivot",
+   "index": 8,
+   "default": 176,
+   "final": 176,
+   "signed_notches": 0,
+   "step": 16,
+   "unit": "of 1024 a frame",
+   "dwell_frames": {
+    "176": 113518
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.lunge",
+   "knob": "lunge",
+   "index": 9,
+   "default": 58983,
+   "final": 58983,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "58983": 113518
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.keep",
+   "knob": "keep",
+   "index": 10,
+   "default": 40,
+   "final": 40,
+   "signed_notches": 0,
+   "step": 4,
+   "unit": "frames",
+   "dwell_frames": {
+    "40": 113518
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.hold",
+   "knob": "hold",
+   "index": 11,
+   "default": 14,
+   "final": 14,
+   "signed_notches": 0,
+   "step": 2,
+   "unit": "frames",
+   "dwell_frames": {
+    "14": 113518
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.slow",
+   "knob": "slow",
+   "index": 12,
+   "default": 3,
+   "final": 3,
+   "signed_notches": 0,
+   "step": 1,
+   "unit": "frames",
+   "dwell_frames": {
+    "3": 113518
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.dodge",
+   "knob": "dodge",
+   "index": 13,
+   "default": 65536,
+   "final": 65536,
+   "signed_notches": 0,
+   "step": 16384,
+   "unit": "his widths (0.58), Q16.16",
+   "dwell_frames": {
+    "65536": 113518
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.jump",
+   "knob": "jump",
+   "index": 14,
+   "default": 12190,
+   "final": 12190,
+   "signed_notches": 0,
+   "step": 655,
+   "unit": "Q16.16 (65536 = 1.0) a frame",
+   "dwell_frames": {
+    "12190": 113518
+   },
+   "changes": [],
+   "changes_total": 0
+  }
+ ],
+ "observed": {
+  "minutes": 31.53,
+  "buttons": {
+   "a": {
+    "presses": 566,
+    "held_share": 0.189
+   },
+   "b": {
+    "presses": 421,
+    "held_share": 0.243
+   },
+   "x": {
+    "presses": 684,
+    "held_share": 0.059
+   },
+   "y": {
+    "presses": 216,
+    "held_share": 0.059
+   },
+   "l": {
+    "presses": 235,
+    "held_share": 0.738
+   },
+   "r": {
+    "presses": 163,
+    "held_share": 0.374
+   },
+   "select": {
+    "presses": 0,
+    "held_share": 0.0
+   }
+  },
+  "held_together_share": {
+   "l+r": 0.288,
+   "b+r": 0.147,
+   "y+b": 0.021,
+   "x+a": 0.009,
+   "l+a": 0.169
+  },
+  "slowed_share": 0.388,
+  "stance_share": {
+   "tank": 0.26,
+   "run": 0.495,
+   "boxer": 0.245,
+   "targeting": 0.0
+  },
+  "blows": {
+   "thrown": 1173,
+   "a_minute": 37.2,
+   "by_move": {
+    "jab": 625,
+    "cross": 71,
+    "lead_hook": 87,
+    "special": 48,
+    "rear_uppercut": 28,
+    "gun": 232,
+    "gun_charged": 82
+   },
+   "begun_in_slowed_time_share": 0.128
+  },
+  "bodies": {
+   "blows_landed": 621,
+   "landed_a_minute": 19.7,
+   "put_down": 109,
+   "highest_thrown": 1.95,
+   "frames_one_was_above_half_a_unit": 769,
+   "above_three_units": {
+    "frames": 0,
+    "ranges": []
+   },
+   "struck_in_the_air": 9
+  },
+  "jab_strings": {
+   "that_began_with_a_hit": 111,
+   "mean_landed_in_a_row_by_length": {
+    "1": 1.0,
+    "2": 1.96,
+    "3": 2.91,
+    "4": 2.6,
+    "5": 4.12,
+    "6": 5.67,
+    "7": 5.33,
+    "8": 6.67
+   },
+   "five_or_more_in_a_row": {
+    "count": 24,
+    "frames": [
+     [
+      71834,
+      72118,
+      10
+     ],
+     [
+      70009,
+      70121,
+      7
+     ],
+     [
+      61199,
+      61262,
+      6
+     ],
+     [
+      69156,
+      69235,
+      6
+     ],
+     [
+      69359,
+      69495,
+      6
+     ],
+     [
+      54856,
+      54935,
+      5
+     ],
+     [
+      57685,
+      57736,
+      5
+     ],
+     [
+      67100,
+      67166,
+      5
+     ]
+    ]
+   }
+  },
+  "passes": {
+   "y_with_b_held": {
+    "count": 45,
+    "frames": [
+     18634,
+     19165,
+     19770,
+     20051,
+     20340,
+     20632,
+     20795,
+     21052,
+     21458,
+     87052,
+     87481,
+     87916,
+     88351,
+     89450,
+     89567,
+     89671,
+     89699,
+     90564,
+     91712,
+     92805,
+     94058,
+     94842,
+     94965,
+     95923,
+     97246,
+     97681,
+     97819,
+     104523,
+     106990,
+     107066,
+     107300,
+     107419,
+     107852,
+     108079,
+     108831,
+     108987,
+     109149,
+     109264,
+     109355,
+     109378
+    ],
+    "in_slowed_time": 44,
+    "stance": {
+     "tank": 1,
+     "run": 33,
+     "boxer": 11,
+     "targeting": 0
+    }
+   },
+   "b_with_y_held": {
+    "count": 20
+   },
+   "x_with_a_held": {
+    "count": 111
+   },
+   "thrown_as": {
+    "the_boxers_stun": 4,
+    "the_runs_tackle": 10
+   }
+  },
+  "special_chosen_under_a_held_jab": {
+   "steps": 0,
+   "thrown": 0,
+   "as": {
+    "lead_hook": 0,
+    "rear_uppercut": 0,
+    "haymaker": 0
+   }
+  },
+  "close_quarters_rounds_at_least": 62,
+  "jumps": 355,
+  "dodges_and_flips": 281,
+  "structures": {
+   "minutes_on_one": 2.0,
+   "frames_on_each": {
+    "0": 899,
+    "1": 923,
+    "2": 1327,
+    "3": 1483,
+    "4": 1397,
+    "5": 1034,
+    "6": 141
+   },
+   "highest_stood": 4.0
+  },
+  "tuner_open_minutes": 0.0,
+  "b_held": {
+   "share": 0.243,
+   "of_which": {
+    "standing": 0.276,
+    "walking": 0.042,
+    "running": 0.334
+   }
+  }
+ },
+ "title": "Thirty-one minutes of the course (P54): the climb timed in his head, the lift the wall",
+ "baseline": "tnd-lab-0006",
+ "human": {
+  "said_on": "2026-11-23",
+  "said": [
+   "the platforms have some geometry issues, clipping and collision. the long jump should just be after holding the jump button, the location of the jump should be in slow motion and on the wall if it will hit the wall, only 1 marker either it lands on a wall or floor. the second flip jump slow mo, back down should drop more immediately for targetted landing. also the arm on the roll looks a bit glitchy"
+  ],
+  "knobs_chosen": "see `knobs`"
+ },
+ "agent": {
+  "observations": [
+   {
+    "what": "31.5 minutes; the run half of it, slowed 39%. The climb from the first step without touching the floor 11 times: to the ledge in 1.9 to 5.0 s, to the slider in 3.8, to the lift in 17.9; the 4.0 platform never reached in one go. Off the course mostly from the ledge (8), the lift (6), the slider (3).",
+    "how": "a replay of his support, frame by frame (scratch analysis)"
+   },
+   {
+    "what": "355 jumps: 182 flips, 55 wall jumps, 13 long jumps; A held past twelve frames 201 times.",
+    "how": "the same"
+   }
+  ],
+  "readings": [
+   {
+    "supposes": "He is learning the course as a route to be run faster.",
+    "or": [],
+    "confidence": "medium",
+    "because": "the same chain again and again, and his 'look at how im trying to play and optimize'"
+   }
+  ],
+  "proposed": [
+   "P55 and P56 (built)"
+  ]
+ },
+ "result": {
+  "commits": [
+   "27fc87c"
+  ],
+  "changed": "P55",
+  "proved": [],
+  "cart": "TND LAB",
+  "next_record": "tnd-lab-0008",
+  "verdict": "his words above",
+  "imprints": [],
+  "rejected": []
+ }
+}

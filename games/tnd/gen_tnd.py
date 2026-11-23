@@ -2525,6 +2525,14 @@ STR_RETRY = cart.data(Table(glyphs("RETRY")), "str_retry", borrow="auto")
 WORDMARK = [(cart.data(Table(glyphs(c)), "str_wm_" + c, borrow="auto"), x, col)
             for c, x, col in (("T", 9, 0xD8CFC1), ("N", 17, 0xD63A36), ("D", 25, 0xD8CFC1))]
 S_STRS = cart.data(Table([int(x) for x in STR_RANK]), "str_ranks", borrow="auto")
+if LAYER in (10, 11):
+    # P56: THE COURSE'S CLOCK (his tapes: the north wall's structures run as a route again and again, the climb
+    # from the first step timed by him in his head -- 1.9 s to the ledge at best, 3.8 to the slider, 9.4 to the
+    # lift, the 4.0 platform never reached in one go). Seconds and their tenths; under them his best.
+    STR_CS = cart.data(Table(glyphs("00")), "str_course_s", borrow="auto")
+    STR_CT = cart.data(Table(glyphs("0")), "str_course_t", borrow="auto")
+    STR_CB = cart.data(Table(glyphs("B000")), "str_course_best", borrow="auto")
+    CRS, CRS0, CRST, CRSB, CRSS = (cart.var("course_" + k) for k in ("state", "start", "shown", "best", "secs"))
 S_LEN = cart.data(Table([len(r) for r in RANKS]), "rank_len", borrow="auto")
 GW = 4 * 3                                     # a glyph and its gap, x3
 # ---- P14: THE CARD -- what survives the power ---------------------------------
@@ -3465,6 +3473,7 @@ if BASE:
         p.set(YAW, LAB_YAW).set(CY, LAB_YAW).set(HEAD, LAB_YAW).set(WHOP, -1)
         p.set(GRISE, JUMP_RISE).set(GFALL, JUMP_FALL).set(JV0, LEAP_TOP).set(LJMP, 0).set(CHG, 0).push32(LEAPK_D).store(LEAPK)
         for c_ in (PGH, ARP, PLO4, PLOP, LABT, JUGY, PASSK, SELN, WBEND, WBTO, WBD, GUNK, MUZT, HNDON, LNDON, LWON, LNDY, LJARM, PSTY, AIRP, RLND, RFLIP, int(BSL), int(BSL) + 1,
+                   ) + ((CRS, CRST, CRSB) if PLATS else ()) + (
                    int(UXS), int(UXS) + 1, int(UXS) + 2) + ((MIRY, int(RXV), int(RXV) + 1) if REACTOR else ()):
             p.set(c_, 0)
         p.set(LNGX, ONE).set(HITZ, 1)
@@ -7514,20 +7523,47 @@ if L2:
 # ---- P12: THE OPERATOR -- the special shots over the follow -----------------
 CW = CAM_W
 if LAB and PLATS:
-    # P53 (his tape: the glass went dark purple -- the lens was INSIDE the
-    # lift): a lens inside a structure's box is lifted over its top
+    # P56 (the player: "look at the top of platforms graphics are clipped";
+    # his tape of P55: the lens 0.1 to 0.4 over a structure's top in 232
+    # frames -- P53 lifted a lens found inside a structure just over its
+    # top, and the top was cut at the glass). THE LENS IS DRAWN IN: from
+    # his head toward where it would be, in eighths, it stops at the last
+    # place clear of every structure -- a quarter of a unit off its sides
+    # and 0.7 over its top.
+    cm_ = p.label("lensray")
+    p.load(spec.CAM_X).load(PX).emit("sub").store(int(OUTD))
+    p.load(spec.CAM_Z).load(PZ).emit("sub").store(int(OUTD) + 1)
+    p.load(F["py"]).load(PGH).emit("add").push(int(1.3 * ONE)).emit("add").store(int(OUTD) + 3)   # his head
+    p.load(spec.CAM_Y).load(int(OUTD) + 3).emit("sub").store(int(OUTD) + 2)
+    p.set(OUTI, 1)
+    p.mark(f"{cm_}_l")
+    for k2_, (base_, d_) in enumerate(((PX, 0), (None, 2), (PZ, 1))):
+        p.load(int(OUTD) + d_).load(OUTI).emit("mul", "shr 3")
+        p.load(base_ if base_ is not None else int(OUTD) + 3).emit("add").store((PTX, PTY, PTZ)[k2_])
     for k_, (u0_, u1_, v0_, v1_, top_, how_) in enumerate(PLATS):
-        (bx0_, bz0_), (bx1_, bz1_) = lab_xz(u0_ - 0.3, v1_ + 0.3), lab_xz(u1_ + 0.3, v0_ - 0.3)
-        lc_ = p.label("lensbox")
-        p.push32(bx0_).load(spec.CAM_X).emit("lt").load(spec.CAM_X).push32(bx1_).emit("lt", "and")
+        (bx0_, bz0_), (bx1_, bz1_) = lab_xz(u0_ - 0.25, v1_ + 0.25), lab_xz(u1_ + 0.25, v0_ - 0.25)
+        nb_ = p.label("lensbox")
+        p.push32(bx0_).load(PTX).emit("lt").load(PTX).push32(bx1_).emit("lt", "and")
         if how_ == "u":
-            p.load(spec.CAM_Z).load(PLO4).emit("sub").store(PSZ)
-        zc_ = PSZ if how_ == "u" else spec.CAM_Z
-        p.push32(bz0_).load(zc_).emit("lt", "and").load(zc_).push32(bz1_).emit("lt", "and", f"jz {lc_}")
-        (p.load(PLT5) if how_ == "y" else p.push32(int(top_ * ONE))).push(int(0.4 * ONE)).emit("add").store(PTY)
-        p.load(spec.CAM_Y).load(PTY).emit("lt", f"jz {lc_}")
-        p.load(PTY).store(spec.CAM_Y)
-        p.mark(lc_)
+            p.load(PTZ).load(PLO4).emit("sub").store(PSZ)
+        zc_ = PSZ if how_ == "u" else PTZ
+        p.push32(bz0_).load(zc_).emit("lt", "and").load(zc_).push32(bz1_).emit("lt", "and", f"jz {nb_}")
+        (p.load(PLT5) if how_ == "y" else p.push32(int(top_ * ONE))).push(int(0.7 * ONE)).emit("add")
+        p.load(PTY).emit("lt", f"jz {cm_}_hit")
+        p.mark(nb_)
+    p.load(OUTI).push(8).emit("lt", f"jz {cm_}", f"jmp {cm_}_n")
+    p.mark(f"{cm_}_n")
+    p.addi(OUTI, 1).emit(f"jmp {cm_}_l")
+    p.mark(f"{cm_}_hit")                                       # (the last eighth that was clear; none clear -- his back
+    p.load(OUTI).push(1).emit("eq", f"jz {cm_}_m")             # to a structure's side -- over his own head)
+    p.load(PX).store(spec.CAM_X).load(PZ).store(spec.CAM_Z)
+    p.load(int(OUTD) + 3).push(int(0.4 * ONE)).emit("add").store(spec.CAM_Y).emit(f"jmp {cm_}")
+    p.mark(f"{cm_}_m")
+    p.addi(OUTI, -1)
+    p.load(int(OUTD)).load(OUTI).emit("mul", "shr 3").load(PX).emit("add").store(spec.CAM_X)
+    p.load(int(OUTD) + 1).load(OUTI).emit("mul", "shr 3").load(PZ).emit("add").store(spec.CAM_Z)
+    p.load(int(OUTD) + 2).load(OUTI).emit("mul", "shr 3").load(int(OUTD) + 3).emit("add").store(spec.CAM_Y)
+    p.mark(cm_)
 p.load(CAM_W["sh"]).push(10).emit("mul", "shr 16").push(20).emit("add")
 if LAB:
     # P43 (the player: "With the camera tracking the juggled enemy"): the
@@ -9249,6 +9285,35 @@ p.mark(lm)
 #                         combo over the meter once it passes one -- key
 #                         (rank + 1) << 8 | combo, so its fields cannot touch
 #   the opening           nothing                        (key 0)
+if LAB and PLATS:
+    # P56: THE COURSE: off the first step the clock runs (in time as he
+    # lives it: slowed time costs); standing on the 4.0 platform it stops
+    # and his best is kept; on the floor the run is void.
+    cl_ = p.label("course")
+    p.load(F["py"]).emit(f"jz {cl_}_g", f"jmp {cl_}_t")
+    p.mark(f"{cl_}_g")
+    p.load(PSI).emit("dup").push(0).emit("eq", f"jz {cl_}_n0")
+    p.emit("drop").set(CRS, 1).load(spec.REG_FRAME).store(CRS0).emit(f"jmp {cl_}_t")     # (on the first step: from here)
+    p.mark(f"{cl_}_n0")
+    p.emit("dup").push(-1).emit("eq", f"jz {cl_}_nf")
+    p.emit("drop").load(CRS).push(1).emit("eq", f"jz {cl_}_t")
+    p.set(CRS, 0).set(CRST, 0).emit(f"jmp {cl_}_t")                                       # (the floor: void)
+    p.mark(f"{cl_}_nf")
+    p.push(len(PLATS) - 1).emit("eq", f"jz {cl_}_t")
+    p.load(CRS).push(1).emit("eq", f"jz {cl_}_t")
+    p.set(CRS, 2)                                                                        # (the top: done)
+    p.load(CRSB).emit(f"jz {cl_}_nb")
+    p.load(CRST).load(CRSB).emit("lt", f"jz {cl_}_t")
+    p.mark(f"{cl_}_nb")
+    p.load(CRST).store(CRSB)
+    p.mark(f"{cl_}_t")
+    p.load(CRS).push(1).emit("eq", f"jz {cl_}")
+    p.load(spec.REG_FRAME).load(CRS0).emit("sub").push(10923).emit("mul", "shr 16")     # (tenths: frames / 6)
+    p.emit("dup").push(999).emit("lt", f"jz {cl_}_cap")
+    p.store(CRST).emit(f"jmp {cl_}")
+    p.mark(f"{cl_}_cap")
+    p.emit("drop").set(CRST, 999)
+    p.mark(cl_)
 hk = p.label("hudk")
 p.set(SY["g"], 0)                                     # (the key, building)
 p.push(DEATH_BEAT - 1).load(F["dead"]).emit("lt", f"jz {hk}_f")
@@ -9263,6 +9328,10 @@ p.emit("drop").push(99)
 p.mark(f"{hk}_k")
 p.load(SY["g"]).emit("add").store(SY["g"])
 p.mark(f"{hk}_c")
+if LAB and PLATS:                                     # (P56: and the course's clock: what it shows, and his best --
+    p.load(CRST).push(1 << 12).emit("mul").load(SY["g"]).emit("add").store(SY["g"])   # fighting or not)
+    p.load(CRSB).push(1 << 22).emit("mul").load(SY["g"]).emit("add").store(SY["g"])
+    p.load(CRS).push(1 << 11).emit("mul").load(SY["g"]).emit("add").store(SY["g"])
 if BASE:
     p.load(KTUNE).emit(f"jz {hk}_nt")
     p.push(255).push(int(S_SHOWN)).emit("storei")        # (the HUD draws afresh after)
@@ -9289,6 +9358,8 @@ if BASE:
 p.load(SY["g"]).push(int(S_SHOWN)).emit("loadi", "eq", f"jz {hk}_draw", f"jmp {hk}")
 p.mark(f"{hk}_draw")
 p.load(SY["g"]).push(int(S_SHOWN)).emit("storei")
+if LAB and PLATS:                                     # (the fight's own key, for what follows)
+    p.load(SY["g"]).push(0x7FF).emit("and").store(SY["g"])
 p.set(TX["n"], 1)                  # (P19: triangle 0 is the pointer's)
 p.load(SY["g"]).push(1).emit("eq", f"jz {hk}_fight")
 for k, v in (("str", int(STR_RETRY)), ("x", 141), ("y", 80), ("sc", 2), ("rgb", 0xE8D8C0)):
@@ -9327,6 +9398,36 @@ p.push(int(STR_COMBO)).store(TX["str"])
 p.set(TX["x"], 158).set(TX["y"], 218).set(TX["sc"], 3)
 p.emit(f"call {L_TEXT}")
 p.mark(f"{hk}_out")
+if LAB and PLATS:
+    # P56: the course's clock, top middle: seconds, their tenth, and his best under them
+    def _digits(cell_, at_, n_):
+        """( -- ) cell_ (0..999) as n_ glyphs (its last n_ digits) at at_ .. at_ + n_ - 1"""
+        p.load(cell_).store(TX["j"])
+        for i_ in range(n_ - 1, -1, -1):
+            p.load(TX["j"]).push(205).emit("mul", "shr 11", "dup").store(TX["r"])
+            p.push(10).emit("mul").load(TX["j"]).emit("swap", "sub").push(FONT_CH.index("0")).emit("add").store(at_ + i_)
+            p.load(TX["r"]).store(TX["j"])
+    cd_ = p.label("clockdraw")
+    p.load(CRS).emit(f"jz {cd_}_b")
+    p.load(CRST).push(205).emit("mul", "shr 11").store(CRSS)
+    _digits(CRSS, int(STR_CS) + 1, 2)
+    _digits(CRST, int(STR_CT) + 1, 1)
+    for k_, v_ in (("str", int(STR_CS)), ("x", 136), ("y", 26), ("sc", 4)):
+        p.set(TX[k_], v_)
+    p.push32(0xF2E6B0).load(CRS).push(2).emit("eq", f"jz {cd_}_c")
+    p.emit("drop").push32(0xFFD21E)                      # (done: gold)
+    p.mark(f"{cd_}_c")
+    p.store(TX["rgb"]).emit(f"call {L_TEXT}")
+    for k_, v_ in (("str", int(STR_CT)), ("x", 176), ("y", 36), ("sc", 2)):
+        p.set(TX[k_], v_)
+    p.emit(f"call {L_TEXT}")
+    p.mark(f"{cd_}_b")
+    p.load(CRSB).emit(f"jz {cd_}")
+    _digits(CRSB, int(STR_CB) + 2, 3)
+    for k_, v_ in (("str", int(STR_CB)), ("x", 140), ("y", 52), ("sc", 2), ("rgb", 0xB8B0A0)):
+        p.set(TX[k_], v_)
+    p.emit(f"call {L_TEXT}")
+    p.mark(cd_)
 p.load(TX["n"]).store(spec.DL_BASE)
 if L5:
     p.set(PIPN, 0)

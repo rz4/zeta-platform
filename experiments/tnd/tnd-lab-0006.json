@@ -434,7 +434,9 @@
   ]
  },
  "result": {
-  "commits": [],
+  "commits": [
+   "939fbb4"
+  ],
   "changed": "games/tnd/gen_tnd.py (the arc): docs/TND-PORT.md P54",
   "proved": [
    "on this tape, replayed on the new build: first marks median 0.011, 8 of 36 over 0.3 (the moving lift and slider, a run still gathering pace, a wall's slide)",
@@ -442,7 +444,7 @@
    "law against the simulated silicon: 353 frames bit-equal"
   ],
   "cart": "TND LAB and TND REACTOR, on the card 2026-11-23",
-  "next_record": null,
+  "next_record": "tnd-lab-0007",
   "verdict": "pending: not played",
   "imprints": [
    "tnd-022"

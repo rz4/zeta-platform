@@ -2826,3 +2826,37 @@ lab and the reactor only.
   byte-identical.
 - the law against the simulated silicon: the lab 338 frames, the reactor
   217, bit-equal; the frame 50% / 60% and 59% / 63%.
+
+## P56: how he plays -- the course, timed; the lens drawn in clear of the tops (2026-11-23)
+
+The player: "look at how im trying to play and optimize" and "look at
+the top of platforms graphics are clipped". The lab only (the lens's
+draw-in is the reactor's too; it has no structures).
+
+- **HOW HE PLAYS** (`tnd-lab-0007`, 31m32 of P54; `tnd-lab-0008`, 4m28
+  of P55): the north wall's structures as a ROUTE, run again and again,
+  getting faster -- from the first step without touching the floor: to
+  the ledge in 1.9 s at best, the slider 3.8, the lift 17.9 and then 9.4;
+  the 4.0 platform never reached in one go; off the course mostly from
+  the ledge, the lift and the slider. Long jumps 13 in 31 minutes, then
+  30 in four and a half once they were a held A; slowed time 39%, 48%.
+- **THE COURSE'S CLOCK**: the time from leaving the first step to
+  standing on the 4.0 platform, in time as he lives it (slowed time
+  costs: the traversal rank of TND-WORLD), top middle in seconds and a
+  small tenth; gold when done, and his best under it; on the floor the
+  run is void. (The font has no point: the tenth is the small figure.)
+  On his own P55 session replayed: two runs, both void (to the lift in
+  16.1 s, to the slider in 13.4).
+- **THE TOPS CUT AT THE GLASS**: P53 lifted a lens found inside a
+  structure just over its top; in his P55 session the lens was 0.1 to
+  0.4 over a top for 232 frames, the top sliced by the lens. Now the
+  lens is DRAWN IN: from his head toward where it would be, in eighths,
+  it stops at the last place clear of every structure (a quarter of a
+  unit off its sides, 0.7 over its top); with none clear -- his back to a
+  structure's side -- it is over his head. Replayed on his session the
+  lens is clear in every frame but those 23 (at his back to the
+  platform, on the lift); a test holds four places by the structures.
+- tests: 113 pass. Layers 0, 4, 8 and the full cart byte-identical.
+- the law against the simulated silicon: the lab 333 frames, the reactor
+  217, bit-equal; the frame 46% / 58% and 59% / 63%. On the card
+  2026-11-23.
