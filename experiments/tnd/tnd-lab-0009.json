@@ -1,0 +1,444 @@
+{
+ "schema": "zeta-xp-1",
+ "id": "tnd-lab-0009",
+ "machine": {
+  "tape": {
+   "file": "20261123-175720.ztp",
+   "sha256": "621de9fc907435a1e49993776fcef382eca2a623e25c7a10c5cceebd7c021142",
+   "format": "ZTP0",
+   "loader_build": 107,
+   "cart_sum": "0x730bf7fd",
+   "runs": 1750
+  },
+  "cart": {
+   "file": "20261123-175720.lab.zbin",
+   "sum": "0x730bf7fd",
+   "built_at_commit": "2b9f99a",
+   "recipe": "TND_SONG=1 TND_LAYER=10 python3 games/tnd/gen_tnd.py",
+   "symbols_sha256": "657750ac8bf024e8e08985d231a1c94810310fd556990a7696661b2ab2180c9b"
+  },
+  "card_at_start": "20261121-172911.card.bin",
+  "backend": "law (zeta.cabinet.VirtualMachine)",
+  "spec_loader_build": 107,
+  "ingested_at_commit": "be8a39f"
+ },
+ "evidence": {
+  "frames": 26865,
+  "seconds": 447.8,
+  "end_state_sha256": "b7055bb23b707cc691abafd10718a574137a8a3bc8459d3c01a9bcf095c157e6",
+  "reproduce": "python3 -m zeta.experience ingest 20261123-175720.ztp --game 20261123-175720.lab.zbin --symbols ..."
+ },
+ "knobs": [
+  {
+   "axis": "tnd.lab.who",
+   "knob": "who",
+   "index": 0,
+   "default": 0,
+   "final": 0,
+   "signed_notches": 0,
+   "step": 1,
+   "unit": "index",
+   "dwell_frames": {
+    "0": 26865
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.weight",
+   "knob": "weight",
+   "index": 1,
+   "default": 58982,
+   "final": 58982,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "58982": 26865
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.knock",
+   "knob": "knock",
+   "index": 2,
+   "default": 58982,
+   "final": 58982,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "58982": 26865
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.lift",
+   "knob": "lift",
+   "index": 3,
+   "default": 65536,
+   "final": 65536,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "65536": 26865
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.stun",
+   "knob": "stun",
+   "index": 4,
+   "default": 65536,
+   "final": 65536,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "65536": 26865
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.hstop",
+   "knob": "hstop",
+   "index": 5,
+   "default": 65536,
+   "final": 65536,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "65536": 26865
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.slide",
+   "knob": "slide",
+   "index": 6,
+   "default": 57671,
+   "final": 57671,
+   "signed_notches": 0,
+   "step": 655,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "57671": 26865
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.egrav",
+   "knob": "egrav",
+   "index": 7,
+   "default": 786,
+   "final": 786,
+   "signed_notches": 0,
+   "step": 65,
+   "unit": "Q16.16 (65536 = 1.0) a frame squared",
+   "dwell_frames": {
+    "786": 26865
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.pivot",
+   "knob": "pivot",
+   "index": 8,
+   "default": 176,
+   "final": 176,
+   "signed_notches": 0,
+   "step": 16,
+   "unit": "of 1024 a frame",
+   "dwell_frames": {
+    "176": 26865
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.lunge",
+   "knob": "lunge",
+   "index": 9,
+   "default": 58983,
+   "final": 58983,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "58983": 26865
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.keep",
+   "knob": "keep",
+   "index": 10,
+   "default": 40,
+   "final": 40,
+   "signed_notches": 0,
+   "step": 4,
+   "unit": "frames",
+   "dwell_frames": {
+    "40": 26865
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.hold",
+   "knob": "hold",
+   "index": 11,
+   "default": 14,
+   "final": 14,
+   "signed_notches": 0,
+   "step": 2,
+   "unit": "frames",
+   "dwell_frames": {
+    "14": 26865
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.slow",
+   "knob": "slow",
+   "index": 12,
+   "default": 3,
+   "final": 3,
+   "signed_notches": 0,
+   "step": 1,
+   "unit": "frames",
+   "dwell_frames": {
+    "3": 26865
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.dodge",
+   "knob": "dodge",
+   "index": 13,
+   "default": 65536,
+   "final": 65536,
+   "signed_notches": 0,
+   "step": 16384,
+   "unit": "his widths (0.58), Q16.16",
+   "dwell_frames": {
+    "65536": 26865
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.jump",
+   "knob": "jump",
+   "index": 14,
+   "default": 12190,
+   "final": 12190,
+   "signed_notches": 0,
+   "step": 655,
+   "unit": "Q16.16 (65536 = 1.0) a frame",
+   "dwell_frames": {
+    "12190": 26865
+   },
+   "changes": [],
+   "changes_total": 0
+  }
+ ],
+ "observed": {
+  "minutes": 7.46,
+  "buttons": {
+   "a": {
+    "presses": 301,
+    "held_share": 0.414
+   },
+   "b": {
+    "presses": 1,
+    "held_share": 0.003
+   },
+   "x": {
+    "presses": 32,
+    "held_share": 0.009
+   },
+   "y": {
+    "presses": 10,
+    "held_share": 0.002
+   },
+   "l": {
+    "presses": 20,
+    "held_share": 0.968
+   },
+   "r": {
+    "presses": 1,
+    "held_share": 0.002
+   },
+   "select": {
+    "presses": 0,
+    "held_share": 0.0
+   }
+  },
+  "held_together_share": {
+   "l+r": 0.002,
+   "b+r": 0.002,
+   "y+b": 0.0,
+   "x+a": 0.002,
+   "l+a": 0.413
+  },
+  "slowed_share": 0.29,
+  "stance_share": {
+   "tank": 0.032,
+   "run": 0.937,
+   "boxer": 0.031,
+   "targeting": 0.0
+  },
+  "blows": {
+   "thrown": 39,
+   "a_minute": 5.2,
+   "by_move": {
+    "jab": 32,
+    "cross": 3,
+    "lead_hook": 2,
+    "rear_uppercut": 2
+   },
+   "begun_in_slowed_time_share": 0.051
+  },
+  "bodies": {
+   "blows_landed": 16,
+   "landed_a_minute": 2.1,
+   "put_down": 2,
+   "highest_thrown": 0.0,
+   "frames_one_was_above_half_a_unit": 0,
+   "above_three_units": {
+    "frames": 0,
+    "ranges": []
+   },
+   "struck_in_the_air": 0
+  },
+  "jab_strings": {
+   "that_began_with_a_hit": 2,
+   "mean_landed_in_a_row_by_length": {
+    "2": 2.0,
+    "8": 1.0
+   },
+   "five_or_more_in_a_row": {
+    "count": 0,
+    "frames": []
+   }
+  },
+  "passes": {
+   "y_with_b_held": {
+    "count": 0,
+    "frames": []
+   },
+   "b_with_y_held": {
+    "count": 0
+   },
+   "x_with_a_held": {
+    "count": 2
+   },
+   "thrown_as": {
+    "the_boxers_stun": 0,
+    "the_runs_tackle": 0
+   }
+  },
+  "special_chosen_under_a_held_jab": {
+   "steps": 0,
+   "thrown": 0,
+   "as": {
+    "lead_hook": 0,
+    "rear_uppercut": 0,
+    "haymaker": 0
+   }
+  },
+  "close_quarters_rounds_at_least": 1,
+  "jumps": 200,
+  "dodges_and_flips": 199,
+  "structures": {
+   "minutes_on_one": 3.75,
+   "frames_on_each": {
+    "0": 1783,
+    "1": 1446,
+    "2": 1632,
+    "3": 3681,
+    "4": 1662,
+    "5": 2652,
+    "6": 630
+   },
+   "highest_stood": 4.0
+  },
+  "tuner_open_minutes": 0.0,
+  "b_held": {
+   "share": 0.003,
+   "of_which": {
+    "standing": 0.0,
+    "walking": 0.0,
+    "running": 1.0
+   }
+  }
+ },
+ "title": "P56 lab: the timed course, run sixteen times",
+ "human": {
+  "said": [],
+  "said_on": null,
+  "knobs_chosen": []
+ },
+ "agent": {
+  "observations": [
+   {
+    "what": "16 timed attempts (the clock starts on the first step); 2 finished: 14.5 s (frame 2856) and 20.0 s (frame 7510). His first times on the 4.0 platform in any session.",
+    "frames": [
+     2856,
+     7510
+    ]
+   },
+   {
+    "what": "9 of 16 attempts reached the lift (structure 5); 7 of those ended with him leaving it and coming down to the floor, five of them with the lift within 0.3 of its bottom",
+    "frames": []
+   },
+   {
+    "what": "the lift's bottoms came 435-563 frames apart and it was within 0.1 of the top 20% of the time; the two finishes left it at 2.99 and 4.00",
+    "frames": []
+   },
+   {
+    "what": "one attempt (from 273.8 s) reached the top platform at 284.3 s after the run had been voided by the floor: the lift was boarded from the floor, so the clock did not stop (by its rule)",
+    "frames": [
+     16458,
+     17058
+    ]
+   },
+   {
+    "what": "94% of the session in the run stance; 200 jumps, 199 dodges and flips; slowed time 29% (48% last session); 3.75 minutes standing on structures",
+    "frames": []
+   }
+  ],
+  "readings": [
+   {
+    "supposes": "the course's bottleneck is the lift's timing, not the jumps: he arrives when it is low or sinking and leaves it rather than ride it up",
+    "or": [
+     "he leaves on purpose to retry faster",
+     "the lift's top is not visible from where he waits"
+    ],
+    "confidence": "low"
+   }
+  ],
+  "proposed": []
+ },
+ "result": {
+  "commits": [],
+  "proved": [],
+  "cost": "",
+  "next_record": null,
+  "verdict": "pending",
+  "imprints": []
+ }
+}
