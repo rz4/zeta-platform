@@ -81,14 +81,15 @@ SWARM_TEST = os.environ.get("TND_SWARM") == "1"
 #                 held slows time, keeps the string, and the lens goes to
 #                 where the blow lands.
 LAYER = int(os.environ.get("TND_LAYER", "9"))
-BASE = LAYER in (0, 1, 2, 3, 4, 5, 6, 7)  # the base's own rules (the layers stand on them)
-L1 = LAYER in (1, 2, 3, 4, 5, 6, 7)  # the left shoulder
-L2 = LAYER in (2, 3, 4, 5, 6, 7)  # shadow boxing, and the gun
-L3 = LAYER in (3, 4, 5, 6, 7)    # the right shoulder: targeting (P35)
-L4 = LAYER in (4, 5, 6, 7)       # the enemies (P37): bodies from the cart (frontier 20's core)
-L5 = LAYER in (5, 6, 7)          # the world (P38, docs/TND-WORLD.md): a key a gate, bolts, bunkers
-L6 = LAYER in (6, 7)             # the bunker's map and his waymarks (P39, TND-WORLD step 3)
-L7 = LAYER == 7                  # the bunker is a door and rooms: the prep table, the ring, the range (P40)
+BASE = LAYER in (0, 1, 2, 3, 4, 5, 6, 7, 8)  # the base's own rules (the layers stand on them)
+L1 = LAYER in (1, 2, 3, 4, 5, 6, 7, 8)  # the left shoulder
+L2 = LAYER in (2, 3, 4, 5, 6, 7, 8)  # shadow boxing, and the gun
+L3 = LAYER in (3, 4, 5, 6, 7, 8)  # the right shoulder: targeting (P35)
+L4 = LAYER in (4, 5, 6, 7, 8)    # the enemies (P37): bodies from the cart (frontier 20's core)
+L5 = LAYER in (5, 6, 7, 8)       # the world (P38, docs/TND-WORLD.md): a key a gate, bolts, bunkers
+L6 = LAYER in (6, 7, 8)          # the bunker's map and his waymarks (P39, TND-WORLD step 3)
+L7 = LAYER in (7, 8)             # the bunker is a door and rooms: the prep table, the ring, the range (P40)
+L8 = LAYER == 8                  # the world persists (P41): a clock, packs on patrol that strike, health, medicine, an end
 SONG_CH = range(4, 11)          # the record's voices (the synth theme's, freed)
 SONG_VOL = 15                   # each voice's level at full bus (x bus / 256)
 OUT = Path(os.environ.get("TND_OUT", ROOT / "build" / f"layer{LAYER}" / "tnd.zol"
@@ -335,7 +336,7 @@ END_PAUSE = cart.cram(Table(_pend), "pause_end")
 # twice the room it had, and a page-in copies 16K words -- a frame's work at
 # the SRAM's pace, on the frames the intro or the pause come and go.
 PAGE = 16384
-if os.environ.get("TND_CARTMESH") == "1" or LAYER in (4, 5, 6, 7):   # (the whole of IMEM is the page --
+if os.environ.get("TND_CARTMESH") == "1" or LAYER in (4, 5, 6, 7, 8):   # (the whole of IMEM is the page --
     PAGE = spec.IMEM_WORDS                    # the machine holds 32,768; a page-in is two frames' work)
 INTRO_PROG = cart.cram(Table([0] * PAGE), "intro_prog")
 PAUSE_PROG = cart.cram(Table([0] * PAGE), "pause_prog")
@@ -447,6 +448,8 @@ if CARTMESH:
         CROWD = [("elite", 1), ("common", 1), ("horde", 4)]
     # (a size's pace a frame, how near it comes, what it takes)
     TIER_IS = {"elite": (0.045, 2.4, 8), "common": (0.040, 2.1, 5), "horde": (0.030, 1.8, 3)}
+    if L8:                         # (P41: they press him -- the patrol's own pace is the horde's)
+        TIER_IS = {k_: (v_[0] * 1.6, v_[1], v_[2]) for k_, v_ in TIER_IS.items()}
     TIER, ENEMY = {}, []
     for name_, count_ in CROWD:
         if name_ == "rival" or name_ in TIER:
@@ -455,11 +458,12 @@ if CARTMESH:
         tri_ = [(int(a), int(c), int(b)) if FLIP else (int(a), int(b), int(c)) for a, b, c in t_["F"]]
         h_ = (np.ones(len(tri_), bool), np.arange(int(t_["F"].max()) + 1), tri_)
         fs_ = cart.cram(Table([a | b << 10 | c << 20 for a, b, c in tri_]), f"{name_}_faces")
-        clips_ = ("guard2", "walk2") if L4 else ("idle",)
+        clips_ = (("guard2", "walk2") + (("special",) if L8 else ())) if L4 else ("idle",)   # (P41: the haymaker is theirs)
         ps_ = [half_streams(V_, S_, h_) for c_ in clips_ for V_, S_ in zip(t_["V_" + c_], t_["S_" + c_])]
         TIER[name_] = dict(nv=len(h_[1]), nf=len(tri_), faces=int(fs_), lv=len(ps_[0][0]), span=len(ps_[0][0]) + len(ps_[0][1]),
                            bank=int(cart.cram(Table([x for st in ps_ for part in st for x in part]), f"{name_}_poses")),
                            n=len(t_["V_" + clips_[0]]), walk=len(t_["V_" + clips_[0]]),
+                           atk=sum(len(t_["V_" + c_]) for c_ in clips_[:2]), natk=len(t_["V_" + clips_[-1]]),
                            pace=int(TIER_IS[name_][0] * ONE), stand=TIER_IS[name_][1], hp=TIER_IS[name_][2])
     _slot = 0
     for name_, count_ in CROWD:
@@ -1525,6 +1529,93 @@ if L6:
             (-0.045 * (k_ + 1) + 0.09 * i_ + 0.012, 0.15, -0.045 * (k_ + 1) + 0.09 * i_ + 0.078, 0.216, (255, 120, 40))
             for i_ in range(k_ + 1)]) for k_ in range(4)]
     SBIT = cart.data(Table([1 << k_ for k_ in range(16)]), "sector_bit")
+if L8:
+    # P41: THE WORLD PERSISTS (the player, of the old memory fabric:
+    # "persistent worlds, having all the enemies known over time, as part of
+    # the route optimizing"). The town's enemies are PACKS, and a pack is
+    # three things, as the fabric's world was:
+    #   LATENT     where it is: a walk of sixteen steps along its sector's
+    #              streets, out and back -- a pure function of the clock,
+    #              which costs nothing and is the same every game;
+    #   COMMITTED  who of it is left: six bits, the only thing he changes;
+    #   LIVE       the six bodies, which the NEAREST pack with anyone left
+    #              wears while he is by it.
+    # A pack a sector (the first two of the horde, the last all six), and
+    # the one that holds the first hard way, which stands.
+    PATROL_T_FRAMES = 512                          # frames a step: a block in 8.5 s, the horde's own pace
+    NPACK = len(CITY.order) + 1
+    _bset = set(WORLD.bunkers)
+
+    def _patrol(sec_):
+        stretch_ = [v_ for v_ in CITY.route if CITY.district[v_] == sec_ and v_ not in _bset]
+        v0_ = stretch_[len(stretch_) // 2]
+        par_, far_ = {v0_: -1}, [v0_]
+        for v_ in far_:                            # (the generated tree's streets, inside the sector)
+            for m_ in [_tpar[v_]] + _tkids[v_]:
+                if m_ >= 0 and m_ not in par_ and CITY.district[m_] == sec_ and m_ not in _bset and len(far_) < 400:
+                    par_[m_] = v_
+                    far_.append(m_)
+        depth_ = {v0_: 0}
+        for v_ in far_[1:]:
+            depth_[v_] = depth_[par_[v_]] + 1
+        end_ = max((v_ for v_ in far_ if depth_[v_] <= 8), key=lambda v_: (depth_[v_], v_))
+        path_ = [end_]
+        while par_[path_[-1]] >= 0:
+            path_.append(par_[path_[-1]])
+        path_.reverse()
+        k_ = len(path_) - 1
+        return [path_[min(i_, k_)] for i_ in range(9)] + [path_[min(16 - i_, k_)] for i_ in range(9, 16)]
+    PATROLS = [_patrol(s_) for s_ in range(len(CITY.order))] + [[WORLD.hard[0][0]] * 16]
+    PFULL = ([0b001100, 0b011100, 0b001110, 0b011110, 0b001101, 0b001111, 0b111111][:len(CITY.order) - 1]
+             + [0b111111, 0b111111])               # (bit 0 the elite, 1 the common, 2-5 the horde)
+    assert len(PFULL) == NPACK
+    PATROL_T = cart.data(Table([n_ for row_ in PATROLS for n_ in row_]), "patrols")
+    PFULL_T = cart.data(Table(PFULL), "pack_full")
+    EDMG_T = cart.data(Table([30, 20, 12, 12, 12, 12]), "enemy_dmg")      # of his 140
+    A_WAIT, A_WIND, A_REC = 26, 44, 22             # a turn: the wait, the wind-up (it blinks), the follow-through
+    A_REACH0, A_REACH1 = int(4.2 * ONE), int(3.6 * ONE)   # begun within, landed within (along the streets' axes)
+    assert all((A_WIND + A_REC) * 13 // 16 < T_["natk"] for T_ in TIER.values())
+    # MEDICINE: lying at dead ends that hold nothing else, one a sector past the first
+    _used = set(WORLD.keys.values()) | _bset | {CITY.start, CITY.core} | {v_ for e_ in WORLD.back + WORLD.hard for v_ in e_}
+    MEDS_AT = []
+    for s_ in range(1, len(CITY.order)):
+        ends_ = [v_ for v_ in range(CS * CS) if CITY.district[v_] == s_ and v_ not in _used
+                 and len([m_ for m_ in [_tpar[v_]] + _tkids[v_] if m_ >= 0]) == 1]
+        if ends_:
+            MEDS_AT.append(ends_[len(ends_) // 2])
+    MED_T = cart.data(Table([c_ for v_ in MEDS_AT for c_ in _node_xz(v_)]), "meds")
+    _mb = Build()
+    _mb.box(-0.24, 0.24, -0.24, 0.24, 0.3, 0.78, (40, 170, 90))
+    _mb.box(-0.08, 0.08, -0.08, 0.08, 0.78, 0.86, (236, 232, 220))
+    MED_M = int(cart.data(_mb.mesh(), "medicine"))
+    # THE MAP'S: a pack's walk, drawn over its streets once he has seen it; where it is now;
+    # an opened gate in the colour of the rank its sector earned; and the words
+    PRT = []
+    for p_, row_ in enumerate(PATROLS[:-1]):
+        v16_, tri_, col_ = [], [], []
+        for a_, b_ in sorted({tuple(sorted(e_)) for e_ in zip(row_, row_[1:] + row_[:1]) if e_[0] != e_[1]}):
+            (x0_, y0_), (x1_, y1_) = _map_xy(a_), _map_xy(b_)
+            b0_ = len(v16_) // 3
+            for (x_, y_) in ((min(x0_, x1_) - 0.012, min(y0_, y1_) - 0.012), (max(x0_, x1_) + 0.012, min(y0_, y1_) - 0.012),
+                             (max(x0_, x1_) + 0.012, max(y0_, y1_) + 0.012), (min(x0_, x1_) - 0.012, max(y0_, y1_) + 0.012)):
+                v16_ += [int(round(x_ * ONE)) >> CM_SHIFT, int(round(y_ * ONE)) >> CM_SHIFT, -(int(0.02 * ONE) >> CM_SHIFT)]
+            tri_ += [(b0_, b0_ + 1, b0_ + 2), (b0_, b0_ + 2, b0_ + 3)]
+            col_ += [31 << 10 | 28 << 5 | 24] * 2
+        vw_, cw_ = _halves16(v16_), _halves16(col_)
+        bank_ = int(cart.cram(Table(vw_ + cw_), f"patrol{p_}"))
+        fs_ = int(cart.cram(Table([a_ | b_ << 10 | c_ << 20 for a_, b_, c_ in tri_]), f"patrol{p_}_faces"))
+        PRT.append(int(cart.data(Table([len(v16_) // 3 | len(tri_) << 16, bank_, fs_, bank_ + len(vw_), CM_SHIFT]), f"patrol{p_}_desc")))
+    PRT_T = cart.data(Table(PRT + [0]), "patrol_maps")                    # (the hard way's stands: no walk)
+    PKMK = _marker("mk_pack", [_diamond(0.11, (20, 16, 18)), _diamond(0.085, (232, 40, 34)), (-0.03, -0.03, 0.03, 0.03, (20, 16, 18))])
+    GRT_T = cart.data(Table([_marker(f"mk_rank{k_}", [(-0.075, -0.075, 0.075, 0.075, (20, 16, 18)), (-0.055, -0.055, 0.055, 0.055, c_)])
+                             for k_, c_ in enumerate(((236, 196, 64), (214, 206, 190), (120, 116, 110), (110, 30, 26)))]), "rank_marks")
+    _d0 = FONT_CH.index("0")
+    STR_CLK = cart.data(Table([4, _d0, _d0, _d0, _d0]), "str_clock")
+    STR_ONE = cart.data(Table([1, _d0]), "str_one")
+    # THE RUN'S RANK, against this world's own par (world.py: 99 blocks by the hard ways, 123 by the gates)
+    PAR_S, PAR_A, PAR_B = WORLD.par_hard * 3, WORLD.par_safe * 4, WORLD.par_safe * 6        # seconds
+    MEDPIP = cart.data(Table([c_ for i_ in range(3) for c_ in (
+        90 + 12 * i_, 22, 98 + 12 * i_, 22, 94 + 12 * i_, 34, 0x3CDC78)]), "med_pips")
 if BASE:
     # P21: A KEY A DISTRICT, in the middle of its plaza -- found, picked up
     # with the jab, and carried to the district's gate, which the jab then
@@ -2650,7 +2741,7 @@ SETTLED = {k_[0]: k_[1] for k_ in KNOBS + KNOBS_L1 + KNOBS_L2}
 SETTLED["ramp"] = BASE_SET.get("ramp", int(0.22 * ONE))      # (weight: left at 0.73)
 if LAYER == 1:
     KNOBS = KNOBS_L1
-if LAYER in (2, 3, 4, 5, 6, 7):
+if LAYER in (2, 3, 4, 5, 6, 7, 8):
     KNOBS = KNOBS_L2
 if BASE:
     KN = cart.data(Table([k_[1] for k_ in KNOBS]), "knobs")
@@ -2696,6 +2787,25 @@ if BASE:
         # and the arena's two for a room.
         INSIDE, TDT, TDX, TDZ, TDY, BESTT, ITK, DESKN, RMU, RMV = (cart.var("b_" + k) for k in (
             "in", "tdt", "tdx", "tdz", "tdy", "bestt", "itk", "desk", "rmu", "rmv"))
+    if L8:
+        # P41: THE PERSISTENT WORLD's state. The street's clock (frames,
+        # seconds, minutes) and the patrols' (a tick in the step, the step);
+        # the pack that wears the bodies, where its walk has it, how far he
+        # is from that; the packs he has seen (a bit each) and who of each
+        # is left; whose turn it is to strike and how far into it; blows he
+        # has taken in this sector, and each opened gate's rank (two bits);
+        # medicine in hand, in the stash, and taken from the street; the
+        # nearest lying; and has he reached the core.
+        (CLKF, CLKS, CLKM, PTICK, PSTEP, LIVE, PLX, PLZ, DLIVE, PSEEN, ATK, ATKT, AB, SECH, GRANK, MEDS, STASH, MEDTK,
+         M5, MDX, MDZ, BESTM, RUNEND, P8I, P8N, P8X, P8Z, CNX, CNZ, BESTP, CAND) = (cart.var("p_" + k) for k in (
+            "clkf", "clks", "clkm", "ptick", "pstep", "live", "plx", "plz", "dlive", "seen", "atk", "atkt", "ab", "sech",
+            "grank", "meds", "stash", "medtk", "m5", "mdx", "mdz", "bestm", "end", "i", "n", "x", "z", "cnx", "cnz",
+            "bestp", "cand"))
+        PAL = cart.var("p_alive", NPACK)
+        E0, ESTR = int(ENEMY[0]["pos"]), int(ENEMY[1]["pos"]) - int(ENEMY[0]["pos"])
+        assert all(int(e_["pos"]) == E0 + ESTR * e_["k"] and int(e_["st"]) == E0 + ESTR * e_["k"] + 5
+                   and int(e_["stun"]) == E0 + ESTR * e_["k"] + 7 and int(e_["fl"]) == E0 + ESTR * e_["k"] + 8 for e_ in ENEMY)
+        L_REST = p.label("rest")
 
 
 def item_exists(g):
@@ -2973,6 +3083,13 @@ if BASE:
             p.set(INSIDE, 1).set(LASTB, 0).set(ITK, 0).set(DESKN, 0).set(KNOWN, TDOORS[0]["know"])
             for e_ in ENEMY:
                 p.push32(RING_XZ[0] + e_["rx"]).store(int(e_["pos"])).push32(RING_XZ[1] + e_["rz"]).store(int(e_["pos"]) + 1)
+        if L8:
+            for c_ in (CLKF, CLKS, CLKM, PTICK, PSTEP, PSEEN, ATK, ATKT, SECH, GRANK, MEDS, MEDTK, RUNEND):
+                p.set(c_, 0)
+            p.set(LIVE, -1).set(STASH, 1).set(M5, -1).push32(FAR_).store(BESTM)
+            for k_, m_ in enumerate(PFULL):          # everyone is where the world put them
+                p.set(int(PAL) + k_, m_)
+            p.set(PHP, 140)
         for c_ in (BESTK, BESTD, BESTB):
             p.push32(FAR_).store(c_)
         if os.environ.get("TND_AT"):            # (the meter's hook: begin elsewhere -- "x,z,yaw,keys")
@@ -3003,6 +3120,41 @@ p.set(spec.BG_SRC, 0).set(spec.CO_BASE, 1)
 p.rect(0, 0, 0, spec.W - 1, spec.H - 1, 0x000000, 16)
 p.emit(f"jmp {L_MUSIC}")
 p.mark(f"{tl}_fight")
+if L8:
+    def two_digits(cell_, at_):
+        """( -- ) cell_ (0..99) as two glyphs into the string words at_, at_ + 1"""
+        p.load(cell_).push(205).emit("mul", "shr 11", "dup").store(BV)
+        p.push(FONT_CH.index("0")).emit("add").store(at_)
+        p.load(cell_).load(BV).push(10).emit("mul", "sub").push(FONT_CH.index("0")).emit("add").store(at_ + 1)
+
+    def words(str_, x_, y_, sc_, rgb_):
+        for k_, v_ in (("str", int(str_)), ("x", x_), ("y", y_), ("sc", sc_)):
+            p.set(TX[k_], v_)
+        p.push32(rgb_).store(TX["rgb"])
+        p.emit(f"call {L_TEXT}")
+
+    def clock_words(x_, y_, sc_):
+        two_digits(CLKM, int(STR_CLK) + 1)
+        two_digits(CLKS, int(STR_CLK) + 3)
+        words(STR_CLK, x_, y_, sc_, 0xE8D8C0)
+    # P41: THE CORE REACHED, the run is over: its time, and its rank against
+    # this world's own par (S within three seconds a block of the hard
+    # ways' walk; A within four of the gates'; B within six)
+    en_ = p.label("end")
+    p.load(RUNEND).emit(f"jz {en_}")
+    p.set(spec.OL_BASE, 0).set(TX["n"], 0)
+    clock_words(96, 96, 6)
+    p.load(CLKM).push(60).emit("mul").load(CLKS).emit("add").store(BV)
+    p.set(BW, 4)                                     # the glyph: S, A, B, C are 4, 3, 2, 1 of the font
+    for par_ in (PAR_S, PAR_A, PAR_B):
+        p.push(par_).load(BV).emit("lt", f"jz {en_}_r")
+        p.addi(BW, -1)
+    p.mark(f"{en_}_r")
+    p.load(BW).store(int(STR_ONE) + 1)
+    words(STR_ONE, 142, 160, 8, 0xE8C040)
+    p.load(TX["n"]).store(spec.DL_BASE)
+    p.emit(f"jmp {L_MUSIC}")
+    p.mark(en_)
 if L6:
     # P39: THE BUNKER'S MAP (docs/TND-WORLD.md, step 3: "the bunker is where
     # you prep, setting your way marks planning routes"). On a hatch, a
@@ -3104,6 +3256,15 @@ if L6:
     p.load(BW).push(spec.PAD_Y).emit("and", f"jz {mp}_ny")
     p.set(WN, 0)
     p.mark(f"{mp}_ny")
+    if L8:                                           # (P41: the stash: L puts one back, R takes one -- three in hand)
+        p.load(BW).push(spec.PAD_L).emit("and", f"jz {mp}_nl")
+        p.load(MEDS).emit(f"jz {mp}_nl")
+        p.addi(MEDS, -1).addi(STASH, 1)
+        p.mark(f"{mp}_nl")
+        p.load(BW).push(spec.PAD_R).emit("and", f"jz {mp}_nr")
+        p.load(STASH).push(0).emit("swap", "lt").load(MEDS).push(3).emit("lt", "and", f"jz {mp}_nr")
+        p.addi(MEDS, 1).addi(STASH, -1)
+        p.mark(f"{mp}_nr")
     p.mark(f"{mp}_draw")
     p.set(NOBJ, 0)
     for c_ in (spec.CAM_X, spec.CAM_Y, spec.CAM_Z, spec.CAM_YAW, spec.CAM_PITCH, spec.CAM_ROLL):
@@ -3119,9 +3280,13 @@ if L6:
     for i_, d_ in enumerate(DOORS):
         _knows(f"{mp}_d{i_}", d_["a"], d_["b"])
         if d_["kind"] == 0:                          # a gate still shut
-            p.load(OPENED).push(1 << i_).emit("and", f"jz {mp}_d{i_}g", f"jmp {mp}_d{i_}")
-            p.mark(f"{mp}_d{i_}g")
             (x0_, y0_), (x1_, y1_) = _map_xy(d_["a"]), _map_xy(d_["b"])
+            p.load(OPENED).push(1 << i_).emit("and", f"jz {mp}_d{i_}g")
+            if L8:                                   # (P41: opened, it wears its sector's rank)
+                p.object(NOBJ, (f"load {int(GRANK)}", f"shr {2 * i_}", "push 3", "and", f"push {int(GRT_T)}", "add", "loadi"),
+                         _map_q((x0_ + x1_) / 2), _map_q((y0_ + y1_) / 2), _zm, 0, 0)
+            p.emit(f"jmp {mp}_d{i_}")
+            p.mark(f"{mp}_d{i_}g")
             p.object(NOBJ, MK["gate"], _map_q((x0_ + x1_) / 2), _map_q((y0_ + y1_) / 2), _zm, 0, 0)
         else:                                        # a back door: its bolt in, or drawn
             p.load(OPENED).push(1 << i_).emit("and", f"jz {mp}_d{i_}s")
@@ -3174,16 +3339,79 @@ if L6:
         p.mark(f"{mp}_gk{g_}")
     p.object(NOBJ, MK["cursor"], (f"load {int(MCX)}", "push 2", "mul", "push 15", "sub", "push 8192", "mul"),
              (f"load {int(MCY)}", "push 2", "mul", "push 15", "sub", "push 8192", "mul"), _zm - int(0.04 * ONE), 0, 0)
-    p.load(NOBJ).store(spec.OL_BASE)
-    p.set(spec.DL_BASE, 0)
+    if L8:
+        # P41: THE PACKS HE HAS SEEN: each one's walk over its streets, and
+        # where the clock has it NOW (the clock stands while the map is
+        # open, so now is when he walks out). And the words: the clock; the
+        # medicine in hand, and in the stash.
+        mpk = f"{mp}_pk"
+        p.set(P8I, 0)
+        p.mark(f"{mpk}_l")
+        p.push(int(SBIT)).load(P8I).emit("add", "loadi").load(PSEEN).emit("and", f"jz {mpk}_n")
+        p.push(int(PRT_T)).load(P8I).emit("add", "loadi", "dup").store(BV)
+        p.emit(f"jz {mpk}_nw")
+        p.object(NOBJ, (f"load {int(BV)}",), 0, 0, MAP_ZQ, 0, spec.OBJ_CART)
+        p.mark(f"{mpk}_nw")
+        p.push(int(PAL)).load(P8I).emit("add", "loadi", f"jz {mpk}_n")
+        p.load(PSTEP).load(P8I).push(5).emit("mul", "add").push(15).emit("and").load(P8I).emit("shl 4", "add")
+        p.push(int(PATROL_T)).emit("add", "loadi").store(BH)
+        p.object(NOBJ, PKMK, _mx(BH), _my(BH), _zm - int(0.025 * ONE), 0, 0)
+        p.mark(f"{mpk}_n")
+        p.addi(P8I, 1)
+        p.load(P8I).push(NPACK).emit("lt", f"jz {mpk}_e", f"jmp {mpk}_l")
+        p.mark(f"{mpk}_e")
+        p.load(NOBJ).store(spec.OL_BASE)
+        p.set(TX["n"], 0)
+        clock_words(8, 8, 2)
+        p.load(MEDS).push(FONT_CH.index("0")).emit("add").store(int(STR_ONE) + 1)
+        words(STR_ONE, 8, 266, 3, 0x3CDC78)
+        p.load(STASH).store(BV).clamp(BV, 0, 9)
+        p.load(BV).push(FONT_CH.index("0")).emit("add").store(int(STR_ONE) + 1)
+        words(STR_ONE, 34, 266, 3, 0x2C7848)
+        p.load(TX["n"]).store(spec.DL_BASE)
+    else:
+        p.load(NOBJ).store(spec.OL_BASE)
+        p.set(spec.DL_BASE, 0)
     p.emit(f"jmp {L_MUSIC}")
     p.mark(f"{mp}_end")
+if L8:
+    # P41: THE STREET'S CLOCK -- frames of glass, slowed time and all; not
+    # in the rooms, not on the map, not while he is down -- and the
+    # patrols' step with it. And MEDICINE: SELECT in the street takes one
+    # (half of what he can hold).
+    ck = p.label("clock")
+    p.load(INSIDE).load(F["dead"]).emit("or", f"jz {ck}_on", f"jmp {ck}")
+    p.mark(f"{ck}_on")
+    p.addi(PTICK, 1)
+    p.load(PTICK).push(PATROL_T_FRAMES).emit("lt", f"jz {ck}_ps", f"jmp {ck}_c")
+    p.mark(f"{ck}_ps")
+    p.set(PTICK, 0).addi(PSTEP, 1)
+    p.mark(f"{ck}_c")
+    p.addi(CLKF, 1)
+    p.load(CLKF).push(60).emit("lt", f"jz {ck}_s", f"jmp {ck}_m")
+    p.mark(f"{ck}_s")
+    p.set(CLKF, 0).addi(CLKS, 1)
+    p.load(CLKS).push(60).emit("lt", f"jz {ck}_mm", f"jmp {ck}_m")
+    p.mark(f"{ck}_mm")
+    p.set(CLKS, 0)
+    p.load(CLKM).push(99).emit("lt", f"jz {ck}_m")
+    p.addi(CLKM, 1)
+    p.mark(f"{ck}_m")
+    p.load(BW).push(spec.PAD_SELECT).emit("and", f"jz {ck}")
+    p.load(MEDS).emit(f"jz {ck}")
+    p.load(PHP).push(140).emit("lt", f"jz {ck}")
+    p.addi(MEDS, -1).addi(PHP, 70).set(LFLASH, 10)
+    p.push(140).load(PHP).emit("lt", f"jz {ck}")
+    p.set(PHP, 140)
+    p.mark(ck)
 if BASE:
     tn = p.label("tune")
     p.set(KTUNE, 0)
     p.emit("load 1").load(KPV).push(-1).emit("xor", "and").store(W["qy"])   # pressed now
     p.emit("load 1").store(KPV)
     held(spec.PAD_SELECT)
+    if L8:                                           # (P41: the knobs are put away -- SELECT is medicine)
+        p.emit("drop").push(0)
     p.emit(f"jz {tn}")
     p.set(KTUNE, 1)
     for bit, dv in ((spec.PAD_RIGHT, 1), (spec.PAD_LEFT, len(KNOBS) - 1)):
@@ -3496,6 +3724,32 @@ if BASE:
             p.mark(f"{sb_}_d")
             p.emit("drop")
             p.mark(sb_)
+        if L8:
+            # P41: THE NEAREST MEDICINE still lying; walked onto, it is his
+            # (three at most in hand)
+            md = f"{kn}_md"
+            p.set(P8I, 0).set(M5, -1).push32(FAR_).store(BESTM)
+            p.mark(f"{md}_l")
+            p.push(int(SBIT)).load(P8I).emit("add", "loadi").load(MEDTK).emit("and", f"jz {md}_o", f"jmp {md}_n")
+            p.mark(f"{md}_o")
+            p.push(int(MED_T)).load(P8I).push(2).emit("mul", "add").store(BV)
+            for k_, cell_ in enumerate((PX, PZ)):
+                p.load(BV).push(k_).emit("add", "loadi").load(cell_).emit("sub", "dup").push(0).emit("lt", f"jz {md}_a{k_}")
+                p.push(0).emit("swap", "sub")
+                p.mark(f"{md}_a{k_}")
+            p.emit("add", "dup").load(BESTM).emit("lt", f"jz {md}_d")
+            p.store(BESTM).load(P8I).store(M5).load(BV).emit("loadi").store(MDX).load(BV).push(1).emit("add", "loadi").store(MDZ)
+            p.emit(f"jmp {md}_n")
+            p.mark(f"{md}_d")
+            p.emit("drop")
+            p.mark(f"{md}_n")
+            p.addi(P8I, 1)
+            p.load(P8I).push(len(MEDS_AT)).emit("lt", f"jz {md}_e", f"jmp {md}_l")
+            p.mark(f"{md}_e")
+            p.load(BESTM).push(int(1.4 * ONE)).emit("lt").load(MEDS).push(3).emit("lt", "and", f"jz {md}_x")
+            p.addi(MEDS, 1).push(int(SBIT)).load(M5).emit("add", "loadi").load(MEDTK).emit("or").store(MEDTK)
+            p.set(LFLASH, 6).set(M5, -1)
+            p.mark(f"{md}_x")
         if L7:
             # P40: IN THE ROOMS the six are the ring's -- they stand round
             # its middle and face him, to be fought (they do not strike) --
@@ -3504,6 +3758,80 @@ if BASE:
             p.load(INSIDE).emit(f"jz {kn}_out")
             p.set(PACK, 0).push32(RING_XZ[0]).store(PKX).push32(RING_XZ[1]).store(PKZ).emit(f"jmp {kn}_pk")
             p.mark(f"{kn}_out")
+        if L8:
+            # P41: EVERY PACK'S PLACE NOW, from the clock: between two nodes
+            # of its walk (its step, its tick). The nearest with anyone left
+            # is the candidate; the one that wears the bodies is LIVE.
+            def node_x(cell_):
+                return p.push32(int(OYA * ONE)).load(cell_).emit("shr 4", f"shl {TSH}", "sub")
+
+            def node_z(cell_):
+                return p.load(cell_).push(15).emit("and", f"shl {TSH}").push32(int(OXA * ONE)).emit("sub")
+            pk = p.label("packs")
+            p.set(P8I, 0).set(CAND, -1).push32(FAR_).store(BESTP).push32(FAR_).store(DLIVE)
+            p.mark(f"{pk}_l")
+            p.load(PSTEP).load(P8I).push(5).emit("mul", "add").push(15).emit("and").store(P8N)
+            p.load(P8I).emit("shl 4").push(int(PATROL_T)).emit("add").store(BV)
+            p.load(BV).load(P8N).emit("add", "loadi").store(BM)
+            p.load(BV).load(P8N).push(1).emit("add").push(15).emit("and", "add", "loadi").store(BH)
+            for nd_, dst_ in ((node_x, P8X), (node_z, P8Z)):
+                nd_(BH)
+                nd_(BM)
+                p.emit("sub").load(PTICK).emit("mul", "shr 9")
+                nd_(BM)
+                p.emit("add").store(dst_)
+            for c_, cell_, k_ in ((P8X, PX, "x"), (P8Z, PZ, "z")):
+                p.load(c_).load(cell_).emit("sub", "dup").push(0).emit("lt", f"jz {pk}_a{k_}")
+                p.push(0).emit("swap", "sub")
+                p.mark(f"{pk}_a{k_}")
+            p.emit("add").store(BT)                                      # how far he is from it
+            p.load(P8I).load(LIVE).emit("eq", f"jz {pk}_nl")
+            p.load(P8X).store(PLX).load(P8Z).store(PLZ).load(BT).store(DLIVE)
+            p.mark(f"{pk}_nl")
+            p.push(int(PAL)).load(P8I).emit("add", "loadi", f"jz {pk}_n")         # (nobody left: not a candidate)
+            p.load(BT).load(BESTP).emit("lt", f"jz {pk}_n")
+            p.load(BT).store(BESTP).load(P8I).store(CAND).load(P8X).store(CNX).load(P8Z).store(CNZ)
+            p.mark(f"{pk}_n")
+            p.addi(P8I, 1)
+            p.load(P8I).push(NPACK).emit("lt", f"jz {pk}_e", f"jmp {pk}_l")
+            p.mark(f"{pk}_e")
+            # the bodies change packs only while nobody is after him
+            p.load(CAND).load(LIVE).emit("eq").load(PACK).emit("or").load(CAND).push(0).emit("lt", "or")
+            p.emit(f"jz {pk}_sw", f"jmp {pk}_k")
+            p.mark(f"{pk}_sw")
+            p.load(CAND).store(LIVE).load(CNX).store(PLX).load(CNZ).store(PLZ).load(BESTP).store(DLIVE)
+            p.push(int(PAL)).load(LIVE).emit("add", "loadi").store(BV)
+            for e_ in ENEMY:
+                p.load(BV).emit(f"shr {e_['k']}").push(1).emit("and").store(e_["st"])
+                p.load(CNX).push32(e_["rx"]).emit("add").store(int(e_["pos"]))
+                p.load(CNZ).push32(e_["rz"]).emit("add").store(int(e_["pos"]) + 1)
+                p.set(e_["hp"], e_["T"]["hp"]).set(e_["stun"], 0).set(e_["walk"], 0)
+            p.set(ATKT, 0)
+            p.mark(f"{pk}_k")
+            # who of the live pack is left IS its record (a body down stays down)
+            p.push(0).load(LIVE).emit("lt", f"jz {pk}_w", f"jmp {pk}_x")
+            p.mark(f"{pk}_w")
+            p.push(0)
+            for e_ in ENEMY:
+                p.load(e_["st"]).push(1).emit("eq", f"shl {e_['k']}", "or")
+            p.emit("dup").push(int(PAL)).load(LIVE).emit("add", "storei")
+            p.emit(f"jz {pk}_x")                                         # (nobody: nothing wakes)
+            p.load(DLIVE).push32(int(28 * ONE)).emit("lt", f"jz {pk}_ws")        # seen: it is on the map from now
+            p.push(int(SBIT)).load(LIVE).emit("add", "loadi").load(PSEEN).emit("or").store(PSEEN)
+            p.mark(f"{pk}_ws")
+            p.load(PACK).emit(f"jz {pk}_z")
+            p.push32(int(34 * ONE)).load(DLIVE).emit("lt", f"jz {pk}_y")
+            p.set(PACK, 0).emit(f"jmp {pk}_y")
+            p.mark(f"{pk}_z")
+            p.load(DLIVE).push32(int(16 * ONE)).emit("lt", f"jz {pk}_y")
+            p.set(PACK, 1).emit(f"jmp {pk}_y")
+            p.mark(f"{pk}_x")
+            p.set(PACK, 0)
+            p.mark(f"{pk}_y")
+            p.load(PLX).store(PKX).load(PLZ).store(PKZ)
+            p.load(PACK).emit(f"jz {kn}_pk")
+            p.load(PX).store(PKX).load(PZ).store(PKZ)
+            p.emit(f"jmp {kn}_pk")
         manhattan(p, *PACK_HOME, f"{kn}_ph").store(W["qx"])
         p.load(PACK).emit(f"jz {kn}_pz")
         p.push32(int(34 * ONE)).load(W["qx"]).emit("lt", f"jz {kn}_pe")     # (34 < d: he is gone)
@@ -3819,13 +4147,65 @@ if L2:
             p.set(e_["clk"], 0).emit(f"jmp {ea}")
             p.mark(f"{ea}_dn")
             p.load(e_["st"]).push(2).emit("eq", f"jz {ea}")
+            if L8:                                # (P41: in the street a body down stays down --
+                p.load(INSIDE).emit(f"jz {ea}")   # only the ring's get up again, where they stood)
             p.addi(e_["t"], 1).push(DOWN_FOR).load(e_["t"]).emit("lt", f"jz {ea}")
-            if L5:                                # (P38: back at the hard way it holds)
+            if L8:
+                p.load(PKX).push32(e_["rx"]).emit("add").store(ex_).load(PKZ).push32(e_["rz"]).emit("add").store(ez_)
+            elif L5:                              # (P38: back at the hard way it holds)
                 p.push32(PACK_HOME[0] + e_["rx"]).store(ex_).push32(PACK_HOME[1] + e_["rz"]).store(ez_)
             else:
                 p.set(ex_, START_X + e_["dx"]).set(ez_, START_Z + e_["dz"])
             p.set(e_["st"], 1).set(e_["hp"], e_["T"]["hp"]).set(e_["stun"], 0).set(e_["walk"], 0)
             p.mark(ea)
+    if L8:
+        # P41: THEY STRIKE -- ONE AT A TIME, in turn round the ring, so the
+        # fight can be read: the one whose turn it is waits, then (if he is
+        # in reach) winds up its haymaker, BLINKING, and at the end of the
+        # wind-up the blow is thrown where he was. It lands if he is still
+        # in reach, not in a dodge's frames and not in the air: its size's
+        # damage off him, the lens shaken, his own blow broken. One held by
+        # a blow of his loses its turn -- which is how he stops it.
+        at = p.label("strike")
+        p.load(PACK).emit(f"jz {at}")
+        p.load(ATK).push(ESTR).emit("mul").push(E0).emit("add").store(AB)
+        p.load(AB).push(5).emit("add", "loadi").push(1).emit("eq")
+        p.load(AB).push(7).emit("add", "loadi").push(0).emit("eq", "and", f"jz {at}_next")
+        for k_, (o_, cell_) in enumerate(((0, PX), (1, PZ))):
+            p.load(AB).push(o_).emit("add", "loadi").load(cell_).emit("sub", "dup").push(0).emit("lt", f"jz {at}_a{k_}")
+            p.push(0).emit("swap", "sub")
+            p.mark(f"{at}_a{k_}")
+        p.emit("add").store(W["qx"])
+        p.addi(ATKT, 1)
+        p.load(ATKT).push(A_WAIT).emit("lt", f"jz {at}_w1", f"jmp {at}")
+        p.mark(f"{at}_w1")
+        p.load(ATKT).push(A_WAIT).emit("eq", f"jz {at}_w2")
+        p.load(W["qx"]).push32(A_REACH0).emit("lt", f"jz {at}_next", f"jmp {at}")     # (out of reach: the next one's turn)
+        p.mark(f"{at}_w2")
+        p.load(ATKT).push(A_WAIT + A_WIND).emit("lt", f"jz {at}_s")
+        p.load(ATKT).push(7).emit("and", f"jz {at}_bl", f"jmp {at}")
+        p.mark(f"{at}_bl")
+        p.push(4).load(AB).push(8).emit("add", "storei").emit(f"jmp {at}")           # it blinks
+        p.mark(f"{at}_s")
+        p.load(ATKT).push(A_WAIT + A_WIND).emit("eq", f"jz {at}_r")
+        p.load(W["qx"]).push32(A_REACH1).emit("lt", f"jz {at}")
+        p.load(F["evf"]).load(F["dead"]).emit("or", f"jz {at}_h", f"jmp {at}")
+        p.mark(f"{at}_h")
+        p.push(int(0.3 * ONE)).load(F["py"]).emit("lt", f"jz {at}_hit", f"jmp {at}")
+        p.mark(f"{at}_hit")
+        p.load(PHP).push(int(EDMG_T)).load(ATK).emit("add", "loadi", "sub").store(PHP)
+        p.set(F["shake"], 7).set(F["stop"], 5).set(F["hs"], 16).set(ANIM, 3).set(F["buf"], 0).addi(SECH, 1)
+        p.push(0).load(PHP).emit("lt", f"jz {at}_dn", f"jmp {at}")
+        p.mark(f"{at}_dn")
+        p.set(F["dead"], 1).set(ANIM, 4).set(F["hs"], 0).emit(f"jmp {at}")
+        p.mark(f"{at}_r")
+        p.load(ATKT).push(A_WAIT + A_WIND + A_REC).emit("lt", f"jz {at}_next", f"jmp {at}")
+        p.mark(f"{at}_next")
+        p.set(ATKT, 0).addi(ATK, 1)
+        p.load(ATK).push(len(ENEMY)).emit("lt", f"jz {at}_z", f"jmp {at}")
+        p.mark(f"{at}_z")
+        p.set(ATK, 0)
+        p.mark(at)
     # THE CYLINDER: the mag knob's rounds. The last one gone, it is RELOAD
     # frames before the gun is full again -- or a terminator thrown fills it
     # at once (the launch): the fists load the gun.
@@ -4014,11 +4394,33 @@ if BASE:
                 p.set(YAW, d_["out_yaw"]).set(CY, d_["out_yaw"]).set(HEAD, d_["out_yaw"])
                 p.mark(f"{cx_}_o{b_}")
             p.set(INSIDE, 0)
-            for e_ in ENEMY:
-                p.push32(PACK_HOME[0] + e_["rx"]).store(int(e_["pos"])).push32(PACK_HOME[1] + e_["rz"]).store(int(e_["pos"]) + 1)
+            if L8:                               # (P41: the nearest pack takes the bodies, next frame)
+                p.set(LIVE, -1).set(PACK, 0)
+                for e_ in ENEMY:
+                    p.set(e_["st"], 0)
+            else:
+                for e_ in ENEMY:
+                    p.push32(PACK_HOME[0] + e_["rx"]).store(int(e_["pos"])).push32(PACK_HOME[1] + e_["rz"]).store(int(e_["pos"]) + 1)
             p.emit(f"jmp {cx_}_td")
+            if L8:
+                # P41: A REST. Taking a bunker's door (or waking in one): he
+                # is whole again -- and every pack with someone missing has
+                # one of them back. The dead stay dead until he rests.
+                p.mark(L_REST)
+                p.set(PHP, 140).set(P8I, 0)
+                p.mark(f"{L_REST}_l")
+                p.push(int(PAL)).load(P8I).emit("add").store(BV)
+                p.push(int(PFULL_T)).load(P8I).emit("add", "loadi").load(BV).emit("loadi").push(-1).emit("xor", "and")
+                p.emit("dup").push(0).emit("swap", "sub", "and")             # the lowest one missing
+                p.load(BV).emit("loadi", "or").load(BV).emit("storei")
+                p.addi(P8I, 1)
+                p.load(P8I).push(NPACK).emit("lt", f"jz {L_REST}_e", f"jmp {L_REST}_l")
+                p.mark(f"{L_REST}_e")
+                p.emit("ret")
             p.mark(f"{cx_}_in")
             p.load(TDT).store(LASTB).set(INSIDE, 1)
+            if L8:
+                p.set(LIVE, -1).set(PACK, 0).set(ATKT, 0).emit(f"call {L_REST}")
             p.push(int(KNOW_T)).load(TDT).emit("add", "loadi").load(KNOWN).emit("or").store(KNOWN)
             p.push32(TDOORS[NB_]["out"][0]).store(PX).push32(TDOORS[NB_]["out"][1]).store(PZ)
             p.set(YAW, TDOORS[NB_]["out_yaw"]).set(CY, TDOORS[NB_]["out_yaw"]).set(HEAD, TDOORS[NB_]["out_yaw"])
@@ -4029,6 +4431,19 @@ if BASE:
             p.set(LFLASH, 20).emit(f"jmp {cx_}_do")
             p.mark(f"{cx_}_og")
         p.load(OPENED).load(DRB).emit("or").store(OPENED)
+        if L8:
+            # P41: THE SECTOR'S RANK, when its gate opens: S for no blow
+            # taken in it, A for one, B to three, C past that -- kept two
+            # bits a gate, and worn by the gate on the map
+            p.load(DRK).emit(f"jz {cx_}_nr")
+            p.set(BV, 0)
+            for th_ in (0, 1, 3):
+                p.push(th_).load(SECH).emit("lt", f"jz {cx_}_rk")
+                p.addi(BV, 1)
+            p.mark(f"{cx_}_rk")
+            p.load(BV).push(int(SBIT)).load(D5).push(2).emit("mul", "add", "loadi", "mul").load(GRANK).emit("or").store(GRANK)
+            p.set(SECH, 0)
+            p.mark(f"{cx_}_nr")
         p.load(DRK).push32(0xFFFFFFFF).emit("xor").load(KEYS).emit("and").store(KEYS)
         p.set(LFLASH, 20)
         for half in (0, 2):
@@ -5377,11 +5792,24 @@ RETRY_CELLS = ((PX, START_X), (PZ, START_Z), (YAW, START_YAW), (CY, START_YAW),
              *((imp(i, "st"), 0) for i in range(N_IMP)))       # (P20b: no swarm)
 for c, v in RETRY_CELLS:
     p.set(c, v)
-for k in range(len(GATES)):                     # (P19: and every gate shut again)
+if L8:
+    # P41: DOWN IN THE STREET, HE WAKES IN THE BUNKER HE LAST TOOK -- inside
+    # its door, rested (and so are they: see L_REST). The world is as he
+    # left it: its doors, his keys, his plan, the clock, which kept what the
+    # outing cost.
+    _hub = TDOORS[-1]
+    p.push32(_hub["out"][0]).store(PX).push32(_hub["out"][1]).store(PZ)
+    p.set(YAW, _hub["out_yaw"]).set(CY, _hub["out_yaw"]).set(HEAD, _hub["out_yaw"])
+    p.set(INSIDE, 1).set(LIVE, -1).set(PACK, 0).set(ATKT, 0)
+    for e_ in ENEMY:
+        p.push32(RING_XZ[0] + e_["rx"]).store(int(e_["pos"])).push32(RING_XZ[1] + e_["rz"]).store(int(e_["pos"]) + 1)
+        p.set(e_["st"], 1).set(e_["hp"], e_["T"]["hp"]).set(e_["stun"], 0)
+    p.emit(f"call {L_REST}")
+for k in range(0 if L8 else len(GATES)):        # (P19: and every gate shut again)
     for half in (0, 2):
         a_, bit_ = GT_W[k * GT_N + half], GT_W[k * GT_N + half + 1]
         p.load(int(CMAP) + a_).push32(~bit_ & 0xFFFFFFFF).emit("and").store(int(CMAP) + a_)
-if L5:                                          # (P38: and every bolt, and nothing in hand)
+if L5 and not L8:                               # (P38: and every bolt, and nothing in hand)
     for d_ in DOORS:
         if d_["kind"] == 1:
             for n_, sd_ in ((d_["a"], d_["sa"]), (d_["b"], d_["sb"])):
@@ -5433,6 +5861,11 @@ if CARTMESH:                                 # the pose is where its streams are
             p.load(e_["clk"]).emit("shr 1")
             p.load(e_["walk"]).emit(f"jz {en_}")
             p.emit("drop").load(e_["ph"]).emit("shr 16").push(31).emit("and").push(e_["T"]["walk"]).emit("add")
+            if L8:                           # (P41: whose turn it is, past the wait: the haymaker, by its turn's clock)
+                p.mark(en_)
+                en_ = p.label("estrike")
+                p.load(ATK).push(e_["k"]).emit("eq").push(A_WAIT - 1).load(ATKT).emit("lt", "and").load(PACK).emit("and", f"jz {en_}")
+                p.emit("drop").load(ATKT).push(A_WAIT).emit("sub").push(13).emit("mul", "shr 4").push(e_["T"]["atk"]).emit("add")
         else:
             p.load(RIV_T).emit("shr 1").push(e_["phase"]).emit("add")
             p.emit("dup").push(e_["T"]["n"]).emit("lt", f"jz {en_}_w", f"jmp {en_}")
@@ -7147,6 +7580,13 @@ if BASE:
             p.load(BESTB).push32(int(60 * ONE)).emit("lt", f"jz {kd_}_nb")
             p.object(NOBJ, BUNK_M, (f"load {int(BKX)}",), 0, (f"load {int(BKZ)}",), 0, 0)
         p.mark(f"{kd_}_nb")
+        if L8:                                       # (P41: the nearest medicine, a green box)
+            p.load(M5).push(0).emit("lt", f"jz {kd_}_md", f"jmp {kd_}_nm")
+            p.mark(f"{kd_}_md")
+            p.load(BESTM).push32(int(60 * ONE)).emit("lt", f"jz {kd_}_nm")
+            p.object(NOBJ, MED_M, (f"load {int(MDX)}",), 0, (f"load {int(MDZ)}",),
+                     (f"load {spec.REG_FRAME}", "push 3", "mul", "push 1023", "and"), spec.OBJ_CULL)
+            p.mark(f"{kd_}_nm")
         p.load(K5).push(0).emit("lt", f"jz {kd_}_s", f"jmp {kd_}")
         p.mark(f"{kd_}_s")
         p.load(BESTK).push32(int(60 * ONE)).emit("lt", f"jz {kd_}")
@@ -7436,6 +7876,10 @@ if L5:
         if L7:                                   # (P40: in the rooms, no arrow; a bunker's survey
             p.load(INSIDE).emit(f"jz {pt_}_st", f"jmp {pt_}_w")     # is taken at its door)
             p.mark(f"{pt_}_st")
+        if L8:                                   # (P41: standing at the core, the run is over)
+            p.load(CT["n"]).push(CITY.core).emit("eq", f"jz {pt_}_nc")
+            p.set(RUNEND, 1)
+            p.mark(f"{pt_}_nc")
         p.load(W["qx"]).push(int(SBIT)).emit("add", "loadi").load(KNOWN).emit("or").store(KNOWN)
         if not L7:
             p.load(BESTB).push(int(2.0 * ONE)).emit("lt", f"jz {pt_}_kn")
@@ -7616,6 +8060,15 @@ if L5:
             p.emit(f"call {L_COPY}")
             p.addi(spec.DL_BASE, 1).addi(PIPN, 1)
         p.mark(f"{pt_}_mi")
+    if L8:
+        for i_ in range(3):
+            p.push(i_).load(MEDS).emit("lt", f"jz {pt_}_mp{i_}")
+            p.push(int(MEDPIP) + i_ * spec.DL_STRIDE).store(CP["src"])
+            p.load(spec.DL_BASE).push(spec.DL_STRIDE).emit("mul").push(spec.DL_BASE + 1).emit("add").store(CP["dst"])
+            p.push(spec.DL_STRIDE).store(CP["n"])
+            p.emit(f"call {L_COPY}")
+            p.addi(spec.DL_BASE, 1).addi(PIPN, 1)
+            p.mark(f"{pt_}_mp{i_}")
     p.load(spec.DL_BASE).store(PIPE)
 
 # ---- THE GAUGE (P6 dresses it): his health, on the compositor's free

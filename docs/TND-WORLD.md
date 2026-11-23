@@ -147,10 +147,20 @@ spends pace.
    simulation; not yet on glass. A mode of the street's own program, not a
    page; the fog is by sector (the one he stands in, and from a hatch the
    next), not by node; the arrow's way is searched over the open streets.
-4. **The clock, the par, the two ranks; the save across sittings.**
-5. **The pack, the stash, items in the street; weight.**
-6. **Random worlds**: a library in the cart, the seed from NEW GAME.
+4. **The clock, the par, the two ranks; the save across sittings.** BUILT
+   in layer 8 (TND-PORT P41) but for THE SAVE: the clock, a sector's rank
+   (by blows taken), the run's rank against the par at the core.
+5. **The pack, the stash, items in the street; weight.** In layer 8:
+   medicine in the street, three in hand, a stash at the prep table. Not
+   weight; not rounds or charges as things carried.
+6. **Random worlds**: a library in the cart, the seed from NEW GAME. NOT
+   BUILT: this world's facts are constants in the program (P41, the end).
 7. **Their company**: enemies by sector, striking; patrols; the rival.
+   BUILT in layer 8 as the player asked for it (2026-11-22: "persistent
+   worlds, having all the enemies known over time, as part of the route
+   optimizing"): a pack a sector on a walk that is a function of the
+   clock, who is left of it remembered, seen packs on the map, a rest
+   giving one back. Not the rival.
 
 ## Decided here, to be overruled freely
 

@@ -2038,3 +2038,77 @@ layer 6, the hatch gone, and:
   wore its neighbour's light: the strips down the side of the glass. The
   law never did. Five street scenes that differed by up to 16,480 pixels
   a frame are bit-equal over 1,583 frames with the fix. It is a new core.
+
+- **The core, fitted** (CI run 45100833653, Quartus 25.1std, four
+  corners): 17,934 of 18,480 ALMs (97%), 299 of 308 M10K, 60 of 66 DSP;
+  worst setup +0.395 ns, worst hold +0.099 ns. The whole suite's cross on
+  the fixed RTL: 35 carts, every one bit-equal, litclip among them.
+
+## P41: layer 8 -- the world persists (2026-11-22; not yet on glass)
+
+The player, asked what the old "memory fabric" was for: "persistent
+worlds, having all the enemies known over time, as part of the route
+optimizing." And of the steps left: "just do all the steps for the next
+build we try out." TND_LAYER=8: layer 7, and what follows. (Two steps are
+NOT in it, and why is at the end.)
+
+- **A PACK is three things**, as the fabric's world was.
+  LATENT: where it is -- a walk of sixteen steps along its sector's
+  streets, out and back, a step every 512 frames -- is a pure function of
+  the street's clock (PATROL_T; the step and the tick): nothing is stored
+  and nothing runs for a pack he is not by, and the same seed is the same
+  walks. COMMITTED: who of it is left, six bits a pack, the only thing he
+  changes. LIVE: the six bodies, worn by the NEAREST pack with anyone
+  left, changed only while nobody is after him; who of the live pack
+  stands is written back every frame. Eight packs: one a sector, the
+  first two of the horde and the last all six, and the one that holds
+  the first hard way, which stands.
+- **A body down stays down** in the street (the ring's still get up).
+  **A REST** -- taking a bunker's door, or waking in one -- makes him
+  whole and gives every pack ONE of its missing back.
+- **They strike, one at a time**, in turn round the ring: the one whose
+  turn it is waits 26 frames, then, if he is in reach, winds up its
+  haymaker for 44, BLINKING, and throws it. It lands if he is still in
+  reach, not in a dodge's frames and not in the air: 12 off his 140 for
+  one of the horde, 20 a common, 30 the elite; the lens shakes, his own
+  blow is broken. One held by a blow of his loses its turn. They are
+  quicker than layer 4's by six tenths (the patrol's pace is the horde's).
+- **Down, he wakes in the bunker he last took**, rested; doors, keys,
+  plan and clock as they were -- the clock keeps what the outing cost.
+- **THE CLOCK** is the street's: a frame of glass a frame, slowed time
+  and all; not in the rooms, not on the map, not while he is down.
+- **MEDICINE**: a green box at a dead end in each sector past the first;
+  walked onto, it is his, three at most in hand (green pips beside the
+  keys). SELECT in the street takes one: half of what he can hold. (The
+  knobs, which SELECT was, are put away.) One is in the STASH to begin
+  with: at the prep table's map R takes one from it, L puts one back.
+- **A sector's RANK** is by the blows he took in it -- S none, A one, B
+  to three, C past that -- taken when its gate opens and worn by the
+  opened gate on the map (gold, bone, grey, dark red).
+- **A pack he has SEEN** (within 28 units) is on the map from then on:
+  its walk drawn over its streets, and a red mark where the clock has it
+  now -- which, the clock standing while the map is open, is where it
+  will be as he walks out. The map also reads the clock and the medicine
+  in hand and in the stash.
+- **THE CORE ends the run**: its time, and its rank against this world's
+  own par (S within three seconds a block of the hard ways' 99 blocks; A
+  within four of the gates' 123; B within six).
+- **Measured on the silicon** (the simulation, the fixed RTL): a fight
+  with the first pack -- they come, three blows land, the lock, a round,
+  a hook, one of them down -- 56% of the frame at the median and 67% at
+  its peak, 560 frames bit-equal; the prep table's map with its words,
+  and the end's, bit-equal too.
+- tests: 14 layer 8. Layers 0 to 7 and the full cart build
+  byte-identical.
+- **NOT IN IT, and why.**
+  *Saving across sittings.* The card's save file is 8 bytes, shared by
+  every build; a world's state is some thirty words past them, and
+  whether the Pocket's bridge writes past a file's end has never been
+  tried on glass. Growing the player's save file is his to allow.
+  *A random city a game.* Every fact of this one world is a constant in
+  the program -- each key's and door's place written out, the town's map
+  and its pieces in data memory -- so another world is another build
+  until those are tables and the generator's nine pieces are all on
+  hand; data memory has 554 words left.
+  *Also short of the design:* carried weight does not slow him; the
+  combat rank is blows taken, not the style meter; the rival is not here.
