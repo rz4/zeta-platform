@@ -2374,3 +2374,70 @@ can be made felt as if the bodies are responding to eachother."
 - on the card 2026-11-23 as TND REACTOR, with the lab's mend of P44.
   The card brought back his tape of P44's lab (35m25s):
   `experiments/tnd/tnd-lab-0003.json`.
+
+## P46: where it lands -- zones, a waist that bends to the spot, the round's own line, a gun in his hand (2026-11-23)
+
+The player, bringing the reactor's first tape (3m50s): "I think what we
+want now is to use the zeta see where the hits and shots land. make the
+damagae and reaction to the hit be based on where it lands. also the gun
+shooting needs to be made more sleak and sexy. a gun in hand with the aim
+at an angle when lookuing up and down. The goal is to make it easier to
+land the shot where it needs to either punch or gunshot."
+
+The lab and the reactor only (`TND_LAYER` 10 and 11).
+
+What was there: under the lock, Up and Down chose a spot (P37: high, mid,
+low) and a round did what the CHOICE said; it flew level at 1.6, 1.1 or
+0.5 -- the high one over the head of a body 1.41 tall -- from no gun; his
+pose did not change; a fist's height was nothing.
+
+- **A BODY IS THREE PARTS, by the height a fist or a round meets it at
+  above its own feet**: the HEAD from 1.18, the LEGS under 0.70, the
+  BODY between. Over 1.55 or under its feet a round meets nothing.
+- **THE SPOT IS A HEIGHT ON THE TARGET**: its head (1.30), its chest
+  (0.95), its knee (0.40) -- above ITS feet, so the spot goes up with a
+  body thrown. The mark and the sight stand there.
+- **HIS WAIST BENDS TO IT.** His body is two halves; the upper turns
+  about the waist (and is moved so the waist stays whole). With the gun
+  up, by the slope from his hand to the spot; with his fists: high, a
+  touch back; mid, the clip as it was drawn (a jab is at the head, 1.22;
+  the cross at the body, 1.01); low, thirty degrees down -- a jab lands
+  on the body. His fist is where the bend puts it, so the blow lands
+  there. Eased a quarter of the way a frame. The lens takes a third of it.
+- **THE ROUND FLIES THE LINE FROM HIS HAND** to where it lands: the
+  sight's beads climb or fall along it, the bullet too (its streak
+  pitched). No lock: level from his hand (1.11), which is the body. The
+  machine has no divide; a slope needs one, so the cart has an
+  eighteen-step one (QDIV).
+- **WHAT A PART DOES.** A round: the head doubles it and holds it twelve
+  frames more; the legs hold it three times as long, and a charged or a
+  close round there takes them from under it (it lies fifty frames and
+  gets up with what it had -- a body no longer gets up healed). A fist:
+  the head takes half as much again (a jab's one stays one; a hook's two
+  is three; the haymaker's four, six), is held half as long again and
+  snaps back; the body is the move as it was made; the legs (a body in
+  the air) are held twice as long and its rise is over. How far a blow
+  SENDS it is as before for head and body -- the string he tuned stands:
+  four land, the cross puts it out of a fifth's reach -- and the legs
+  are hardly sent.
+- **THE BURST IS WHERE IT LANDED and says which part**: white-hot the
+  head, the spark the body, red the legs.
+- **THE GUN IS IN HIS HAND**: a slide, a grip and a red front sight,
+  at his hand's own place in every pose of the gun's two clips while his
+  arm is out, lying along his aim; a flash at its mouth for three frames
+  and it rides up for six after a round.
+- "Use the zeta": the machine works out where a hit lands. The
+  pixel-pick register (`spec.PICK`) was NOT used: the lens is behind him,
+  and at the place a blow lands the pixel is his own back.
+- READINGS OF MINE, to be judged: all of the above past his words. Not
+  done: a pitch for the aim WITHOUT the lock (Up and Down walk him
+  there, and that is his design); his double in the reactor does not
+  bend or hold a gun; the sight still shows in slowed time only (P35,
+  his).
+- tests: `tests/test_tnd_aim.py`, 9; the lab's 40 and the reactor's 6
+  pass unchanged. Layers 0, 4, 8 and the full cart byte-identical.
+- the law against the simulated silicon, the lab: 495 frames (the lock,
+  a round at each spot, fists low, a hook, a round with no lock),
+  bit-equal; the frame 51% at the median, 58% at the peak.
+- on the card 2026-11-23, both.
+- The reactor's first tape: `experiments/tnd/tnd-reactor-0001.json`.
