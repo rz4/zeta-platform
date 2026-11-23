@@ -1882,3 +1882,24 @@ and over it:
 - tests: 10 layer 5; base 8, layer 1's 7, layer 3's 12, layer 4's 7 and
   layer 2's 45 after it. Layers 0 to 4 and the full cart build
   byte-identical.
+
+### P38b: his first tape of the world (2026-11-22; 7m57s of TND L5)
+
+- **What he did.** From the start round to key 1, and then gates 1 to 5
+  in order -- keys 1, 2, 3, 5, 4 (key 5's dead end first: its back door
+  drawn straight into the second bunker), every key taken with ONE jab,
+  118 blocks walked -- and the tape ends on the way back for key 6. A
+  third of it slowed (34%). He never came by a hard way: the arrow does
+  not show them, nothing else does, and the pack never woke. Eight
+  minutes of the world with nothing in it to fight.
+- **At key 1, ninety-five seconds**: R held three quarters of it and
+  fifty shots at the key -- the only target in reach -- with the spot
+  stepped up and down. And thirty-five seconds of Y held, B beside it,
+  walking on key 5. The item is his practice target.
+- **The snag, at gate 5.** He came to it with its key in the middle of a
+  string: thirty-four jabs in eighteen seconds, the last fourteen at a
+  gate that stood outlined, and each was "mid-swing: a jab" (P21's rule:
+  a jab thrown while a blow is in flight is only a jab). It opened when
+  he stopped. In the world the rule is gone: the jab that reaches a key
+  or a door he can open IS that, string or no string. (A test mashes X
+  all the way up to gate 1: shut before the change, open after.)

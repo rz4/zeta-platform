@@ -3510,8 +3510,14 @@ p.load(GTAP["carve"]).emit(f"jz {L['notap']}")
 if BASE:
     cx_ = p.label("ctxdo")
     p.load(KNEAR).emit(f"jz {cx_}")
-    p.load(ANIM).push(2).emit("eq", f"jz {cx_}_a", f"jmp {cx_}")   # (mid-swing: a jab)
-    p.mark(f"{cx_}_a")
+    if not L5:
+        p.load(ANIM).push(2).emit("eq", f"jz {cx_}_a", f"jmp {cx_}")   # (mid-swing: a jab)
+        p.mark(f"{cx_}_a")
+    # (P38, his first tape of the world: he came to gate 5 with its key in
+    # the middle of a string -- fourteen jabs in ten seconds at a gate that
+    # stood outlined, every one "mid-swing: a jab", and it opened only when
+    # he stopped. In the world the jab that reaches a key or an open-able
+    # door is that, string or no string.)
     p.load(KNEAR).push(1).emit("eq", f"jz {cx_}_g")
     if L5:
         # P38: the key is one of several in hand; the door is whichever

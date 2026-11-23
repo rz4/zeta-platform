@@ -168,6 +168,19 @@ def test_a_gate_wants_its_own_key_and_eats_it(text):
     assert g.cell("w_wayn") in (W.keys[2], GATE[2][0])
 
 
+def test_a_jab_in_the_middle_of_a_string_still_opens_the_gate(text):
+    """(his first tape: fourteen jabs in ten seconds at gate 5, its key in
+    hand, and it opened only when he stopped punching)"""
+    g = Game(text)
+    a, b = GATE[1]
+    g.poke("w_keys", 0b1)
+    g.at_node(a, toward=b)
+    for _ in range(12):                                      # mashing, on the way to it
+        g.run(U | X, 3)
+        g.run(U, 6)
+    assert g.cell("w_opened") == 1, "a jab thrown mid-string did not open the gate it reached"
+
+
 def test_a_gate_opens_from_its_far_side_too(text):
     """(a hard way can bring him round behind one)"""
     g = Game(text)
