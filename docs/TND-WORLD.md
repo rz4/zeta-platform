@@ -67,8 +67,16 @@ which a tape repeats exactly.
 
 ## The bunker
 
-A dead end with a door; inside is not the street. First cut: its own
-program page (as the pause is) over a baked picture; later, rooms.
+The player (2026-11-22, of the first cut's hatch in the road): "the
+bunkers were more of doors against a building, and an actual room you
+enter, in there we can have training rooms with the items as objects you
+can practice melee and gunplay. that will also help calibrate the game
+play, those training rooms. the hub room hold a desk with the map and
+inventory management. the prep table". BUILT so as layer 7 (TND-PORT P40):
+a door on the dead end's wall; inside, real rooms walked with the street's
+own controls -- the hub with the prep table (the map now; the pack and the
+stash at step 5), a ring with the six bodies to fight, a range with items
+to shoot and strike. One set of rooms serves every bunker.
 
 - **MAP.** The city from above, drawn as geometry (the display list holds
   about 37 characters, so a map is shapes, not text). FOG: what he has

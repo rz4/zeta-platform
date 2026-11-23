@@ -81,13 +81,14 @@ SWARM_TEST = os.environ.get("TND_SWARM") == "1"
 #                 held slows time, keeps the string, and the lens goes to
 #                 where the blow lands.
 LAYER = int(os.environ.get("TND_LAYER", "9"))
-BASE = LAYER in (0, 1, 2, 3, 4, 5, 6)  # the base's own rules (the layers stand on them)
-L1 = LAYER in (1, 2, 3, 4, 5, 6)  # the left shoulder
-L2 = LAYER in (2, 3, 4, 5, 6)    # shadow boxing, and the gun
-L3 = LAYER in (3, 4, 5, 6)       # the right shoulder: targeting (P35)
-L4 = LAYER in (4, 5, 6)          # the enemies (P37): bodies from the cart (frontier 20's core)
-L5 = LAYER in (5, 6)             # the world (P38, docs/TND-WORLD.md): a key a gate, bolts, bunkers
-L6 = LAYER == 6                  # the bunker's map and his waymarks (P39, TND-WORLD step 3)
+BASE = LAYER in (0, 1, 2, 3, 4, 5, 6, 7)  # the base's own rules (the layers stand on them)
+L1 = LAYER in (1, 2, 3, 4, 5, 6, 7)  # the left shoulder
+L2 = LAYER in (2, 3, 4, 5, 6, 7)  # shadow boxing, and the gun
+L3 = LAYER in (3, 4, 5, 6, 7)    # the right shoulder: targeting (P35)
+L4 = LAYER in (4, 5, 6, 7)       # the enemies (P37): bodies from the cart (frontier 20's core)
+L5 = LAYER in (5, 6, 7)          # the world (P38, docs/TND-WORLD.md): a key a gate, bolts, bunkers
+L6 = LAYER in (6, 7)             # the bunker's map and his waymarks (P39, TND-WORLD step 3)
+L7 = LAYER == 7                  # the bunker is a door and rooms: the prep table, the ring, the range (P40)
 SONG_CH = range(4, 11)          # the record's voices (the synth theme's, freed)
 SONG_VOL = 15                   # each voice's level at full bus (x bus / 256)
 OUT = Path(os.environ.get("TND_OUT", ROOT / "build" / f"layer{LAYER}" / "tnd.zol"
@@ -334,7 +335,7 @@ END_PAUSE = cart.cram(Table(_pend), "pause_end")
 # twice the room it had, and a page-in copies 16K words -- a frame's work at
 # the SRAM's pace, on the frames the intro or the pause come and go.
 PAGE = 16384
-if os.environ.get("TND_CARTMESH") == "1" or LAYER in (4, 5, 6):   # (the whole of IMEM is the page --
+if os.environ.get("TND_CARTMESH") == "1" or LAYER in (4, 5, 6, 7):   # (the whole of IMEM is the page --
     PAGE = spec.IMEM_WORDS                    # the machine holds 32,768; a page-in is two frames' work)
 INTRO_PROG = cart.cram(Table([0] * PAGE), "intro_prog")
 PAUSE_PROG = cart.cram(Table([0] * PAGE), "pause_prog")
@@ -1259,6 +1260,137 @@ if L5:
     KEYAT = [_node_xz(WORLD.keys[k]) for k, _ in GATES]          # key g opens gate g + 1
     BUNKS = [_node_xz(v_) for v_ in WORLD.bunkers]
     PACK_HOME = _node_xz(WORLD.hard[0][0]) if WORLD.hard else _node_xz(CITY.core)
+XR = 0
+if L7:
+    # P40: THE BUNKER IS A DOOR AND ROOMS (the player, of layer 6's hatch in
+    # the road: "the bunkers were more of doors against a building, and an
+    # actual room you enter, in there we can have training rooms with the
+    # items as objects you can practice melee and gunplay ... the hub room
+    # hold a desk with the map and inventory management. the prep table").
+    # The rooms are NODES OF THE MAP like any other -- three rows north of
+    # the town, out of its reach -- so the street's own walk, walls, shots
+    # and lens are the rooms' too:
+    #     the HUB     its middle and two short arms: the prep table, the way out
+    #     the RING    north of it, a whole tile: the six bodies, to fight
+    #     the RANGE   east of it, a whole tile: items to shoot and strike
+    # A room's word carries bit 31: all of its tile is floor (to ROOM_W from
+    # its walls), where a street's is a junction and its arms. One set of
+    # rooms serves every bunker: a bunker's door is the way in, and the way
+    # out is back to the door he came by.
+    XR = 3
+    HUB_N, RING_N, RANGE_N = 7 + 17 * CS, 7 + 18 * CS, 8 + 17 * CS
+    ROOM_W = HT - 0.6
+    _ik = len(KINDS)                               # the rooms' pieces follow the town's
+    CMAP_W += [0] * (XR * CS)
+    CMAP_W[HUB_N] = ARMS | ARMS << 2 | _ik << 18 | 15 << 23
+    CMAP_W[RING_N] = ARMS << 4 | (_ik + 1) << 18 | 15 << 23 | 1 << 31
+    CMAP_W[RANGE_N] = ARMS << 6 | (_ik + 2) << 18 | 15 << 23 | 1 << 31
+
+    def _room_xz(n_, x_=0.0, y_=0.0):
+        """the zeta point of (x east, y north) from a node's centre"""
+        cx_, cz_ = n_ % CS * TILE - OXA, -((n_ // CS) * TILE - OYA)
+        return int(round((cz_ - y_) * ONE)), int(round((cx_ + x_) * ONE))
+    YAW_OF = (256, 0, 768, 512)                    # his heading toward a side: N E S W
+    DOOR_IN = FAC - 0.25                           # a door stands this far from the node's middle
+    # THE WAYS IN AND THE WAY OUT: each bunker's door, on a closed wall of
+    # its dead end (the one facing its street, if that is closed); and the
+    # hub's, on its south wall. (place, the door's turn, and where and how
+    # he stands having come through it the other way)
+    TDOORS = []
+    for b_, v_ in enumerate(WORLD.bunkers):
+        k_ = next(k for k in range(4) if SIDES[v_][k] != CLOSED and
+                  (v_ + CSTEP[k]) in ([_tpar[v_]] + _tkids[v_]))
+        c_ = (k_ + 2) % 4 if SIDES[v_][(k_ + 2) % 4] == CLOSED else next(k for k in range(4) if SIDES[v_][k] == CLOSED)
+        dx_, dy_, _ = city.DIRS[c_]
+        # (the door's mesh faces north unturned; it is turned to face INTO the
+        # node, and seen from that side only: the lens, backed through the
+        # wall behind him, must not find it)
+        TDOORS.append(dict(at=_room_xz(v_, dx_ * DOOR_IN, dy_ * DOOR_IN), yaw=(512, 256, 0, 768)[c_],
+                           out=_room_xz(v_, dx_ * (DOOR_IN - 2.0), dy_ * (DOOR_IN - 2.0)), out_yaw=YAW_OF[(c_ + 2) % 4],
+                           know=(1 << CITY.district[v_]) | (1 << min(CITY.district[v_] + 1, NDIST - 1)), node=v_))
+    TDOORS.append(dict(at=_room_xz(HUB_N, 0, -DOOR_IN), yaw=0, out=_room_xz(HUB_N, 0, -DOOR_IN + 2.0), out_yaw=YAW_OF[0]))
+    DESK_XZ = _room_xz(HUB_N, -3.3, 0.0)
+    RING_XZ = _room_xz(RING_N)
+    # THE RANGE'S ITEMS: keys that are never taken -- they ring and leap for
+    # a round or a fist, and are the lock's target, as the street's are
+    NKEYS = len(KEYAT)
+    KEYAT += [_room_xz(RANGE_N, 5.6, 4.6), _room_xz(RANGE_N, 6.4, -0.4), _room_xz(RANGE_N, 2.0, -5.2)]
+
+    def _cart_piece(b_, name_):
+        """a Build as a mesh in the cart (frontier 20): its descriptor's place in data memory"""
+        sh_ = 5
+        v16_ = [(int(c_) + (1 << sh_ >> 1)) >> sh_ for v_ in b_.v for c_ in v_]
+        assert len(b_.v) <= spec.MESH_NV_MAX and len(b_.f) <= spec.MESH_NF_MAX, (name_, len(b_.v), len(b_.f))
+        assert max(abs(c_) for c_ in v16_) < 32768
+        vw_ = _halves16(v16_)
+        cw_ = _halves16([(c_ >> 19 & 31) << 10 | (c_ >> 11 & 31) << 5 | (c_ >> 3 & 31) for *_, c_ in b_.f])
+        bank_ = int(cart.cram(Table(vw_ + cw_), name_))
+        fs_ = int(cart.cram(Table([a_ | bb_ << 10 | c_ << 20 for a_, bb_, c_, _ in b_.f]), name_ + "_faces"))
+        return int(cart.data(Table([len(b_.v) | len(b_.f) << 16, bank_, fs_, bank_ + len(vw_), sh_]), name_ + "_desc"))
+    _WALL, _BAND, _FLOOR, _CEIL = (84, 100, 98), (40, 150, 84), (40, 44, 46), (26, 30, 30)
+    ROOM_H = 4.6
+
+    def _wall(b_, x0_, y0_, x1_, y1_, n_, h_=ROOM_H, cuts_=1):
+        """a wall from (x0, y0) to (x1, y1) facing n_: concrete, a green band at the hand's height"""
+        for z0_, z1_, c_ in ((0.0, 1.1, _WALL), (1.1, 1.35, _BAND), (1.35, h_, _WALL)):
+            b_.quad([(x0_, y0_, z0_), (x1_, y1_, z0_), (x1_, y1_, z1_), (x0_, y0_, z1_)], n_, c_, cuts_, 1)
+
+    def _floor_ceiling(b_, x0_, x1_, y0_, y1_, h_=ROOM_H, col_=_FLOOR, cuts_=1, out_=(0, 0, 0, 0)):
+        """(out_: how far the FLOOR runs on past the west, east, south and
+        north walls -- with his back to a wall the lens stands outside the
+        room, and looked in over a strip of the street's black ground)"""
+        fx0_, fx1_, fy0_, fy1_ = x0_ - out_[0], x1_ + out_[1], y0_ - out_[2], y1_ + out_[3]
+        b_.quad([(fx0_, fy0_, 0.03), (fx1_, fy0_, 0.03), (fx1_, fy1_, 0.03), (fx0_, fy1_, 0.03)], (0, 0, 1), col_, cuts_, cuts_)
+        b_.quad([(x0_, y0_, h_), (x1_, y0_, h_), (x1_, y1_, h_), (x0_, y1_, h_)], (0, 0, -1), _CEIL, cuts_, cuts_)
+    # the hub: its middle (FAC each way), an arm north to the ring and one east to the range
+    _hb2 = Build()
+    _wall(_hb2, -FAC, -FAC, FAC, -FAC, (0, 1, 0), cuts_=2)            # south, where the way out is
+    _wall(_hb2, -FAC, -FAC, -FAC, HT, (1, 0, 0), cuts_=3)             # west, the prep table's
+    _wall(_hb2, FAC, FAC, FAC, HT, (-1, 0, 0))                        # the north arm's east side
+    _wall(_hb2, FAC, FAC, HT, FAC, (0, -1, 0))                        # the east arm's north side
+    _wall(_hb2, FAC, -FAC, HT, -FAC, (0, 1, 0))                       # ...and its south
+    _floor_ceiling(_hb2, -FAC, FAC, -FAC, FAC, cuts_=2, out_=(3.6, 0, 3.6, 0))
+    _floor_ceiling(_hb2, -FAC, FAC, FAC, HT)
+    _floor_ceiling(_hb2, FAC, HT, -FAC, FAC)
+    # THE PREP TABLE, against the west wall: the map on it (the town's own red and black), its lamp
+    _hb2.box(-FAC + 0.1, -FAC + 1.5, -1.5, 1.5, 0.0, 0.95, (70, 48, 34))
+    _hb2.quad([(-FAC + 0.3, -1.0, 0.97), (-FAC + 1.3, -1.0, 0.97), (-FAC + 1.3, 0.4, 0.97), (-FAC + 0.3, 0.4, 0.97)],
+              (0, 0, 1), (150, 34, 28), 2, 2)
+    _hb2.box(-FAC + 0.4, -FAC + 0.7, 0.9, 1.2, 0.95, 1.5, (236, 196, 64))
+    # the ring: a whole tile, its doorway south; a black and white floor to stand a fight on
+    _rg = Build()
+    _wall(_rg, -HT, -HT, -HT, HT, (1, 0, 0), 5.6, 4)
+    _wall(_rg, HT, -HT, HT, HT, (-1, 0, 0), 5.6, 4)
+    _wall(_rg, -HT, HT, HT, HT, (0, -1, 0), 5.6, 4)
+    _wall(_rg, -HT, -HT, -FAC, -HT, (0, 1, 0), 5.6)
+    _wall(_rg, FAC, -HT, HT, -HT, (0, 1, 0), 5.6)
+    _floor_ceiling(_rg, -HT, HT, -HT, HT, 5.6, cuts_=4, out_=(3.6, 3.6, 0, 3.6))
+    for i_ in range(4):
+        for j_ in range(4):
+            _rg.quad([(-4 + 2 * i_, -4 + 2 * j_, 0.06), (-2 + 2 * i_, -4 + 2 * j_, 0.06), (-2 + 2 * i_, -2 + 2 * j_, 0.06),
+                      (-4 + 2 * i_, -2 + 2 * j_, 0.06)], (0, 0, 1), (200, 196, 186) if (i_ + j_) % 2 == 0 else (22, 20, 22))
+    # the range: a whole tile, its doorway west; yellow lines down it, a red wall behind the items
+    _rn = Build()
+    _wall(_rn, -HT, HT, HT, HT, (0, -1, 0), 5.6, 4)
+    _wall(_rn, -HT, -HT, HT, -HT, (0, 1, 0), 5.6, 4)
+    _wall(_rn, -HT, FAC, -HT, HT, (1, 0, 0), 5.6)
+    _wall(_rn, -HT, -HT, -HT, -FAC, (1, 0, 0), 5.6)
+    for z0_, z1_, c_ in ((0.0, 2.8, (150, 34, 28)), (2.8, 5.6, _WALL)):
+        _rn.quad([(HT, -HT, z0_), (HT, HT, z0_), (HT, HT, z1_), (HT, -HT, z1_)], (-1, 0, 0), c_, 4, 1)
+    _floor_ceiling(_rn, -HT, HT, -HT, HT, 5.6, cuts_=4, out_=(0, 3.6, 3.6, 3.6))
+    for y_ in (-2.6, 2.6):
+        _rn.quad([(-HT + 1, y_ - 0.08, 0.06), (HT - 1, y_ - 0.08, 0.06), (HT - 1, y_ + 0.08, 0.06), (-HT + 1, y_ + 0.08, 0.06)],
+                 (0, 0, 1), (236, 196, 64), 4, 1)
+    PIECE_M += [_cart_piece(_hb2, "room_hub"), _cart_piece(_rg, "room_ring"), _cart_piece(_rn, "room_range")]
+    PFLAG_T = cart.data(Table([spec.OBJ_CULL | spec.OBJ_LIT] * _ik + [spec.OBJ_CULL | spec.OBJ_CART] * 3), "piece_flags")
+    _td = Build()                  # a bunker's door: steel in a dark frame, a green lamp over it
+    _td.quad([(-1.9, 0, 0.0), (1.9, 0, 0.0), (1.9, 0, 3.5), (-1.9, 0, 3.5)], (0, 1, 0), (26, 26, 30))
+    _td.quad([(-1.4, 0.06, 0.0), (1.4, 0.06, 0.0), (1.4, 0.06, 3.0), (-1.4, 0.06, 3.0)], (0, 1, 0), (96, 110, 104))
+    _td.quad([(-1.4, 0.09, 1.3), (1.4, 0.09, 1.3), (1.4, 0.09, 1.6), (-1.4, 0.09, 1.6)], (0, 1, 0), (40, 170, 90))
+    _td.quad([(-0.3, 0.09, 3.1), (0.3, 0.09, 3.1), (0.3, 0.09, 3.4), (-0.3, 0.09, 3.4)], (0, 1, 0), (90, 255, 150))
+    TDOOR_M = int(cart.data(_td.mesh(), "bunker_door"))
+    KNOW_T = cart.data(Table([d_["know"] for d_ in TDOORS[:-1]]), "bunker_know")
+    BUNKN_T = cart.data(Table([d_["node"] for d_ in TDOORS[:-1]]), "bunker_node")
 GT_N = 7
 CMAP = cart.data(Table(CMAP_W), "city_map")
 GATE_T = cart.data(Table(GT_W or [0]), "gates")
@@ -1422,7 +1554,7 @@ def _dusk(d):
     return c[0] << 16 | c[1] << 8 | c[2]
 
 
-DUSK = cart.data(Table([_dusk(d) for d in range(16)]), "dusk")
+DUSK = cart.data(Table([_dusk(d) for d in range(15)] + [0x141A18 if L7 else _dusk(15)]), "dusk")   # (15: the bunker's rooms)
 _aw = []                           # the pointer's eight ways, then none: a
 for k in range(8):                 # triangle a way, at the top of the screen
     th = k * np.pi / 4             # (0 ahead, clockwise; screen y is down)
@@ -1458,7 +1590,7 @@ def city_node(g, xcell, zcell):
     g.push32(int((OYA + HT) * ONE)).load(xcell).emit("sub")         # v = ay
     g.emit("dup").push(0).emit("lt", f"jz {off}_c", "drop", "drop", f"jmp {off}")
     g.mark(f"{off}_c")
-    g.emit("dup").push32(int(CS * TILE * ONE)).emit("lt", f"jz {off}_d")
+    g.emit("dup").push32(int((CS + XR) * TILE * ONE)).emit("lt", f"jz {off}_d")     # (P40: and the rooms' rows)
     g.emit(f"shr {TSH}", "shl 4", "add", "dup").store(CT["n"])
     g.push(int(CMAP)).emit("add", "loadi").store(CT["w"])
     g.emit(f"jmp {off}_e")
@@ -2509,7 +2641,7 @@ SETTLED = {k_[0]: k_[1] for k_ in KNOBS + KNOBS_L1 + KNOBS_L2}
 SETTLED["ramp"] = BASE_SET.get("ramp", int(0.22 * ONE))      # (weight: left at 0.73)
 if LAYER == 1:
     KNOBS = KNOBS_L1
-if LAYER in (2, 3, 4, 5, 6):
+if LAYER in (2, 3, 4, 5, 6, 7):
     KNOBS = KNOBS_L2
 if BASE:
     KN = cart.data(Table([k_[1] for k_ in KNOBS]), "knobs")
@@ -2548,6 +2680,13 @@ if BASE:
         WP = cart.var("m_wp", 4)
         HOPT = cart.var("m_hop", CS * CS)
         BQ = cart.var("m_q", CS * CS)
+    if L7:
+        # P40: THE BUNKER'S ROOMS. Is he in them; the nearest way in or out
+        # (which, its place, its turn, how far); what the item is (0 a key,
+        # 1 a door of the street, 2 a bunker's); is he at the prep table;
+        # and the arena's two for a room.
+        INSIDE, TDT, TDX, TDZ, TDY, BESTT, ITK, DESKN, RMU, RMV = (cart.var("b_" + k) for k in (
+            "in", "tdt", "tdx", "tdz", "tdy", "bestt", "itk", "desk", "rmu", "rmv"))
 
 
 def item_exists(g):
@@ -2816,6 +2955,15 @@ if BASE:
             for c_ in (MAPON, MAPX, WN, KNOWN, MREP):
                 p.set(c_, 0)
             p.set(WAYL, -1).set(OPL, -1)
+        if L7:
+            # P40: "we start in a bunker" -- inside the first one's door,
+            # facing the room, its survey already his; the six in the ring
+            _hub = TDOORS[-1]
+            p.push32(_hub["out"][0]).store(PX).push32(_hub["out"][1]).store(PZ)
+            p.set(YAW, _hub["out_yaw"]).set(CY, _hub["out_yaw"]).set(HEAD, _hub["out_yaw"])
+            p.set(INSIDE, 1).set(LASTB, 0).set(ITK, 0).set(DESKN, 0).set(KNOWN, TDOORS[0]["know"])
+            for e_ in ENEMY:
+                p.push32(RING_XZ[0] + e_["rx"]).store(int(e_["pos"])).push32(RING_XZ[1] + e_["rz"]).store(int(e_["pos"]) + 1)
         for c_ in (BESTK, BESTD, BESTB):
             p.push32(FAR_).store(c_)
         if os.environ.get("TND_AT"):            # (the meter's hook: begin elsewhere -- "x,z,yaw,keys")
@@ -2824,6 +2972,8 @@ if BASE:
             p.set(YAW, int(_at[2])).set(CY, int(_at[2])).set(HEAD, int(_at[2])).set(KEYS, int(_at[3])).set(TAKEN, int(_at[3]))
             if L6 and len(_at) > 4:             # (...and "known", the sectors on the map)
                 p.set(KNOWN, int(_at[4]))
+            if L7:
+                p.set(INSIDE, 0)
     p.set(WR, ONE)
 if SWARM_TEST:                                  # (the meter's hook: the fight in the
     p.set(PX, int(3 * ONE)).set(PZ, int(3 * ONE))               # first plaza, the
@@ -2887,9 +3037,15 @@ if L6:
     p.mark(f"{mp}_off")
     p.emit("load 1").store(MPV)
     p.load(BW).push(spec.PAD_SELECT).emit("and", f"jz {mp}_end")
-    p.load(BESTB).push(int(2.0 * ONE)).emit("lt", f"jz {mp}_end")
+    if L7:                                           # (P40: at the prep table, in the hub)
+        p.load(DESKN).emit(f"jz {mp}_end")
+    else:
+        p.load(BESTB).push(int(2.0 * ONE)).emit("lt", f"jz {mp}_end")
     p.set(MAPON, 1).set(MREP, 0).set(spec.FOG_SHIFT, 0)
-    city_node(p, PX, PZ)                             # the cursor begins where he stands
+    if L7:                                           # the cursor begins at the bunker he is in
+        p.push(int(BUNKN_T)).load(LASTB).emit("add", "loadi").store(CT["n"])
+    else:
+        city_node(p, PX, PZ)                         # the cursor begins where he stands
     p.load(CT["n"]).push(15).emit("and").store(MCX).load(CT["n"]).emit("shr 4").push(15).emit("and").store(MCY)
     p.emit(f"jmp {mp}_draw")
     p.mark(f"{mp}_on")
@@ -2975,8 +3131,11 @@ if L6:
     _knows(f"{mp}_core", CITY.core)
     _mark_node(MK["core"], CITY.core)
     p.mark(f"{mp}_core")
-    city_node(p, PX, PZ)                             # where he stands (it blinks)
-    p.load(CT["n"]).store(BM)
+    if L7:
+        p.push(int(BUNKN_T)).load(LASTB).emit("add", "loadi").store(BM)     # the bunker he is in (it blinks)
+    else:
+        city_node(p, PX, PZ)                         # where he stands (it blinks)
+        p.load(CT["n"]).store(BM)
     p.load(spec.REG_FRAME).push(16).emit("and", f"jz {mp}_you")
     p.object(NOBJ, MK["you"], _mx(BM), _my(BM), _zm - int(0.02 * ONE), 0, 0)
     p.mark(f"{mp}_you")
@@ -3316,11 +3475,22 @@ if BASE:
             sb_ = f"{kn}_b{b_}"
             manhattan(p, bx_, bz_, f"{sb_}_a").emit("dup").load(BESTB).emit("lt", f"jz {sb_}_d")
             p.store(BESTB).push32(bx_).store(BKX).push32(bz_).store(BKZ)
-            p.load(BESTB).push(int(2.0 * ONE)).emit("lt", f"jz {sb_}")
-            p.set(LASTB, b_).emit(f"jmp {sb_}")
+            if L7:                                 # (P40: the last bunker is the one whose door he took)
+                p.emit(f"jmp {sb_}")
+            else:
+                p.load(BESTB).push(int(2.0 * ONE)).emit("lt", f"jz {sb_}")
+                p.set(LASTB, b_).emit(f"jmp {sb_}")
             p.mark(f"{sb_}_d")
             p.emit("drop")
             p.mark(sb_)
+        if L7:
+            # P40: IN THE ROOMS the six are the ring's -- they stand round
+            # its middle and face him, to be fought (they do not strike) --
+            # and the prep table is in reach, or not
+            manhattan(p, *DESK_XZ, f"{kn}_dk").push32(int(3.4 * ONE)).emit("lt").load(INSIDE).emit("and").store(DESKN)
+            p.load(INSIDE).emit(f"jz {kn}_out")
+            p.set(PACK, 0).push32(RING_XZ[0]).store(PKX).push32(RING_XZ[1]).store(PKZ).emit(f"jmp {kn}_pk")
+            p.mark(f"{kn}_out")
         manhattan(p, *PACK_HOME, f"{kn}_ph").store(W["qx"])
         p.load(PACK).emit(f"jz {kn}_pz")
         p.push32(int(34 * ONE)).load(W["qx"]).emit("lt", f"jz {kn}_pe")     # (34 < d: he is gone)
@@ -3370,12 +3540,29 @@ if BASE:
                 if side_ == "pa":
                     p.mark(f"{sd}_fb")
             p.mark(sd)
+        if L7:
+            p.push32(FAR_).store(BESTT)
+            for t_, d_ in enumerate(TDOORS):
+                st_ = f"{kn}_t{t_}"
+                manhattan(p, *d_["at"], f"{st_}_a").emit("dup").load(BESTT).emit("lt", f"jz {st_}_d")
+                p.store(BESTT).set(TDT, t_).push32(d_["at"][0]).store(TDX).push32(d_["at"][1]).store(TDZ)
+                p.set(TDY, d_["yaw"]).emit(f"jmp {st_}")
+                p.mark(f"{st_}_d")
+                p.emit("drop")
+                p.mark(st_)
+            p.set(ITK, 0)
+            p.load(BESTT).load(BESTK).emit("lt").load(BESTT).load(BESTD).emit("lt", "and", f"jz {kn}_nt")
+            p.set(ITEM, 1).set(KEY, 1).set(ITK, 2).set(DCAN, 1).load(TDX).store(KX).load(TDZ).store(KZ)
+            p.push32(int(3.9 ** 2 * ONE)).store(W["d2"]).emit(f"jmp {kn}_t")
+            p.mark(f"{kn}_nt")
         p.load(K5).push(0).emit("lt", f"jz {kn}_hk")
         p.load(D5).push(0).emit("lt", f"jz {kn}_door")
         p.set(ITEM, 0).emit(f"jmp {kn}")                             # (nothing left: no item)
         p.mark(f"{kn}_hk")
         p.load(BESTD).load(BESTK).emit("lt", f"jz {kn}_key")
         p.mark(f"{kn}_door")
+        if L7:
+            p.set(ITK, 1)
         p.set(ITEM, 1).set(KEY, 1).load(DRX).store(KX).load(DRZ).store(KZ)
         p.push32(int(3.9 ** 2 * ONE)).store(W["d2"]).emit(f"jmp {kn}_t")
         p.mark(f"{kn}_key")
@@ -3412,6 +3599,11 @@ if BASE:
         p.load(KEY).emit(f"jz {kn}_can")                         # context -- a gate without its key,
         p.load(DCAN).emit(f"jz {kn}")                            # a bolt from the wrong side)
         p.mark(f"{kn}_can")
+        if L7:                                                   # (P40: nor one of the range's items: the
+            p.load(KEY).emit(f"jz {kn}_pt", f"jmp {kn}_ptx")     # jab STRIKES those, it does not take them)
+            p.mark(f"{kn}_pt")
+            p.push(NKEYS - 1).load(K5).emit("lt", f"jz {kn}_ptx", f"jmp {kn}")
+            p.mark(f"{kn}_ptx")
     p.load(KEY).push(1).emit("add").store(KNEAR)
     p.mark(kn)
 # P13: a FRESH Start in the fight pages in the pause (its words over the end)
@@ -3794,6 +3986,35 @@ if BASE:
         p.load(KEYS).load(KYB).emit("or").store(KEYS).load(TAKEN).load(KYB).emit("or").store(TAKEN)
         p.set(LFLASH, 6).emit(f"jmp {cx_}_do")
         p.mark(f"{cx_}_g")
+        if L7:
+            # P40: THROUGH A BUNKER'S DOOR. In: he stands inside the hub's
+            # door, facing the room; that bunker is the one he will leave
+            # by; its survey is his (its sector and the next along); the six
+            # are in the ring. Out: at the door he came in by, facing its
+            # street; the six are back at their hard way.
+            NB_ = len(TDOORS) - 1
+            p.load(ITK).push(2).emit("eq", f"jz {cx_}_og")
+            p.load(TDT).push(NB_).emit("eq", f"jz {cx_}_in")
+            for b_, d_ in enumerate(TDOORS[:NB_]):
+                p.load(LASTB).push(b_).emit("eq", f"jz {cx_}_o{b_}")
+                p.push32(d_["out"][0]).store(PX).push32(d_["out"][1]).store(PZ)
+                p.set(YAW, d_["out_yaw"]).set(CY, d_["out_yaw"]).set(HEAD, d_["out_yaw"])
+                p.mark(f"{cx_}_o{b_}")
+            p.set(INSIDE, 0)
+            for e_ in ENEMY:
+                p.push32(PACK_HOME[0] + e_["rx"]).store(int(e_["pos"])).push32(PACK_HOME[1] + e_["rz"]).store(int(e_["pos"]) + 1)
+            p.emit(f"jmp {cx_}_td")
+            p.mark(f"{cx_}_in")
+            p.load(TDT).store(LASTB).set(INSIDE, 1)
+            p.push(int(KNOW_T)).load(TDT).emit("add", "loadi").load(KNOWN).emit("or").store(KNOWN)
+            p.push32(TDOORS[NB_]["out"][0]).store(PX).push32(TDOORS[NB_]["out"][1]).store(PZ)
+            p.set(YAW, TDOORS[NB_]["out_yaw"]).set(CY, TDOORS[NB_]["out_yaw"]).set(HEAD, TDOORS[NB_]["out_yaw"])
+            for e_ in ENEMY:
+                p.push32(RING_XZ[0] + e_["rx"]).store(int(e_["pos"])).push32(RING_XZ[1] + e_["rz"]).store(int(e_["pos"]) + 1)
+                p.set(e_["st"], 1).set(e_["hp"], e_["T"]["hp"]).set(e_["stun"], 0).set(e_["walk"], 0)
+            p.mark(f"{cx_}_td")
+            p.set(LFLASH, 20).emit(f"jmp {cx_}_do")
+            p.mark(f"{cx_}_og")
         p.load(OPENED).load(DRB).emit("or").store(OPENED)
         p.load(DRK).push32(0xFFFFFFFF).emit("xor").load(KEYS).emit("and").store(KEYS)
         p.set(LFLASH, 20)
@@ -6549,11 +6770,20 @@ p.store(VIS["rz"])
 
 # ---- the object list --------------------------------------------------------
 p.set(NOBJ, 0)
+if L7:
+    # (P40: in the rooms, no street's ground and no sky. The ground, a
+    # hand's breadth under a room's floor, took the floor's pixels near the
+    # lens -- a black band along the bottom of the glass)
+    _ng = p.label("noground")
+    p.load(INSIDE).emit(f"jz {_ng}_o", f"jmp {_ng}")
+    p.mark(f"{_ng}_o")
 p.object(NOBJ, GROUND_M, (f"load {spec.CAM_X}",), 0, (f"load {spec.CAM_Z}",),
          (f"load {spec.CAM_YAW}",), spec.OBJ_CULL | (spec.OBJ_LIT if BASE else 0))
 if BASE:
     p.object(NOBJ, SKY_M, (f"load {spec.CAM_X}",), 0, (f"load {spec.CAM_Z}",),
              (f"load {spec.CAM_YAW}",), spec.OBJ_CULL)
+if L7:
+    p.mark(_ng)
 def if_visible(cx, cy, cz, r, body):
     """body() only when the sphere can be on screen. cx/cz may be cells
     (tuples of ops) or constants; cy and r are constants."""
@@ -6605,7 +6835,8 @@ def city_subs():
              .push(int(PIECE_T)).emit("add", "loadi"),
              (f"load {int(CT['x'])}",), 0, (f"load {int(CT['z'])}",),
              lambda h: h.load(CT["w"]).emit("shr 8").push(1023).emit("and"),
-             spec.OBJ_CULL | (spec.OBJ_LIT if BASE else 0))
+             (lambda h: h.load(CT["w"]).emit("shr 18").push(31).emit("and").push(int(PFLAG_T)).emit("add", "loadi"))
+             if L7 else spec.OBJ_CULL | (spec.OBJ_LIT if BASE else 0))
     g.mark(ex)
     g.emit("ret")
     # CRING: the nodes CT n1's streets reach, but back the way it came (bk)
@@ -6654,7 +6885,18 @@ if L5:
     p.push(int(round((7 - 2.15) * ONE))).store(VIS["cy"]).push(int(12 * ONE)).store(VIS["r"])
     p.emit(f"call {L_VIS}", f"jz {gd_}")
     p.object(NOBJ, (f"load {int(DRM)}",), (f"load {int(DRX)}",), 0, (f"load {int(DRZ)}",), (f"load {int(DRY)}",),
-             lambda h: h.load(KNEAR).push(2).emit("eq").push(spec.OBJ_EDGE).emit("mul"))
+             (lambda h: h.load(KNEAR).push(2).emit("eq").load(ITK).push(1).emit("eq", "and").push(spec.OBJ_EDGE).emit("mul"))
+             if L7 else (lambda h: h.load(KNEAR).push(2).emit("eq").push(spec.OBJ_EDGE).emit("mul")))
+    if L7:                                           # (P40: and the nearest bunker's door, its own)
+        p.mark(gd_)
+        gd_ = p.label("tdoor")
+        p.load(BESTT).push32(int(60 * ONE)).emit("lt", f"jz {gd_}")
+        p.load(TDX).store(VIS["cx"]).load(TDZ).store(VIS["cz"])
+        p.push(int(round((2 - 2.15) * ONE))).store(VIS["cy"]).push(int(4 * ONE)).store(VIS["r"])
+        p.emit(f"call {L_VIS}", f"jz {gd_}")
+        p.object(NOBJ, TDOOR_M, (f"load {int(TDX)}",), 0, (f"load {int(TDZ)}",), (f"load {int(TDY)}",),
+                 lambda h: h.load(KNEAR).push(2).emit("eq").load(ITK).push(2).emit("eq", "and").push(spec.OBJ_EDGE).emit("mul")
+                 .push(spec.OBJ_CULL).emit("or"))
 else:
     p.load(LVL).push(NDIST - 1).emit("lt", f"jz {gd_}")
     p.load(LVL).push(GT_N).emit("mul").push(int(GATE_T)).emit("add").store(CT["k"])
@@ -6876,8 +7118,21 @@ if BASE:
     if L5:
         # P38: the nearest bunker's hatch, and the nearest key not yet taken
         # (each only within a few blocks: past that the fog has them)
-        p.load(BESTB).push32(int(60 * ONE)).emit("lt", f"jz {kd_}_nb")
-        p.object(NOBJ, BUNK_M, (f"load {int(BKX)}",), 0, (f"load {int(BKZ)}",), 0, 0)
+        if L7:
+            # P40: no hatch in the road. In the rooms, the range's items
+            # that are not the nearest (the nearest is drawn below, as the
+            # street's key is: it is the one that rings and leaps)
+            p.load(INSIDE).emit(f"jz {kd_}_nb")
+            for g_ in range(NKEYS, len(KEYAT)):
+                p.load(K5).push(g_).emit("eq", f"jz {kd_}_r{g_}", f"jmp {kd_}_x{g_}")
+                p.mark(f"{kd_}_r{g_}")
+                p.object(NOBJ, KEY_M, lambda h, g_=g_: h.push32(KEYAT[g_][0]), int(0.85 * ONE),
+                         lambda h, g_=g_: h.push32(KEYAT[g_][1]),
+                         (f"load {spec.REG_FRAME}", "push 5", "mul", "push 1023", "and"), spec.OBJ_CULL)
+                p.mark(f"{kd_}_x{g_}")
+        else:
+            p.load(BESTB).push32(int(60 * ONE)).emit("lt", f"jz {kd_}_nb")
+            p.object(NOBJ, BUNK_M, (f"load {int(BKX)}",), 0, (f"load {int(BKZ)}",), 0, 0)
         p.mark(f"{kd_}_nb")
         p.load(K5).push(0).emit("lt", f"jz {kd_}_s", f"jmp {kd_}")
         p.mark(f"{kd_}_s")
@@ -7165,10 +7420,14 @@ if L5:
         # a gate still shut) the tree's way, which leads to that gate.
         # And WHAT HE KNOWS of the town: the sector he stands in; on a
         # bunker's hatch, the next one along too (its survey).
+        if L7:                                   # (P40: in the rooms, no arrow; a bunker's survey
+            p.load(INSIDE).emit(f"jz {pt_}_st", f"jmp {pt_}_w")     # is taken at its door)
+            p.mark(f"{pt_}_st")
         p.load(W["qx"]).push(int(SBIT)).emit("add", "loadi").load(KNOWN).emit("or").store(KNOWN)
-        p.load(BESTB).push(int(2.0 * ONE)).emit("lt", f"jz {pt_}_kn")
-        p.load(W["qx"]).push(int(SBIT) + 1).emit("add", "loadi").load(KNOWN).emit("or").store(KNOWN)
-        p.mark(f"{pt_}_kn")
+        if not L7:
+            p.load(BESTB).push(int(2.0 * ONE)).emit("lt", f"jz {pt_}_kn")
+            p.load(W["qx"]).push(int(SBIT) + 1).emit("add", "loadi").load(KNOWN).emit("or").store(KNOWN)
+            p.mark(f"{pt_}_kn")
         p.load(WN).emit(f"jz {pt_}_w")
         p.load(int(WP)).store(WAYN)
         p.load(CT["n"]).load(WAYN).emit("eq", f"jz {pt_}_go")
@@ -7333,7 +7592,10 @@ if L5:
         p.addi(spec.DL_BASE, 1)
         p.mark(kp)
     if L6:                                       # (on a hatch: the map's green square -- SELECT opens it)
-        p.load(BESTB).push(int(2.0 * ONE)).emit("lt", f"jz {pt_}_mi")
+        if L7:
+            p.load(DESKN).emit(f"jz {pt_}_mi")
+        else:
+            p.load(BESTB).push(int(2.0 * ONE)).emit("lt", f"jz {pt_}_mi")
         for t_ in range(2):
             p.push(int(MAPICON) + t_ * spec.DL_STRIDE).store(CP["src"])
             p.load(spec.DL_BASE).push(spec.DL_STRIDE).emit("mul").push(spec.DL_BASE + 1).emit("add").store(CP["dst"])
@@ -7976,6 +8238,36 @@ for cell, coord in ((AR["u"], "x"), (AR["v"], "y")):
     else:
         p.push32(int((OYA + HT) * ONE)).load(AR["x"]).emit("sub")
     p.push32((1 << TSH) - 1).emit("and").push32(1 << (TSH - 1)).emit("sub").store(cell)
+if L7:
+    # P40: A ROOM (the word's bit 31) is all floor, to ROOM_W from its
+    # walls; past that on one axis it is floor only in a doorway -- within
+    # the lane's width on the other axis, on a side that is not closed
+    rm = p.label("aroom")
+    _rw = int(ROOM_W * ONE)
+    p.load(CT["w"]).push(0).emit("lt", f"jz {rm}")
+    for cell, dst in ((AR["u"], RMU), (AR["v"], RMV)):
+        p.load(cell).emit("dup").push(0).emit("lt", f"jz {rm}_a{int(dst)}")
+        p.push(0).emit("swap", "sub")
+        p.mark(f"{rm}_a{int(dst)}")
+        p.store(dst)
+    p.load(RMU).push32(_rw).emit("lt", f"jz {rm}_uo")
+    p.load(RMV).push32(_rw).emit("lt", f"jz {rm}_vo")
+    p.push(1).emit("ret")
+    p.mark(f"{rm}_vo")                                 # past it north or south
+    p.load(RMU).load(AWC).emit("lt", f"jz {rm}_zero")
+    p.push(0).load(AR["v"]).emit("lt", f"jz {rm}_s")
+    p.push(0).load(CT["w"]).push(3).emit("and", "lt", "ret")
+    p.mark(f"{rm}_s")
+    p.push(0).load(CT["w"]).emit("shr 4").push(3).emit("and", "lt", "ret")
+    p.mark(f"{rm}_uo")                                 # past it east or west
+    p.load(RMV).load(AWC).emit("lt", f"jz {rm}_zero")
+    p.push(0).load(AR["u"]).emit("lt", f"jz {rm}_w")
+    p.push(0).load(CT["w"]).emit("shr 2").push(3).emit("and", "lt", "ret")
+    p.mark(f"{rm}_w")
+    p.push(0).load(CT["w"]).emit("shr 6").push(3).emit("and", "lt", "ret")
+    p.mark(f"{rm}_zero")
+    p.push(0).emit("ret")
+    p.mark(rm)
 for cell, hi_side, lo_side, out in ((AR["u"], 1, 3, "x"), (AR["v"], 0, 2, "y")):
     t_ = p.label("aside")
     p.push(9).store(KP[out])                       # 9: inside on this axis

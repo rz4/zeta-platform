@@ -1947,3 +1947,69 @@ way marks planning routes"). TND_LAYER=6: layer 5, and:
   Every map frame, law and silicon the same to the pixel (293 frames).
 - tests: 9 layer 6; layer 5's 11 after it. Layers 0 to 5 and the full
   cart build byte-identical.
+
+## P40: layer 7 -- the bunker is a door and rooms (2026-11-22; not yet on glass)
+
+The player, shown layer 6's hatch in the road and its map: "i was
+thinking the bunkers were more of doors against a building, and an
+actual room you enter, in there we can have training rooms with the
+items as objects you can practice melee and gunplay. that will also help
+calibrate the game play, those training rooms. the hub room hold a desk
+with the map and inventory management. the prep table". TND_LAYER=7:
+layer 6, the hatch gone, and:
+
+- **The rooms are nodes of the map**, three rows north of the town and
+  out of its reach, so the street's own walk, walls, shots, lock and
+  lens are the rooms' and nothing was written twice:
+  - the HUB: a junction's middle (9.4 across) with a short arm north
+    and one east. The PREP TABLE stands against its west wall, the map
+    on it; the way out is in its south wall;
+  - the RING, north: a whole tile (16 across), a black and white floor
+    in its middle. The six bodies stand round it and face him -- they
+    do not strike, so they are what he practises on: the lock, the
+    spot, rounds, fists, down and up again;
+  - the RANGE, east: a whole tile, yellow lines down it and a red wall
+    at its end, three ITEMS before it. They are keys that are never
+    taken: the lock's target, and they ring and leap for a round or a
+    fist. (The jab STRIKES one; it does not pick it up.)
+- **A room's word carries bit 31**: all of its tile is floor, to 0.6
+  from its walls; past that on one axis it is floor only in a doorway
+  -- within the lane's width on the other axis, on a side not closed.
+  The hub is an ordinary node. So the doorways are the lane's width and
+  cost nothing: a room's open side meets the hub's arm.
+- **The rooms are drawn from the cart** (frontier 20), flat: five words
+  of data memory each, and no lit face for the lens to cut -- the lit
+  town's open fault cannot show indoors. (A piece's flags are now read
+  from a table by its kind.) Each floor runs on past its walls: with
+  his back to a wall the lens stands outside the room, and looked in
+  over a strip of the street's black ground.
+- **A bunker is a door** on a closed wall of its dead end -- the one
+  facing its street where that is closed -- steel, a green band, a
+  green lamp over it; seen from its front only. The jab at it is the
+  way through: he stands inside the hub's door facing the room, that
+  bunker is the one he will leave by, its survey is his (its sector and
+  the next along -- layer 6 took that on the hatch), and the six are in
+  the ring. The jab at the hub's door: he stands at the door he came in
+  by, facing its street, and the six are back at their hard way. ONE
+  set of rooms serves every bunker (and, later, one stash).
+- **"We start in a bunker"**: inside the first one's door.
+- **The map is the prep table's**: SELECT within reach of it (the green
+  square shows there). Its cursor begins on the bunker he is in, which
+  is where he blinks. In the rooms there is no arrow; his plan waits
+  for the street.
+- **The item** is now the nearest of three: a key, a door of the
+  street, a bunker's door.
+- **No ground and no sky indoors.** The street's ground, a hand's
+  breadth under a room's floor, took the floor's pixels near the lens: a
+  black band along the bottom of the glass. In the rooms neither is
+  listed.
+- **Measured on the silicon** (the simulation; two scenes from power-on:
+  the ring -- the lock, a round, a hook, the boxer's steps -- and the
+  range; and the table's map, out by the door, the street, in again):
+  in the rooms 54% of the frame at the median and 64% at the peak, the
+  ring with its six 54 / 57. Indoors law and silicon are the same to the
+  pixel in every frame, 949 of them; the street outside the door has the
+  lit town's open fault as before (a median of 178 pixels, 11,331 in its
+  worst frame).
+- tests: 17 layer 7; layer 6's 9 and layer 5's 11 after it. Layers 0 to
+  6 and the full cart build byte-identical.
