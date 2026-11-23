@@ -2666,3 +2666,40 @@ and the reactor only.
 - the law against the simulated silicon: the lab 586 frames, the reactor
   323, bit-equal; the frame 50% / 62% and 57% / 62%. On the card
   2026-11-23.
+
+## P52: the run's two jumps -- a running jump, and the long jump (2026-11-23)
+
+The player: "i feel like the overal jump feels a bit cartoony in the
+distance covered, a held jump release should be that distance long
+jump, olympic style". The lab and the reactor only.
+
+- **WHAT WAS THERE**: in the run every press of A was the same jump, at
+  once: five units (six and a half metres at his height, if he is 1.8 m)
+  with his feet 1.64 up -- two metres -- in thirty frames, under a light
+  pull rising and a heavy one falling.
+- **IN THE RUN A IS READ WHEN IT IS LET GO.**
+- **A TAP IS A RUNNING JUMP**: 3.1 units (four metres) at his full pace,
+  his feet 0.81 up -- enough for the lab's first step -- eighteen frames,
+  the same pull up and down, heavy.
+- **HELD A FIFTH OF A SECOND (12 frames of glass) AND LET GO, THE LONG
+  JUMP**: 6.0 units (7.6 metres) at his full pace, low -- his feet 0.53
+  up -- and flat, thirty-six frames under a pull close to the world's
+  (one and a half g at his scale). Its own thirteen shapes
+  (`tools/tnd_acro.py`, `acro_long`): off the board the free knee drives
+  and the arms swing up; the HANG, arms overhead, legs under him, the
+  back arched; then the JACKKNIFE, arms sweeping forward, the legs
+  straight out in front, the trunk over them. Held longer, time slows as
+  for any held button; let go, he jumps in running time.
+- Either goes as far as his pace takes it; the landing mark is right to
+  a thousandth of a unit for both. A flip in the air is the flip's own
+  arc again, whichever jump it came out of.
+- READINGS OF MINE: the release; the hold of twelve frames; the two
+  distances (from his height and his pace: his run is 0.16 units a frame,
+  twelve metres a second -- faster than any sprinter, so the long jump's
+  pull is a little over the world's to keep it at an Olympic length).
+- tests: `tests/test_tnd_move.py`, 35 (3 more; eleven older ones release
+  A after a run's jump now). 102 pass across the lab, the reactor and
+  the tools. Layers 0, 4, 8 and the full cart byte-identical.
+- the law against the simulated silicon: the lab 406 frames, the reactor
+  232, bit-equal; the frame 49% / 58% and 58% / 60%. On the card
+  2026-11-23.

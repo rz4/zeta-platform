@@ -110,6 +110,7 @@ def _run_up(g):
 
 def _flight(g, flip_at=None, pad=0):
     g.run(L | U | A, 3)
+    g.run(L | U, 1)                                           # (P52: the run jumps on the release)
     marks = []
     for i in range(90):
         g.run(L | U | ((A | pad) if flip_at is not None and flip_at <= i < flip_at + 3 else 0), 1)
@@ -125,7 +126,7 @@ def test_the_mark_is_where_the_runs_jump_comes_down_from_its_first_frame(lab_tex
     g = LAB.Game(lab_text)
     _run_up(g)
     off = _flight(g)
-    assert len(off) > 20 and max(e for _, e in off) < 0.02, f"the mark was {max(e for _, e in off):.2f} from where he landed"
+    assert len(off) > 12 and max(e for _, e in off) < 0.02, f"the mark was {max(e for _, e in off):.2f} from where he landed"
     assert g.cell("land_on") == 0, "the mark is still there with him on the floor"
 
 
@@ -144,6 +145,7 @@ def test_in_the_air_the_lens_looks_down_and_stands_to_his_right_but_not_when_loc
     g = LAB.Game(lab_text)
     _run_up(g)
     g.run(L | U | A, 3)
+    g.run(L | U, 1)                                           # (P52: the run jumps on the release)
     look = 0
     for _ in range(14):
         g.run(L | U, 1)
@@ -223,6 +225,7 @@ def test_in_the_air_the_run_leaps_by_how_fast_he_rises_or_falls(lab_text):
     g = _running(lab_text)
     stride = {g.cell("pose") for _ in range(16) if not g.run(L | U, 1)}
     g.run(L | U | A, 3)
+    g.run(L | U, 1)                                           # (P52: the run jumps on the release)
     seen = []
     while g.cell("f_py") > 0:
         seen.append((g.cell("f_pvy"), g.cell("pose")))
@@ -237,6 +240,7 @@ def test_in_the_air_the_run_leaps_by_how_fast_he_rises_or_falls(lab_text):
 def test_a_run_jump_lands_absorbed_then_the_stride_takes_up(lab_text):
     g = _running(lab_text)
     g.run(L | U | A, 3)
+    g.run(L | U, 1)                                           # (P52: the run jumps on the release)
     while g.cell("f_py") > 0:
         g.run(L | U, 1)
     land = []
@@ -253,6 +257,7 @@ def test_from_a_flip_he_rolls_out_keeping_his_speed(lab_text):
     g = _running(lab_text)
     pace = g.cell("f_spd")
     g.run(L | U | A, 3)
+    g.run(L | U, 1)                                           # (P52: the run jumps on the release)
     g.run(L | U, 8)
     g.run(L | U | A, 3)                                       # the flip
     while g.cell("f_py") > 0 or g.cell("f_evk") != 8:
@@ -277,12 +282,15 @@ def test_from_a_flip_he_rolls_out_keeping_his_speed(lab_text):
 def test_a_jump_out_of_the_roll_ends_it_and_standing_still_he_does_not_roll(lab_text):
     g = _running(lab_text)
     g.run(L | U | A, 3)
+    g.run(L | U, 1)                                           # (P52: the run jumps on the release)
     g.run(L | U, 8)
     g.run(L | U | A, 3)
+    g.run(L | U, 1)                                           # (P52: the run jumps on the release)
     while g.cell("f_evk") != 8:
         g.run(L | U, 1)
     g.run(L | U, 4)
     g.run(L | U | A, 3)
+    g.run(L | U, 1)                                           # (P52: the run jumps on the release)
     assert g.cell("f_evf") == 0 and g.cell("f_py") > 0, "the jump did not take him out of the roll"
     s = LAB.Game(lab_text)                                    # in the run, but not going: a flip lands absorbed
     s.put(0.0, -12.0, LAB.NORTH)
@@ -353,6 +361,7 @@ def _lens_meets_floor(g):
 def test_in_the_runs_air_the_lens_looks_into_where_he_will_land(lab_text, steer):
     g = _running(lab_text)
     g.run(L | U | A, 3)
+    g.run(L | U, 1)                                           # (P52: the run jumps on the release)
     off = []
     for i in range(40):
         g.run(L | U | steer, 1)
@@ -369,6 +378,7 @@ def test_steering_in_the_air_the_lens_stands_on_the_inside(lab_text):
     from zeta import spec
     g = _running(lab_text)
     g.run(L | U | A, 3)
+    g.run(L | U, 1)                                           # (P52: the run jumps on the release)
     g.run(L | U | LF, 14)
     s32 = lambda v: v - (1 << 32) if v & (1 << 31) else v      # noqa: E731
     yaw = 2 * np.pi * (g.d[spec.CAM_YAW] & 1023) / 1024
@@ -381,8 +391,57 @@ def test_steering_in_the_air_the_lens_stands_on_the_inside(lab_text):
 def test_the_landing_and_the_roll_hand_him_to_the_strides_first_pose(lab_text):
     g = _running(lab_text)
     g.run(L | U | A, 3)
+    g.run(L | U, 1)                                           # (P52: the run jumps on the release)
     while g.cell("f_py") > 0:
         g.run(L | U, 1)
     while g.cell("run_land") > 0:
         g.run(L | U, 1)
     assert g.cell("f_ph") >> 16 == 0, "the stride did not take up from its first pose"
+
+
+# ---- P52: in the run, a tap is a running jump and a held A let go is the long jump ----
+
+def _run_jump(lab_text, hold):
+    g = _running(lab_text)
+    g.run(L | U | A, hold)
+    assert g.cell("f_py") == 0, "the run jumped on the press, not on the release"
+    u0 = g.uv()
+    air = top = long_ = 0
+    poses = set()
+    while True:
+        g.run(L | U, 1)
+        if g.cell("f_py") == 0 and air:
+            break
+        air += 1
+        top = max(top, g.cell("f_py"))
+        long_ |= g.cell("jmp_long")
+        poses.add(g.cell("pose"))
+        assert air < 90
+    return g, g.uv()[1] - u0[1], top / ONE, air, long_, poses
+
+
+def test_a_tap_in_the_run_is_a_running_jump(lab_text):
+    g, went, top, air, long_, _ = _run_jump(lab_text, 3)
+    assert not long_ and 2.8 < went < 3.3 and 0.75 < top < 0.9 and air <= 20, f"{went:.2f} long, {top:.2f} up, {air} frames"
+    assert (g.cell("jmp_rise"), g.cell("jmp_fall"), g.cell("jmp_long")) == (655, 1573, 0), "the pull is not put back after the landing"
+
+
+def test_held_and_let_go_the_run_long_jumps_low_and_flat(lab_text):
+    g, went, top, air, long_, poses = _run_jump(lab_text, 14)
+    assert long_ and 5.5 < went < 6.5 and 0.45 < top < 0.6 and 30 <= air <= 40, f"{went:.2f} long, {top:.2f} up, {air} frames"
+    tap = _run_jump(lab_text, 3)[5]
+    assert not (poses & tap), "the long jump's shapes are the running jump's"
+
+
+def test_the_long_jump_mark_is_where_he_lands(lab_text):
+    g = _running(lab_text)
+    g.run(L | U | A, 14)
+    marks = []
+    while True:
+        g.run(L | U, 1)
+        if g.cell("f_py") == 0 and marks:
+            break
+        if g.cell("land_on"):
+            marks.append(g.uv(g.cell("land_x") / ONE, g.cell("land_z") / ONE))
+    u, v = g.uv()
+    assert max(float(np.hypot(m[0] - u, m[1] - v)) for m in marks) < 0.02

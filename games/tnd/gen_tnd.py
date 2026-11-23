@@ -162,7 +162,7 @@ if L1:
 if L3:
     SEQS += ("run_gun_r", "run_gun_l", "run_gun_f")   # P36: the run, the gun out in one hand
 if LAYER in (10, 11):
-    SEQS += ("acro_leap", "acro_leap_l", "acro_land", "acro_roll")   # P50: the run's air (P51: either leg), its landing, its roll
+    SEQS += ("acro_leap", "acro_leap_l", "acro_land", "acro_roll", "acro_long")   # P50: the run's air (P51: either leg), its landing, its roll; P52 the long jump
 
 
 def to_zeta(V):
@@ -2899,9 +2899,31 @@ if LAB:
     # stride over LAND_RF frames; and down from a flip with his speed, he
     # ROLLS over the shoulder, ROLL_F frames, keeping it.
     LEAP_TOP, LEAP_BOT = int(0.19 * ONE), int(-0.25 * ONE)   # the vertical speeds the leap's first and last shapes are at
+    LEAPK_D = int(round(12 * ONE / ((LEAP_TOP - LEAP_BOT) / ONE)))   # (P52: a fall or a flip: over that range)
     LAND_RF, ROLL_F, ROLL_K = 8, 16, 8             # the absorb's frames; the roll's; its evade kind
     ROLL_C = int(round(float(np.load(ROOT / "assets" / "tnd" / "acro.npz")["roll_centre"][0]) * ONE))   # its ball's middle
     ROLL_SPD = int(0.05 * ONE)                     # he must be going at least this fast to roll
+    # P52 (the player: "the overal jump feels a bit cartoony in the distance
+    # covered, a held jump release should be that distance long jump,
+    # olympic style"). The run's jump went 5.0 units -- six and a half
+    # metres at his height -- with his feet 1.64 up, on every press. Now, in
+    # the run, A is read when it is LET GO:
+    #   a TAP is a running jump, heavy: 2.9 units, his feet 0.8 up (the
+    #     lab's first step), eighteen frames, the same pull up and down;
+    #   HELD past LJ_HOLD frames and let go, the LONG JUMP: about six units
+    #     at his full pace, low (his feet 0.55 up) and flat, thirty-seven
+    #     frames under a pull close to the world's (1.5 x g at his scale):
+    #     the hang, then the jackknife.
+    # How far either goes is how fast he is going. (The flip in the air,
+    # the boxer's and the tank's jumps keep their own.)
+    LJ_HOLD = 12                                   # frames of glass A is held for the long jump (a fifth of a second;
+                                                   # held past the hold knob, time slows as for any held button)
+    _JK = 12190                                    # the jump knob's own beginning (KNOBS_L1)
+    TAP_G, TAP_V0 = int(0.0198 * ONE), 0.189
+    LONG_G, LONG_V0 = int(0.0032 * ONE), 0.0595
+    TAP_K, LONG_K = int(TAP_V0 * ONE / (_JK / ONE)), int(LONG_V0 * ONE / (_JK / ONE))   # x the jump knob
+    def _leapk(v0_):                               # the leap's shapes over the flight: twelve over 2 v0 of vertical speed
+        return int(round(12 * ONE / (2 * v0_)))
     # P51 (the player: "the boxing jump flips should be calibrated by being
     # able to jump over the clone in all four directions"): the boxer's flip
     # goes OVER a body -- from a jab's reach on this side of it to a jab's
@@ -3116,6 +3138,8 @@ if LAB:
     LNDX, LNDZ, LNDON, AIRP = (cart.var("land_" + k) for k in ("x", "z", "on", "look"))
     RLND, RFLIP, RCEN = cart.var("run_land"), cart.var("run_flipped"), cart.var("spin_centre")   # P50
     RPH, CAMP = cart.var("run_last_step"), cart.var("cam_pitch_base")   # P51: the stride's pose as he left the floor; the lens's pitch
+    # P52: the pull up and down; the rise he left with and the leap's scale over it; the long jump; A held in the run
+    GRISE, GFALL, JV0, LEAPK, LJMP, CHG, CHGN = (cart.var("jmp_" + k) for k in ("rise", "fall", "v0", "leapk", "long", "charge", "held"))
     assert all(e_["k"] == i_ for i_, e_ in enumerate(ENEMY))
     if REACTOR:
         MIRY = cart.var("rx_miry")                   # (P45: his double's height is his)
@@ -3424,6 +3448,7 @@ if BASE:
         # placed yet (the "who" knob's first reading does that)
         p.push32(LAB_START[0]).store(PX).push32(LAB_START[1]).store(PZ)
         p.set(YAW, LAB_YAW).set(CY, LAB_YAW).set(HEAD, LAB_YAW).set(WHOP, -1)
+        p.set(GRISE, JUMP_RISE).set(GFALL, JUMP_FALL).set(JV0, LEAP_TOP).set(LJMP, 0).set(CHG, 0).push32(LEAPK_D).store(LEAPK)
         for c_ in (PGH, ARP, PLO4, PLOP, LABT, JUGY, PASSK, SELN, WBEND, WBTO, WBD, GUNK, MUZT, HNDON, LNDON, AIRP, RLND, RFLIP, int(BSL), int(BSL) + 1,
                    int(UXS), int(UXS) + 1, int(UXS) + 2) + ((MIRY, int(RXV), int(RXV) + 1) if REACTOR else ()):
             p.set(c_, 0)
@@ -4992,6 +5017,24 @@ if L2:
     p.mark(f"{am_}_c")
     p.set(AIMED, 0)
     p.mark(am_)
+if LAB:
+    # P52: THE RUN'S JUMP, ON ITS RELEASE: a tap the running jump, held the long jump
+    ch_ = p.label("charge")
+    p.load(CHG).emit(f"jz {ch_}")
+    p.load(F["py"]).load(F["sty"]).push(1).emit("eq").push(1).emit("xor", "or", f"jz {ch_}_g")
+    p.set(CHG, 0).emit(f"jmp {ch_}")                              # (off an edge, or out of the run: no jump)
+    p.mark(f"{ch_}_g")
+    p.load(AHOLD).emit(f"jz {ch_}_go")
+    p.load(AHOLD).store(CHGN).emit(f"jmp {ch_}")                  # (glass frames: held long, time slows, as for any button)
+    p.mark(f"{ch_}_go")
+    p.set(CHG, 0).set(F["py"], 1)
+    p.push(LJ_HOLD - 1).load(CHGN).emit("lt", f"jz {ch_}_tap")
+    knob(p, "jump").push(LONG_K).emit("mulq", "dup").store(F["pvy"]).store(JV0)
+    p.set(GRISE, LONG_G).set(GFALL, LONG_G).set(LJMP, 1).push32(_leapk(LONG_V0)).store(LEAPK).emit(f"jmp {ch_}")
+    p.mark(f"{ch_}_tap")
+    knob(p, "jump").push(TAP_K).emit("mulq", "dup").store(F["pvy"]).store(JV0)
+    p.set(GRISE, TAP_G).set(GFALL, TAP_G).set(LJMP, 0).push32(_leapk(TAP_V0)).store(LEAPK)
+    p.mark(ch_)
 # THE JUMP: X's press, at once -- unless A is down (carve+jump launches)
 jp = p.label("jump")
 if L2:
@@ -5001,6 +5044,13 @@ else:
     p.load(GT["jump"]).push(1).emit("eq", f"jz {jp}")   # (P18: no chords)
 p.load(F["py"]).load(F["acmb"]).emit("or", f"jz {jp}_g", f"jmp {jp}_fl")   # aloft: flip?
 p.mark(f"{jp}_g")
+if LAB:                                           # (P52: in the run, A on the ground waits to be let go)
+    p.load(F["sty"]).push(1).emit("eq", f"jz {jp}_nc")
+    p.set(CHG, 1).set(CHGN, 0)
+    p.load(F["evk"]).push(ROLL_K).emit("eq", f"jz {jp}")          # (out of a roll: the roll is over now)
+    p.load(F["evf"]).emit(f"jz {jp}")
+    p.set(F["evf"], 0).set(F["evk"], 0).emit(f"jmp {jp}")
+    p.mark(f"{jp}_nc")
 if LAB:                                           # (P50: a jump out of a roll: the roll is over)
     p.load(F["evk"]).push(ROLL_K).emit("eq", f"jz {jp}_nr")      # (not "and" with evf: that is a bit, not a truth)
     p.load(F["evf"]).emit(f"jz {jp}_nr")
@@ -5192,6 +5242,8 @@ p.mark(f"{jp}_dj")                                # straight up again, as he was
 p.set(F["evk"], 0).set(F["evt"], FLIPS[0][1]).set(F["evf"], FLIPS[0][1])
 p.load(F["vx"]).store(F["evx"]).load(F["vz"]).store(F["evz"])
 p.mark(f"{jp}_up")
+if LAB:                                           # (P52: a flip is the flip's own arc, whatever jump it came out of)
+    p.set(GRISE, JUMP_RISE).set(GFALL, JUMP_FALL).set(JV0, LEAP_TOP).set(LJMP, 0).push32(LEAPK_D).store(LEAPK)
 if BASE:
     p.set(EVW, 0)
 p.set(F["pvy"], FLIP_V).set(F["flipu"], 1)
@@ -6192,15 +6244,16 @@ if LAB:
     p.mark(pl)
 p.load(F["py"]).load(F["pvy"]).emit("or", f"jz {av}_e")
 p.push(0).load(F["pvy"]).emit("lt", f"jz {av}_fall")
-p.load(F["pvy"]).push(JUMP_RISE).emit("sub").store(F["pvy"]).emit(f"jmp {av}_int")
+p.load(F["pvy"]).emit(*((f"load {int(GRISE)}",) if LAB else (f"push {JUMP_RISE}",))).emit("sub").store(F["pvy"]).emit(f"jmp {av}_int")
 p.mark(f"{av}_fall")
-p.load(F["pvy"]).push(JUMP_FALL).emit("sub").store(F["pvy"])
+p.load(F["pvy"]).emit(*((f"load {int(GFALL)}",) if LAB else (f"push {JUMP_FALL}",))).emit("sub").store(F["pvy"])
 p.mark(f"{av}_int")
 p.load(F["py"]).load(F["pvy"]).emit("add").store(F["py"])
 p.push(0).load(F["py"]).emit("lt", f"jz {av}_land", f"jmp {av}_e")
 p.mark(f"{av}_land")
 if LAB:
     p.load(F["flipu"]).store(RFLIP)                       # (P50: was it a flip he came down from?)
+    p.set(GRISE, JUMP_RISE).set(GFALL, JUMP_FALL).set(JV0, LEAP_TOP).set(LJMP, 0).push32(LEAPK_D).store(LEAPK)
 p.set(F["py"], 0).set(F["pvy"], 0).set(F["flipu"], 0)   # (a landing re-arms the flip)
 if LAB:
     # P50: IN THE RUN, A LANDING IS TAKEN: from a flip, going, a ROLL over
@@ -6246,9 +6299,9 @@ if LAB:
     p.load(F["py"]).store(LS0).load(F["pvy"]).store(LS1).set(LS2, 0)
     p.mark(f"{lp}_l")
     p.push(0).load(LS1).emit("lt", f"jz {lp}_f")
-    p.load(LS1).push(JUMP_RISE).emit("sub").store(LS1).emit(f"jmp {lp}_i")
+    p.load(LS1).load(GRISE).emit("sub").store(LS1).emit(f"jmp {lp}_i")
     p.mark(f"{lp}_f")
-    p.load(LS1).push(JUMP_FALL).emit("sub").store(LS1)
+    p.load(LS1).load(GFALL).emit("sub").store(LS1)
     p.mark(f"{lp}_i")
     p.load(LS0).load(LS1).emit("add").store(LS0).addi(LS2, 1)
     p.push(0).load(LS0).emit("lt").load(LS2).push(90).emit("lt", "and", f"jz {lp}_d", f"jmp {lp}_l")
@@ -6377,7 +6430,8 @@ if LAB:
     p.load(F["acmb"]).emit(f"jz {lpo}_a", f"jmp {lpo}_g")
     p.mark(f"{lpo}_a")
     _ln = NPOSE["acro_leap"] - 1
-    p.push(LEAP_TOP).load(F["pvy"]).emit("sub").push(int(round(_ln * ONE / ((LEAP_TOP - LEAP_BOT) / ONE)))).emit("mulq", "shr 16")
+    assert NPOSE["acro_long"] == NPOSE["acro_leap"] == 13
+    p.load(JV0).load(F["pvy"]).emit("sub").load(LEAPK).emit("mulq", "shr 16")
     p.emit("dup").push(0).emit("lt", f"jz {lpo}_lo")
     p.emit("drop").push(0)
     p.mark(f"{lpo}_lo")
@@ -6389,6 +6443,9 @@ if LAB:
     p.push(base["acro_leap"]).load(RPH).push(4).emit("sub").push(8).emit("lt", f"jz {lpo}_r")
     p.emit("drop").push(base["acro_leap_l"])
     p.mark(f"{lpo}_r")
+    p.load(LJMP).emit(f"jz {lpo}_nl")                                          # (P52: the long jump's hang and jackknife)
+    p.emit("drop").push(base["acro_long"])
+    p.mark(f"{lpo}_nl")
     p.emit("add").store(POSE).set(RLND, 0).emit(f"jmp {L['pd']}")
     p.mark(f"{lpo}_g")
     p.load(RLND).emit(f"jz {lpo}")

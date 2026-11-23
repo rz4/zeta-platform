@@ -183,6 +183,27 @@ LEAP_N = 13
 for name, mk in (("acro_leap", lambda p_: p_), ("acro_leap_l", mirror)):
     out["V_" + name], out["S_" + name] = (np.stack(x) for x in zip(*[frozen(bm._pose_and_skin(mk(keyed(LEAP_KEYS, k / (LEAP_N - 1))), np.zeros(3), None))
                                                                       for k in range(LEAP_N)]))
+# THE LONG JUMP (TND-PORT P52; the player: "a held jump release should be that distance long jump, olympic
+# style"): the HANG -- off the board the free knee drives and the arms swing up; in the flight the arms go
+# overhead and the legs hang back under him, the back arched; then the JACKKNIFE -- arms sweeping forward and
+# down, the legs brought up and straight out in front, the trunk folded over them to reach the sand. Thirteen
+# shapes by the fraction of the flight.
+LONG_KEYS = [
+    (0.0, dict(RUN, **arms(-30, 70, 70, 60), **{"Spine": [14, -4, 0],
+        "RightUpLeg": [-88, 0, -9], "RightLeg": [90, 0, 0], "RightFoot": [8, 0, 0],
+        "LeftUpLeg": [26, 0, 9], "LeftLeg": [16, 0, 0], "LeftFoot": [30, 0, 0]})),
+    (0.35, dict(RUN, **arms(120, 20, 120, 20), **{"Hips": [0, -10, 0], "Spine": [-8, -4, 0], "Spine1": [-6, -3, 0], "Neck": [4, 6, 0],
+        "RightUpLeg": [14, 0, -9], "RightLeg": [62, 0, 0], "RightFoot": [24, 0, 0],
+        "LeftUpLeg": [18, 0, 9], "LeftLeg": [66, 0, 0], "LeftFoot": [24, 0, 0]})),
+    (0.7, dict(RUN, **arms(80, 20, 80, 20), **{"Hips": [6, -10, 0], "Spine": [20, -4, 0], "Spine1": [12, -3, 0],
+        "RightUpLeg": [-62, 0, -9], "RightLeg": [34, 0, 0], "RightFoot": [-4, 0, 0],
+        "LeftUpLeg": [-60, 0, 9], "LeftLeg": [36, 0, 0], "LeftFoot": [-4, 0, 0]})),
+    (1.0, dict(RUN, **arms(34, 14, 34, 14), **{"Hips": [10, -10, 0], "Spine": [36, -4, 0], "Spine1": [22, -3, 0], "Neck": [-14, 6, 0],
+        "RightUpLeg": [-88, 0, -9], "RightLeg": [8, 0, 0], "RightFoot": [-12, 0, 0],
+        "LeftUpLeg": [-88, 0, 9], "LeftLeg": [8, 0, 0], "LeftFoot": [-12, 0, 0]})),
+]
+out["V_acro_long"], out["S_acro_long"] = (np.stack(x) for x in zip(*[frozen(bm._pose_and_skin(keyed(LONG_KEYS, k / (LEAP_N - 1)), np.zeros(3), None))
+                                                                  for k in range(LEAP_N)]))
 # the landing: from the gather into the knees (three frames), and up into the stride's first pose (five)
 GATHER, RUN0 = LEAP_KEYS[-1][1], stride(0.0)
 land = [grounded(blend(GATHER, ABSORB, bm._smoothstep(k / 2)))[0] for k in range(3)] + \
