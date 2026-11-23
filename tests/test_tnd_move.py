@@ -460,14 +460,19 @@ def _flight_of(g):
     return g, g.uv()[1] - u0[1], top / ONE, air, long_, poses
 
 
-def test_held_at_speed_it_is_the_running_jump_in_slowed_time(lab_text):
-    """P53: held while already running, A slows time ("the held jump ... put the player in slow motion is fun") and
-    let go is the running jump"""
+def test_held_at_speed_it_is_the_long_jump_its_landing_shown_in_slowed_time(lab_text):
+    """P55 ("the long jump should just be after holding the jump button ... the location of the jump should be in
+    slow motion"): held while running, time slows, the long jump's landing is shown while it is held, and let go it
+    is the long jump -- landing there"""
     g = _running(lab_text)
-    g.run(L | U | A, 30)
+    for i in range(30):
+        g.run(L | U | A, 1)
+        assert bool(g.cell("land_on")) == (i >= 11), f"the preview at held frame {i}"
     assert g.cell("slow_on") and g.cell("f_py") == 0
+    shown = g.uv(g.cell("land_x") / ONE, g.cell("land_z") / ONE)
     g, went, top, air, long_, _ = _flight_of(g)
-    assert not long_ and 2.8 < went < 3.3
+    assert long_ and 5.5 < went < 6.5
+    assert float(np.hypot(shown[0] - g.uv()[0], shown[1] - g.uv()[1])) < 0.02, "the long jump did not land where it was shown"
 
 
 def test_from_a_stand_held_into_the_run_up_and_let_go_it_long_jumps_low_and_flat(lab_text):
@@ -527,8 +532,8 @@ def test_toward_a_wall_the_dot_is_on_the_wall_at_his_chest(lab_text):
     (wu, wv), wy = walls[0]
     assert abs(wu - 32.0) < 0.1 and abs(wv) < 0.05, f"the dot is not on the east wall: ({wu:.2f}, {wv:.2f})"
     assert 0.9 < wy < 2.8
-    u, v = g.uv()
-    assert float(np.hypot(marks[-1][1][0] - u, marks[-1][1][1] - v)) < 0.2, "the mark is not where he came down along the wall"
+    # (P55: ONE marker -- "either it lands on a wall or floor": with a wall met, the marker is the wall's)
+    assert all(abs(m[1][0] - 32.0) < 0.2 and m[2] > 0.5 * ONE for m in marks[-len(walls):]), "a floor mark showed beside the wall's"
 
 
 def test_the_lens_does_not_go_inside_a_structure(lab_text):
@@ -602,7 +607,7 @@ def test_on_his_own_jumps_the_first_mark_is_where_he_lands():
     cart = cabinet.load_cart(SONG)
     cart["sd"] = deploy.card_images(ROOT / "build" / "tapes" / "20261121-172911.card.bin")
     sym = X.symbols(SONG.read_text())
-    cells = ["px", "pz", "f_py", "land_on", "land_x", "land_z", "f_flipu", "wall_n"]
+    cells = ["px", "pz", "f_py", "land_on", "land_x", "land_z", "f_flipu", "wall_n", "land_wall"]
     t = X.replay(cart, pads, sym, cells, [])
     c = t.col
     py = c("f_py")
@@ -617,9 +622,60 @@ def test_on_his_own_jumps_the_first_mark_is_where_he_lands():
         e = e[0]
         if c("f_flipu")[s0:e].max() or c("wall_n")[e] > c("wall_n")[s0] or ((t.pad[s0:e] & 12) != 0).any():
             continue
+        if c("land_wall")[s0:e].max():                  # (P55: a wall met is where the marker is: not a landing)
+            continue
         on = np.flatnonzero(c("land_on")[s0:e]) + s0
         if len(on):
             first.append(float(np.hypot((c("land_x")[on[0]] - c("px")[e]) / ONE, (c("land_z")[on[0]] - c("pz")[e]) / ONE)))
     first = np.array(first)
-    assert len(first) >= 30
-    assert np.median(first) < 0.05 and (first > 0.3).sum() <= 8, f"median {np.median(first):.3f}, {(first > 0.3).sum()} over 0.3"
+    # (P55 changed what his presses do -- a held A is the long jump, a flip falls harder, the structures put him
+    # out -- so his presses no longer make the same session: fewer of its jumps qualify. The marks still hold.)
+    assert len(first) >= 5
+    assert np.median(first) < 0.05 and (first > 0.3).sum() <= len(first) // 3, f"median {np.median(first):.3f}, {(first > 0.3).sum()} of {len(first)} over 0.3"
+
+
+
+# ---- P55: never inside a structure; the flip drops hard; the roll's arms on its shins ----
+
+def test_the_slider_puts_him_out_and_never_into_the_next_structure(lab_text):
+    """his tape of P53: 943 frames inside the slider, up to 1.37 deep -- it slid into him"""
+    g = LAB.Game(lab_text)
+    HW = 0.29
+    for u0, v0 in ((7.0, 13.5), (9.0, 13.5), (4.0, 12.0)):     # on the floor in the slider's path
+        g.put(u0, v0, LAB.NORTH)
+        for _ in range(300):
+            g.run(0, 1)
+            u, v = g.uv()
+            s_ = g.cell("lab_slide") / ONE
+            feet = (g.cell("f_py") + g.cell("lab_gh")) / ONE
+            depth = min(u - s_ - (2 - HW), 6 + HW - (u - s_), v - (12 - HW), 15 + HW - v)
+            assert not (depth > 0.1 and feet < 2.35), f"inside the slider {depth:.2f} deep"
+            ledge = min(u - (-12 - HW), 2 + HW - u, v - (13 - HW), 16 + HW - v)
+            assert not (ledge > 0.1 and feet < 2.35), "put out into the ledge"
+
+
+def test_a_flip_comes_down_hard(lab_text):
+    """P55: "the second flip jump ... should drop more immediately for targeted landing": from its top it is down
+    in about half the frames it took to rise"""
+    g = _running(lab_text)
+    g.run(L | U | A, 3)
+    g.run(L | U, 9)
+    g.run(L | U | A, 3)
+    rise = fall = 0
+    while g.cell("f_py") > 0:
+        g.run(L | U, 1)
+        if g.cell("f_pvy") > 0:
+            rise += 1
+        else:
+            fall += 1
+        assert rise + fall < 80
+    assert fall < 0.7 * rise, f"it rose {rise} frames and fell {fall}"
+
+
+def test_the_rolls_arms_hold_its_shins():
+    """P55: "the arm on the roll looks a bit glitchy" -- lowered through the root, the reach aimed from where the
+    shoulders had been, and an arm stretched 0.4 across him. The roll's ball is no wider than the tuck's."""
+    acro = np.load(ROOT / "assets" / "tnd" / "acro.npz")
+    tuck, roll = acro["V_acro_tuck"][10], acro["V_acro_roll"][8]
+    for ax in (0, 1, 2):
+        assert np.ptp(roll[:, ax]) < np.ptp(tuck[:, ax]) + 0.05, f"the roll is {np.ptp(roll[:, ax]):.2f} across axis {ax}"

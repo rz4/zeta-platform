@@ -2778,3 +2778,51 @@ was off by more than a third of a unit 16 times -- climbing the steps.
   besides. Layers 0, 4, 8 and the full cart byte-identical.
 - the law against the simulated silicon: the lab 353 frames, bit-equal;
   the frame 47% / 59%. On the card 2026-11-23.
+
+## P55: no structure clips him; the long jump on a hold, shown while held; one marker; the flip drops; the roll's arms (2026-11-23)
+
+The player: "the platforms have some geometry issues, clipping and
+collision. the long jump should just be after holding the jump button,
+the location of the jump should be in slow motion and on the wall if it
+will hit the wall, only 1 marker either it lands on a wall or floor. the
+second flip jump slow mo, back down should drop more immediately for
+targetted landing. also the arm on the roll looks a bit glitchy". The
+lab and the reactor only.
+
+- **CLIPPING AND COLLISION, on his tape of P53**: 943 frames with his
+  body INSIDE the slider, up to 1.37 deep -- it slid into him and nothing
+  put him out; the others up to 0.3 at their edges. Now a structure is a
+  box he is never in: found inside one (his middle within its side's
+  reach, his feet under its top by more than a step) he is put out by
+  the nearest face whose way out is clear -- the steps stand side by
+  side, and the nearest face of one is inside the next (the first cut
+  put him into the 0.8 step out of the 1.6). On both his platforming
+  tapes replayed: no frame inside the slider; the rest a few frames at
+  an edge, at most 0.28 -- his body's own half-width as he steps up or
+  off.
+- **THE LONG JUMP IS A HELD A**, whatever his pace (P53's stand is
+  gone): held twelve frames of glass in the run, the long jump's
+  landing is SHOWN from then on -- held past the hold knob, in slowed
+  time -- and let go, that is where he lands (to a hundredth).
+- **ONE MARKER**: if the arc meets a wall, the marker is on the wall,
+  and the floor's is not drawn; else the floor's (or a top's). The lens
+  aims at that one.
+- **THE FLIP DROPS**: it rises as it did and comes down at more than
+  twice the pull (0.050 a frame, it was 0.024) -- from its top it is
+  down in about half the frames it took to rise. MY READING of "the
+  second flip jump slow mo": a flip in slowed time (A held) is the same
+  flip, and what was asked is the drop.
+- **THE ROLL'S ARMS**: the roll was lowered to the floor through the
+  rig's root, so the reach that puts the hands on the shins aimed from
+  where the shoulders had been -- an arm stretched 0.4 across him. Now
+  it is posed where it stands, and lowered after.
+- tests: `tests/test_tnd_move.py`, 44 (the long jump shown while held
+  and landing there; one marker at the wall; the slider never has him
+  inside, nor puts him into the ledge; a flip down in fewer frames than
+  it rose; the roll no wider than the tuck); two lab tests now drop him
+  from above instead of putting him inside a step at the floor. The
+  test that replays his tape is looser: his presses no longer make the
+  same session. 111 pass. Layers 0, 4, 8 and the full cart
+  byte-identical.
+- the law against the simulated silicon: the lab 338 frames, the reactor
+  217, bit-equal; the frame 50% / 60% and 59% / 63%.

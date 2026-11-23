@@ -2918,8 +2918,11 @@ if LAB:
     #     the hang, then the jackknife.
     # How far either goes is how fast he is going. (The flip in the air,
     # the boxer's and the tank's jumps keep their own.)
-    # (P53: the long jump is no longer a hold of so many frames: it is A held from a STAND into the run-up. Held,
-    # time slows as for any held button -- he likes it: "the held jump ... put the player in slow motion is fun")
+    # (P55, the player: "the long jump should just be after holding the jump button": A held LJ_HOLD frames of glass
+    # in the run, and let go, whatever his pace; held longer, time slows as for any held button -- and while it is
+    # held the long jump's landing is SHOWN: "the location of the jump should be in slow motion")
+    LJ_HOLD = 12
+    FLIP_FALL = int(0.050 * ONE)                   # P55: a flip comes down this hard ("drop more immediately")
     _JK = 12190                                    # the jump knob's own beginning (KNOBS_L1)
     TAP_G, TAP_V0 = int(0.0198 * ONE), 0.189
     LONG_G, LONG_V0 = int(0.0032 * ONE), 0.0595
@@ -3150,6 +3153,8 @@ if LAB:
     PRD = cart.var("arc_d", 4)                                # the step: x and z at his pace, x and z at the run's
     LNDY, LWON, LWX, LWY, LWZ = (cart.var("land_" + k) for k in ("y", "wall", "wx", "wy", "wz"))
     L_PROK = p.label("arcok")
+    PGR, PGF = cart.var("arc_rise"), cart.var("arc_fall")   # P55: the arc's own pull (a long jump's while it is held)
+    OUTD, OUTM, OUTI = cart.var("out_d", 4), cart.var("out_min"), cart.var("out_face")   # P55: how far to each face; the nearest
     assert all(e_["k"] == i_ for i_, e_ in enumerate(ENEMY))
     if REACTOR:
         MIRY = cart.var("rx_miry")                   # (P45: his double's height is his)
@@ -5053,8 +5058,7 @@ if LAB:
     # player enters parkour from stationary"): it is the long jump when A
     # went down with him standing in the run -- or he went into the run
     # with A down -- and he has the pace of a run-up when he lets go
-    p.load(LJARM).emit(f"jz {ch_}_tap")
-    p.push(int(0.05 * ONE)).load(F["spd"]).emit("lt", f"jz {ch_}_tap")
+    p.push(LJ_HOLD - 1).load(CHGN).emit("lt", f"jz {ch_}_tap")          # (P55: held, the long jump)
     knob(p, "jump").push(LONG_K).emit("mulq", "dup").store(F["pvy"]).store(JV0)
     p.set(GRISE, LONG_G).set(GFALL, LONG_G).set(LJMP, 1).push32(_leapk(LONG_V0)).store(LEAPK).emit(f"jmp {ch_}")
     p.mark(f"{ch_}_tap")
@@ -5269,8 +5273,10 @@ p.mark(f"{jp}_dj")                                # straight up again, as he was
 p.set(F["evk"], 0).set(F["evt"], FLIPS[0][1]).set(F["evf"], FLIPS[0][1])
 p.load(F["vx"]).store(F["evx"]).load(F["vz"]).store(F["evz"])
 p.mark(f"{jp}_up")
-if LAB:                                           # (P52: a flip is the flip's own arc, whatever jump it came out of)
-    p.set(GRISE, JUMP_RISE).set(GFALL, JUMP_FALL).set(JV0, LEAP_TOP).set(LJMP, 0).push32(LEAPK_D).store(LEAPK)
+if LAB:                                           # (P52: a flip is the flip's own arc, whatever jump it came out of;
+    # P55, the player: "the second flip jump ... should drop more immediately for targeted landing": it rises as
+    # it did, and comes down near twice as hard)
+    p.set(GRISE, JUMP_RISE).set(GFALL, FLIP_FALL).set(JV0, LEAP_TOP).set(LJMP, 0).push32(LEAPK_D).store(LEAPK)
 if BASE:
     p.set(EVW, 0)
 p.set(F["pvy"], FLIP_V).set(F["flipu"], 1)
@@ -6311,6 +6317,45 @@ p.set(F["shake"], LAND_SHAKE)
 p.mark(ld_)
 p.set(SG_T["st"], 0).set(LANDT, LAND_FOR + 1)       # (the clock ticks before it is read)
 p.mark(f"{av}_e")
+if LAB and PLATS:
+    # P55 (the player: "the platforms have some geometry issues, clipping
+    # and collision"; his tape: 943 frames INSIDE the slider, up to 1.37
+    # deep -- it slid into him and nothing put him out -- and the others
+    # 0.3 deep at their edges): a structure is a box he is never in. Found
+    # inside one -- his middle within its side's reach and his feet under
+    # its top by more than a step -- he is put out by the nearest face.
+    for k_, (u0_, u1_, v0_, v1_, top_, how_) in enumerate(PLATS):
+        (bx0_, bz0_), (bx1_, bz1_) = lab_xz(u0_ - 0.35, v1_ + 0.35), lab_xz(u1_ + 0.35, v0_ - 0.35)
+        dp_ = p.label("outof")
+        p.push32(bx0_).load(PX).emit("lt").load(PX).push32(bx1_).emit("lt", "and")
+        if how_ == "u":
+            p.load(PZ).load(PLO4).emit("sub").store(PSZ)
+        zc_ = PSZ if how_ == "u" else PZ
+        p.push32(bz0_).load(zc_).emit("lt", "and").load(zc_).push32(bz1_).emit("lt", "and", f"jz {dp_}")
+        (p.load(PLT5) if how_ == "y" else p.push32(int(top_ * ONE)))
+        p.push(int(PLAT_STEP * ONE) + 1).emit("sub").load(F["py"]).load(PGH).emit("add", "lt", f"jz {dp_}_in", f"jmp {dp_}")
+        p.mark(f"{dp_}_in")
+        # (the nearest face whose way out is clear -- the steps stand side by side, and the nearest face of one is
+        # inside the next: tried by the arc's own test of a place, his feet where they are)
+        for i_, ops_ in enumerate(((PX, bx0_, False), (PX, bx1_, True), (zc_, bz0_, False), (zc_, bz1_, True))):
+            c_, b_, far_ = ops_
+            (p.push32(b_).load(c_) if far_ else p.load(c_).push32(b_)).emit("sub").store(int(OUTD) + i_)
+        p.push32(0x7FFFFF).store(OUTM).set(OUTI, -1)
+        for i_, (cell_, sign_) in enumerate(((PX, -1), (PX, 1), (PZ, -1), (PZ, 1))):
+            nm_ = p.label("exit")
+            p.load(int(OUTD) + i_).load(OUTM).emit("lt", f"jz {nm_}")
+            p.load(PX).store(PTX).load(PZ).store(PTZ).load(F["py"]).load(PGH).emit("add").store(PTY)
+            dst_ = PTX if cell_ is PX else PTZ
+            p.load(cell_).load(int(OUTD) + i_).push(64).emit("add", "add" if sign_ > 0 else "sub").store(dst_)
+            p.emit(f"call {L_PROK}", f"jz {nm_}")
+            p.load(int(OUTD) + i_).store(OUTM).set(OUTI, i_)
+            p.mark(nm_)
+        for i_, (cell_, sign_) in enumerate(((PX, -1), (PX, 1), (PZ, -1), (PZ, 1))):
+            fc_ = p.label("face")
+            p.load(OUTI).push(i_).emit("eq", f"jz {fc_}")
+            p.load(cell_).load(OUTM).push(64).emit("add", "add" if sign_ > 0 else "sub").store(cell_)
+            p.mark(fc_)
+        p.mark(dp_)
 if LAB:
     # P48 ("The running should feel very good at figuring out where your
     # jump and double jump (flip) should land"): WHERE HE WILL COME DOWN. In
@@ -6352,8 +6397,15 @@ if LAB:
 
     lp = p.label("landing")
     p.set(LNDON, 0).set(LWON, 0)
-    p.load(F["py"]).emit(f"jz {lp}")
+    p.load(GRISE).store(PGR).load(GFALL).store(PGF)
+    p.load(F["py"]).emit(f"jz {lp}_pv")
     p.load(F["acmb"]).emit(f"jz {lp}_o", f"jmp {lp}")
+    # P55: ON THE FLOOR, A HELD FOR THE LONG JUMP: where it will land if he lets go now
+    p.mark(f"{lp}_pv")
+    p.load(CHG).emit(f"jz {lp}")
+    p.load(F["sty"]).push(1).emit("eq", f"jz {lp}")
+    p.push(LJ_HOLD - 1).load(AHOLD).emit("lt", f"jz {lp}")
+    p.set(PGR, LONG_G).set(PGF, LONG_G)
     p.mark(f"{lp}_o")
     # the step a frame: at the pace he has, and (a flip in the RUN) at the run's own once the flip is over
     for k2_, vel_ in ((0, F["vx"]), (1, F["vz"])):
@@ -6370,6 +6422,11 @@ if LAB:
     p.mark(f"{lp}_f1")
     p.load(PX).store(PRX).load(PZ).store(PRZ).load(F["py"]).load(PGH).emit("add").store(PRY)
     p.load(F["pvy"]).store(PRVY).set(PRN, 0).set(PRBX, 0).set(PRBZ, 0)
+    pv_ = p.label("preview")
+    p.load(F["py"]).emit(f"jz {pv_}", f"jmp {pv_}_e")
+    p.mark(pv_)                                              # (the preview: the long jump's rise, from his feet)
+    knob(p, "jump").push(LONG_K).emit("mulq").store(PRVY)
+    p.mark(f"{pv_}_e")
     p.mark(f"{lp}_l")
     p.addi(PRN, 1)
     for k2_, pos_, nxt_, blk_ in ((0, PRX, PNX, PRBX), (1, PRZ, PNZ, PRBZ)):
@@ -6436,9 +6493,9 @@ if LAB:
     p.push(0).load(PRVY).emit("lt", f"jz {lp}_d")                       # (coming down: there he is)
     p.mark(f"{lp}_ns")
     p.push(0).load(PRVY).emit("lt", f"jz {lp}_f2")
-    p.load(PRVY).load(GRISE).emit("sub").store(PRVY).emit(f"jmp {lp}_i2")
+    p.load(PRVY).load(PGR).emit("sub").store(PRVY).emit(f"jmp {lp}_i2")
     p.mark(f"{lp}_f2")
-    p.load(PRVY).load(GFALL).emit("sub").store(PRVY)
+    p.load(PRVY).load(PGF).emit("sub").store(PRVY)
     p.mark(f"{lp}_i2")
     p.load(PRY).load(PRVY).emit("add").store(PRY)
     p.load(LNDY).load(PRY).emit("lt", f"jz {lp}_d")                     # (down to it)
@@ -6446,6 +6503,9 @@ if LAB:
     p.mark(f"{lp}_d")
     p.load(PRX).store(LNDX).load(PRZ).store(LNDZ)
     p.set(LNDON, 1)
+    # (P55: ONE marker -- "either it lands on a wall or floor": a wall met first is where the marker is)
+    p.load(LWON).emit(f"jz {lp}")
+    p.load(LWX).store(LNDX).load(LWZ).store(LNDZ).load(LWY).store(LNDY)
     p.mark(lp)
 # ---- P10: THREADING pays (tear.py _parkour_style) ---------------------------
 th = p.label("thread")
@@ -8769,10 +8829,12 @@ for m in ((UPPER, LOWER) if "player" not in OMIT else ()):
 if LAB and "player" not in OMIT:
     lm2 = p.label("landmark")                     # (P48: where he will come down)
     p.load(LNDON).emit(f"jz {lm2}")
-    p.object(NOBJ, LAND_M, (f"load {int(LNDX)}",), (f"load {int(LNDY)}",), (f"load {int(LNDZ)}",), 0, spec.OBJ_CULL)
-    p.load(LWON).emit(f"jz {lm2}")                # (P53: and where he will meet a wall: a wall jump's place)
+    p.load(LWON).emit(f"jz {lm2}_f")              # (P55: one -- on the wall he will meet, or on the floor)
     p.object(NOBJ, WDOT_M, (f"load {int(LWX)}",), (f"load {int(LWY)}",), (f"load {int(LWZ)}",),
              (f"load {spec.REG_FRAME}", "push 29", "mul", "push 1023", "and"), 0)
+    p.emit(f"jmp {lm2}")
+    p.mark(f"{lm2}_f")
+    p.object(NOBJ, LAND_M, (f"load {int(LNDX)}",), (f"load {int(LNDY)}",), (f"load {int(LNDZ)}",), 0, spec.OBJ_CULL)
     p.mark(lm2)
     # P46: THE GUN IN HIS HAND, lying along his aim; and for three frames after a round, the flash at its mouth
     go = p.label("gun")

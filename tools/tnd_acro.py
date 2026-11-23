@@ -230,10 +230,12 @@ for f in range(16):
             arm, leg = anat.arm(who), anat.leg(who)
             shin = leg.shin_foot & ~leg.foot
             bm._reach_arm(Vt, arm, body, Vt[shin].mean(0) + 0.06 * arm.outward, arm.outward, w)
-    drop = 0.0
-    for _ in range(8):
-        drop += frozen(bm._pose_and_skin(p_, np.array([0.0, -drop, 0.0]), None, repose))[0][:, 2].min()
-    roll.append(frozen(bm._pose_and_skin(p_, np.array([0.0, -drop, 0.0]), None, repose)))
+    # (P55: posed where it stands, THEN brought down to the floor -- lowered through the root, the reach that puts
+    # the hands on the shins aimed from shoulders that were no longer there, and an arm stretched 0.4 across him)
+    V_, S_ = frozen(bm._pose_and_skin(p_, np.zeros(3), None, repose))
+    V_ = V_.copy()
+    V_[:, 2] -= V_[:, 2].min()
+    roll.append((V_, S_))
 out["V_acro_roll"], out["S_acro_roll"] = (np.stack(x) for x in zip(*roll))
 out["roll_centre"] = np.array([r])                 # the ball's middle, over the floor, at the full tuck
 for kind, n in LENGTH.items():

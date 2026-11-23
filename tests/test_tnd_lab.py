@@ -221,8 +221,8 @@ def test_a_structure_is_stood_on_stepped_off_and_walked_into(text):
     g.run(U, 200)
     g.run(0, 10)
     assert g.uv()[1] < 10.0 and g.cell("lab_gh") == 0, "he walked up a step too high to step"
-    g.put(-29.0, 13.0, NORTH)                                 # dropped onto it from above
-    g.poke("f_py", round(1.6 * 65536))
+    g.poke("f_py", round(1.6 * 65536))                        # dropped onto it from above (P55: placed ABOVE it --
+    g.put(-29.0, 13.0, NORTH)                                 # put inside it at the floor, a structure puts him out)
     g.run(0, 60)
     assert g.cell("f_py") == 0 and g.cell("lab_gh") == int(0.8 * 65536) and g.cell("lab_si") == 0, "he did not land on the step"
     g.put(-29.0, 13.0, EAST)                                  # along it to the next, 0.8 higher: too high
@@ -253,6 +253,7 @@ def test_the_lift_and_the_slider_carry_him(text):
     g2 = Game(text)
     g2.turn("who", 3)
     u0 = g2.cell("lab_slide") / 65536
+    g2.poke("f_py", round(3.0 * 65536))                       # (P55: above it before he is put there)
     g2.put(4.0 + u0, 13.5, NORTH)
     g2.poke("f_py", round(3.0 * 65536))
     g2.run(0, 50)
