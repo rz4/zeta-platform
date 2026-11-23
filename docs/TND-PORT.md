@@ -2492,3 +2492,51 @@ line to the target?" The lab and the reactor only.
 - the law against the simulated silicon: the lab 495 frames, the
   reactor 381, bit-equal; the frame 51% / 58% and 55% / 61% (median /
   peak). On the card 2026-11-23.
+
+## P48: exact dodges in his own widths; where he will land (2026-11-23)
+
+The player, of P47 on glass (ten minutes of the reactor): "this feels
+alot better, for the boxing I think we want an exact left right up down
+flip jump, not the double press one, this is to quick dodge maybe two
+units, the none boxing is a single unit dodge. The running should feel
+very good at figuring out where your jump and double jump (flip) should
+land, maybe having the camera also cover the ground to see where you
+are going to land. over all this positioning tackcially." The lab and
+the reactor only.
+
+- **A UNIT IS HIS OWN WIDTH** (0.58: the reactor's check, which he asked
+  to be "unit to the player width"). MY READING; the dodge knob is now
+  that unit's length (1.0), so it is one turn to change.
+- **THE TANK'S DODGE IS ONE**, exactly, in six frames (it was 2.4 units
+  -- four of his widths -- in twelve). The way the pad points; none
+  held, back; Down with A is still the quick turn.
+- **THE BOXER'S A WITH A DIRECTION IS A FLIP THAT WAY, AT ONCE**: one
+  press (the flip was the second press in the air; the first was a
+  strafe jump of three units), the flip's own tuck or cartwheel, low (a
+  quarter of a unit) and over in ten frames, and down EXACTLY two of his
+  widths from where he left the floor, stopped. There is no second. A
+  with no direction is the jump, and A again in the air its flip, as
+  before.
+- **WHERE HE WILL COME DOWN IS MARKED**: in the air on his own arc, a
+  small red lozenge lies on the floor where he will land -- his arc run
+  on to the floor, the same steps, counted, and that many frames on at
+  the pace he has. For the run's jump it is right to a thousandth of a
+  unit from the first frame; a flip moves it at the press (it cannot be
+  known before) and from then it is right to a twentieth; steering in
+  the air, it goes where he is steering. A wall is not looked for.
+- **THE LENS COVERS THE FLOOR**: it goes up with him, so in the air it
+  looks DOWN -- sixteen of the turn's 1,024 a unit of his height, sixty
+  at most -- and steps nine tenths of a unit to his right, because the
+  floor he is coming to is straight ahead of him and from square behind
+  his own body stands on it. Not while he is locked.
+- NOT DONE: nothing shows where a jump WOULD land before it is thrown.
+- tests: `tests/test_tnd_move.py`, 14 (each dodge and flip to the
+  hundredth of a width; the knob doubling it; the mark against where he
+  lands, with and without a flip; the lens). The lab's 40, the aim's 12
+  and the reactor's 7 pass. Layers 0, 4, 8 and the full cart
+  byte-identical. The knob registries are at mapping_version 2.
+- the law against the simulated silicon: the lab 405 frames (the run's
+  jump and flip, the dodges, the flips, a locked round), the reactor
+  386, bit-equal; the frame 48% / 56% and 59% / 65% (median / peak). On
+  the card 2026-11-23.
+- His tape: `experiments/tnd/tnd-reactor-0003.json`.

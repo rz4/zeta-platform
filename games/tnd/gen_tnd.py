@@ -1426,6 +1426,14 @@ if LAB:
     HALL_U, HALL_V, HALL_H = 2 * TILE, TILE, 12.0                      # half its width, half its depth, its walls
     LAB_EDGE = 0.6                                                     # how near a wall a body's middle comes
     _GRN, _WHT, _GRY = (60, 190, 110), (232, 232, 226), (150, 150, 154)
+    BODY_W = round(float(np.ptp(to_zeta(d["V_idle"][0])[:, 0])), 2)   # his width: the unit a body's moves are counted in
+    # P48 (the player, 2026-11-23: "for the boxing I think we want an exact
+    # left right up down flip jump, not the double press one, this is to
+    # quick dodge maybe two units, the none boxing is a single unit dodge").
+    # A UNIT IS HIS OWN WIDTH (the reactor's check). The tank's dodge is ONE,
+    # in six frames; the boxer's A with a direction is a FLIP that way of
+    # TWO, at once, low and quick -- and each ends exactly there. The dodge
+    # knob is that unit's length (1.0: his width).
 
     def lab_xz(u_, v_):
         return int(round((HALL_X - v_) * ONE)), int(round((HALL_Z + u_) * ONE))
@@ -1573,6 +1581,9 @@ if LAB:
     _gb.box(-0.06, 0.005, -0.02, 0.02, -0.14, 0.0, (22, 22, 26), top=False)
     _gb.box(0.20, 0.235, -0.008, 0.008, 0.06, 0.075, (255, 60, 40))               # its front sight
     GUN_M = int(cart.data(_gb.mesh(), "lab_gun"))
+    _lb = Build()                                  # where he will land: a small red lozenge lying on the floor
+    _lb.quad([(-0.17, 0.0, 0.03), (0.0, -0.17, 0.03), (0.17, 0.0, 0.03), (0.0, 0.17, 0.03)], (0, 0, 1), (255, 36, 28))
+    LAND_M = int(cart.data(_lb.mesh(), "lab_land"))
     ZONE_MESH = (lambda: cart.data(Table([HOT_M, SPARK_M, DOT_M]), "lab_zone_mesh"))       # (made once those exist)
 GATE_T = cart.data(Table(GT_W or [0]), "gates")
 _gb = Build()                      # the gate: a wall of bars across the street,
@@ -2858,6 +2869,21 @@ ALIGN_LINGER = 16
 # f_acmb the follow's frames, f_uwin the window, f_foe who he follows.)
 JUMP_V0 = int(round(0.186 * ONE))
 JUMP_RISE, JUMP_FALL = int(round(0.010 * ONE)), int(round(0.024 * ONE))
+if LAB:
+    QD_F = 6                                       # the tank's dodge: frames
+    AIR_SH = -0.9                                  # how far to his right the lens stands while he is in the air
+    QF_V0 = int(0.08 * ONE)                        # the boxer's flip: its rise
+
+    def _air_frames(v0_):
+        """frames his arc is integrated before he is down again (the aloft code's own steps)"""
+        y_, v_, n_ = 1, v0_, 0
+        while True:
+            v_ -= JUMP_RISE if v_ > 0 else JUMP_FALL
+            y_ += v_
+            n_ += 1
+            if y_ <= 0:
+                return n_
+    QF_T = _air_frames(QF_V0)
 UWIN_F, ACMB_F, ACMB_REFRESH = 40, 110, 48
 FOLLOW_GAP, FOLLOW_RANGE = int(round(0.12 * ONE)), 0.80
 FOLLOW_EASE = int(round(0.34 * ONE))
@@ -2956,6 +2982,8 @@ KNOBS_LAB = (("who", 0, 1, 0, 5),                               # 0 who stands t
               + tuple(k_ for k_ in KNOBS_L1 if k_[0] == "jump")
 assert len(KNOBS_LAB) == 15
 SETTLED.update({k_[0]: k_[1] for k_ in KNOBS_LAB})
+if LAB:                         # (P48: in the lab the dodge knob is a LENGTH, in his own widths -- not a pace a frame)
+    KNOBS_LAB = tuple(("dodge", ONE, ONE // 4, ONE // 4, 4 * ONE) if k_[0] == "dodge" else k_ for k_ in KNOBS_LAB)
 # (P45, the reactor: nobody else is there, so the first knob is the DOUBLE'S: 1 it does what he does, 0 it stands as the lab's did)
 KNOBS_REACTOR = (("mirror", 1, 1, 0, 1),) + KNOBS_LAB[1:]
 SETTLED["mirror"] = 1
@@ -3048,6 +3076,8 @@ if LAB:
     BSL, HNDW, UXS, AT4 = cart.var("aim_slope", 2), cart.var("aim_hand", 3), cart.var("aim_shift", 3), cart.var("aim_t", 4)
     DVR, DVD, DVQ, DVI, DVN = (cart.var("div_" + k) for k in ("r", "d", "q", "neg", "n"))
     L_QDIV = p.label("qdiv")
+    # P48: where he will come down (and whether he is on his way there); how far the lens looks down for it
+    LNDX, LNDZ, LNDON, AIRP = (cart.var("land_" + k) for k in ("x", "z", "on", "look"))
     assert all(e_["k"] == i_ for i_, e_ in enumerate(ENEMY))
     if REACTOR:
         MIRY = cart.var("rx_miry")                   # (P45: his double's height is his)
@@ -3356,7 +3386,7 @@ if BASE:
         # placed yet (the "who" knob's first reading does that)
         p.push32(LAB_START[0]).store(PX).push32(LAB_START[1]).store(PZ)
         p.set(YAW, LAB_YAW).set(CY, LAB_YAW).set(HEAD, LAB_YAW).set(WHOP, -1)
-        for c_ in (PGH, ARP, PLO4, PLOP, LABT, JUGY, PASSK, SELN, WBEND, WBTO, WBD, GUNK, MUZT, HNDON, int(BSL), int(BSL) + 1,
+        for c_ in (PGH, ARP, PLO4, PLOP, LABT, JUGY, PASSK, SELN, WBEND, WBTO, WBD, GUNK, MUZT, HNDON, LNDON, AIRP, int(BSL), int(BSL) + 1,
                    int(UXS), int(UXS) + 1, int(UXS) + 2) + ((MIRY, int(RXV), int(RXV) + 1) if REACTOR else ()):
             p.set(c_, 0)
         p.set(LNGX, ONE).set(HITZ, 1)
@@ -4965,12 +4995,19 @@ for bit, k in ((spec.PAD_UP, 4), (spec.PAD_DOWN, 5), (spec.PAD_LEFT, 6), (spec.P
     p.set(F["evk"], k)
     p.mark(nb)
 p.mark(f"{dg_}_go")
-p.set(F["evt"], DODGE_F).set(F["evf"], DODGE_F)
+_dodge_f = QD_F if LAB else DODGE_F
+
+
+def _dodge_pace():
+    if LAB:                                       # (P48: the knob's length, over the dodge's frames)
+        return knob(p, "dodge").push(int(round(BODY_W * ONE / QD_F))).emit("mulq")
+    return knob(p, "dodge") if BASE else p.push(DODGE_V)
+p.set(F["evt"], _dodge_f).set(F["evf"], _dodge_f)
 p.load(YAW).load(W["qx"]).emit("add").push(1023).emit("and").store(W["qx"])
 sin_of(p, cell=W["qx"])
-(knob(p, "dodge") if BASE else p.push(DODGE_V)).emit("mulq").push(0).emit("swap", "sub", "dup").store(F["evx"]).store(F["vx"])
+_dodge_pace().emit("mulq").push(0).emit("swap", "sub", "dup").store(F["evx"]).store(F["vx"])
 sin_of(p, 256, cell=W["qx"])
-(knob(p, "dodge") if BASE else p.push(DODGE_V)).emit("mulq", "dup").store(F["evz"]).store(F["vz"])
+_dodge_pace().emit("mulq", "dup").store(F["evz"]).store(F["vz"])
 if BASE:
     p.set(EVW, 1)                                 # (P33: a dodge, to be stopped at its end)
 p.emit(f"jmp {jp}")
@@ -5005,13 +5042,29 @@ if L1:                                            # P24: "jump and pressed again
         p.set(SJD, k_)
         p.mark(nb_)
     p.load(SJD).emit(f"jz {jp}")
-    p.load(F["pvy"]).push(int(SJ_RISE * ONE)).emit("mulq").store(F["pvy"])
-    p.push(int(SJ_TURN)).load(SJD).emit("add", "loadi").load(F["latch"]).emit("add").store(W["qx"])
-    sin_of(p, cell=W["qx"])
-    knob(p, "sjump").emit("mulq").push(0).emit("swap", "sub").store(F["vx"])
-    sin_of(p, 256, cell=W["qx"])
-    knob(p, "sjump").emit("mulq").store(F["vz"])
-    p.emit(f"jmp {jp}")
+    if LAB:
+        # P48: THE BOXER'S FLIP: one press, the way the pad points on his
+        # cross -- the flip's own tuck or cartwheel, low (its rise a third
+        # of a unit), over in a quarter of a second, and down exactly two of
+        # his widths from where he left the floor (the strafe jump's rule:
+        # thrown, nothing takes from it, and it lands stopped). No second.
+        p.set(F["pvy"], QF_V0)
+        p.push(int(SJ_TURN)).load(SJD).emit("add", "loadi").load(F["latch"]).emit("add").store(W["qx"])
+        knob(p, "dodge").push(int(round(2 * BODY_W * ONE / QF_T))).emit("mulq").store(W["qy"])
+        sin_of(p, cell=W["qx"])
+        p.load(W["qy"]).emit("mulq").push(0).emit("swap", "sub", "dup").store(F["evx"]).store(F["vx"])
+        sin_of(p, 256, cell=W["qx"])
+        p.load(W["qy"]).emit("mulq", "dup").store(F["evz"]).store(F["vz"])
+        p.load(SJD).push(1).emit("sub").store(F["evk"]).set(F["evt"], QF_T).set(F["evf"], QF_T).set(F["flipu"], 1)
+        p.emit(f"jmp {jp}")
+    else:
+        p.load(F["pvy"]).push(int(SJ_RISE * ONE)).emit("mulq").store(F["pvy"])
+        p.push(int(SJ_TURN)).load(SJD).emit("add", "loadi").load(F["latch"]).emit("add").store(W["qx"])
+        sin_of(p, cell=W["qx"])
+        knob(p, "sjump").emit("mulq").push(0).emit("swap", "sub").store(F["vx"])
+        sin_of(p, 256, cell=W["qx"])
+        knob(p, "sjump").emit("mulq").store(F["vz"])
+        p.emit(f"jmp {jp}")
 p.set(F["pvy"], JUMP_V0).set(F["py"], 1)
 p.load(F["sty"]).push(2).emit("eq", f"jz {jp}")   # P18: THE BOXER -- a direction with
 p.emit(f"jmp {jp}_f2g")                           # the jump flips that way at once.
@@ -6114,6 +6167,45 @@ p.set(F["shake"], LAND_SHAKE)
 p.mark(ld_)
 p.set(SG_T["st"], 0).set(LANDT, LAND_FOR + 1)       # (the clock ticks before it is read)
 p.mark(f"{av}_e")
+if LAB:
+    # P48 ("The running should feel very good at figuring out where your
+    # jump and double jump (flip) should land"): WHERE HE WILL COME DOWN. In
+    # the air on his own arc, the arc is run on to the floor -- the same
+    # steps, counted -- and he is that many frames further on at the pace
+    # he has. (The air takes nothing from a jump, so it is exact for the
+    # run's jump and flip and for the boxer's; a wall is not looked for.)
+    lp = p.label("landing")
+    p.set(LNDON, 0)
+    p.load(F["py"]).emit(f"jz {lp}")
+    p.load(F["acmb"]).emit(f"jz {lp}_o", f"jmp {lp}")
+    p.mark(f"{lp}_o")
+    p.load(F["py"]).store(LS0).load(F["pvy"]).store(LS1).set(LS2, 0)
+    p.mark(f"{lp}_l")
+    p.push(0).load(LS1).emit("lt", f"jz {lp}_f")
+    p.load(LS1).push(JUMP_RISE).emit("sub").store(LS1).emit(f"jmp {lp}_i")
+    p.mark(f"{lp}_f")
+    p.load(LS1).push(JUMP_FALL).emit("sub").store(LS1)
+    p.mark(f"{lp}_i")
+    p.load(LS0).load(LS1).emit("add").store(LS0).addi(LS2, 1)
+    p.push(0).load(LS0).emit("lt").load(LS2).push(90).emit("lt", "and", f"jz {lp}_d", f"jmp {lp}_l")
+    p.mark(f"{lp}_d")
+    # (a flip in the RUN throws him at the flip's own pace for the frames it
+    # has left, and the run's own after: so many frames of the one, then
+    # the rest of the other)
+    p.load(LS2).store(LS0).set(LS1, 0)                       # frames at the pace he has; frames at the run's
+    p.load(F["sty"]).push(1).emit("eq", f"jz {lp}_one")
+    p.load(F["evf"]).load(LS2).emit("lt", f"jz {lp}_one")           # (the flip outlasts the air: all at its pace)
+    p.load(F["evf"]).store(LS0).load(LS2).load(F["evf"]).emit("sub").store(LS1)
+    p.mark(f"{lp}_one")
+    for pos_, vel_, dst_, plus_, neg_ in ((PX, F["vx"], LNDX, 0, True), (PZ, F["vz"], LNDZ, 256, False)):
+        sin_of(p, plus_)
+        p.load(F["spd"]).emit("mulq")
+        if neg_:
+            p.push(0).emit("swap", "sub")
+        p.load(LS1).emit("mul").load(vel_).load(LS0).emit("mul", "add")
+        p.load(W["stop"]).emit("mulq").load(pos_).emit("add").store(dst_)
+    p.set(LNDON, 1)
+    p.mark(lp)
 # ---- P10: THREADING pays (tear.py _parkour_style) ---------------------------
 th = p.label("thread")
 p.load(F["sty"]).push(1).emit("eq", f"jz {th}")
@@ -6965,6 +7057,16 @@ if L3:                                           # P35: locked -- targeting's le
     p.mark(f"{lc_}_t")
     p.push(int(TGT_D * ONE)).store(W["dmg"]).push(int(TGT_SH * ONE)).store(W["stop"])
     p.mark(lc_)
+if LAB:
+    # P48: IN THE AIR THE LENS STEPS TO HIS RIGHT -- the floor he is coming
+    # down on is straight ahead of him, and from square behind his own
+    # body stands on it. (Not locked: that lens is over his shoulder already.)
+    as_ = p.label("airshoulder")
+    p.load(LNDON).emit(f"jz {as_}")
+    p.load(LOCK).emit(f"jz {as_}_u", f"jmp {as_}")
+    p.mark(f"{as_}_u")
+    p.push(int(AIR_SH * ONE)).store(W["stop"])
+    p.mark(as_)
 if L2:
     # P31: TIME SLOWED, THE LENS GOES TO WHERE THE BLOW LANDS (the player:
     # "the slow motions need cameras focused on the hit location"): in to
@@ -7045,7 +7147,26 @@ if LAB:
     p.mark(f"{jc}_q")
     p.emit("shr 2").load(JUGY).emit("add").store(JUGY)
     p.load(JUGY).emit("sub")
-    p.load(WBEND).push(21846).emit("mul", "shr 16", "add").push(1023).emit("and")     # (P46: a third of his waist's bend)
+    p.load(WBEND).push(21846).emit("mul", "shr 16", "add")                            # (P46: a third of his waist's bend)
+    # P48 ("maybe having the camera also cover the ground to see where you
+    # are going to land"): the lens goes up with him, so it looks DOWN by
+    # sixteen of the turn's 1,024 a unit of his height, sixty at most,
+    # eased a quarter of the way a frame -- the floor he is coming to
+    # stays in the glass. Not while he is locked: that lens has its work.
+    al = p.label("airlook")
+    p.push(0)
+    p.load(LOCK).emit(f"jz {al}_u", f"jmp {al}")
+    p.mark(f"{al}_u")
+    p.emit("drop").load(F["py"]).push(16).emit("mul", "shr 16", "dup").push(60).emit("lt", f"jz {al}_c")
+    p.emit(f"jmp {al}")
+    p.mark(f"{al}_c")
+    p.emit("drop").push(60)
+    p.mark(al)
+    p.load(AIRP).emit("sub", "dup").push(0).emit("swap", "lt", f"jz {al}_p")
+    p.push(3).emit("add")
+    p.mark(f"{al}_p")
+    p.emit("shr 2").load(AIRP).emit("add").store(AIRP)
+    p.load(AIRP).emit("add").push(1023).emit("and")
 p.store(spec.CAM_PITCH)
 
 
@@ -8247,6 +8368,10 @@ for m in ((UPPER, LOWER) if "player" not in OMIT else ()):
               "shl 20", "or"),
              (f"load {int(PFLAGS)}",) + ((f"push {spec.OBJ_CART}", "or") if CARTMESH else ()))
 if LAB and "player" not in OMIT:
+    lm2 = p.label("landmark")                     # (P48: where he will come down)
+    p.load(LNDON).emit(f"jz {lm2}")
+    p.object(NOBJ, LAND_M, (f"load {int(LNDX)}",), (f"load {int(GYC)}",), (f"load {int(LNDZ)}",), 0, spec.OBJ_CULL)
+    p.mark(lm2)
     # P46: THE GUN IN HIS HAND, lying along his aim; and for three frames after a round, the flash at its mouth
     go = p.label("gun")
     p.load(HNDON).emit(f"jz {go}")

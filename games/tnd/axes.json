@@ -2,8 +2,8 @@
  "schema": "zeta-axes-1",
  "game": "tnd",
  "page": "lab (TND_LAYER=10)",
- "mapping_version": 1,
- "note": "The knobs of the lab's tuner, in its order. An axis here is ONE knob; an axis over several knobs is a later version of this file, not a second meaning for an id.",
+ "mapping_version": 2,
+ "note": "The knobs of the lab's tuner, in its order. An axis here is ONE knob; an axis over several knobs is a later version of this file, not a second meaning for an id. [v2, 2026-11-23: `dodge` is a length in his own widths (it was a pace a frame); records made before carry mapping_version 1 in what they read.]",
  "axes": [
   {
    "id": "tnd.lab.who",
@@ -164,14 +164,14 @@
   {
    "id": "tnd.lab.dodge",
    "knob": "dodge",
-   "what": "how far a dodge goes",
-   "positive_means": "farther",
-   "default": 13107,
-   "step": 655,
-   "min": 5242,
-   "max": 26214,
-   "unit": "Q16.16 (65536 = 1.0) a frame",
-   "mechanics": "the dodge's speed (x 12 frames)"
+   "what": "the length of a dodge's unit, in his own widths: the tank's dodge is one of it, the boxer's flip two",
+   "positive_means": "further",
+   "default": 65536,
+   "step": 16384,
+   "min": 16384,
+   "max": 262144,
+   "unit": "his widths (0.58), Q16.16",
+   "mechanics": "the tank's dodge: knob x 0.58 over six frames; the boxer's A with a direction: knob x 1.16 over the flip's air"
   },
   {
    "id": "tnd.lab.jump",
