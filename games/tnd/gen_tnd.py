@@ -81,11 +81,13 @@ SWARM_TEST = os.environ.get("TND_SWARM") == "1"
 #                 held slows time, keeps the string, and the lens goes to
 #                 where the blow lands.
 LAYER = int(os.environ.get("TND_LAYER", "9"))
-BASE = LAYER in (0, 1, 2, 3, 4, 5, 6, 7, 8)  # the base's own rules (the layers stand on them)
-L1 = LAYER in (1, 2, 3, 4, 5, 6, 7, 8)  # the left shoulder
-L2 = LAYER in (2, 3, 4, 5, 6, 7, 8)  # shadow boxing, and the gun
-L3 = LAYER in (3, 4, 5, 6, 7, 8)  # the right shoulder: targeting (P35)
-L4 = LAYER in (4, 5, 6, 7, 8)    # the enemies (P37): bodies from the cart (frontier 20's core)
+# (9 is NOT a layer: it is the default, the whole game. The lab is 10.)
+BASE = LAYER in (0, 1, 2, 3, 4, 5, 6, 7, 8, 10)  # the base's own rules (the layers stand on them)
+L1 = LAYER in (1, 2, 3, 4, 5, 6, 7, 8, 10)  # the left shoulder
+L2 = LAYER in (2, 3, 4, 5, 6, 7, 8, 10)  # shadow boxing, and the gun
+L3 = LAYER in (3, 4, 5, 6, 7, 8, 10)  # the right shoulder: targeting (P35)
+L4 = LAYER in (4, 5, 6, 7, 8, 10)  # the enemies (P37): bodies from the cart (frontier 20's core)
+LAB = LAYER == 10                # THE LAB (P42): a white room to tune the fight in -- layer 4, no town
 L5 = LAYER in (5, 6, 7, 8)       # the world (P38, docs/TND-WORLD.md): a key a gate, bolts, bunkers
 L6 = LAYER in (6, 7, 8)          # the bunker's map and his waymarks (P39, TND-WORLD step 3)
 L7 = LAYER in (7, 8)             # the bunker is a door and rooms: the prep table, the ring, the range (P40)
@@ -336,7 +338,7 @@ END_PAUSE = cart.cram(Table(_pend), "pause_end")
 # twice the room it had, and a page-in copies 16K words -- a frame's work at
 # the SRAM's pace, on the frames the intro or the pause come and go.
 PAGE = 16384
-if os.environ.get("TND_CARTMESH") == "1" or LAYER in (4, 5, 6, 7, 8):   # (the whole of IMEM is the page --
+if os.environ.get("TND_CARTMESH") == "1" or LAYER in (4, 5, 6, 7, 8, 10):   # (the whole of IMEM is the page --
     PAGE = spec.IMEM_WORDS                    # the machine holds 32,768; a page-in is two frames' work)
 INTRO_PROG = cart.cram(Table([0] * PAGE), "intro_prog")
 PAUSE_PROG = cart.cram(Table([0] * PAGE), "pause_prog")
@@ -430,7 +432,7 @@ if CARTMESH:
     # the same bank through his own two descriptors and the same two face
     # streams -- ten words of DMEM and four offsets a frame. He stands five
     # units up the street from the start, facing down it, in the guard.
-    RIVAL = L3 and not L4
+    RIVAL = (L3 and not L4) or LAB
     if RIVAL:
         RDESC = cart.data(Table([len(halves[0][1]) | len(halves[0][2]) << 16, _o[0], int(FSTR[0]), _o[1], CM_SHIFT,
                                  len(halves[1][1]) | len(halves[1][2]) << 16, _o[2], int(FSTR[1]), _o[3], CM_SHIFT]),
@@ -446,6 +448,8 @@ if CARTMESH:
              filter(None, os.environ.get("TND_CROWD", "").split(","))] if L3 else []
     if L4:
         CROWD = [("elite", 1), ("common", 1), ("horde", 4)]
+    if LAB:                        # (P42: and his own body, whole, to fight)
+        CROWD = [("rival", 1)] + CROWD
     # (a size's pace a frame, how near it comes, what it takes)
     TIER_IS = {"elite": (0.045, 2.4, 8), "common": (0.040, 2.1, 5), "horde": (0.030, 1.8, 3)}
     if L8:                         # (P41: they press him -- the patrol's own pace is the horde's)
@@ -488,7 +492,15 @@ if CARTMESH:
             ENEMY.append(e_)
             _slot += 1
     RIVAL = RIVAL and (not CROWD or any(k_ == "rival" for k_, _ in CROWD))
+    if LAB:
+        # P42: THE CLONE -- the player's own body through its own two
+        # descriptors (the rival's), an enemy like the others: the last slot
+        ENEMY.append(dict(T=dict(hp=12, stand=2.4, pace=0, rival=True), rival=True, phase=0, k=_slot, dx=0, dz=0, rx=0, rz=0,
+                          desc=int(RDESC), pos=cart.var(f"e{_slot}_pos", 2), old=cart.var(f"e{_slot}_old", 2),
+                          **{k_: cart.var(f"e{_slot}_{k_}") for k_ in ("yaw", "st", "hp", "stun", "fl", "ph", "clk", "walk", "t")}))
 NPOSE = {s: len(d["V_" + s]) for s in SEQS}
+if LAB:
+    ENEMY[-1]["T"]["n"] = NPOSE["idle"]          # (the clone stands in the player's own idle)
 if DEDUPE:
     _sl = slot + [0] * (len(slot) & 1)
     PSLOT = cart.data(Table([_sl[i] | _sl[i + 1] << 16 for i in range(0, len(_sl), 2)]),
@@ -1397,6 +1409,79 @@ if L7:
     BUNKN_T = cart.data(Table([d_["node"] for d_ in TDOORS[:-1]]), "bunker_node")
 GT_N = 7
 CMAP = cart.data(Table(CMAP_W), "city_map")
+if LAB:
+    # P42: THE LAB (the player: "an empty white room, with a green and white
+    # checker board, grey walls: tall, checker board white and grey. Then
+    # having one stationary clone of the player to fight. think about it as
+    # tuning the fighting in this cart. Able to load n number of tiered
+    # enemies. stationary for now. we want to work on how the weight works
+    # with how they will respond to hits ... make the room wide so at the
+    # wall we have platforming with some moving and some structures").
+    # The room is not the town's: a hall four tiles wide and two deep, north
+    # of it, its floor and walls drawn tile by tile and its bounds one test.
+    # u runs across it (east), v into it (north); he begins at its south.
+    HALL_X, HALL_Z = -(17 * TILE + HT - OYA), 8 * TILE - HT - OXA      # its middle, in zeta's x and z
+    HALL_U, HALL_V, HALL_H = 2 * TILE, TILE, 12.0                      # half its width, half its depth, its walls
+    LAB_EDGE = 0.6                                                     # how near a wall a body's middle comes
+    _GRN, _WHT, _GRY = (60, 190, 110), (232, 232, 226), (150, 150, 154)
+
+    def lab_xz(u_, v_):
+        return int(round((HALL_X - v_) * ONE)), int(round((HALL_Z + u_) * ONE))
+
+    def _lab_tile(west_, east_, south_):
+        """a tile of the hall, about its middle: the floor's checks, the ceiling, and the walls it has"""
+        b_ = Build()
+        for i_ in range(4):
+            for j_ in range(4):
+                x0_, y0_ = -HT + 4 * i_, -HT + 4 * j_
+                b_.quad([(x0_, y0_, 0.0), (x0_ + 4, y0_, 0.0), (x0_ + 4, y0_ + 4, 0.0), (x0_, y0_ + 4, 0.0)], (0, 0, 1),
+                        _GRN if (i_ + j_) % 2 == 0 else _WHT)
+        b_.quad([(-HT, -HT, HALL_H), (HT, -HT, HALL_H), (HT, HT, HALL_H), (-HT, HT, HALL_H)], (0, 0, -1), _WHT)
+        for on_, (ax_, at_, n_) in ((west_, (0, -HT, (1, 0, 0))), (east_, (0, HT, (-1, 0, 0))), (south_, (1, -HT, (0, 1, 0)))):
+            if not on_:
+                continue
+            for i_ in range(4):
+                for j_ in range(3):
+                    a0_, z0_ = -HT + 4 * i_, 4 * j_
+                    c_ = _WHT if (i_ + j_) % 2 == 0 else _GRY
+                    pts_ = [(at_, a0_, z0_), (at_, a0_ + 4, z0_), (at_, a0_ + 4, z0_ + 4), (at_, a0_, z0_ + 4)] if ax_ == 0 else \
+                           [(a0_, at_, z0_), (a0_ + 4, at_, z0_), (a0_ + 4, at_, z0_ + 4), (a0_, at_, z0_ + 4)]
+                    b_.quad(pts_, n_, c_)
+        assert len(b_.v) <= spec.MESH_NV_MAX and len(b_.f) <= spec.MESH_NF_MAX
+        return int(cart.data(b_.mesh(), f"lab_tile{int(west_)}{int(east_)}{int(south_)}"))
+    _t_sw, _t_s, _t_se = _lab_tile(True, False, True), _lab_tile(False, False, True), _lab_tile(False, True, True)
+    # (the north row is the south row turned half round: the checks fall the same)
+    LAB_TILES = [(lab_xz(-24 + 16 * i_, -8), m_, 0) for i_, m_ in enumerate((_t_sw, _t_s, _t_s, _t_se))] + \
+                [(lab_xz(-24 + 16 * i_, 8), m_, 512) for i_, m_ in enumerate((_t_se, _t_s, _t_s, _t_sw))]
+    # THE STRUCTURES along the north wall: (u0, u1, v0, v1, its top, how it moves)
+    PLATS = [(-32, -26, 10, 16, 0.8, None), (-26, -20, 10, 16, 1.6, None), (-20, -12, 10, 16, 2.4, None),
+             (-12, 2, 13, 16, 2.4, None),                # a ledge along the wall
+             (2, 6, 12, 15, 2.4, "u"),                   # it slides ten units east and back
+             (20, 26, 10, 16, 4.0, "y"),                 # it rises from 0.4 to 4.0 and sinks
+             (26, 32, 10, 16, 4.0, None)]                # ...to this one
+    PLAT_SLIDE, PLAT_LOW, PLAT_STEP = 10.0, 0.25, 0.3
+    PLAT_M = []
+    for k_, (u0_, u1_, v0_, v1_, top_, how_) in enumerate(PLATS):
+        b_ = Build()
+        w_, d_ = (u1_ - u0_) / 2, (v1_ - v0_) / 2
+        b_.box(-w_, w_, -d_, d_, 0.0, top_, _GRY)
+        b_.f = [(a_, bb_, c_, rgb((236, 196, 64) if how_ else _GRN) if i_ < 2 else col_) for i_, (a_, bb_, c_, col_) in enumerate(b_.f)]
+        PLAT_M.append(int(cart.data(b_.mesh(), f"lab_plat{k_}")))
+    LAB_START = lab_xz(0, -11)
+    # WHO STANDS THERE (the knob): slots 0 the elite, 1 the common, 2-5 the horde, 6 the clone
+    LAB_WHO = (0b1000000, 0b1000001, 0b1000110, 0b0000001, 0b0001111, 0b0111111)
+    LAB_MARK = [lab_xz(u_, 2.0) for u_ in (-4, 4, -8, 8, -12, 12, 0)]
+    WHO_T = cart.data(Table(LAB_WHO), "lab_who_is")
+    # WHAT A BLOW DOES, a move a row (the jab, the cross, the hooks, the haymaker, the two uppercuts, a round, a charged one):
+    # how fast it sends a body of the clone's weight (a frame), and how fast it throws one up
+    KNOCK_T = cart.data(Table([int(v_ * ONE) for v_ in (0.05, 0.07, 0.11, 0.11, 0.26, 0.05, 0.05, 0.04, 0.12)]), "lab_knock_by_move")
+    LIFT_T = cart.data(Table([int(v_ * ONE) for v_ in (0, 0, 0, 0, 0.04, 0.17, 0.20, 0, 0)]), "lab_lift_by_move")
+    INVM_T = cart.data(Table([int(v_ * ONE) for v_ in (1.0, 1.25, 1.6, 1.6, 1.6, 1.6, 1.0)]), "lab_invmass")   # one over each one's own weight
+    _wk = ("weight", ONE, int(0.1 * ONE), int(0.4 * ONE), 3 * ONE)     # (the knob, as KNOBS_LAB has it)
+    INVW_LO = (_wk[3] - _wk[1]) // _wk[2]                              # the weight knob's lowest notch
+    INVW_T = cart.data(Table([int(ONE * ONE / (_wk[1] + n_ * _wk[2])) for n_ in range(INVW_LO, (_wk[4] - _wk[1]) // _wk[2] + 1)]),
+                       "lab_invweight")
+    KGLYPH = cart.data(Table([FONT_CH.index(c_) for c_ in "0123456789ABCDE"]), "knob_glyphs")
 GATE_T = cart.data(Table(GT_W or [0]), "gates")
 _gb = Build()                      # the gate: a wall of bars across the street,
 for i in range(7):                 # red and black, seen from both sides
@@ -2159,8 +2244,12 @@ def keep_in_arena(xc, zc, ox, oz):
     can run along rather than glue. (One subroutine through two pointers:
     every pair here sits x then z, ox then oz.)"""
     assert int(zc) == int(xc) + 1 and int(oz) == int(ox) + 1
+    if LAB and int(xc) == int(PX):               # (P42: it is HE who asks -- a structure he is above is no wall)
+        p.set(ARP, 1)
     p.push(int(xc)).store(KP["p"]).push(int(ox)).store(KP["o"])
     p.emit(f"call {L_KIA}")
+    if LAB and int(xc) == int(PX):
+        p.set(ARP, 0)
 
 
 def _kia_sub():
@@ -2739,8 +2828,24 @@ KNOBS_L2 = (("pivot", 176, 16, 128, 512),      # 0 his body's turn into a blow's
             ("mag", 6, 1, 0, 12))              # 9 rounds in the gun (0: it never runs dry)
 SETTLED = {k_[0]: k_[1] for k_ in KNOBS + KNOBS_L1 + KNOBS_L2}
 SETTLED["ramp"] = BASE_SET.get("ramp", int(0.22 * ONE))      # (weight: left at 0.73)
+# THE LAB'S PAGE (P42): who stands there, how heavy they are and what a blow
+# does to one -- and seven of the strikes' and the jump, to turn beside them.
+KNOBS_LAB = (("who", 0, 1, 0, 5),                               # 0 who stands there (see LAB_WHO)
+             ("weight", ONE, int(0.1 * ONE), int(0.4 * ONE), 3 * ONE),   # 1 how heavy they all are (x their own; INVW_T is cut to it)
+             ("knock", ONE, int(0.1 * ONE), 0, 3 * ONE),        # 2 how far a blow sends one (x the move's)
+             ("lift", ONE, int(0.1 * ONE), 0, 3 * ONE),         # 3 how high a launcher throws one
+             ("stun", ONE, int(0.1 * ONE), 0, 3 * ONE),         # 4 how long a blow holds one (x the move's)
+             ("hstop", ONE, int(0.1 * ONE), 0, 3 * ONE),        # 5 the hitstop (x the move's)
+             ("slide", int(0.88 * ONE), int(0.01 * ONE), int(0.6 * ONE), int(0.99 * ONE)),   # 6 what a sliding body keeps of its speed, a frame
+             ("egrav", int(0.012 * ONE), int(0.001 * ONE), int(0.004 * ONE), int(0.03 * ONE)),   # 7 how one falls
+             ) + tuple(k_ for k_ in KNOBS_L2 if k_[0] in ("lunge", "keep", "hold", "slow", "dodge", "pivot")) \
+              + tuple(k_ for k_ in KNOBS_L1 if k_[0] == "jump")
+assert len(KNOBS_LAB) == 15
+SETTLED.update({k_[0]: k_[1] for k_ in KNOBS_LAB})
 if LAYER == 1:
     KNOBS = KNOBS_L1
+if LAB:
+    KNOBS = KNOBS_LAB
 if LAYER in (2, 3, 4, 5, 6, 7, 8):
     KNOBS = KNOBS_L2
 if BASE:
@@ -2806,6 +2911,18 @@ if BASE:
         assert all(int(e_["pos"]) == E0 + ESTR * e_["k"] and int(e_["st"]) == E0 + ESTR * e_["k"] + 5
                    and int(e_["stun"]) == E0 + ESTR * e_["k"] + 7 and int(e_["fl"]) == E0 + ESTR * e_["k"] + 8 for e_ in ENEMY)
         L_REST = p.label("rest")
+
+
+if LAB:
+    # P42: THE LAB's state. What he stands on (its height, which structure);
+    # is the arena being asked about HIM; the slider's place now and a frame
+    # ago, the lift's top, and their clock; the "who" knob as it last was;
+    # a blow's subject, move and way, and what it came to; scratch. And each
+    # body's own: its speed along the floor, its height and its rise, its lean.
+    (PGH, PSI, ARP, PLO4, PLOP, PLT5, LABT, WHOP, HK, HM, HDX, HDZ, IMPV, LS0, LS1, LS2) = (cart.var("lab_" + k) for k in (
+        "gh", "si", "arp", "slide", "slide0", "lift", "t", "who", "hk", "hm", "hdx", "hdz", "imp", "s0", "s1", "s2"))
+    EVX, EVZ, EY, EVY, ETL = (cart.var("lab_" + k, len(ENEMY)) for k in ("evx", "evz", "ey", "evy", "tilt"))
+    L_HITR = p.label("hitr")
 
 
 def item_exists(g):
@@ -3100,6 +3217,14 @@ if BASE:
                 p.set(KNOWN, int(_at[4]))
             if L7:
                 p.set(INSIDE, 0)
+    if LAB:
+        # P42: he begins at the hall's south, facing its middle; nobody is
+        # placed yet (the "who" knob's first reading does that)
+        p.push32(LAB_START[0]).store(PX).push32(LAB_START[1]).store(PZ)
+        p.set(YAW, 256).set(CY, 256).set(HEAD, 256).set(WHOP, -1)
+        for c_ in (PGH, ARP, PLO4, PLOP, LABT):
+            p.set(c_, 0)
+        p.set(PSI, -1).set(PLT5, int(PLAT_LOW * ONE))
     p.set(WR, ONE)
 if SWARM_TEST:                                  # (the meter's hook: the fight in the
     p.set(PX, int(3 * ONE)).set(PZ, int(3 * ONE))               # first plaza, the
@@ -3448,6 +3573,8 @@ if BASE:
     p.mark(f"{gr_}_2")
     p.emit("drop").push(int(GRADES[1]))
     p.mark(gr_)
+    if LAB:                                       # (P42: the lab's colours are its own: no curve --
+        p.emit("drop").push(0)                    # but time slowed still sinks the glass)
     if L2:                                        # (time slowed: the glass sinks)
         p.load(SLOWON).emit(f"jz {gr_}_s")
         p.emit("drop").push(int(GRADES[2]))
@@ -3670,6 +3797,10 @@ p.load(CT["n"]).push(0).emit("lt", f"jz {du_}_on", f"jmp {du_}")
 p.mark(f"{du_}_on")
 p.load(CT["w"]).emit("shr 23").push(15).emit("and").push(int(DUSK)).emit("add", "loadi")
 p.store(spec.FOG_RGB)
+if LAB:                                          # (P42: the lab's haze is white: the far wall goes to it)
+    p.mark(du_)
+    du_ = p.label("labfog")
+    p.push32(0xE6E6E2).store(spec.FOG_RGB)
 if BASE:
     # P22: THE LIGHT, each frame. The town's own dark is the light knob's
     # level, a notch darker a district toward the core (to 3 of 32); what
@@ -4090,7 +4221,90 @@ if L2:
         p.load(F["brg"]).store(W["head"]).push(LOCK_TURN).store(W["dg"]).emit(f"call {L_STEER}")
         p.load(YAW).store(F["latch"])
         p.mark(lk3)
-    if L4:
+    if LAB:
+        # P42: THE LAB'S BODIES STAND -- "stationary for now" -- and what
+        # they do is ANSWER A BLOW: each has a speed along the floor and a
+        # rise, which a blow gives it by the move, the knobs and its weight
+        # (L_HITR), and which the floor's grip and its own fall take back; a
+        # wall stops it; held, it does not turn; else it turns to face him.
+        # Down, it lies DOWN_FOR frames and gets up where it lies. And WHO
+        # stands there is the knob's: turned, they are put back on their marks.
+        wh = p.label("who")
+        knob(p, "who").emit("dup").load(WHOP).emit("eq", f"jz {wh}_set", "drop", f"jmp {wh}")
+        p.mark(f"{wh}_set")
+        p.emit("dup").store(WHOP).push(int(WHO_T)).emit("add", "loadi").store(LS0)
+        for e_ in ENEMY:
+            k_ = e_["k"]
+            p.load(LS0).emit(f"shr {k_}").push(1).emit("and").store(e_["st"])
+            for c_, v_ in zip((int(e_["pos"]), int(e_["pos"]) + 1, int(e_["old"]), int(e_["old"]) + 1), LAB_MARK[k_] * 2):
+                p.push32(v_).store(c_)
+            p.set(e_["yaw"], 768).set(e_["hp"], e_["T"]["hp"]).set(e_["stun"], 0).set(e_["t"], 0)
+            for a_ in (EVX, EVZ, EY, EVY, ETL):
+                p.set(int(a_) + k_, 0)
+        p.mark(wh)
+        for e_ in ENEMY:
+            ea = p.label("labenemy")
+            k_ = e_["k"]
+            ex_, ez_, vx_, vz_, ey_, vy_, tl_ = (int(e_["pos"]), int(e_["pos"]) + 1, int(EVX) + k_, int(EVZ) + k_, int(EY) + k_,
+                                                 int(EVY) + k_, int(ETL) + k_)
+            p.load(e_["st"]).emit(f"jz {ea}")
+            p.addi(e_["clk"], 1).load(e_["clk"]).push(2 * e_["T"]["n"]).emit("lt", f"jz {ea}_cw", f"jmp {ea}_c")
+            p.mark(f"{ea}_cw")
+            p.set(e_["clk"], 0)
+            p.mark(f"{ea}_c")
+            # along the floor
+            p.load(vx_).load(vz_).emit("or", f"jz {ea}_still")
+            p.load(ex_).store(int(e_["old"])).load(ez_).store(int(e_["old"]) + 1)
+            p.load(ex_).load(vx_).emit("add").store(ex_).load(ez_).load(vz_).emit("add").store(ez_)
+            keep_in_arena(e_["pos"], int(e_["pos"]) + 1, e_["old"], int(e_["old"]) + 1)
+            for c_, o_, v_ in ((ex_, int(e_["old"]), vx_), (ez_, int(e_["old"]) + 1, vz_)):
+                p.load(c_).load(o_).emit("eq", f"jz {ea}_m{v_}")              # (a wall has that way: it stops)
+                p.set(v_, 0)
+                p.mark(f"{ea}_m{v_}")
+                p.load(v_)
+                knob(p, "slide").emit("mulq", "dup").store(v_)
+                p.emit("dup").push(0).emit("lt", f"jz {ea}_p{v_}")
+                p.push(0).emit("swap", "sub")
+                p.mark(f"{ea}_p{v_}")
+                p.push(48).emit("lt", f"jz {ea}_k{v_}")                        # (all but stopped: stopped)
+                p.set(v_, 0)
+                p.mark(f"{ea}_k{v_}")
+            p.mark(f"{ea}_still")
+            # up and down
+            p.load(ey_).load(vy_).emit("or", f"jz {ea}_gr")
+            p.load(vy_)
+            knob(p, "egrav").emit("sub").store(vy_)
+            p.load(ey_).load(vy_).emit("add", "dup").store(ey_)
+            p.push(1).emit("lt", f"jz {ea}_gr")
+            p.set(ey_, 0).set(vy_, 0)
+            p.mark(f"{ea}_gr")
+            # its lean comes back
+            p.load(tl_).emit(f"jz {ea}_nt")
+            p.load(tl_).load(tl_).emit("shr 3").push(1).emit("add", "sub", "dup").push(0).emit("lt", f"jz {ea}_tp")
+            p.emit("drop").push(0)
+            p.mark(f"{ea}_tp")
+            p.store(tl_)
+            p.mark(f"{ea}_nt")
+            # down; held; or turning to face him
+            p.load(e_["st"]).push(2).emit("eq", f"jz {ea}_up")
+            p.addi(e_["t"], 1).push(DOWN_FOR).load(e_["t"]).emit("lt", f"jz {ea}")
+            p.set(e_["st"], 1).set(e_["hp"], e_["T"]["hp"]).set(e_["stun"], 0).emit(f"jmp {ea}")
+            p.mark(f"{ea}_up")
+            p.load(e_["stun"]).emit(f"jz {ea}_free")
+            p.addi(e_["stun"], -1).emit(f"jmp {ea}")
+            p.mark(f"{ea}_free")
+            p.load(PX).load(ex_).emit("sub").store(W["qx"]).load(PZ).load(ez_).emit("sub").store(W["qz"])
+            p.emit(f"call {L_YAW}")
+            p.load(F["brg"]).load(e_["yaw"]).emit("sub").push(512).emit("add").push(1023).emit("and").push(512).emit("sub")
+            p.emit("dup").push(E_TURN).emit("swap", "lt", f"jz {ea}_t1")
+            p.emit("drop").push(E_TURN)
+            p.mark(f"{ea}_t1")
+            p.emit("dup").push(-E_TURN).emit("lt", f"jz {ea}_t2")
+            p.emit("drop").push(-E_TURN)
+            p.mark(f"{ea}_t2")
+            p.load(e_["yaw"]).emit("add").push(1023).emit("and").store(e_["yaw"])
+            p.mark(ea)
+    if L4 and not LAB:
         # P37: THE ENEMIES MOVE (the player: "lets have then move and make them
         # target able"). Each, up: held by a blow it stands; else it walks to
         # ITS PLACE in the ring round him (its size's stand-off out, on its own
@@ -5588,6 +5802,65 @@ foe("vy"); p.emit("storei")
 p.emit(f"jmp {av}_e")
 # his own arc: a light rise, a heavy fall, down to the street
 p.mark(f"{av}_arc")
+if LAB:
+    # P42: THE STRUCTURES. The slider and the lift move by the lab's own
+    # clock (the fight's: slowed time slows them). What he stands on is the
+    # highest top under him that is no more than a step above his feet: his
+    # height (f_py) is counted from IT, so everything that asks "is he on
+    # the ground" still asks the same thing. Stepping onto another, his
+    # height in the room is kept (and a step up is taken); off an edge, he
+    # is in the air; on the same one, he rides it -- up with the lift,
+    # along with the slider.
+    pl = p.label("plats")
+    p.addi(LABT, 1)
+    # (each waits at its ends: of the 256 frames one way, the first and the
+    # last 48 are stood still -- a lift can be stepped onto, and off)
+    for off_, dst_, k_, base_ in ((0, PLO4, int(PLAT_SLIDE * ONE / 160), 0), (128, PLT5, int((4.0 - PLAT_LOW) * ONE / 160), int(PLAT_LOW * ONE))):
+        if dst_ is PLO4:
+            p.load(PLO4).store(PLOP)
+        p.load(LABT).push(off_).emit("add").push(511).emit("and", "dup").push(256).emit("lt", f"jz {pl}_t{off_}")
+        p.emit(f"jmp {pl}_u{off_}")
+        p.mark(f"{pl}_t{off_}")
+        p.push(511).emit("swap", "sub")
+        p.mark(f"{pl}_u{off_}")
+        p.push(48).emit("sub", "dup").push(0).emit("lt", f"jz {pl}_a{off_}")
+        p.emit("drop").push(0)
+        p.mark(f"{pl}_a{off_}")
+        p.emit("dup").push(160).emit("lt", f"jz {pl}_b{off_}", f"jmp {pl}_c{off_}")
+        p.mark(f"{pl}_b{off_}")
+        p.emit("drop").push(160)
+        p.mark(f"{pl}_c{off_}")
+        p.push(k_).emit("mul").push(base_).emit("add").store(dst_)
+    p.load(F["py"]).load(PGH).emit("add").store(LS0)                   # his feet, in the room
+    p.set(LS1, 0).set(LS2, -1)
+    for k_, (u0_, u1_, v0_, v1_, top_, how_) in enumerate(PLATS):
+        (bx0_, bz0_), (bx1_, bz1_) = lab_xz(u0_, v1_), lab_xz(u1_, v0_)
+        p.push32(bx0_).load(PX).emit("lt").load(PX).push32(bx1_).emit("lt", "and")
+        if how_ == "u":
+            p.push32(bz0_).load(PZ).load(PLO4).emit("sub", "lt", "and").load(PZ).load(PLO4).emit("sub").push32(bz1_).emit("lt", "and")
+        else:
+            p.push32(bz0_).load(PZ).emit("lt", "and").load(PZ).push32(bz1_).emit("lt", "and")
+        p.emit(f"jz {pl}_n{k_}")
+        (p.load(PLT5) if how_ == "y" else p.push32(int(top_ * ONE))).store(W["dmg"])
+        p.load(W["dmg"]).push(int(PLAT_STEP * ONE) + 1).emit("sub").load(LS0).emit("lt")      # within a step of his feet
+        p.load(PSI).push(k_).emit("eq", "or")                                                 # (or it is the one he rides)
+        p.load(LS1).load(W["dmg"]).emit("lt", "and", f"jz {pl}_n{k_}")
+        p.load(W["dmg"]).store(LS1).set(LS2, k_)
+        p.mark(f"{pl}_n{k_}")
+    p.load(LS2).load(PSI).emit("eq", f"jz {pl}_new")
+    p.load(LS1).store(PGH)                                             # the same one: he rides it
+    p.load(PSI).push(4).emit("eq").load(F["py"]).push(0).emit("eq", "and", f"jz {pl}")
+    p.load(PZ).load(PLO4).emit("add").load(PLOP).emit("sub").store(PZ)
+    p.emit(f"jmp {pl}")
+    p.mark(f"{pl}_new")
+    p.load(LS0).load(LS1).emit("sub").store(F["py"]).load(LS1).store(PGH).load(LS2).store(PSI)
+    p.push(0).load(F["py"]).emit("lt", f"jz {pl}_dn", f"jmp {pl}")
+    p.mark(f"{pl}_dn")                                                 # (a step up, or onto it: he stands)
+    p.set(F["py"], 0)
+    p.push(0).load(F["pvy"]).emit("lt", f"jz {pl}_z", f"jmp {pl}")
+    p.mark(f"{pl}_z")
+    p.set(F["pvy"], 0)
+    p.mark(pl)
 p.load(F["py"]).load(F["pvy"]).emit("or", f"jz {av}_e")
 p.push(0).load(F["pvy"]).emit("lt", f"jz {av}_fall")
 p.load(F["pvy"]).push(JUMP_RISE).emit("sub").store(F["pvy"]).emit(f"jmp {av}_int")
@@ -5847,7 +6120,7 @@ if CARTMESH:                                 # the pose is where its streams are
         p.mark(f"{rv_}_w")
         p.set(RIV_T, 0)
         p.mark(rv_)
-    if RIVAL:                                # the rival's pose: the guard, from the player's own bank
+    if RIVAL and not LAB:                    # the rival's pose: the guard, from the player's own bank
         p.load(RIV_T).emit("shr 1").push(base["idle"]).emit("add").push(SPAN).emit("mul").push(int(BANK)).emit("add")
         for cell_, step_ in ((int(RDESC) + 1, CM_LEN[0]), (int(RDESC) + 3, CM_LEN[1]),
                              (int(RDESC) + 6, CM_LEN[2]), (int(RDESC) + 8, 0)):
@@ -5857,6 +6130,15 @@ if CARTMESH:                                 # the pose is where its streams are
         p.emit("drop")
     for e_ in ENEMY:                         # each of the crowd: its own place in its size's idle
         en_ = p.label("enemy")
+        if e_.get("rival"):                  # (P42: the clone: the player's own idle, through the rival's descriptors)
+            p.load(e_["clk"]).emit("shr 1").push(base["idle"]).emit("add").push(SPAN).emit("mul").push(int(BANK)).emit("add")
+            for cell_, step_ in ((int(RDESC) + 1, CM_LEN[0]), (int(RDESC) + 3, CM_LEN[1]),
+                                 (int(RDESC) + 6, CM_LEN[2]), (int(RDESC) + 8, 0)):
+                p.emit("dup").store(cell_)
+                if step_:
+                    p.push(step_).emit("add")
+            p.emit("drop")
+            continue
         if L4:                               # (P37: the guard by its own clock; walking, the stride)
             p.load(e_["clk"]).emit("shr 1")
             p.load(e_["walk"]).emit(f"jz {en_}")
@@ -5950,6 +6232,8 @@ if BASE:
     p.mark(f"{sw_}_up")
     p.push(int(CURB * ONE)).store(W["dmg"])
     p.mark(f"{sw_}_e")
+    if LAB:                                      # (P42: his feet are on what he stands on)
+        p.load(PGH).store(W["dmg"])
     p.load(W["dmg"]).load(GYC).emit("sub", "dup").push(0).emit("lt", f"jz {sw_}_p")
     p.emit(f"jmp {sw_}_q")                                      # (toward it by a quarter,
     p.mark(f"{sw_}_p")                                          # rounded so it arrives: up
@@ -6029,14 +6313,28 @@ if L4:
         p.set(F["con"], 1)
         p.push(int(FDMG)).load(F["mv"]).emit("add", "loadi").store(W["dmg"])
         row(PMT, F["mv"], "stop")
+        if LAB:                                      # (P42: the hitstop's knob)
+            knob(p, "hstop").emit("mul", "shr 16")
         p.emit("dup", "dup").store(F["stop"]).store(F["shake"]).push(12).emit("add").store(W["stop"])
-        enemy_hurt(p, e_)
-        p.load(ex_).store(int(e_["old"])).load(ez_).store(int(e_["old"]) + 1)
-        sin_of(p, cell=HEAD)
-        p.push(int(0.35 * ONE)).emit("mulq").load(ex_).emit("swap", "sub").store(ex_)
-        sin_of(p, 256, cell=HEAD)
-        p.push(int(0.35 * ONE)).emit("mulq").load(ez_).emit("add").store(ez_)
-        keep_in_arena(e_["pos"], int(e_["pos"]) + 1, e_["old"], int(e_["old"]) + 1)
+        if LAB:
+            # P42: held by the move's own frames, by the knob; and SENT the
+            # way his body faced, by the move, the knobs and its weight
+            p.load(W["stop"])
+            knob(p, "stun").emit("mul", "shr 16").store(W["stop"])
+            enemy_hurt(p, e_)
+            p.set(HK, e_["k"]).load(F["mv"]).store(HM)
+            sin_of(p, cell=HEAD)
+            p.push(0).emit("swap", "sub").store(HDX)
+            sin_of(p, 256, cell=HEAD)
+            p.store(HDZ).emit(f"call {L_HITR}")
+        else:
+            enemy_hurt(p, e_)
+            p.load(ex_).store(int(e_["old"])).load(ez_).store(int(e_["old"]) + 1)
+            sin_of(p, cell=HEAD)
+            p.push(int(0.35 * ONE)).emit("mulq").load(ex_).emit("swap", "sub").store(ex_)
+            sin_of(p, 256, cell=HEAD)
+            p.push(int(0.35 * ONE)).emit("mulq").load(ez_).emit("add").store(ez_)
+            keep_in_arena(e_["pos"], int(e_["pos"]) + 1, e_["old"], int(e_["old"]) + 1)
         p.mark(fn_)
     p.mark(fe_)
 if L2:
@@ -6236,7 +6534,10 @@ for reg, me, plus, fsgn in ((spec.CAM_X, PX, 0, 1), (spec.CAM_Z, PZ, 256, -1)):
         p.push(0).emit("swap", "sub")
     p.emit("add").store(reg)
 p.load(CY).store(spec.CAM_YAW)
-knob(p.load(F["py"]), "camh").emit("add").store(spec.CAM_Y)   # (P9: up with him)
+knob(p.load(F["py"]), "camh").emit("add")                     # (P9: up with him)
+if LAB:
+    p.load(GYC).emit("add")
+p.store(spec.CAM_Y)
 if L2:
     # P31: THE BOXER'S LENS WANDERS (the player: "in the boxer the camera is
     # locked on the player but can wander in position"). Its place comes
@@ -7216,6 +7517,20 @@ p.store(VIS["rz"])
 
 # ---- the object list --------------------------------------------------------
 p.set(NOBJ, 0)
+if LAB:
+    for (tx_, tz_), m_, yaw_ in LAB_TILES:           # P42: the hall, a tile at a time, where it can be seen
+        lt_ = p.label("labtile")
+        p.push32(tx_).store(VIS["cx"]).push32(tz_).store(VIS["cz"])
+        p.push(int(round((PIECE_CY - 2.15) * ONE))).store(VIS["cy"]).push(int(round(PIECE_R * ONE))).store(VIS["r"])
+        p.emit(f"call {L_VIS}", f"jz {lt_}")
+        p.object(NOBJ, m_, lambda h, v_=tx_: h.push32(v_), 0, lambda h, v_=tz_: h.push32(v_), yaw_, spec.OBJ_CULL)
+        p.mark(lt_)
+    for k_, (u0_, u1_, v0_, v1_, top_, how_) in enumerate(PLATS):
+        cx_, cz_ = lab_xz((u0_ + u1_) / 2, (v0_ + v1_) / 2)
+        p.object(NOBJ, PLAT_M[k_], lambda h, v_=cx_: h.push32(v_),
+                 (lambda h: h.load(PLT5).push(int(4.0 * ONE)).emit("sub")) if how_ == "y" else 0,
+                 (lambda h, v_=cz_: h.push32(v_).load(PLO4).emit("add")) if how_ == "u" else (lambda h, v_=cz_: h.push32(v_)),
+                 0, spec.OBJ_CULL)
 if L7:
     # (P40: in the rooms, no street's ground and no sky. The ground, a
     # hand's breadth under a room's floor, took the floor's pixels near the
@@ -7223,9 +7538,10 @@ if L7:
     _ng = p.label("noground")
     p.load(INSIDE).emit(f"jz {_ng}_o", f"jmp {_ng}")
     p.mark(f"{_ng}_o")
-p.object(NOBJ, GROUND_M, (f"load {spec.CAM_X}",), 0, (f"load {spec.CAM_Z}",),
-         (f"load {spec.CAM_YAW}",), spec.OBJ_CULL | (spec.OBJ_LIT if BASE else 0))
-if BASE:
+if not LAB:                                       # (P42: the lab has its own floor, and a ceiling)
+    p.object(NOBJ, GROUND_M, (f"load {spec.CAM_X}",), 0, (f"load {spec.CAM_Z}",),
+             (f"load {spec.CAM_YAW}",), spec.OBJ_CULL | (spec.OBJ_LIT if BASE else 0))
+if BASE and not LAB:
     p.object(NOBJ, SKY_M, (f"load {spec.CAM_X}",), 0, (f"load {spec.CAM_Z}",),
              (f"load {spec.CAM_YAW}",), spec.OBJ_CULL)
 if L7:
@@ -7442,13 +7758,49 @@ for m in ((UPPER, LOWER) if "player" not in OMIT else ()):
               f"load {int(W['qy'])}", f"load {int(LEANR)}", "add", "push 1023", "and",
               "shl 20", "or"),
              (f"load {int(PFLAGS)}",) + ((f"push {spec.OBJ_CART}", "or") if CARTMESH else ()))
-if CARTMESH and RIVAL:
+if CARTMESH and RIVAL and not LAB:
     for m in (int(RDESC), int(RDESC) + spec.CMESH_WORDS):
         p.object(NOBJ, m, START_X, 0, START_Z - int((3.0 if CROWD else 5.0) * ONE), 0, spec.OBJ_CART)
 if CARTMESH and not L4:
     for e_ in ENEMY:
         p.object(NOBJ, e_["desc"], START_X + e_["dx"], 0, START_Z + e_["dz"], 0, spec.OBJ_CART | spec.OBJ_CULL)
-if L4:
+if LAB:
+    # P42: THE LAB'S BODIES: at their own height, leaning back from the last
+    # blow; the clone through its two descriptors.
+    for e_ in ENEMY:
+        de_ = p.label("dlab")
+        k_ = e_["k"]
+        p.load(e_["st"]).emit(f"jz {de_}")
+        p.load(e_["fl"]).emit(f"jz {de_}_f")
+        p.addi(e_["fl"], -1)
+        p.mark(f"{de_}_f")
+        for c_, cam_ in ((int(e_["pos"]), spec.CAM_X), (int(e_["pos"]) + 1, spec.CAM_Z)):
+            p.load(c_).load(cam_).emit("sub", "dup", "mulq")
+        p.emit("add").push(int(1.3 ** 2 * ONE)).emit("swap", "lt", f"jz {de_}")
+
+        def ang(h, e_=e_, k_=k_):
+            ta = h.label("etip")
+            h.load(e_["yaw"])
+            h.load(int(ETL) + k_)
+            h.load(e_["st"]).push(2).emit("eq", f"jz {ta}")
+            h.emit("drop").load(e_["t"]).push(14).emit("mul", "dup").push(250).emit("swap", "lt", f"jz {ta}")
+            h.emit("drop").push(250)
+            h.mark(ta)
+            h.push(1023).emit("swap", "sub").push(1023).emit("and", "shl 10", "or")       # (back, away from his face)
+
+        def flags(h, e_=e_):
+            tf = h.label("efl")
+            h.push32(spec.OBJ_CART | spec.OBJ_CULL)
+            h.load(e_["fl"]).emit(f"jz {tf}")
+            h.emit("drop").push32(FLASH | spec.OBJ_CART)
+            h.mark(tf)
+            h.load(LOCK).load(TSEL).push(e_["k"]).emit("eq", "and", f"jz {tf}_e")
+            h.push(spec.OBJ_EDGE).emit("or")
+            h.mark(f"{tf}_e")
+        for m_ in ((e_["desc"], e_["desc"] + spec.CMESH_WORDS) if e_.get("rival") else (e_["desc"],)):
+            p.object(NOBJ, m_, (f"load {int(e_['pos'])}",), (f"load {int(EY) + k_}",), (f"load {int(e_['pos']) + 1}",), ang, flags)
+        p.mark(de_)
+if L4 and not LAB:
     # P37: THE ENEMIES, where they can be seen: each from the cart (its
     # descriptor's pose, above). One a blow has just struck flashes; the one
     # he has chosen is outlined; one going down tips over backwards.
@@ -7780,7 +8132,10 @@ if BASE:
     p.load(KTUNE).emit(f"jz {hk}_nt")
     p.push(255).push(int(S_SHOWN)).emit("storei")        # (the HUD draws afresh after)
     p.set(TX["n"], 1)
-    p.load(KSEL).push(FONT_CH.index("0")).emit("add").store(int(KSTR1) + 1)
+    if LAB:                                      # (P42: fifteen knobs: 0-9, then A-E)
+        p.push(int(KGLYPH)).load(KSEL).emit("add", "loadi").store(int(KSTR1) + 1)
+    else:
+        p.load(KSEL).push(FONT_CH.index("0")).emit("add").store(int(KSTR1) + 1)
     for k, v in (("str", int(KSTR1)), ("x", 20), ("y", 196), ("sc", 4), ("rgb", 0xE8C040)):
         p.set(TX[k], v)
     p.emit(f"call {L_TEXT}")
@@ -8687,6 +9042,29 @@ city_subs()
 
 # ARENA: ( -- inside? ) for (ar_x, ar_z), the archive's '+'.
 p.mark(L_ARENA)
+if LAB:
+    # P42: THE LAB'S ARENA is the hall -- LAB_EDGE from its walls -- less its
+    # structures, each a wall to anything on the floor; and to HIM (ARP) a
+    # wall only while its top is more than a step above his feet.
+    la = p.label("labarena")
+    _x0, _z0 = lab_xz(-HALL_U + LAB_EDGE, HALL_V - LAB_EDGE)
+    _x1, _z1 = lab_xz(HALL_U - LAB_EDGE, -HALL_V + LAB_EDGE)
+    p.push32(_x0).load(AR["x"]).emit("lt").load(AR["x"]).push32(_x1).emit("lt", "and")
+    p.push32(_z0).load(AR["z"]).emit("lt", "and").load(AR["z"]).push32(_z1).emit("lt", "and", f"jz {la}_out")
+    for k_, (u0_, u1_, v0_, v1_, top_, how_) in enumerate(PLATS):
+        (bx0_, bz0_), (bx1_, bz1_) = lab_xz(u0_ - 0.35, v1_ + 0.35), lab_xz(u1_ + 0.35, v0_ - 0.35)
+        p.push32(bx0_).load(AR["x"]).emit("lt").load(AR["x"]).push32(bx1_).emit("lt", "and")
+        if how_ == "u":
+            p.load(AR["z"]).load(PLO4).emit("sub").store(LS2)
+        zc_ = LS2 if how_ == "u" else AR["z"]
+        p.push32(bz0_).load(zc_).emit("lt", "and").load(zc_).push32(bz1_).emit("lt", "and", f"jz {la}_n{k_}")
+        p.load(ARP).emit(f"jz {la}_out")
+        (p.load(PLT5) if how_ == "y" else p.push32(int(top_ * ONE)))
+        p.push(int(PLAT_STEP * ONE) + 1).emit("sub").load(F["py"]).load(PGH).emit("add", "lt", f"jz {la}_out")
+        p.mark(f"{la}_n{k_}")
+    p.push(1).emit("ret")
+    p.mark(f"{la}_out")
+    p.push(0).emit("ret")
 # P19: THE CITY IS THE ARENA. The point's node and its place in the tile:
 # inside the junction (|u|, |v| < AR_W) is street; past it on one axis,
 # street if that side is not closed; past it on both (a corner), street
@@ -9642,10 +10020,51 @@ if L2:
             bf("hit")
             p.push(15).emit("and").push(3 + e_["k"]).emit("eq", f"jz {le}")
             enemy_hurt(p, e_)
+            if LAB:                                  # (P42: a round sends it along the round's own way)
+                p.set(HK, e_["k"])
+                bf("hit")
+                p.emit("shr 4").push(1).emit("and").push(MOVE["gun"]).emit("add").store(HM)
+                bf("dx")
+                p.store(HDX)
+                bf("dz")
+                p.store(HDZ).emit(f"call {L_HITR}")
             p.emit(f"jmp {ld}")
             p.mark(le)
     p.mark(ld)
     p.emit("ret")
+    if LAB:
+        # P42: WHAT A BLOW DOES TO A BODY (HK it, HM the move, HDX/HDZ its
+        # way): the move's speed, by the knock knob, over the body's own
+        # weight and the weight knob's -- added to its speed along the
+        # floor; a launcher's rise the same way, by the lift knob; and it
+        # leans back by how hard it was sent.
+        p.emit(f"jmp {L_HITR}_over")
+        p.mark(L_HITR)
+        _wn = int(KNOTCH) + [k_[0] for k_ in KNOBS].index("weight")
+
+        def _over_weight():
+            p.push(int(INVM_T)).load(HK).emit("add", "loadi", "mulq")
+            p.push(int(INVW_T) - INVW_LO).load(_wn).emit("add", "loadi", "mulq")
+        p.push(int(KNOCK_T)).load(HM).emit("add", "loadi")
+        knob(p, "knock").emit("mulq")
+        _over_weight()
+        p.store(IMPV)
+        for arr_, d_ in ((EVX, HDX), (EVZ, HDZ)):
+            p.push(int(arr_)).load(HK).emit("add").store(LS1)
+            p.load(d_).load(IMPV).emit("mulq").load(LS1).emit("loadi", "add").load(LS1).emit("storei")
+        p.push(int(LIFT_T)).load(HM).emit("add", "loadi")
+        knob(p, "lift").emit("mulq")
+        _over_weight()
+        p.push(int(EVY)).load(HK).emit("add").store(LS1)
+        p.load(LS1).emit("loadi", "add").load(LS1).emit("storei")
+        p.push(int(ETL)).load(HK).emit("add").store(LS1)
+        p.load(IMPV).push(600).emit("mul", "shr 16").load(LS1).emit("loadi", "add", "dup").push(150).emit("lt", f"jz {L_HITR}_c")
+        p.emit(f"jmp {L_HITR}_s")
+        p.mark(f"{L_HITR}_c")
+        p.emit("drop").push(150)
+        p.mark(f"{L_HITR}_s")
+        p.load(LS1).emit("storei", "ret")
+        p.mark(f"{L_HITR}_over")
 
 # P18: LINE -- the free shot's demon: the live one nearest the line w_head,
 # within GUN_CONE of it and 13 units -> f_aim (its slot + 1, or 0). A shot

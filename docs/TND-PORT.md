@@ -2112,3 +2112,82 @@ NOT in it, and why is at the end.)
   hand; data memory has 554 words left.
   *Also short of the design:* carried weight does not slow him; the
   combat rank is blows taken, not the style meter; the rival is not here.
+
+### P41b: his tape of the rooms, read for how he fights (2026-11-22; 29m01s of TND L7)
+
+He asked: "check my fight styles." Twenty-four and a half of the 29
+minutes in the RANGE, on its three items; two in the ring.
+
+- **Fists two to one over the gun**: 989 blows to 461 rounds (131 of
+  them charged). 786 jabs; 203 terminators, and by the count before them
+  77 on none and 48 on one (the lead hook), 39 on two (the rear
+  uppercut), 39 on three and up (the haymaker): all three, the short one
+  most. 757 times an item rang.
+- **Slowed time is half of it**: 53% of the tape; a third of his blows
+  begin in it.
+- **He circles**: L and R held together a quarter of the tape (the run
+  round the target; the run is 29% of his stance, the tank 62%, the
+  boxer 9%), with rounds off the run and the superman punch.
+- **The spot is used**: high 43% of his locked time, mid 41%, low 14%;
+  seventy changes. Thirty changes of target.
+- **153 dodges and flips, 76 jumps**; nine blows in 989 thrown from the
+  air.
+- **After a terminator** he mostly starts another string (80) or stops
+  (111); a round follows one ten times.
+- **Why two minutes in the ring.** Layer 7's dummies, put down, came back
+  at the hard way they hold in the street -- not in the ring. He put six
+  down and the ring was empty. (Layer 8's get up where they lie; so do
+  the lab's.)
+
+## P42: the lab -- a white room to tune the fight in (2026-11-22; not yet on glass)
+
+The player: "for the next experiment. We want to do a empty white room,
+with a green and white checker board, grey walls : tall, checker board
+white and grey. Then having one stationary clone of the player to fight.
+think about it as tuning the fighting in this cart. Able to load n number
+of tiered enemies. stationary for now. we want to work on how the weight
+works with how the will respond to hits. and tuning all the fighting
+mechanics. make the room wide so at the wall we have platforming with some
+moving and some structures to try things out." TND_LAYER=10 (9 is the
+whole game's own number, the default: the first cut used it and rebuilt
+the full cart as a lab): layer 4's fight, no town.
+
+- **The hall** is 64 by 32 and 12 high: a green and white floor in
+  checks of four, grey and white walls the same, a white ceiling, a
+  white haze the far wall goes to. Eight tiles of three meshes in data
+  memory, flat; its bounds are one test, not the town's map. No colour
+  curve (time slowed still sinks the glass).
+- **Who stands there is knob 0**: the CLONE alone (his own body, whole,
+  through the rival's two descriptors, in his own idle); the clone and
+  the elite; the clone, a common and one of the horde; the elite alone;
+  the elite, the common and two of the horde; the six. (The store's
+  2,048 faces decide the sets: he and his clone are 1,474 of them.)
+  Turned, they are put back on their marks. They stand, and turn to
+  face him; down, one gets up where it lies.
+- **WEIGHT -- what a blow does to a body** (L_HITR). Each has a speed
+  along the floor and a rise. A blow adds to them, the way his body
+  faced (a round: the round's way): the MOVE's speed (a jab 0.05 a
+  frame, the cross 0.07, a hook 0.11, the haymaker 0.26, an uppercut
+  0.05, a round 0.04, a charged one 0.12) by the KNOCK knob, over the
+  body's own weight (the clone and the elite 1, a common 0.8, the horde
+  0.63) and the WEIGHT knob; a launcher's rise (the haymaker 0.04, the
+  lead uppercut 0.17, the rear 0.20) the same way by the LIFT knob. It
+  leans back by how hard it was sent, and comes upright. Each frame it
+  keeps the SLIDE knob's share of its speed (0.88) and falls by the
+  EGRAV knob (0.012); a wall or a structure stops it. The STUN knob is
+  how long a blow holds it (by the move's own frames), HSTOP the
+  hitstop.
+- **Fifteen knobs** (SELECT held, as ever; the tuner's digit now runs
+  0-9, A-E): who, weight, knock, lift, stun, hstop, slide, egrav -- and
+  the strikes' pivot, lunge, keep, hold, slow and dodge, and the jump.
+- **THE STRUCTURES, along the north wall**: three steps (0.8, 1.6, 2.4
+  high), a ledge at 2.4, a SLIDER at 2.4 that carries him ten units and
+  back, a LIFT from the floor to 4.0, and a platform at 4.0. Each waits
+  48 frames at its ends. What he stands on is the highest top under him
+  no more than a step (0.3) above his feet, and his height is counted
+  from it -- so everything that asks "is he on the ground" asks the same
+  thing it did. Onto another, his height in the room is kept; off an
+  edge he is in the air; on the same one he rides. A structure is a
+  wall to anything on the floor, and to him while its top is more than
+  a step above his feet. His drawn feet, his shadow and the lens follow.
+- tests: 18. Layers 0 to 8 and the full cart build byte-identical.
