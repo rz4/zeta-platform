@@ -503,15 +503,17 @@
   ]
  },
  "result": {
-  "commits": [],
+  "commits": [
+   "7bf9052"
+  ],
   "changed": "games/tnd/gen_tnd.py (the lab and the reactor): docs/TND-PORT.md P48; the dodge knob's meaning (axes mapping_version 2)",
   "proved": [
    "tests/test_tnd_move.py: 14",
    "the lab's 40, the aim's 12, the reactor's 7"
   ],
   "cart": "TND LAB and TND REACTOR",
-  "next_record": null,
-  "verdict": "pending: not played",
+  "next_record": "tnd-lab-0004",
+  "verdict": "played in the lab (tnd-lab-0004); the side flip's legs sent back: 'should be tucked too'",
   "imprints": [
    "tnd-017"
   ],

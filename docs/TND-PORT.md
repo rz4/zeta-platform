@@ -2540,3 +2540,43 @@ the reactor only.
   386, bit-equal; the frame 48% / 56% and 59% / 65% (median / peak). On
   the card 2026-11-23.
 - His tape: `experiments/tnd/tnd-reactor-0003.json`.
+
+## P49: the acrobatics, tucked (2026-11-23)
+
+The player, of P48 on glass (3m08s of the lab: 122 jumps, 136 dodges and
+flips): "the legs on the side flip should be tucked too, work on the
+arcrobatics poses." The lab and the reactor only.
+
+- **WHAT WAS THERE.** The flips are SHAPES the cart spins: the archive's
+  tuck (forward), a layout arch (back), and for both sides a straddle
+  star -- the legs thrown wide and straight, a cartwheel. And two faults
+  of mine under them: the boxer's quick flip (P48, ten frames) played a
+  flip's clip a pose a frame, so it showed the first half of the shape;
+  and its length was not in the spin's table of reciprocals, so its
+  progress went in unscaled and made only whole turns -- IT DID NOT TURN
+  AT ALL. What he saw from the side was the straddle, upright. (The tank's
+  dodge, six frames, played half its clip the same way; a wall jump,
+  24 frames on a 20-pose clip, ran four poses into the next.)
+- **THREE NEW SHAPES, baked on the archive's own rig** by
+  `tools/tnd_acro.py` into their own file (`assets/tnd/acro.npz`, beside
+  `boxer.npz`; every other layer is built from boxer.npz as it was):
+  the forward tuck with both hands on the shins; a back TUCK (the knees
+  the same, the chest open and the head back, hands on the shins) for
+  the layout; and the side flip TUCKED -- knees up a hand apart, the
+  trunk curled less than the front tuck, hands on the shins. Each eases
+  in from the guard over its first fifth and out over its last; the
+  hands are put on the shins by the archive's own two-bone reach.
+- **EVERY FLIP AND DODGE PLAYS ITS WHOLE CLIP**, at the same fraction of
+  the clip as of its own frames, whatever their number.
+- **THE QUICK FLIP TURNS ONCE ROUND** -- a roll for left and right, a
+  pitch forward and back -- in its ten frames.
+- NOT DONE: the reactor's double copies his shape but not his turn, so
+  mirroring a flip it does a tuck jump.
+- tests: `tests/test_tnd_move.py` (5 more: the shapes are tucked and
+  begin in the guard, the side's legs no longer wide; each quick flip
+  goes round and plays its whole shape). 86 pass across the lab, the
+  reactor and the tools. Layers 0, 4, 8 and the full cart byte-identical.
+- the law against the simulated silicon: the lab 315 frames, the reactor
+  283, bit-equal; the frame 49% / 65% and 59% / 61%. On the card
+  2026-11-23.
+- His tape: `experiments/tnd/tnd-lab-0004.json`.

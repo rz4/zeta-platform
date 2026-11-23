@@ -158,3 +158,54 @@ def test_in_the_air_the_lens_looks_down_and_stands_to_his_right_but_not_when_loc
     b.run(L | R | A, 3)
     b.run(L | R, 8)
     assert b.cell("f_py") > 0 and b.cell("land_look") == 0, "locked, the lens left its work to look at the floor"
+
+
+# ---- P49: the acrobatics -- the side flip tucked, the whole clip played, a whole turn ----
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_the_lab_flips_are_tucked_with_the_hands_on_the_shins():
+    """the baked shapes (tools/tnd_acro.py): archive axes, z up. Held in the middle of each, the feet are drawn up to
+    within half a unit of the hips -- the archive's cartwheel had them a body's length below, thrown wide -- and each
+    hand is at its own shin"""
+    acro, old = np.load(ROOT / "assets" / "tnd" / "acro.npz"), np.load(ROOT / "assets" / "tnd" / "boxer.npz")
+    for name, n in (("acro_side", 24), ("acro_tuck", 20), ("acro_back", 20)):
+        V = acro["V_" + name]
+        assert len(V) == n
+        mid = V[n // 2]
+        assert mid[:, 2].max() - mid[:, 2].min() < 1.0, f"{name} is not tucked: {mid[:, 2].ptp():.2f} tall"
+        assert np.abs(V[0] - old["V_flip_fwd"][0]).max() < 0.02, f"{name} does not begin in the guard"
+    cart = old["V_flip_cart"][12]
+    side = acro["V_acro_side"][12]
+    # (across: the cartwheel's feet 1.37 apart; tucked, he is no wider than his elbows on his shins)
+    assert np.ptp(cart[:, 1]) > 1.2 and np.ptp(side[:, 1]) < 0.6 * np.ptp(cart[:, 1]), "the side flip's legs are still thrown wide"
+
+
+def _flip(g, pad):
+    g.put(0.0, 0.0, RX.NORTH)
+    g.run(L, 12)
+    poses, rolls, pitches = [], [], []
+    from zeta import spec
+    body = g.sym("body_desc")
+    g.run(L | pad | A, 3)
+    for _ in range(14):
+        n = g.d[spec.OL_BASE]
+        rows = [g.d[spec.OL_BASE + 1 + i * spec.OL_STRIDE: spec.OL_BASE + 1 + (i + 1) * spec.OL_STRIDE] for i in range(n)]
+        ang = next(r[4] for r in rows if r[0] == body)
+        poses.append(g.cell("pose"))
+        pitches.append((ang >> 10) & 1023)
+        rolls.append((ang >> 20) & 1023)
+        g.run(L, 1)
+    return poses, pitches, rolls
+
+
+@pytest.mark.parametrize("pad,which", [(LF, "roll"), (RT, "roll"), (U, "pitch"), (D, "pitch")])
+def test_the_boxers_flip_turns_once_round_and_plays_its_whole_shape(rx_text, pad, which):
+    g = RX.Game(rx_text)
+    poses, pitches, rolls = _flip(g, pad)
+    turn = rolls if which == "roll" else pitches
+    seen = {round(a / 128) % 8 for a in turn}
+    assert len(seen) >= 6, f"the flip did not go round: {turn}"
+    flip = [x for x in poses if x != poses[-1]]
+    assert max(flip) - min(flip) >= 18, f"the flip played {max(flip) - min(flip) + 1} of its poses"

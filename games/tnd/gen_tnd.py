@@ -105,6 +105,20 @@ CUT = 1.009                     # the one hip-height cut that fits both
 FLIP = True                     # winding, after the left-handed mirror
 
 d = np.load(BAKE)
+if LAYER in (10, 11):
+    # P49: THE ACROBATICS (the player: "the legs on the side flip should be
+    # tucked too, work on the arcrobatics poses"): the lab's flips are the
+    # shapes tools/tnd_acro.py bakes on the archive's rig -- the tuck with
+    # its hands on its shins, the back tuck, and the side flip TUCKED where
+    # the archive's threw the legs wide. Their own file: every other layer
+    # is built from boxer.npz alone, as it was.
+    class _Bake:
+        def __init__(self, *srcs):
+            self._srcs, self.files = srcs, [k_ for s_ in srcs for k_ in s_.files]
+
+        def __getitem__(self, k_):
+            return next(s_[k_] for s_ in self._srcs if k_ in s_.files)
+    d = _Bake(np.load(ROOT / "assets" / "tnd" / "acro.npz"), d)
 F, C = d["F"], d["C"]
 SEQS = ("idle", "walk", "air", "jab", "cross", "lead_hook", "rear_hook", "special",
         "lead_uppercut", "rear_uppercut", "gun", "gun_charged",
@@ -138,6 +152,8 @@ SJ_WAYS = ("fwd", "back", "left", "right")
 CLIP_OF = dict({"run": "run2", "walk": "walk2", "idle": "guard2"},
                **{"kite_" + k_: "hop_" + k_ for k_ in ("fwd", "back", "left", "right")},
                **{k_: k_ + "_n" for k_ in STRIKES}) if BASE else {}
+if LAYER in (10, 11):                                       # (P49: the lab's acrobatics)
+    CLIP_OF.update(flip_fwd="acro_tuck", flip_back="acro_back", flip_cart="acro_side")
 if BASE:
     SEQS += ("slide",)           # P27: the run's slide (the layers only; four poses)
 if L1:
@@ -6259,13 +6275,35 @@ p.mark(sq_)
 fp = p.label("flippose")
 p.load(F["evf"]).emit(f"jz {fp}")
 p.load(F["evt"]).load(F["evf"]).emit("sub")
-for k, seq in enumerate(("flip_fwd", "flip_back", "flip_cart", "flip_cart",
-                         "dodge_fwd", "dodge_back", "dodge_left", "dodge_right")):
-    nk = p.label("fp")
-    p.load(F["evk"]).push(k).emit("eq", f"jz {nk}")
-    p.push(base[seq]).emit("add").store(POSE).emit(f"jmp {L['pd']}")
-    p.mark(nk)
-p.emit("drop")
+_EV_SEQS = ("flip_fwd", "flip_back", "flip_cart", "flip_cart", "dodge_fwd", "dodge_back", "dodge_left", "dodge_right")
+if LAB:
+    # P49: THE WHOLE CLIP, WHATEVER ITS FRAMES. A flip or a dodge played its
+    # clip a pose a frame: the boxer's quick flip (ten frames) and the
+    # tank's dodge (six) showed the first half of theirs and were cut off
+    # mid-shape. Now the pose is the clip's own at the same fraction.
+    EV_LENS = sorted({QD_F, QF_T, WJ_FRAMES} | {n_ for _, n_ in FLIPS})
+    p.push(ONE).emit("mul").store(LS0)                       # (progress, in frames x ONE)
+    for n_ in EV_LENS:
+        nk = p.label("fpn")
+        p.load(F["evt"]).push(n_).emit("eq", f"jz {nk}")
+        p.load(LS0).push(int(round(ONE / n_))).emit("mulq").store(LS0)
+        p.mark(nk)
+    for k, seq in enumerate(_EV_SEQS):
+        nk = p.label("fp")
+        p.load(F["evk"]).push(k).emit("eq", f"jz {nk}")
+        p.load(LS0).push(NPOSE[seq]).emit("mul", "shr 16")
+        p.emit("dup").push(NPOSE[seq] - 1).emit("swap", "lt", f"jz {nk}_c")
+        p.emit("drop").push(NPOSE[seq] - 1)
+        p.mark(f"{nk}_c")
+        p.push(base[seq]).emit("add").store(POSE).emit(f"jmp {L['pd']}")
+        p.mark(nk)
+else:
+    for k, seq in enumerate(_EV_SEQS):
+        nk = p.label("fp")
+        p.load(F["evk"]).push(k).emit("eq", f"jz {nk}")
+        p.push(base[seq]).emit("add").store(POSE).emit(f"jmp {L['pd']}")
+        p.mark(nk)
+    p.emit("drop")
 p.mark(fp)
 gp_ = p.label("gaitpose")
 if L1:
@@ -8306,7 +8344,9 @@ for c in ("qx", "qy", "x", "y", "z"):
 p.load(F["evf"]).emit(f"jz {sp_}")
 p.load(F["evt"]).load(F["evf"]).emit("sub").push(ONE).emit("mul")       # prog * t
 p.store(W["k"])
-for n in sorted({n for _, n in FLIPS}):                          # (no divide: one
+# (P49: in the lab, the quick flip's length too -- without it the boxer's
+# flip did not turn at all: its progress, unscaled, made whole turns)
+for n in sorted({n for _, n in FLIPS} | ({QF_T, WJ_FRAMES} if LAB else set())):   # (no divide: one
     nk = p.label("sn")                                           # reciprocal per length)
     p.load(F["evt"]).push(n).emit("eq", f"jz {nk}")
     p.load(W["k"]).push(int(round(ONE / n))).emit("mulq").store(W["k"])
