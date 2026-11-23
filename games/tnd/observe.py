@@ -14,7 +14,8 @@ PAD = {"up": 1, "down": 2, "left": 4, "right": 8, "a": 16, "b": 32, "x": 64, "y"
        "start": 1024, "select": 2048}
 MOVES = ("jab", "cross", "lead_hook", "rear_hook", "special", "lead_uppercut", "rear_uppercut", "gun", "gun_charged")
 CELLS = ["px", "pz", "f_mv", "f_sty", "anim", "af", "f_py", "f_evf", "f_c3", "slow_on", "gun_draw", "knob_on", "t_spot",
-         "lab_gh", "lab_si", "b_in", "p_hp"] + [f"e{k}_{c}" for k in range(7) for c in ("st", "hp")]
+         "lab_gh", "lab_si", "b_in", "p_hp", "lab_pass", "lab_seln", "bul0_hit", "bul1_hit", "rx_sent"] \
+    + [f"e{k}_{c}" for k in range(7) for c in ("st", "hp")]
 ARRAYS = ["lab_ey"]
 STANCES = ("tank", "run", "boxer", "targeting")      # f_sty: 0 the tank, 1 the run (L twice), 2 the boxer (L), 3 targeting
 
@@ -103,6 +104,22 @@ def observe(t):
     if t.has("f_sty") and y_on_b:
         s = t.col("f_sty")[y_on_b]
         out["passes"]["y_with_b_held"]["stance"] = {n: int((s == k).sum()) for k, n in enumerate(STANCES)}
+    if t.has("lab_pass"):                                # (P44: the pass's own moves, as the cart named them)
+        k = t.col("lab_pass")
+        out["passes"]["thrown_as"] = {"the_boxers_stun": int(((k[1:] == 1) & (k[:-1] != 1)).sum()),
+                                      "the_runs_tackle": int(((k[1:] == 2) & (k[:-1] != 2)).sum())}
+    if t.has("lab_seln"):                                # (P44: Y under a held X steps the choice; letting X go throws it)
+        n = t.col("lab_seln")
+        thrown = n[:-1][(n[1:] == 0) & (n[:-1] > 0)]
+        out["special_chosen_under_a_held_jab"] = {"steps": int((n[1:] > n[:-1]).sum()), "thrown": int(len(thrown)),
+                                                  "as": {m: int((thrown == i + 1).sum())
+                                                         for i, m in enumerate(("lead_hook", "rear_uppercut", "haymaker"))}}
+    if t.has("bul0_hit"):                                # (P44: a round's word carries 256 when its mark was within 2.6 units)
+        cq = 0
+        for b in ("bul0_hit", "bul1_hit"):
+            h = t.col(b)
+            cq += int(((h[1:] != h[:-1]) & ((h[1:] & 256) != 0)).sum())
+        out["close_quarters_rounds_at_least"] = cq       # (two alike in a row on one slot count once)
     if t.has("f_py"):
         py = t.col("f_py")
         out["jumps"] = int(((py[1:] > 0) & (py[:-1] == 0)).sum())

@@ -1,0 +1,808 @@
+{
+ "schema": "zeta-xp-1",
+ "id": "tnd-lab-0003",
+ "machine": {
+  "tape": {
+   "file": "20261123-031813.ztp",
+   "sha256": "aabbb74267da0306ba12415bb9a06e1f57349384602f43c62305c75c1db901f1",
+   "format": "ZTP0",
+   "loader_build": 107,
+   "cart_sum": "0xf61f9e1e",
+   "runs": 10268
+  },
+  "cart": {
+   "file": "lab-on-card-p44.zbin",
+   "sum": "0xf61f9e1e",
+   "built_at_commit": "a041ec8 (before its mend of a round into a downed body)",
+   "recipe": "TND_SONG=1 TND_LAYER=10 python3 games/tnd/gen_tnd.py",
+   "symbols_sha256": "10c984424ac0dbc9647dfb4a8b00d7c449d928865165e51a4834e260cabeb845"
+  },
+  "card_at_start": "20261121-172911.card.bin",
+  "backend": "law (zeta.cabinet.VirtualMachine)",
+  "spec_loader_build": 107,
+  "ingested_at_commit": "8b7c612"
+ },
+ "evidence": {
+  "frames": 127497,
+  "seconds": 2124.9,
+  "end_state_sha256": "08c656adc0db381fa8f130e2b3c17ac3ea911e9c423b6053e5128e4c9773d9f2",
+  "reproduce": "python3 -m zeta.experience ingest 20261123-031813.ztp --game lab-on-card-p44.zbin --symbols ..."
+ },
+ "knobs": [
+  {
+   "axis": "tnd.lab.who",
+   "knob": "who",
+   "index": 0,
+   "default": 0,
+   "final": 5,
+   "signed_notches": 5,
+   "step": 1,
+   "unit": "index",
+   "dwell_frames": {
+    "0": 54384,
+    "1": 1071,
+    "2": 11,
+    "3": 12,
+    "4": 11,
+    "5": 72008
+   },
+   "changes": [
+    [
+     54330,
+     1
+    ],
+    [
+     54401,
+     0
+    ],
+    [
+     54455,
+     1
+    ],
+    [
+     55455,
+     2
+    ],
+    [
+     55466,
+     3
+    ],
+    [
+     55478,
+     4
+    ],
+    [
+     55489,
+     5
+    ]
+   ],
+   "changes_total": 7
+  },
+  {
+   "axis": "tnd.lab.weight",
+   "knob": "weight",
+   "index": 1,
+   "default": 58982,
+   "final": 91747,
+   "signed_notches": 5,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "58982": 58660,
+    "65535": 112,
+    "72088": 25,
+    "78641": 112,
+    "85194": 12,
+    "91747": 68576
+   },
+   "changes": [
+    [
+     58660,
+     65535
+    ],
+    [
+     58772,
+     72088
+    ],
+    [
+     58797,
+     78641
+    ],
+    [
+     58909,
+     85194
+    ],
+    [
+     58921,
+     91747
+    ]
+   ],
+   "changes_total": 5
+  },
+  {
+   "axis": "tnd.lab.knock",
+   "knob": "knock",
+   "index": 2,
+   "default": 58982,
+   "final": 91747,
+   "signed_notches": 5,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "26217": 5592,
+    "32770": 30,
+    "39323": 25,
+    "45876": 23,
+    "52429": 25,
+    "58982": 90869,
+    "65535": 77,
+    "72088": 49,
+    "78641": 44,
+    "85194": 59,
+    "91747": 30704
+   },
+   "changes": [
+    [
+     90782,
+     65535
+    ],
+    [
+     90813,
+     72088
+    ],
+    [
+     90826,
+     78641
+    ],
+    [
+     90838,
+     85194
+    ],
+    [
+     90849,
+     91747
+    ],
+    [
+     91477,
+     85194
+    ],
+    [
+     91504,
+     78641
+    ],
+    [
+     91523,
+     72088
+    ],
+    [
+     91544,
+     65535
+    ],
+    [
+     91573,
+     58982
+    ],
+    [
+     91646,
+     52429
+    ],
+    [
+     91658,
+     45876
+    ],
+    [
+     91669,
+     39323
+    ],
+    [
+     91681,
+     32770
+    ],
+    [
+     91694,
+     26217
+    ],
+    [
+     97286,
+     32770
+    ],
+    [
+     97303,
+     39323
+    ],
+    [
+     97316,
+     45876
+    ],
+    [
+     97328,
+     52429
+    ],
+    [
+     97341,
+     58982
+    ],
+    [
+     97355,
+     65535
+    ],
+    [
+     97372,
+     72088
+    ],
+    [
+     97387,
+     78641
+    ],
+    [
+     97400,
+     85194
+    ],
+    [
+     97421,
+     91747
+    ]
+   ],
+   "changes_total": 25
+  },
+  {
+   "axis": "tnd.lab.lift",
+   "knob": "lift",
+   "index": 3,
+   "default": 65536,
+   "final": 98301,
+   "signed_notches": 5,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "65536": 98200,
+    "72089": 13,
+    "78642": 12,
+    "85195": 12,
+    "91748": 211,
+    "98301": 29049
+   },
+   "changes": [
+    [
+     98200,
+     72089
+    ],
+    [
+     98213,
+     78642
+    ],
+    [
+     98225,
+     85195
+    ],
+    [
+     98237,
+     91748
+    ],
+    [
+     98448,
+     98301
+    ]
+   ],
+   "changes_total": 5
+  },
+  {
+   "axis": "tnd.lab.stun",
+   "knob": "stun",
+   "index": 4,
+   "default": 65536,
+   "final": 98301,
+   "signed_notches": 5,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "65536": 99130,
+    "72089": 14,
+    "78642": 14,
+    "85195": 14,
+    "91748": 20,
+    "98301": 28305
+   },
+   "changes": [
+    [
+     99130,
+     72089
+    ],
+    [
+     99144,
+     78642
+    ],
+    [
+     99158,
+     85195
+    ],
+    [
+     99172,
+     91748
+    ],
+    [
+     99192,
+     98301
+    ]
+   ],
+   "changes_total": 5
+  },
+  {
+   "axis": "tnd.lab.hstop",
+   "knob": "hstop",
+   "index": 5,
+   "default": 65536,
+   "final": 98301,
+   "signed_notches": 5,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "65536": 99848,
+    "72089": 16,
+    "78642": 14,
+    "85195": 17,
+    "91748": 27,
+    "98301": 27575
+   },
+   "changes": [
+    [
+     99848,
+     72089
+    ],
+    [
+     99864,
+     78642
+    ],
+    [
+     99878,
+     85195
+    ],
+    [
+     99895,
+     91748
+    ],
+    [
+     99922,
+     98301
+    ]
+   ],
+   "changes_total": 5
+  },
+  {
+   "axis": "tnd.lab.slide",
+   "knob": "slide",
+   "index": 6,
+   "default": 57671,
+   "final": 61601,
+   "signed_notches": 6,
+   "step": 655,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "57671": 100733,
+    "58326": 13,
+    "58981": 13,
+    "59636": 12,
+    "60291": 12,
+    "60946": 15,
+    "61601": 26699
+   },
+   "changes": [
+    [
+     100733,
+     58326
+    ],
+    [
+     100746,
+     58981
+    ],
+    [
+     100759,
+     59636
+    ],
+    [
+     100771,
+     60291
+    ],
+    [
+     100783,
+     60946
+    ],
+    [
+     100798,
+     61601
+    ]
+   ],
+   "changes_total": 6
+  },
+  {
+   "axis": "tnd.lab.egrav",
+   "knob": "egrav",
+   "index": 7,
+   "default": 786,
+   "final": 786,
+   "signed_notches": 0,
+   "step": 65,
+   "unit": "Q16.16 (65536 = 1.0) a frame squared",
+   "dwell_frames": {
+    "786": 127497
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.pivot",
+   "knob": "pivot",
+   "index": 8,
+   "default": 176,
+   "final": 176,
+   "signed_notches": 0,
+   "step": 16,
+   "unit": "of 1024 a frame",
+   "dwell_frames": {
+    "176": 127497
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.lunge",
+   "knob": "lunge",
+   "index": 9,
+   "default": 58983,
+   "final": 58983,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "58983": 127497
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.keep",
+   "knob": "keep",
+   "index": 10,
+   "default": 40,
+   "final": 40,
+   "signed_notches": 0,
+   "step": 4,
+   "unit": "frames",
+   "dwell_frames": {
+    "40": 127497
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.hold",
+   "knob": "hold",
+   "index": 11,
+   "default": 14,
+   "final": 14,
+   "signed_notches": 0,
+   "step": 2,
+   "unit": "frames",
+   "dwell_frames": {
+    "14": 127497
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.slow",
+   "knob": "slow",
+   "index": 12,
+   "default": 3,
+   "final": 3,
+   "signed_notches": 0,
+   "step": 1,
+   "unit": "frames",
+   "dwell_frames": {
+    "3": 127497
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.dodge",
+   "knob": "dodge",
+   "index": 13,
+   "default": 13107,
+   "final": 13107,
+   "signed_notches": 0,
+   "step": 655,
+   "unit": "Q16.16 (65536 = 1.0) a frame",
+   "dwell_frames": {
+    "13107": 127497
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.jump",
+   "knob": "jump",
+   "index": 14,
+   "default": 12190,
+   "final": 12190,
+   "signed_notches": 0,
+   "step": 655,
+   "unit": "Q16.16 (65536 = 1.0) a frame",
+   "dwell_frames": {
+    "12190": 127497
+   },
+   "changes": [],
+   "changes_total": 0
+  }
+ ],
+ "observed": {
+  "minutes": 35.42,
+  "buttons": {
+   "a": {
+    "presses": 84,
+    "held_share": 0.041
+   },
+   "b": {
+    "presses": 483,
+    "held_share": 0.145
+   },
+   "x": {
+    "presses": 1672,
+    "held_share": 0.106
+   },
+   "y": {
+    "presses": 383,
+    "held_share": 0.03
+   },
+   "l": {
+    "presses": 263,
+    "held_share": 0.414
+   },
+   "r": {
+    "presses": 133,
+    "held_share": 0.192
+   },
+   "select": {
+    "presses": 15,
+    "held_share": 0.015
+   }
+  },
+  "held_together_share": {
+   "l+r": 0.108,
+   "b+r": 0.072,
+   "y+b": 0.0,
+   "x+a": 0.001,
+   "l+a": 0.029
+  },
+  "slowed_share": 0.155,
+  "stance_share": {
+   "tank": 0.579,
+   "run": 0.048,
+   "boxer": 0.373,
+   "targeting": 0.0
+  },
+  "blows": {
+   "thrown": 2278,
+   "a_minute": 64.3,
+   "by_move": {
+    "jab": 1495,
+    "cross": 161,
+    "lead_hook": 104,
+    "special": 32,
+    "rear_uppercut": 82,
+    "gun": 285,
+    "gun_charged": 119
+   },
+   "begun_in_slowed_time_share": 0.031
+  },
+  "bodies": {
+   "blows_landed": 1140,
+   "landed_a_minute": 32.2,
+   "put_down": 217,
+   "highest_thrown": 2.28,
+   "frames_one_was_above_half_a_unit": 1455,
+   "above_three_units": {
+    "frames": 0,
+    "ranges": []
+   },
+   "struck_in_the_air": 21
+  },
+  "jab_strings": {
+   "that_began_with_a_hit": 331,
+   "mean_landed_in_a_row_by_length": {
+    "1": 1.0,
+    "2": 1.68,
+    "3": 2.16,
+    "4": 2.94,
+    "5": 3.29,
+    "6": 3.87,
+    "7": 3.0,
+    "8": 3.46
+   },
+   "five_or_more_in_a_row": {
+    "count": 20,
+    "frames": [
+     [
+      36616,
+      36759,
+      8
+     ],
+     [
+      66775,
+      66885,
+      8
+     ],
+     [
+      85684,
+      85781,
+      8
+     ],
+     [
+      11915,
+      11980,
+      6
+     ],
+     [
+      15287,
+      15352,
+      6
+     ],
+     [
+      16515,
+      16573,
+      6
+     ],
+     [
+      35673,
+      35944,
+      6
+     ],
+     [
+      36032,
+      36116,
+      6
+     ]
+    ]
+   }
+  },
+  "passes": {
+   "y_with_b_held": {
+    "count": 2,
+    "frames": [
+     24756,
+     115241
+    ],
+    "in_slowed_time": 1,
+    "stance": {
+     "tank": 1,
+     "run": 0,
+     "boxer": 1,
+     "targeting": 0
+    }
+   },
+   "b_with_y_held": {
+    "count": 1
+   },
+   "x_with_a_held": {
+    "count": 3
+   },
+   "thrown_as": {
+    "the_boxers_stun": 1,
+    "the_runs_tackle": 0
+   }
+  },
+  "special_chosen_under_a_held_jab": {
+   "steps": 4,
+   "thrown": 2,
+   "as": {
+    "lead_hook": 1,
+    "rear_uppercut": 0,
+    "haymaker": 1
+   }
+  },
+  "close_quarters_rounds_at_least": 66,
+  "jumps": 43,
+  "dodges_and_flips": 31,
+  "structures": {
+   "minutes_on_one": 0.35,
+   "frames_on_each": {
+    "0": 422,
+    "1": 50,
+    "2": 76,
+    "3": 97,
+    "4": 194,
+    "5": 404
+   },
+   "highest_stood": 3.62
+  },
+  "tuner_open_minutes": 0.54,
+  "b_held": {
+   "share": 0.145,
+   "of_which": {
+    "standing": 0.509,
+    "walking": 0.226,
+    "running": 0.019
+   }
+  }
+ },
+ "title": "The lab with the pass by stance, the close shot and the held jab's choice (P44), played before he had been told of them",
+ "baseline": "tnd-lab-0002",
+ "human": {
+  "said_on": "2026-11-23",
+  "said": [
+   "It feels like we are getting closer to an infinite imersive game where we can play fast with the controls of the Pocket. Feels good just needs more finesse. the camera angles, where the enemies are."
+  ],
+  "note": "Said after this session, of the game as it stands; then he asked for the reactor (docs/TND-PORT.md P45). Nothing of P44's moves by name. He played this build BEFORE the message describing P44's moves reached him: the card went home with 'get something on my card now.' and the description came with the next report.",
+  "knobs_chosen": "see `knobs`. In the session's last third he went down the tuner and raised each of the bodies' knobs five notches and left them: weight 0.9 -> 1.4 (from frame 58,921, 19 minutes), knock 0.9 -> 1.4 (after trying 0.7 to 1.4), lift 1.0 -> 1.5, stun 1.0 -> 1.5, hitstop 1.0 -> 1.5, slide 0.88 -> 0.94; and `who` to 5, the six. These are HIS signed changes; they are lost at power-off."
+ },
+ "agent": {
+  "observations": [
+   {
+    "what": "He fought in running time: slowed 15.5% of the session (45.9% before); 64 blows a minute (43); 32 landed a minute (22); 1,495 jabs (791).",
+    "see": "observed"
+   },
+   {
+    "what": "P44's moves, as the cart names them: the boxer's stun thrown once, the run's tackle never; a special chosen under a held jab stepped 4 times and thrown twice; at least 66 of 404 rounds were close-quarters rounds.",
+    "see": "observed.passes.thrown_as, observed.special_chosen_under_a_held_jab, observed.close_quarters_rounds_at_least"
+   },
+   {
+    "what": "Y with B held twice (13 before); B with Y held once (106 before).",
+    "see": "observed.passes"
+   },
+   {
+    "what": "Strings of five to eight jabs landed 3.3 to 3.9 in a row on average (3.9 to 7.0 before); five or more in a row still 20 times.",
+    "see": "observed.jab_strings",
+    "caution": "The bodies' knobs were raised during the session and who stood there changed (the six for the second half): not one condition."
+   },
+   {
+    "what": "On the structures 0.35 minutes (2.8 before); 43 jumps (188); 31 dodges and flips (203).",
+    "see": "observed.structures"
+   },
+   {
+    "what": "Every body knob up five notches, in tuner order, between frames 58,660 and 100,798; then 7.4 more minutes played with them.",
+    "see": "knobs"
+   }
+  ],
+  "readings": [
+   {
+    "supposes": "He wants the bodies heavier and every response longer than they begin: more weight, more send, more lift, longer hold, longer hitstop, a longer slide.",
+    "or": [
+     "he was going down the tuner trying each knob's direction ('Couldn't get through all the knobs', of the first session) and five notches is where a difference shows, not where he wants it",
+     "it suits the six in a wide hall and would not suit one body in a small room"
+    ],
+    "confidence": "medium",
+    "because": "he left all of them there and played on; no words; 'heavy and massful' is his standing direction"
+   },
+   {
+    "supposes": "The scarcity of P44's moves says nothing about whether he wants them: he had not been told they were there.",
+    "or": [
+     "he found the stun once and did not care for it"
+    ],
+    "confidence": "high",
+    "because": "the order of the messages"
+   },
+   {
+    "supposes": "This session was the fight at speed -- a different thing tried than the last (the structures, the dodges).",
+    "or": [],
+    "confidence": "low",
+    "because": "no words"
+   }
+  ],
+  "proposed": [
+   "ask him whether the lab and the reactor should BEGIN at the knobs he left (weight 1.4, knock 1.4, lift 1.5, stun 1.5, hitstop 1.5, slide 0.94) -- not done: in the reactor's small room a slide of 0.94 sends a body twice as far",
+   "keep knobs across power-off (needs the save file extended: asked before, unanswered)"
+  ]
+ },
+ "result": {
+  "commits": [
+   "8b7c612"
+  ],
+  "changed": "nothing was changed FOR this record. The reactor (P45) was built beside it from his words of the same day.",
+  "proved": [],
+  "cart": null,
+  "next_record": null,
+  "verdict": "P44's moves: unjudged (played unannounced). His knob changes: recorded, not adopted.",
+  "imprints": [],
+  "rejected": []
+ }
+}
