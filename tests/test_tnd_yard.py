@@ -562,10 +562,12 @@ def test_r_takes_only_what_is_drawn(cart):
     assert undrawn < locked * 0.02, f"{undrawn} of {locked} locked frames on an undrawn body"
 
 
-def test_the_spot_steps_on_a_tap_of_its_own(cart):
-    """P74 ("the up down targeting leaks into the other moves, it shouldnt"; his tape: 17 of 22 steps of the spot were
-    Up or Down held for another move): with R held, a tap of Down steps the spot; Down held does not; Down with a
-    blow's button does not; nor a tap just after one"""
+def test_the_spot_steps_on_the_press_and_not_for_another_move(cart):
+    """P74 ("the up down targeting leaks into the other moves, it shouldnt") and P76 ("tank targeting gives the head
+    shot body shot leg shot choice. thats important"; his tapes: where it stepped on the press it answered 17 of 25
+    choosings, where I made it a quick tap it answered none of 9, each held three quarters of a second): with R held,
+    Up or Down steps the spot AT ONCE, tapped or held; with a blow's button inside ten frames it is that move's --
+    not stepped, or taken back"""
     y = Yard(cart)
     g = y.g
     y.who(3)                                     # (everyone standing: the double before him)
@@ -577,17 +579,21 @@ def test_the_spot_steps_on_a_tap_of_its_own(cart):
         for _ in range(30):
             g.step(R)
         was = g.cell("t_spot")
-        for q in keys:
+        g.step(R | keys[0])
+        g.step(R | keys[1])
+        at_once = g.cell("t_spot") - was
+        for q in keys[2:]:
             g.step(R | q)
         for _ in range(20):
             g.step(R)
-        return g.cell("t_spot") - was
+        return at_once, g.cell("t_spot") - was
     assert g.cell("t_spot") == 1
-    assert spot([D] * 4) == 1, "a tap of Down did not step it"
-    assert spot([U] * 4) == -1, "a tap of Up did not step it back"
-    assert spot([D] * 30) == 0, "Down HELD stepped it"
-    assert spot([D] * 3 + [D | X] * 3 + [D] * 3) == 0, "Down with a blow stepped it"
-    assert spot([X] * 3 + [0] * 3 + [D] * 4) == 0, "a tap just after a blow's button stepped it"
+    assert spot([D] * 4) == (1, 1), "a tap of Down"
+    assert spot([U] * 4) == (-1, -1), "a tap of Up"
+    assert spot([D] * 45) == (1, 1), "Down held"
+    assert spot([U] * 45) == (-1, -1), "Up held"
+    assert spot([D] * 3 + [D | X] * 3 + [D] * 3)[1] == 0, "Down with a blow: not taken back"
+    assert spot([X] * 3 + [0] * 3 + [D] * 4) == (0, 0), "Down just after a blow's button stepped it"
     assert g.cell("t_spot") == 1
 
 
@@ -648,10 +654,10 @@ def test_the_slide_is_a_blow(cart):
     assert g.cell("aim_zone") == 2 and g.cell("anim") == 7, "it was not the slide, at the legs"
 
 
-def test_locked_in_the_tank_he_walks_to_it_and_steps_to_the_side_pressed(cart):
-    """P75 (his tape of P74: R held in the tank, he held Up 1,109 frames and Down 925 and stood; and 6 of 11 steps
-    with Left and Right went to the side pressed): locked, Up walks him to it and Down from it, without turning;
-    Left takes the next body on his left and Right the next on his right -- and at the last on a side, it stays"""
+def test_locked_in_the_tank_he_is_planted_and_steps_to_the_side_pressed(cart):
+    """P75 (his tape of P74: 6 of 11 steps with Left and Right went to the side pressed): locked, Left takes the next
+    body on his left and Right the next on his right -- and at the last on a side, it stays. P76: and he is PLANTED,
+    as he made it (P37): Up and Down held are the spot's, and do not walk him"""
     y = Yard(cart)
     g = y.g
     y.who(3)                                     # (everyone standing)
@@ -668,13 +674,10 @@ def test_locked_in_the_tank_he_walks_to_it_and_steps_to_the_side_pressed(cart):
     def bearing(k):
         (u, v), (bu, bv) = y.uv(), y.body(k)
         return math.degrees(math.atan2(bv - v, bu - u))             # (counter-clockwise: a greater bearing is to his left)
-    t0, far0 = chosen(), y.far(chosen())
-    for _ in range(40):
-        g.step(R | U)
-    assert chosen() == t0 and y.far(t0) < far0 - 0.8, f"Up, locked: {far0:.2f} -> {y.far(t0):.2f}"
-    for _ in range(40):
-        g.step(R | D)
-    assert y.far(t0) > far0 - 0.3, f"Down, locked: {y.far(t0):.2f}"
+    at = y.uv()
+    for q in [R | U] * 40 + [R | D] * 40:
+        g.step(q)
+    assert math.dist(at, y.uv()) < 0.05, f"locked, Up and Down moved him {math.dist(at, y.uv()):.2f}"
     steps = 0
     for key, sign in ((LEFT, 1), (LEFT, 1), (LEFT, 1), (LEFT, 1), (LEFT, 1), (RIGHT, -1), (RIGHT, -1), (RIGHT, -1), (RIGHT, -1), (RIGHT, -1), (RIGHT, -1)):
         was = chosen()
@@ -702,3 +705,85 @@ def test_a_fight_calls_the_others(cart):
         g.d[g.syms["p_hp"]] = 140
         g.step(0)
     assert sum(y.arr("yard_awake", k) for k in range(1, 6)) >= 2, [y.arr("yard_awake", k) for k in range(7)]
+
+
+# ---- P76 -------------------------------------------------------------------------------------------------------------
+def test_where_it_is_struck_stays_with_it(cart):
+    """P76 ("tank targeting gives the head shot body shot leg shot choice. thats important. those should have specfic
+    effects on the enemy"): a round at the elite's HEAD takes two and leaves it DAZED; at its BODY, WINDED -- its next
+    string a second and more off; at its LEGS, HOBBLED -- and a second there while it is, and it is DOWN"""
+    R, B = spec.PAD_R, spec.PAD_B
+    seen = {}
+    for zone in (0, 1, 2):
+        y = Yard(cart)
+        g = y.g
+        y.who(1)                                 # (the ring's two, fighting)
+        bu, bv = y.body(0)
+        y.put(bu, bv - 6.0, 256)
+        g.d[g.syms["e0_stun"]] = 2               # (struck: it is awake)
+        for _ in range(10):
+            g.step(0)
+        for _ in range(20):
+            g.step(R)
+        assert g.cell("t_sel") == 0, "R did not take the elite"
+
+        def shoot():
+            g.d[g.syms["t_spot"]] = zone
+            for q in [R | B] * 3 + [R] * 30:
+                g.d[g.syms["p_hp"]] = 140
+                g.step(q)
+        hp = g.cell("e0_hp")
+        shoot()
+        seen[zone] = (hp - g.cell("e0_hp"), y.arr("yard_dazed", 0), y.arr("yard_cd", 0), y.arr("yard_hobbled", 0), g.cell("e0_st"))
+        if zone == 2:
+            shoot()
+            assert g.cell("e0_st") == 2 and y.arr("yard_hobbled", 0) == 0, "hobbled and struck in the legs again, it stands"
+    assert seen[0][0] == 2 and seen[0][1] > 120 and seen[0][2:4] == (0, 0), f"the head: {seen[0]}"
+    assert seen[1][0] == 1 and seen[1][2] > 60 and seen[1][1] == 0 and seen[1][3] == 0, f"the body: {seen[1]}"
+    assert seen[2][0] == 1 and seen[2][3] > 150 and seen[2][1] == 0 and seen[2][4] == 1, f"the legs: {seen[2]}"
+
+
+def test_hobbled_it_comes_at_half_its_pace(cart):
+    """P76: a body's pace toward him, hobbled, is half what it is whole"""
+    def came(hobbled):
+        y = Yard(cart)
+        g = y.g
+        y.who(1)
+        bu, bv = y.body(0)
+        y.put(bu, bv - 7.0, 256)
+        g.d[g.syms["yard_awake"]] = 1
+        g.step(0)
+        far = y.far(0)
+        for _ in range(50):
+            if hobbled:
+                g.d[g.syms["yard_hobbled"]] = 100
+            g.d[g.syms["p_hp"]] = 140
+            g.step(0)
+        return far - y.far(0)
+    whole, half = came(False), came(True)
+    assert whole > 1.5 and 0.35 * whole < half < 0.65 * whole, f"whole {whole:.2f}, hobbled {half:.2f}"
+
+
+def test_into_the_run_and_out_of_it_is_not_one_frame(cart):
+    """P76 ("it should just be smoother and cool between modes of play"): into the run he drops and drives -- the
+    landing's crouch, five frames, rising into the stride; out of it at pace he brakes -- eight frames of it -- and
+    only then stands"""
+    y = Yard(cart)
+    g = y.g
+    y.who(3)
+    y.put(-20.0, -6.0, 256)
+    for _ in range(10):
+        g.step(0)
+    stride = range(387, 387 + 16)
+    poses = []
+    for q in [L, L, 0, 0, 0, L, L, L] + [L | U] * 40 + [0] * 16:
+        g.step(q)
+        poses.append((g.cell("f_sty"), g.cell("pose")))
+    first = next(i for i, (s_, _) in enumerate(poses) if s_ == 1)
+    start = [p for _, p in poses[first:first + 5]]
+    assert not any(p in stride for p in start) and len(set(start)) == 5 and start == sorted(start), f"into the run: {start}"
+    assert poses[first + 5][1] in stride, poses[first + 5]
+    out = next(i for i in range(first + 10, len(poses)) if poses[i][0] != 1)
+    brake = [p for _, p in poses[out:out + 8]]
+    assert not any(p in stride for p in brake) and min(brake) == brake[4] and set(brake) <= set(range(min(start), max(start) + 1)), f"out of it: {brake}"
+    assert poses[out + 8][1] < 60, f"then he stands: {poses[out + 8]}"

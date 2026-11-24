@@ -2223,15 +2223,16 @@ if LAB:
                     g_.push(10).emit("mul").load(TX["j"]).emit("swap", "sub").push(FONT_CH.index("0")).emit("add").store(at_ + i_)
                     g_.load(TX["r"]).store(TX["j"])
             cd_ = g_.label("pkdraw_s")
-            g_.load(CRST).load(CRS).emit("or", f"jz {cd_}_b")
-            dg_(CRST, int(STR_CS) + 1, 2)
-            for k_, v_ in (("str", int(STR_CS)), ("x", 148), ("y", 26), ("sc", 4)):
-                g_.set(TX[k_], v_)
-            g_.push32(0xF2E6B0).load(CRS).push(2).emit("eq", f"jz {cd_}_c")
-            g_.emit("drop").push32(0xFFD21E)
-            g_.mark(f"{cd_}_c")
-            g_.store(TX["rgb"]).emit(f"call {L_TEXT}")
-            g_.mark(f"{cd_}_b")
+            if not YARD:                                               # (the yard has no stations: no streak to show)
+                g_.load(CRST).load(CRS).emit("or", f"jz {cd_}_b")
+                dg_(CRST, int(STR_CS) + 1, 2)
+                for k_, v_ in (("str", int(STR_CS)), ("x", 148), ("y", 26), ("sc", 4)):
+                    g_.set(TX[k_], v_)
+                g_.push32(0xF2E6B0).load(CRS).push(2).emit("eq", f"jz {cd_}_c")
+                g_.emit("drop").push32(0xFFD21E)
+                g_.mark(f"{cd_}_c")
+                g_.store(TX["rgb"]).emit(f"call {L_TEXT}")
+                g_.mark(f"{cd_}_b")
             g_.load(PARK_ORBS).emit(f"jz {cd_}")                       # (the orbs taken, gold, under it)
             dg_(PARK_ORBS, int(STR_PO) + 2, 3)
             for k_, v_ in (("str", int(STR_PO)), ("x", 140), ("y", 52), ("sc", 2), ("rgb", 0xFFD628)):
@@ -4085,6 +4086,8 @@ if LAB:
         YENG = cart.var("yard_side", len(ENEMY))           # P74: engaged: which side it has (1, 2), or none
         YFB, YSPD, YSPN = cart.var("yard_face_t"), cart.var("yard_spot_tap"), cart.var("yard_spot_n")
         YHOT, YHC = cart.var("yard_hot"), cart.var("yard_hot_n")       # P75: anybody awake (last frame; this)
+        YZP, YDZ, YHB = (cart.var("yard_" + k_, len(ENEMY)) for k_ in ("zone_new", "dazed", "hobbled"))   # P76
+        YSTP, YMT, YMKD = (cart.var("yard_" + k_) for k_ in ("style_was", "mode_t", "mode_kind"))            # P76
         YP = cart.var("yard_step", 4)
         L_YAI = p.label("yardai")
     L_HITR = p.label("hitr")
@@ -4822,31 +4825,34 @@ if BASE:
         p.mark(f"{sel}_pad")
         if YARD:
             # P74 (the player: "the up down targeting leaks into the other moves, it shouldnt"; his tape: of 22 times
-            # the spot stepped, 17 were Up or Down HELD for something else -- a blow's way, the gun, a dodge -- with a
-            # face button inside ten frames, and it sat at HIGH for most of his locked time by accident): the spot
-            # steps on a TAP OF ITS OWN -- Up or Down pressed with no face button down or just let go, and let go
-            # inside fourteen frames with none pressed meanwhile. Held, or with a button, it is that move's.
-            st_ = p.label("spottap")
+            # the spot stepped, 17 were Up or Down held for something else, a face button inside ten frames).
+            # P76 (the player: "tank targeting gives the head shot body shot leg shot choice. thats important" -- and
+            # his tapes: on P73, where it stepped on the press, he chose 25 times with no button near and it answered
+            # 17; on P74, where I made it a tap let go inside fourteen frames, he chose 9 times, HELD each three
+            # quarters of a second, and it answered NONE; P75 then made those holds a walk). THE SPOT STEPS ON THE
+            # PRESS, as he made it (P37) -- unless a face button is down or was inside ten frames (that Up or Down
+            # is the move's); and if a button comes inside ten frames with it still held, the step is taken back.
+            st_ = p.label("spotstep")
             p.emit("load 1").push(spec.PAD_A | spec.PAD_B | spec.PAD_X | spec.PAD_Y).emit("and", f"jz {st_}_nf")
-            p.set(YFB, 0).set(YSPD, 0).emit(f"jmp {st_}")
+            p.set(YFB, 0)
+            p.load(YSPD).emit(f"jz {st_}")                                 # (a step still his to take back?)
+            p.emit("load 1").push(spec.PAD_UP | spec.PAD_DOWN).emit("and", f"jz {st_}_k")
+            p.load(YSPN).store(SPOT)
+            p.mark(f"{st_}_k")
+            p.set(YSPD, 0).emit(f"jmp {st_}")
             p.mark(f"{st_}_nf")
             p.load(YFB).emit("mini 60").push(1).emit("add").store(YFB)
             p.load(YSPD).emit(f"jz {st_}_new")
-            p.emit("load 1").push(spec.PAD_UP | spec.PAD_DOWN).emit("and", f"jz {st_}_go")
-            p.addi(YSPN, 1).load(YSPN).push(15).emit("lt", f"jz {st_}_x", f"jmp {st_}")     # (still down: a hold is not a tap)
-            p.mark(f"{st_}_x")
-            p.set(YSPD, 0).emit(f"jmp {st_}")
-            p.mark(f"{st_}_go")
-            p.load(SPOT).load(YSPD).emit("add", "maxi 0", "mini 2").store(SPOT).set(YSPD, 0).emit(f"jmp {st_}")
+            p.addi(YSPD, -1)
             p.mark(f"{st_}_new")
-            p.push(10).load(YFB).emit("lt", f"jz {st_}")                                   # (10 < since a face button)
-            fresh(spec.PAD_UP)
-            p.emit(f"jz {st_}_d")
-            p.set(YSPD, -1).set(YSPN, 0).emit(f"jmp {st_}")
-            p.mark(f"{st_}_d")
+            p.push(10).load(YFB).emit("lt", f"jz {st_}")                   # (10 < since a face button)
             fresh(spec.PAD_DOWN)
-            p.emit(f"jz {st_}")
-            p.set(YSPD, 1).set(YSPN, 0)
+            fresh(spec.PAD_UP)
+            p.emit("sub", "dup", f"jz {st_}_no")                           # ( +1 down, -1 up )
+            p.load(SPOT).store(YSPN)
+            p.load(SPOT).emit("add", "maxi 0", "mini 2").store(SPOT).set(YSPD, 10).emit(f"jmp {st_}")
+            p.mark(f"{st_}_no")
+            p.emit("drop")
             p.mark(st_)
         for bit_, d_ in (() if YARD else ((spec.PAD_UP, -1), (spec.PAD_DOWN, 1))):      # the spot: it steps, and stays
             sp_ = p.label("spot")
@@ -5443,11 +5449,12 @@ if L2:
             p.load(PARK_SPQ).emit(f"jz {lk3}_rj")
             p.addi(PARK_SPQ, -1)
             p.mark(f"{lk3}_rj")
-        p.load(SJD).push(5).emit("eq", f"jz {lk3}_sm")
-        p.load(TGX).load(PX).emit("sub", "dup", "mulq").load(TGZ).load(PZ).emit("sub", "dup", "mulq", "add")
-        p.push32(int((SUPER_STOP / ONE) ** 2 * ONE)).emit("lt", f"jz {lk3}_sm")
-        p.set(F["vx"], 0).set(F["vz"], 0)
-        p.mark(f"{lk3}_sm")
+        if not YARD:                              # (the yard's run has no lock: no superman punch to stop)
+            p.load(SJD).push(5).emit("eq", f"jz {lk3}_sm")
+            p.load(TGX).load(PX).emit("sub", "dup", "mulq").load(TGZ).load(PZ).emit("sub", "dup", "mulq", "add")
+            p.push32(int((SUPER_STOP / ONE) ** 2 * ONE)).emit("lt", f"jz {lk3}_sm")
+            p.set(F["vx"], 0).set(F["vz"], 0)
+            p.mark(f"{lk3}_sm")
         p.set(LOCK, 0)
         p.load(RHELD).emit(f"jz {lk3}_np")
         p.emit("load 1").push(15).emit("and", f"jz {lk3}_np", f"jmp {lk3}_pd")
@@ -5533,6 +5540,33 @@ if L2:
             ef(F_STUN)
             p.emit(f"jz {ya}_ns")
             aset(YAWK, 1)
+            # P76 (the player: "tank targeting gives the head shot body shot leg shot choice. thats important. those
+            # should have specfic effects on the enemy"): WHERE IT WAS STRUCK STAYS WITH IT. (A fist or a round already
+            # takes more off the head and holds the legs longer.)
+            #   the HEAD   DAZED three seconds and more: it slips nothing, its tell is twice as long, and it sways
+            #   the BODY   WINDED: its next string is a second and a half off, and it has lost its side
+            #   the LEGS   HOBBLED four seconds: half its pace -- and struck in the legs again meanwhile, it is DOWN
+            af(YZP)
+            p.emit(f"jz {ya}_off")
+            aset(YZP, 0)
+            p.load(HITZ).emit(f"jz {ya}_zh")
+            p.load(HITZ).push(1).emit("eq", f"jz {ya}_zl")
+            aset(YCD, 100)
+            p.emit(f"jmp {ya}_off")
+            p.mark(f"{ya}_zh")
+            aset(YDZ, 200)
+            p.emit(f"jmp {ya}_off")
+            p.mark(f"{ya}_zl")
+            af(YHB)
+            p.emit(f"jz {ya}_zl1")
+            p.push(2)
+            es(F_ST)
+            p.push(0)
+            es(12)
+            aset(YHB, 0)
+            p.emit(f"jmp {ya}_off")
+            p.mark(f"{ya}_zl1")
+            aset(YHB, 260)
             p.emit(f"jmp {ya}_off")
             p.mark(f"{ya}_ns")
             af(EY)
@@ -5568,12 +5602,17 @@ if L2:
             p.mark(f"{ya}_sleep")
             aset(YAWK, 0)
             p.mark(f"{ya}_aw")
-            af(YCD)
-            p.emit(f"jz {ya}_c0")
-            af(YCD)
-            p.push(1).emit("sub")
-            as_(YCD)
-            p.mark(f"{ya}_c0")
+            for n_, arr_ in enumerate((YCD, YDZ, YHB)):
+                af(arr_)
+                p.emit(f"jz {ya}_c{n_}")
+                af(arr_)
+                p.push(1).emit("sub")
+                as_(arr_)
+                p.mark(f"{ya}_c{n_}")
+            af(YDZ)                                                # (dazed, it sways: its lean thrown back every half second)
+            p.push(31).emit("and").push(16).emit("eq", f"jz {ya}_sw")
+            p.push(40).push(int(ETL)).load(YK).emit("add", "storei")
+            p.mark(f"{ya}_sw")
             af(YENG)
             p.load(YSC).emit("or").store(YSC)
             af(YAWK)
@@ -5640,6 +5679,9 @@ if L2:
             p.mark(f"{ya}_nodo")
             tp(3)                                                  # (his swing's second frame, in reach of it: slipped)
             p.emit(f"jz {ya}_close")
+            af(YDZ)                                                # (dazed, it slips nothing)
+            p.emit(f"jz {ya}_nd", f"jmp {ya}_close")
+            p.mark(f"{ya}_nd")
             p.load(ANIM).push(2).emit("eq").load(AF).push(2).emit("eq", "and", f"jz {ya}_close")
             p.load(YD2).push32(int(2.4 ** 2 * ONE)).emit("lt", f"jz {ya}_close")
             p.emit(f"load {spec.REG_FRAME}").push(29).emit("mul").load(YK).push(11).emit("mul", "add", "shr 1").push(255).emit("and")
@@ -5688,20 +5730,23 @@ if L2:
             for o_ in (0, 1):
                 ef(o_)
                 p.store(int(YP) + 2 + o_)
-            sin_of(p, cell=YBR)
             tp(0)
-            p.emit("mulq")
+            af(YHB)                                                # (hobbled: half its pace)
+            p.emit(f"jz {ya}_p1")
+            p.emit("shr 1")
+            p.mark(f"{ya}_p1")
+            p.store(YRAD)
+            sin_of(p, cell=YBR)
+            p.load(YRAD).emit("mulq")
             ef(0)
             p.emit("swap", "sub").store(YP)
             sin_of(p, 256, cell=YBR)
-            tp(0)
-            p.emit("mulq")
+            p.load(YRAD).emit("mulq")
             ef(1)
             p.emit("add").store(int(YP) + 1)
             step_and_keep()
             ef(F_PH)
-            tp(0)
-            p.push(E_LEGS).emit("mul", "add")
+            p.load(YRAD).push(E_LEGS).emit("mul", "add")
             es(F_PH)
             p.push(1)
             es(F_WALK)
@@ -5719,6 +5764,10 @@ if L2:
             p.mark(f"{ya}_nb")
             p.load(YTT)
             tp(1)
+            af(YDZ)                                                # (dazed, its tell is twice as long)
+            p.emit(f"jz {ya}_t1")
+            p.emit("shl 1")
+            p.mark(f"{ya}_t1")
             p.emit("lt", f"jz {ya}_go", f"jmp {ya}_close")
             p.mark(f"{ya}_go")
             aset(YACT, Y_BLOW)
@@ -5917,7 +5966,7 @@ if L2:
             for c_, v_ in zip((int(e_["pos"]), int(e_["pos"]) + 1, int(e_["old"]), int(e_["old"]) + 1), LAB_MARK[k_] * 2):
                 p.push32(v_).store(c_)
             p.set(e_["yaw"], LAB_FACE).set(e_["hp"], e_["T"]["hp"]).set(e_["stun"], 0).set(e_["t"], 0)
-            for a_ in (EVX, EVZ, EY, EVY, ETL) + ((YACT, YTM, YCD, YAWK, YHIT) if YARD else ()):
+            for a_ in (EVX, EVZ, EY, EVY, ETL) + ((YACT, YTM, YCD, YAWK, YHIT, YDZ, YHB) if YARD else ()):
                 p.set(int(a_) + k_, 0)
         if YARD:
             p.load(LS0).emit("shr 7").push(1).emit("and").store(YFIGHT)
@@ -7691,10 +7740,9 @@ if BASE:
     if L1:                                        # (out of the run: its speed, and the
         p.load(F["spd"]).push(int(0.8 * ONE)).emit("mulq").store(F["spd"])   # lean it gives him, die away)
     p.push(0)
-    # P75 (his tape of P74: with R held in the tank he held Up for 1,109 frames and Down for 925 -- and stood, planted;
-    # 14 blows landed on him so): in the yard, locked, Up and Down WALK him to it and from it (his steering is on it);
-    # Left and Right still step to the next. He does not turn.
-    if L3 and not YARD:                           # (P35: locked, he is planted)
+    # (P75 read his holding Up and Down with R held as wanting to walk, and let him. P76: they were his CHOOSING THE
+    # SPOT, which P74 had stopped answering: he is planted, as he made it.)
+    if L3:                                        # (P35: locked, he is planted)
         p.load(LOCK)
         if L4:
             p.load(PLANT).emit("or")
@@ -8358,6 +8406,36 @@ if YARD:
     p.mark(f"{yr}_c")
     p.set(YPK, 0)
     p.mark(yr)
+if YARD:
+    # P76 (the player: "it should just be smoother and cool between modes of play"): INTO THE RUN AND OUT OF IT his body
+    # changed in one frame -- standing, then mid-stride; mid-stride, then standing. Into it he DROPS AND DRIVES (the
+    # landing's crouch rising into the stride's first pose, five frames); out of it at pace he BRAKES (the stride
+    # sinking into that crouch and up, eight). On the ground and his own; a blow, a flip or the air has him first.
+    ym = p.label("ymode")
+    p.load(F["sty"]).load(YSTP).emit("eq", f"jz {ym}_ch", f"jmp {ym}_t")
+    p.mark(f"{ym}_ch")
+    p.load(F["sty"]).push(1).emit("eq", f"jz {ym}_out")
+    p.set(YMT, 5).set(YMKD, 0).emit(f"jmp {ym}_set")
+    p.mark(f"{ym}_out")
+    p.load(YSTP).push(1).emit("eq", f"jz {ym}_set")
+    p.push(int(0.05 * ONE)).load(F["spd"]).emit("lt", f"jz {ym}_set")
+    p.set(YMT, 8).set(YMKD, 1)
+    p.mark(f"{ym}_set")
+    p.load(F["sty"]).store(YSTP)
+    p.mark(f"{ym}_t")
+    p.load(YMT).emit(f"jz {ym}")
+    p.addi(YMT, -1)
+    p.load(F["py"]).load(F["hs"]).emit("or").load(F["evf"]).emit("or", f"jz {ym}_g", f"jmp {ym}")
+    p.mark(f"{ym}_g")
+    p.load(ANIM).push(2).emit("eq", f"jz {ym}_ok", f"jmp {ym}")
+    p.mark(f"{ym}_ok")
+    p.load(YMKD).emit(f"jz {ym}_in")
+    p.load(YMT).push(3).emit("sub", "abs").push(2).emit("add", f"jmp {ym}_p")           # (6 5 4 3 2 3 4 5)
+    p.mark(f"{ym}_in")
+    p.push(6).load(YMT).emit("sub")                                                    # (2 3 4 5 6)
+    p.mark(f"{ym}_p")
+    p.push(base["acro_land"]).emit("add").store(POSE).emit(f"jmp {L['pd']}")
+    p.mark(ym)
 fp = p.label("flippose")
 p.load(F["evf"]).emit(f"jz {fp}")
 p.load(F["evt"]).load(F["evf"]).emit("sub")
@@ -8442,7 +8520,7 @@ if LAB:
     p.mark(lpo)
     p.load(F["ph"]).emit("shr 16").push(15).emit("and").store(RPH)
 p.load(F["ph"]).emit("shr 16").push(15).emit("and").push(base["run"])
-if L3:
+if L3 and not YARD:                # (the yard's run has no lock)
     # P36: locked, B down or a shot just gone: the near arm is out at the
     # item -- his right, his left, or ahead of him
     rg_ = p.label("rungun")
@@ -9095,7 +9173,7 @@ if L4:
                 # P73: STRUCK, IT SHOWS IT -- high (his fist met its head) or low, in its own bank's clip, for as long
                 # as it is held; and the blow that takes the last of it stops the world six frames more
                 p.load(HITZ).push(0).emit("eq", "push 1", "xor").store(int(YRK) + e_["k"])
-                p.load(e_["stun"]).store(int(YR0) + e_["k"])
+                p.load(e_["stun"]).store(int(YR0) + e_["k"]).set(int(YZP) + e_["k"], 1)
                 p.push(0).load(e_["hp"]).emit("lt", f"jz {fn_}_kd", f"jmp {fn_}_nk")
                 p.mark(f"{fn_}_kd")
                 p.addi(F["stop"], 6).set(F["shake"], 12)
@@ -13479,6 +13557,8 @@ if L2:
                 p.mark(f"{le}_eh")
                 p.load(W["dmg"]).push(2).emit("mul").store(W["dmg"]).addi(W["stop"], 12)
                 p.mark(f"{le}_zz")
+                if YARD:
+                    p.set(int(YZP) + e_["k"], 1)
                 # (P44: a round into a body already DOWN does not stand it up to fall again)
                 p.load(e_["st"]).push(2).emit("eq").store(LS0).load(e_["t"]).store(LS1)
             enemy_hurt(p, e_)

@@ -3401,3 +3401,45 @@ was (80% at P74): more bodies come to the fight.
 
 Tests 23. Layers 0, 4, 8, 10, 11, 12 and the full cart byte-identical. (A in the tank and the slide's blow are the
 yard's only: the other layers keep Down+A for the quick turn until he says.)
+
+## P76: where it is struck stays with it; the spot on the press; into the run and out (2026-11-24)
+
+The player, after P75's push: "geneally it feeling good you have a good intuition, it should just be smoother and
+cool between modes of play / tank targeting gives the head shot body shot leg shot choice. thats important. those
+should have specfic effects on the enemy".
+
+TWO OF MY READINGS TAKEN BACK. Both were mine, against his design, and his tapes had already said so:
+- P74 made the spot "a tap of its own" (Up or Down pressed and let go inside a quarter second). On that build he
+  chose the spot nine times, each a HOLD (median 46 frames), and it answered none; where it stepped on the press
+  (P73) it answered 17 of 25. Now Up or Down with R held steps the spot AT ONCE, tapped or held. What P74 was for
+  ("the up down targeting leaks into the other moves") is kept another way: a blow's button within ten frames
+  after a step takes the step back, and within ten frames before it, the step is not taken.
+- P75 let Up and Down walk him while locked. Locked, he is PLANTED again (P37, his rule): the pad is the choosing.
+  Left and Right still step to the side pressed.
+
+WHERE IT IS STRUCK STAYS WITH IT (a fist or a round, the spot he chose):
+- the HEAD: DAZED, 200 frames. It slips nothing, its tell is twice as long, and it sways. (A round there still
+  takes two; a fist half again.)
+- the BODY: WINDED. Its string is lost with its side, as any blow does, and it begins no other for 100 frames.
+- the LEGS: HOBBLED, 260 frames at half its pace. Struck in the legs again while it is: DOWN.
+Read on the elite with rounds: head 8 -> 6 and dazed; body 8 -> 7 and its wait at 87 thirty frames on; legs 8 -> 7,
+hobbled, and the second there puts it down. (MY CHOICE of the three effects and their lengths: to be judged on
+glass. What a hobbled or winded body LOOKS like is only its pace and its waiting; the dazed one sways.)
+
+INTO THE RUN AND OUT OF IT. The camera was already eased between styles (0.12 a frame at most); the body was not:
+standing to full stride in one frame, and back. Into the run he DROPS AND DRIVES, the landing's crouch rising into
+the stride over five frames; out of it at pace he BRAKES, eight frames down through the crouch and up, and then
+stands. Not in the air, struck, or flipping. (MY READING of "smoother and cool between modes of play": the tank and
+the boxer change by a guard only and were left.)
+
+A FAULT OF MINE ON THE WAY: the new cell for which of the two it is was named YMK, the name of the bodies' marks
+table. The generator is one scope; every body walked "home" to an address read out of the wrong cell, and five
+tests failed that this round had not touched. Found by building halves: the fight routine old and the rest new.
+
+Room made: the streak's digits and the superman punch's stop are not built into the yard. The program is 29,211
+words, 55 from its limit; data memory 11 free. THE YARD IS FULL: the next thing in needs something out.
+
+MEASURED, a minute of everything at random on the simulated silicon: 52% of the frame at the median, 81% at the
+99th percentile, 88.0% AT THE PEAK (87.3% at P75) -- under the gate of 90% by two points, and no frame over.
+
+Tests 26. Layers 0, 4, 8, 10, 11, 12 and the full cart byte-identical.
