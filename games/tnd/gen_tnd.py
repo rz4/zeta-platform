@@ -82,13 +82,14 @@ SWARM_TEST = os.environ.get("TND_SWARM") == "1"
 #                 where the blow lands.
 LAYER = int(os.environ.get("TND_LAYER", "9"))
 # (9 is NOT a layer: it is the default, the whole game. The lab is 10.)
-BASE = LAYER in (0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12)  # the base's own rules (the layers stand on them)
-L1 = LAYER in (1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12)  # the left shoulder
-L2 = LAYER in (2, 3, 4, 5, 6, 7, 8, 10, 11, 12)  # shadow boxing, and the gun
-L3 = LAYER in (3, 4, 5, 6, 7, 8, 10, 11, 12)  # the right shoulder: targeting (P35)
-L4 = LAYER in (4, 5, 6, 7, 8, 10, 11, 12)  # the enemies (P37): bodies from the cart (frontier 20's core)
-LAB = LAYER in (10, 11, 12)      # THE LAB (P42): a white room to tune the fight in -- layer 4, no town
-PARK = LAYER == 12               # THE PARK (P58): the lab's moves, on a course that is a field, not a list
+BASE = LAYER in (0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13)  # the base's own rules (the layers stand on them)
+L1 = LAYER in (1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13)  # the left shoulder
+L2 = LAYER in (2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13)  # shadow boxing, and the gun
+L3 = LAYER in (3, 4, 5, 6, 7, 8, 10, 11, 12, 13)  # the right shoulder: targeting (P35)
+L4 = LAYER in (4, 5, 6, 7, 8, 10, 11, 12, 13)  # the enemies (P37): bodies from the cart (frontier 20's core)
+LAB = LAYER in (10, 11, 12, 13)      # THE LAB (P42): a white room to tune the fight in -- layer 4, no town
+PARK = LAYER in (12, 13)         # THE PARK (P58): the lab's moves, on a course that is a field, not a list
+YARD = LAYER == 13               # THE YARD (P70): the park's moves and rows in the lab's hall -- a room for the whole moveset
 RUN_STRIDE = 3.2 if PARK else 4  # the run's cycle a unit of ground: four units a cycle; P65, the park: five (his pace
 #                                  is a quarter more there, and the legs turned over six times a second)
 REACTOR = LAYER == 11            # THE REACTOR (P45): the lab drawn in to one small room, its checks his own width,
@@ -108,7 +109,7 @@ CUT = 1.009                     # the one hip-height cut that fits both
 FLIP = True                     # winding, after the left-handed mirror
 
 d = np.load(BAKE)
-if LAYER in (10, 11, 12):
+if LAYER in (10, 11, 12, 13):
     # P49: THE ACROBATICS (the player: "the legs on the side flip should be
     # tucked too, work on the arcrobatics poses"): the lab's flips are the
     # shapes tools/tnd_acro.py bakes on the archive's rig -- the tuck with
@@ -120,7 +121,7 @@ if LAYER in (10, 11, 12):
             self._srcs, self.files = srcs, [k_ for s_ in srcs for k_ in s_.files]
 
         def __getitem__(self, k_):
-            if LAYER == 12 and k_[2:] in _PARK_CLIPS and k_[:2] in ("V_", "S_"):
+            if LAYER in (12, 13) and k_[2:] in _PARK_CLIPS and k_[:2] in ("V_", "S_"):
                 k_ = k_[:2] + _PARK_CLIPS[k_[2:]]
             return next(s_[k_] for s_ in self._srcs if k_ in s_.files)
     # P65 (the player, of the park: "the player poses and animation so it doesnt feel as cartoony, it should blend
@@ -164,7 +165,7 @@ SJ_WAYS = ("fwd", "back", "left", "right")
 CLIP_OF = dict({"run": "run2", "walk": "walk2", "idle": "guard2"},
                **{"kite_" + k_: "hop_" + k_ for k_ in ("fwd", "back", "left", "right")},
                **{k_: k_ + "_n" for k_ in STRIKES}) if BASE else {}
-if LAYER in (10, 11, 12):                                       # (P49: the lab's acrobatics)
+if LAYER in (10, 11, 12, 13):                                       # (P49: the lab's acrobatics)
     CLIP_OF.update(flip_fwd="acro_tuck", flip_back="acro_back", flip_cart="acro_side")
     CLIP_OF.update(run="acro_run")                         # (P51: the traceur's stride)
 if BASE:
@@ -173,7 +174,7 @@ if L1:
     SEQS += tuple("sj_" + k_ for k_ in SJ_WAYS)
 if L3:
     SEQS += ("run_gun_r", "run_gun_l", "run_gun_f")   # P36: the run, the gun out in one hand
-if LAYER in (10, 11, 12):
+if LAYER in (10, 11, 12, 13):
     SEQS += ("acro_leap", "acro_leap_l", "acro_land", "acro_roll", "acro_long")   # P50: the run's air (P51: either leg), its landing, its roll; P52 the long jump
 
 
@@ -371,7 +372,7 @@ END_PAUSE = cart.cram(Table(_pend), "pause_end")
 # twice the room it had, and a page-in copies 16K words -- a frame's work at
 # the SRAM's pace, on the frames the intro or the pause come and go.
 PAGE = 16384
-if os.environ.get("TND_CARTMESH") == "1" or LAYER in (4, 5, 6, 7, 8, 10, 11, 12):   # (the whole of IMEM is the page --
+if os.environ.get("TND_CARTMESH") == "1" or LAYER in (4, 5, 6, 7, 8, 10, 11, 12, 13):   # (the whole of IMEM is the page --
     PAGE = spec.IMEM_WORDS                    # the machine holds 32,768; a page-in is two frames' work)
 INTRO_PROG = cart.cram(Table([0] * PAGE), "intro_prog")
 PAUSE_PROG = cart.cram(Table([0] * PAGE), "pause_prog")
@@ -1505,9 +1506,9 @@ if LAB:
         assert len(b_.v) <= spec.MESH_NV_MAX and len(b_.f) <= spec.MESH_NF_MAX
         return int(cart.data(b_.mesh(), f"lab_tile{int(west_)}{int(east_)}{int(south_)}"))
     if not REACTOR:
-        _t_sw = None if PARK else _lab_tile(True, False, True)
+        _t_sw = None if PARK and not YARD else _lab_tile(True, False, True)
         _t_s = _lab_tile(False, False, True)
-        _t_se = None if PARK else _lab_tile(False, True, True)
+        _t_se = None if PARK and not YARD else _lab_tile(False, True, True)
         # (the north row is the south row turned half round: the checks fall the same)
         LAB_TILES = [(lab_xz(-24 + 16 * i_, -8), m_, 0) for i_, m_ in enumerate((_t_sw, _t_s, _t_s, _t_se))] + \
                     [(lab_xz(-24 + 16 * i_, 8), m_, 512) for i_, m_ in enumerate((_t_se, _t_s, _t_s, _t_sw))]
@@ -1562,7 +1563,9 @@ if LAB:
                     [(lab_xz(su_ * _q, -HALL_V), _rw1, 0) for su_ in (-1, 1)] + [(lab_xz(su_ * _q, HALL_V), _rw1, 512) for su_ in (-1, 1)] + \
                     [(lab_xz(-HALL_U, sv_ * _q), _rw0, 0) for sv_ in (-1, 1)] + [(lab_xz(HALL_U, sv_ * _q), _rw0, 512) for sv_ in (-1, 1)]
         PLATS = []
-    if PARK:
+    if YARD:
+        PLATS = []                          # (the hall, whole; its structures are the park's rows, below)
+    elif PARK:
         # P58: THE PARK (the player, 2026-11-23: "i think what we need is a
         # platforming lab, to test out all the movement modes. you should be
         # creative to push the zeta hypothesis"). The hall's middle tile,
@@ -1665,6 +1668,67 @@ if LAB:
             ("TOWER", _R, [_entry(ln=4.0), _bx(gap=1.5, top=0.8, tt=2.6, ln=8.0), _bx(gap=1.5, top=0.8, tt=5.2, ln=8.0, role=LAST),
                            _orb(5.0, base=0.8, up=1.2, tt=5.2)]),
         ]
+        if YARD:
+            # P70: THE YARD (the player, 2026-11-24: "design a new lab room, something that would be a good playground
+            # for the full moveset" -- and, of the design: "looks fine get to work"). The lab's hall, 64 by 32, and in
+            # it the park's ROWS -- not unfolded as he runs but written once, a table: the room is data. First cut:
+            #   THE RING   its middle, flat, four posts at its corners; the double and the elite stand in it
+            #   THE TRACK  a lane round the walls, the run's stations laid along it: taps, steps, a flip down, a slider
+            #              (south, going east); pads (east, north); a chimney, a deck, a lift, a ledge, a flip down
+            #              (north, going west); steps and a tower (west, south) -- and round again
+            #   THE RANGE  a lane north of the ring: a firing pad at its west, bodies down it at 5, 8, 10, 11.5 and 12.6 (a round flies 13)
+            # Its kinds are its colours: green a plain jump, red a power move, yellow a mover, black a wall, blue a mark.
+            _B = (60, 110, 214)
+            PARK_STATIONS = [("JUMP", _G, []), ("POWER", _R, []), ("MOVER", _Y, []), ("WALL", _K, []), ("MARK", _B, [])]
+            YG, YR, YY, YK, YB = range(5)
+            _S0, _S1, _N0, _N1, _E0, _E1, _W0, _W1 = -15.0, -11.0, 11.0, 15.0, 27.0, 31.0, -31.0, -27.0
+            _TG, _FG, _SG = 0.70 * PARK_TAP, 0.70 * PARK_FLIP, 0.70 * 1.2            # (the park's first tightness)
+
+            def _yb(u0, u1, v0, v1, top, kind=YG, motion=STILL, amp=0.0, ph=0):
+                return dict(u0=u0, u1=u1, v0=v0, v1=v1, top=top, kind=kind, motion=motion, amp=amp, ph=ph)
+
+            def _yo(u, v, h):
+                return dict(u0=u - 0.2, u1=u + 0.2, v0=v - 0.2, v1=v + 0.2, top=h, kind=YG, motion=ORB, amp=0.0, ph=0)
+            YARD_BOXES = [_yb(su_ * 6.5 - 0.3, su_ * 6.5 + 0.3, sv_ * 5.5 - 0.3, sv_ * 5.5 + 0.3, 1.3, YK)      # the ring's posts
+                          for su_ in (-1, 1) for sv_ in (-1, 1)]
+            YARD_BOXES += [_yb(-24.0, -22.0, 7.5, 9.5, 0.06, YB)]                                              # the firing pad
+            # the south side, going east: the corner, three taps, two steps up, the flip down, the slider, the corner
+            _u = -26.0
+            YARD_BOXES += [_yb(-31.0, _u, _S0, _S1, 0.8)]
+            for ln_ in (2.0, 2.0, 3.0):
+                YARD_BOXES += [_yb(_u + _TG, _u + _TG + ln_, _S0, _S1, 0.8), _yo(_u + _TG / 2, -13.0, 1.9)]
+                _u += _TG + ln_
+            for ln_, top_ in ((3.0, 1.9), (4.0, 3.0)):
+                YARD_BOXES += [_yb(_u + _SG, _u + _SG + ln_, _S0, _S1, top_)]
+                _u += _SG + ln_
+            YARD_BOXES += [_yo(_u + 0.55 * _FG, -13.0, 3.6), _yb(_u + 1.1 * _FG, _u + 1.1 * _FG + 5.0, _S0, _S1, 0.4, YR)]
+            _u += 1.1 * _FG + 5.0
+            YARD_BOXES += [_yb(_u + 2.0, _u + 5.0, _S0, _S1, 0.8), _yb(_u + 5.0, _u + 8.0, _S0, _S1, 0.8, YY, SLIDES, 8.0),
+                           _yo(_u + 12.0, -13.0, 2.1), _yb(_u + 16.0, 31.0, _S0, _S1, 0.8)]
+            assert _u + 16.0 < 27.0, _u
+            # the east side, going north: four pads, a little either side, and the corner
+            _v = _S1
+            for k_ in range(4):
+                o_ = 0.3 if k_ % 2 else -0.3
+                YARD_BOXES += [_yb(28.4 + o_, 29.6 + o_, _v + _TG, _v + _TG + 1.6, 0.8)] + ([_yo(29.0, _v + _TG / 2, 1.9)] if k_ % 2 else [])
+                _v += _TG + 1.6
+            assert _v + _TG < _N0, _v
+            YARD_BOXES += [_yb(26.0, 31.0, _v + _TG, _N1, 0.8)]
+            # the north side, going west: the chimney (two walls 2.6 apart, a cap between them no flip reaches), a low deck,
+            # the lift, its ledge, the flip down, the corner
+            YARD_BOXES += [_yb(14.0, 27.0, 11.4, 12.0, 7.5, YK), _yb(14.0, 27.0, 14.6, 15.2, 7.5, YK), _yb(14.0, 19.5, 12.0, 14.6, 4.54, YK),
+                           _yo(22.5, 13.3, 3.6), _yb(2.0, 10.0, _N0, _N1, 0.4, YR),
+                           _yb(-3.0, 1.0, _N0, _N1, PLAT_LOW, YY, RISES, 4.0 - PLAT_LOW, 256), _yb(-7.5, -3.5, _N0, _N1, 4.0),
+                           _yo(-5.5, 13.0, 5.0), _yb(-7.5 - 1.1 * _FG - 5.0, -7.5 - 1.1 * _FG, _N0, _N1, 0.4, YR)]
+            _u = -7.5 - 1.1 * _FG - 5.0
+            assert _u - _TG > -26.0, _u
+            YARD_BOXES += [_yb(-31.0, _u - _TG, _N0, _N1, 0.8)]
+            # the west side, going south: two steps up, the tower (a tap and the flip), and down to the first corner
+            YARD_BOXES += [_yb(_W0, _W1, _N0 - _SG - 3.0, _N0 - _SG, 1.9), _yb(_W0, _W1, _N0 - 2 * _SG - 7.0, _N0 - 2 * _SG - 3.0, 3.0),
+                           _yb(_W0, _W1, _N0 - 2 * _SG - 7.0 - 1.5 - 8.0, _N0 - 2 * _SG - 7.0 - 1.5, 3.0 + 0.70 * 3.0, YR),
+                           _yo(-29.0, _N0 - 2 * _SG - 7.0 - 5.5, 3.0 + 0.70 * 3.0 + 1.2)]
+            assert _N0 - 2 * _SG - 7.0 - 1.5 - 8.0 > _S1 + 1.0
+            assert len(YARD_BOXES) <= PARK_K, len(YARD_BOXES)
         PARK_TUTOR = tuple(range(14))                       # the middle lane's first fourteen: each kind once, in order
         PARK_KINDS = len(PARK_STATIONS)
         PARK_SHIFT = 8                                      # (a box's corner, 16 bits << 8: to 127 units)
@@ -1705,20 +1769,41 @@ if LAB:
                 (x0_, _), (x1_, _) = lab_xz(0, b_["v1"]), lab_xz(0, b_["v0"])
                 _tpl.append([_q(b_["gap"]), _q(b_["gt"]), _q(b_["ln"]), x0_, x1_, _q(b_["top"]), _q(b_["tt"]),
                              b_["motion"] | b_["role"] << 2 | int(b_["adv"]) << 8, _q(b_["amp"]), shape_])
+        if YARD:
+            for b_ in YARD_BOXES:                           # (a box its own corners: the room is one tightness)
+                h_ = (b_["top"] + b_["amp"]) if b_["motion"] == RISES else 0.4 if b_["motion"] == ORB else b_["top"]
+                m_ = _park_box_mesh(b_["u1"] - b_["u0"], b_["v1"] - b_["v0"], h_)
+                assert [f_[:3] for f_ in m_.f] == [f_[:3] for f_ in _ref.f], "a box of another topology"
+                _verts.append(_halves16([(c_ + (1 << PARK_SHIFT >> 1)) >> PARK_SHIFT for v_ in m_.v for c_ in v_]))
         PARK_VW = len(_verts[0])
         assert all(len(v_) == PARK_VW for v_ in _verts)
         PARK_VSRC = cart.cram(Table([w_ for v_ in _verts for w_ in v_]), "park_corners")
-        PARK_TPLW = len(_tpl[0])
-        PARK_TPL = cart.data(Table([w_ for t_ in _tpl for w_ in t_]), "park_boxes")
-        PARK_KS = cart.data(Table([int(PARK_TPL) + PARK_TPLW * k_ for k_ in PARK_KSTART]), "park_kind_start")
-        PARK_KC = cart.data(Table(PARK_KCNT), "park_kind_count")
-        PARK_TUT = cart.data(Table(list(PARK_TUTOR)), "park_tutor")
-        PARK_TAU_T = cart.data(Table([_q(t_) for t_ in PARK_TAU]), "park_tau")
+        if not YARD:
+            PARK_TPLW = len(_tpl[0])
+            PARK_TPL = cart.data(Table([w_ for t_ in _tpl for w_ in t_]), "park_boxes")
+            PARK_KS = cart.data(Table([int(PARK_TPL) + PARK_TPLW * k_ for k_ in PARK_KSTART]), "park_kind_start")
+            PARK_KC = cart.data(Table(PARK_KCNT), "park_kind_count")
+            PARK_TUT = cart.data(Table(list(PARK_TUTOR)), "park_tutor")
+            PARK_TAU_T = cart.data(Table([_q(t_) for t_ in PARK_TAU]), "park_tau")
         # THE RING: a row a box -- its bounds in the room (x0 x1 z0 z1, z as generated), its low top and how far it
         # moves, what it is (motion | role << 2 | station's mode << 4 | station << 8), its phase, its cart mesh's five
         # words, and this frame's slide, top and the slide's step (for him, riding it)
         R_X0, R_X1, R_Z0, R_Z1, R_LO, R_AMP, R_INFO, R_PH, R_DESC, R_DZ, R_TOP, R_DD = 0, 1, 2, 3, 4, 5, 6, 7, 8, 13, 14, 15
-        PARK_ROWS = cart.data(Table([0] * (PARK_K * PARK_RW)), "park_rows")
+        _rows0 = [0] * (PARK_K * PARK_RW)
+        if YARD:
+            for r_ in range(PARK_K):
+                _rows0[r_ * PARK_RW + R_Z0] = PARK_INVALID
+            for r_, b_ in enumerate(YARD_BOXES):            # (the room: a row a box, written once)
+                w_ = [0] * PARK_RW
+                (w_[R_X0], _), (w_[R_X1], _) = lab_xz(0, b_["v1"]), lab_xz(0, b_["v0"])
+                (_, w_[R_Z0]), (_, w_[R_Z1]) = lab_xz(b_["u0"], 0), lab_xz(b_["u1"], 0)
+                w_[R_LO] = w_[R_TOP] = _q(b_["top"])
+                w_[R_AMP], w_[R_PH] = _q(b_["amp"]), b_["ph"]
+                w_[R_INFO] = b_["motion"] | b_["kind"] << 4
+                w_[R_DESC:R_DESC + 5] = [PARK_NV | PARK_NF << 16, int(PARK_VSRC) + PARK_VW * r_, int(PARK_FSRC),
+                                         int(PARK_CSRC) + PARK_CW * (PARK_KINDS if b_["motion"] == ORB else b_["kind"]), PARK_SHIFT]
+                _rows0[r_ * PARK_RW:(r_ + 1) * PARK_RW] = w_
+        PARK_ROWS = cart.data(Table(_rows0), "park_rows")
         # THE WINDOW: the nearest rows' bounds, as the tests read them -- raw, then out by a body's reach (0.35), the top,
         # the row; an empty slot's x0 and X0 are past everything, so its first test fails
         S_X0, S_X1, S_Z0, S_Z1, S_XX0, S_XX1, S_ZZ0, S_ZZ1, S_TOP, S_ID = range(PARK_SW)
@@ -1754,6 +1839,8 @@ if LAB:
             """THE COURSE, A STATION A FRAME: while the next station starts within PARK_AHEAD of him, it is
             unfolded into the ring -- its mode the tutor's for the first ten, then a hash of its number; its
             tightness rising every eight; each box's gap its base plus TAU times the mode's reach"""
+            if YARD:                                                   # (the yard's rows are written: nothing unfolds)
+                return
             u_ = g_.label("pkgen")
             for l_, (lv_, mir_) in enumerate(PARK_LANES):             # (the first lane whose course is too short ahead)
                 g_.load(int(PARK_GZL) + l_).load(PZ).push32(_q(PARK_AHEAD)).emit("add", "lt", f"jz {u_}_n{l_}")
@@ -2000,7 +2087,7 @@ if LAB:
             """the corridor's tiles where the lens is (snapped to the checks), and every row the lens can see, each
             a cart mesh: its corners and its mode's colours chosen by two offsets in its own descriptor"""
             g_.load(spec.CAM_Z).push32(_q(HALL_Z)).emit("sub", "shr 20", "shl 20").push32(_q(HALL_Z) + _q(8.0)).emit("add").store(PARK_T0)
-            for k_ in range(-2, 4):
+            for k_ in (() if YARD else range(-2, 4)):                  # (the yard is the hall: its tiles are the lab's)
                 for rx_, yaw_ in ((lab_xz(0, -8.0)[0], 0), (lab_xz(0, 8.0)[0], 512)):
                     lt_ = g_.label("pktile")
                     g_.push32(rx_).store(VIS["cx"]).load(PARK_T0).push32(_q(16.0 * k_)).emit("add").store(VIS["cz"])
@@ -2009,7 +2096,7 @@ if LAB:
                     g_.object(NOBJ, PARK_TILE, lambda h, v_=rx_: h.push32(v_), 0,
                               lambda h, k2_=k_: h.load(PARK_T0).push32(_q(16.0 * k2_)).emit("add"), yaw_, spec.OBJ_CULL)
                     g_.mark(lt_)
-            for k_ in (-2.5, 3.5):
+            for k_ in (() if YARD else (-2.5, 3.5)):
                 for v_ in (-8.0, 8.0):
                     g_.object(NOBJ, PARK_CAP, lambda h, x_=lab_xz(0, v_)[0]: h.push32(x_), 0,
                               lambda h, k2_=k_: h.load(PARK_T0).push32(_q(16.0 * k2_)).emit("add"), 0, 0)
@@ -2134,7 +2221,17 @@ if LAB:
         LAB_START = lab_xz(1.5 * BODY_W, 1.5 * BODY_W)
         LAB_MARK = [lab_xz(7.5 * BODY_W - 0.02, 7.5 * BODY_W - 0.02)] * 7        # (a hair inside the bound, which is strict)
         LAB_YAW, LAB_FACE = 128, 640
-    if PARK:
+    if YARD:
+        # he begins south of the ring, facing north into it. WHO STANDS (the knob): everyone -- the elite and the double
+        # in the ring, the common and the horde down the range; then the ring alone, the range alone, the double alone
+        LAB_START = lab_xz(0.0, -8.5)
+        LAB_WHO = (0b1111111, 0b1000001, 0b0111110, 0b1000000, 0b0000001, 0b0111111)
+        # (THE RANGE: a round flies 13 units, tapped or charged -- so they stand 5, 8, 10, 11.5 and 12.6 from the pad, the
+        # last at the end of its reach; and each on a bearing of its own from it -- -14.6, +7.8, -4.0, +4.0 and 0 degrees
+        # -- so the near ones do not stand in front of the far)
+        LAB_MARK = [lab_xz(3.5, -1.0), lab_xz(-18.0, 7.2), lab_xz(-15.0, 9.6), lab_xz(-13.0, 7.8), lab_xz(-11.5, 9.3), lab_xz(-10.4, 8.5),
+                    lab_xz(0.0, 2.5)]
+    elif PARK:
         # he begins at the corridor's west, facing east down it; anybody the knob places stands along its south side
         LAB_START = lab_xz(-30.0, 0.0)
         LAB_MARK = [lab_xz(u_, -12.0) for u_ in (-20, -14, -26, -8, -32, -2, -17)]
@@ -3111,7 +3208,7 @@ STR_RETRY = cart.data(Table(glyphs("RETRY")), "str_retry", borrow="auto")
 WORDMARK = [(cart.data(Table(glyphs(c)), "str_wm_" + c, borrow="auto"), x, col)
             for c, x, col in (("T", 9, 0xD8CFC1), ("N", 17, 0xD63A36), ("D", 25, 0xD8CFC1))]
 S_STRS = cart.data(Table([int(x) for x in STR_RANK]), "str_ranks", borrow="auto")
-if LAYER in (10, 11, 12):
+if LAYER in (10, 11, 12, 13):
     # P56: THE COURSE'S CLOCK (his tapes: the north wall's structures run as a route again and again, the climb
     # from the first step timed by him in his head -- 1.9 s to the ledge at best, 3.8 to the slider, 9.4 to the
     # lift, the 4.0 platform never reached in one go). Seconds and their tenths; under them his best.
@@ -4188,7 +4285,7 @@ if BASE:
         p.set(LNGX, ONE).set(HITZ, 1)
         p.set(PSI, -1).set(PLT5, int(PLAT_LOW * ONE))
         if PARK:
-            for r_ in range(PARK_K):
+            for r_ in (() if YARD else range(PARK_K)):               # (the yard's rows are the cart's own data)
                 p.push32(PARK_INVALID).store(int(PARK_ROWS) + r_ * PARK_RW + R_Z0)
             for s_ in range(PARK_NS):
                 p.push32(PARK_INVALID).store(SLC(s_, S_X0)).push32(PARK_INVALID).store(SLC(s_, S_XX0))

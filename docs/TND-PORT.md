@@ -3187,3 +3187,35 @@ One spot is as rough as it was: on the chimney's cap the walls squeeze the lens 
 half a unit in a frame as its reach changes (0.48 on P64's run, 0.53 on the path the bot takes now).
 
 Tests 23. Every other layer byte-identical; the lab's clips bit for bit.
+
+## P70: THE YARD -- one room for the whole moveset (layer 13, 2026-11-24)
+
+The player, the running mode done: "lets discuss how to start formalize the lab. it should be used to optimize the
+feel of the player, enemies, items and combat. we should have a menu for configs of the lab and it would be cool if
+we had also a menu that is like an action guide with a live rendering of the move being done" -- then "design a new
+lab room, something that would be a good playground for the full moveset" -- and of the design, "looks fine get to
+work". (The menus are not begun; this is the room.)
+
+The lab tests fists in a box and the park the run down a corridor. The yard is the lab's hall, whole (64 by 32),
+with the park's rows in it -- and everything the park's run became (P58 to P69) with them. First cut, of six zones
+designed: the RING (its middle: four posts, the double and the elite), the TRACK (a lane round the walls with the
+park's stations laid along it: 36 boxes and movers, 8 orbs), the RANGE (a firing pad and five bodies down a lane
+north of the ring). experiments/yard/README.md has the plan, drawn from the cart's rows.
+
+THE ROOM IS DATA. Layer 13 is the park's machine (PARK is true of it) with three differences: the hall's tiles are
+the lab's, not the corridor's; park_unfold emits nothing; and the ring of rows is not cleared at the start, because
+the cart's data already holds it -- YARD_BOXES, a list of boxes in the room's own measures, written into the rows'
+table as the cart is built. Nothing in the program knows the layout. Its kinds are its colours.
+
+WHAT THE RANGE TAUGHT. A round flies 13 units, tapped or charged (the charged one takes three, not one): the first
+range stood bodies at 10 to 45 in one line, and only the nearest could be hit -- too far, and each behind the last.
+They stand 5 to 12.6 from the pad, each on a bearing of its own.
+
+MEASURED, a minute of walking, fists, the run, jumps, dives and shots at random with all seven standing: 27,613
+instructions a frame at the median and 39,457 at the worst (of 65,536); 46 objects at the worst (of 64); on the
+simulated silicon the frame is 53% of its clocks at the median and 74% at its peak (the gate is 90%).
+
+Tests 5 (tests/test_tnd_yard.py): the table inside the walls and the seven on their marks; fists in the ring; the
+range from the pad; the track's south side run by a scripted runner without the floor; a minute of anything inside
+the room and the frame. The other three sides of the track are laid from the park's measured reaches and are not yet
+run by a test. Layers 0, 4, 8, 10, 11 and 12 and the full cart are byte-identical.
