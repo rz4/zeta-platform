@@ -132,6 +132,8 @@ if LAYER in (10, 11, 12, 13):
                    "acro_land": "park_land", "acro_roll": "park_roll",
                    "acro_long": "park_dive"}       # (P68: the long jump's clip, which the park does not have, is the DIVE)
     d = _Bake(np.load(ROOT / "assets" / "tnd" / "acro.npz"), d)
+    if LAYER == 13:                # (P73: the reactions -- tools/tnd_react.py: struck high, struck low, down, up)
+        d = _Bake(np.load(ROOT / "assets" / "tnd" / "react.npz"), d)
 F, C = d["F"], d["C"]
 SEQS = ("idle", "walk", "air", "jab", "cross", "lead_hook", "rear_hook", "special",
         "lead_uppercut", "rear_uppercut", "gun", "gun_charged",
@@ -176,6 +178,9 @@ if L3:
     SEQS += ("run_gun_r", "run_gun_l", "run_gun_f")   # P36: the run, the gun out in one hand
 if LAYER in (10, 11, 12, 13):
     SEQS += ("acro_leap", "acro_leap_l", "acro_land", "acro_roll", "acro_long")   # P50: the run's air (P51: either leg), its landing, its roll; P52 the long jump
+REACTS = ("hurt_hi", "hurt_lo", "down", "getup")
+if LAYER == 13:
+    SEQS += REACTS
 
 
 def to_zeta(V):
@@ -505,6 +510,7 @@ if CARTMESH:
     YARD_KIT = {"horde": ("guard2", "walk2", "special"),
                 "common": ("guard2", "walk2", "special", "jab", "cross"),
                 "elite": ("guard2", "walk2", "special", "jab", "cross", "lead_hook", "rear_hook", "lead_uppercut", "dodge_back")}
+    YARD_KIT = {k_: v_ + REACTS for k_, v_ in YARD_KIT.items()}       # (P73: and every size is struck, goes down, gets up)
     TIER, ENEMY = {}, []
     for name_, count_ in CROWD:
         if name_ == "rival" or name_ in TIER:
@@ -518,6 +524,7 @@ if CARTMESH:
             # P71 (the player: "the enemies depending on which tier they are should be the difficulty ... the highest
             # tier can essentially use my full kit. lower less of the kit"): a size's bank holds the clips of ITS kit
             clips_ = YARD_KIT[name_]
+            t_ = dict(t_, **np.load(ROOT / "build" / "tiers" / f"react_{TIER_FILE[name_]}.npz"))
         ps_ = [half_streams(V_, S_, h_) for c_ in clips_ for V_, S_ in zip(t_["V_" + c_], t_["S_" + c_])]
         TIER[name_] = dict(nv=len(h_[1]), nf=len(tri_), faces=int(fs_), lv=len(ps_[0][0]), span=len(ps_[0][0]) + len(ps_[0][1]),
                            bank=int(cart.cram(Table([x for st in ps_ for part in st for x in part]), f"{name_}_poses")),
@@ -4012,7 +4019,8 @@ if LAB:
         # drawn from four units to twelve; nobody shoots him now)
         Y_MAXATK, Y_AGGRO2, Y_LEASH2 = 2, int(7.5 ** 2 * ONE), int(24.0 ** 2 * ONE)     # (7.5: from where he begins, nobody is awake)
         Y_REACH2 = int(1.7 ** 2 * ONE)
-        Y_SIDE, Y_DODGE_F, Y_DODGE_V = 1.25, 12, int(0.11 * ONE)
+        Y_SIDE, Y_DODGE_F, Y_DODGE_V = 1.35, 12, int(0.11 * ONE)
+        Y_LENS2 = int(1.6 ** 2 * ONE)                      # P73: nearer the lens than this a body is not drawn -- and does not begin
         # a move's reach (squared) and its worth off his 140: jab, cross, the hooks, the haymaker, the uppercuts, the round
         _yr = {"jab": 1.6, "cross": 1.7, "lead_hook": 1.5, "rear_hook": 1.5, "special": 2.0, "lead_uppercut": 1.4, "rear_uppercut": 1.4,
                "gun": 13.0, "gun_charged": 13.0}
@@ -4035,15 +4043,25 @@ if LAB:
             """where a move's clip begins in a size's bank (the double's is his own)"""
             m_ = "dodge_back" if m_ == "dodge" else m_
             return base[m_] if t_ == "rival" else TIER[t_]["cb"].get(m_, 0)
-        YCBW = len(PMN) + 1
-        YCB = cart.data(Table([_yclip(t_, m_) for t_ in Y_TIERS for m_ in list(PMN) + ["dodge"]]), "yard_clip")
+        _ycl = list(PMN) + ["dodge"] + list(REACTS)        # (a size's row: where each clip begins in its bank)
+        YCBW, Y_HI, Y_DN, Y_UP = len(_ycl), _ycl.index("hurt_hi"), _ycl.index("down"), _ycl.index("getup")
+        YCB = cart.data(Table([_yclip(t_, m_) for t_ in Y_TIERS for m_ in _ycl]), "yard_clip")
+        # P73: WHAT A BLOW OF THEIRS DOES TO HIM, by the move: 1 struck high, 2 struck low, 3 taken off his feet
+        YPR = cart.data(Table([{"jab": 1, "cross": 1, "rear_hook": 1, "special": 3}.get(m_, 2) for m_ in PMN]), "yard_does")
+        YRK, YR0 = cart.var("yard_struck", len(ENEMY)), cart.var("yard_held", len(ENEMY))      # a body struck: high 0 / low 1; held how long
+        YPK, YPT, YCBP = cart.var("yard_his"), cart.var("yard_his_t"), cart.var("yard_row")
+        L_YPOSE = p.label("yardpose")
+        Y_HS, Y_DOWN_HS, Y_STOP_MOST = 16, 60, 14          # he reels sixteen frames; down and up, sixty; the hitstop's most
         # a size's row: its pace, its tell, its wait, its dodges of 256, its blows' weight, its strings
         YTP = cart.data(Table([w_ for i_, t_ in enumerate(Y_TIERS) for w_ in (
             int(YARD_TIERS[t_][0] * ONE), YARD_TIERS[t_][1], YARD_TIERS[t_][2], YARD_TIERS[t_][3], int(YARD_TIERS[t_][4] * ONE),
             int(YSCR) + 4 * i_)]), "yard_sizes")
         YTPW = 6
         YMK = cart.data(Table([w_ for m_ in LAB_MARK for w_ in m_]), "yard_marks")
-        YOF = cart.data(Table([v_ & 1023 for v_ in (-114, 114, -228, 228, -327, 327, 0)]), "yard_fan")
+        # (P73, his tape of P72: the double's place was DEAD AHEAD -- behind his own back from the lens, in his own skin:
+        # it landed 35 of the 73 blows on him and he never put it down. Nobody's place is on that line: the double and
+        # the elite a tenth of a turn to either side, then the common, then the horde wider)
+        YOF = cart.data(Table([v_ & 1023 for v_ in (100, -199, 199, -299, 299, 398, -100)]), "yard_fan")
         YACT, YTM, YSP, YCD, YAWK, YHIT = (cart.var("yard_" + k_, len(ENEMY)) for k_ in ("act", "t", "sp", "cd", "awake", "landed"))
         YFIGHT, YNC, YNS, YNPREV, YD2, YMV, YBR, YK, YAB, YTB, YST, YTT = (cart.var("yard_" + k_) for k_ in (
             "fight", "n", "begun", "n_was", "d2", "mv", "brg", "k", "body", "size", "state", "now"))
@@ -5506,6 +5524,17 @@ if L2:
             p.mark(f"{ya}_rdy")
             p.load(YNPREV).load(YNS).emit("add").push(Y_MAXATK).emit("lt", f"jz {ya}_nodo")
             p.load(YD2).push32(Y_REACH2).emit("lt", f"jz {ya}_far")
+            # P73 (his tape of P72: for 606 of 10,520 frames a standing body was within arm's length of the lens, where
+            # a body is not drawn -- and it told and struck from there): a string begins only BEFORE THE LENS -- over
+            # 1.6 from it and within a seventh of a turn of the way it looks
+            ef(0)
+            p.load(spec.CAM_X).emit("sub").store(W["qx"])
+            ef(1)
+            p.load(spec.CAM_Z).emit("sub").store(W["qz"])
+            p.push32(Y_LENS2).load(W["qx"]).emit("dup", "mulq").load(W["qz"]).emit("dup", "mulq", "add", "lt", f"jz {ya}_nodo")
+            p.emit(f"call {L_YAW}")
+            p.load(F["brg"]).load(spec.CAM_YAW).emit("sub").push(512).emit("add").push(1023).emit("and").push(512).emit("sub", "abs")
+            p.push(150).emit("lt", f"jz {ya}_nodo")
             p.emit(f"load {spec.REG_FRAME}").push(13).emit("mul").load(YK).push(5).emit("mul", "add", "shr 2").push(3).emit("and")
             tp(5)
             p.emit("add", "loadi")
@@ -5615,18 +5644,49 @@ if L2:
             p.push(128).emit("lt", f"jz {ya}_adv")                 # (he is before it, an eighth of a turn either side)
             p.load(F["evf"]).load(F["dead"]).emit("or", f"jz {ya}_hh", f"jmp {ya}_adv")
             p.mark(f"{ya}_hh")
-            p.push(int(0.9 * ONE)).load(F["py"]).emit("lt", f"jz {ya}_land", f"jmp {ya}_adv")
+            p.push(int(0.9 * ONE)).load(F["py"]).emit("lt", f"jz {ya}_dn3", f"jmp {ya}_adv")
+            p.mark(f"{ya}_dn3")
+            p.load(YPK).push(3).emit("eq", f"jz {ya}_land", f"jmp {ya}_adv")              # (down, and getting up: not struck)
             p.mark(f"{ya}_land")
             aset(YHIT, 1)
             p.push(int(YDM)).load(YMV).emit("add", "loadi")
             tp(4)
             p.emit("mulq").store(W["dmg"])
             p.load(PHP).load(W["dmg"]).emit("sub").store(PHP)
-            p.load(W["dmg"]).emit("shr 2").push(3).emit("add").store(F["stop"])
-            p.set(F["shake"], 7).set(F["hs"], 14).set(ANIM, 3).set(F["buf"], 0).set(SG_T["st"], 0)
+            # P73 ("we have to make things feel epic and like damage is being done ... give weight to the hits and
+            # reactions"): A BLOW OF THEIRS HAS THE MOVE'S WEIGHT ON HIM. The world stops for the move's own hitstop
+            # (fourteen frames at most) and the lens shakes by it; he is SENT the way it faces by the move's own knock
+            # (a jab an eighth of a unit, the haymaker a unit and a half); the burst and the blow's sound at his chest;
+            # and by the move he is struck HIGH (the chin taken back), struck LOW (folded over it) -- sixteen frames
+            # that are not his -- or TAKEN OFF HIS FEET: the haymaker puts him on his back, and he is a second getting
+            # up (nothing lands on him meanwhile). An uppercut lifts him.
+            p.push(int(YPR)).load(YMV).emit("add", "loadi").store(YPK).set(YPT, 0)
+            row(PMT, YMV, "stop")
+            p.emit(f"mini {Y_STOP_MOST}", "dup").store(F["stop"]).store(F["shake"])
+            p.push(Y_HS).load(YPK).push(3).emit("eq", f"jz {ya}_hs")
+            p.emit("drop").push(Y_DOWN_HS)
+            p.mark(f"{ya}_hs")
+            p.store(F["hs"])
+            ef(F_YAW)
+            p.store(YBR)
+            sin_of(p, cell=YBR)
+            row(PMT, YMV, "knock")
+            p.emit("mulq").load(F["vx"]).emit("swap", "sub").store(F["vx"])
+            sin_of(p, 256, cell=YBR)
+            row(PMT, YMV, "knock")
+            p.emit("mulq").load(F["vz"]).emit("add").store(F["vz"])
+            p.push(4).load(YMV).emit("lt", f"jz {ya}_nl")                                 # (4 < the move: an uppercut)
+            p.load(F["py"]).emit(f"jz {ya}_lf", f"jmp {ya}_nl")
+            p.mark(f"{ya}_lf")
+            p.set(F["py"], 1).set(F["pvy"], int(0.09 * ONE))
+            p.mark(f"{ya}_nl")
+            p.load(PX).store(int(SPK)).load(F["py"]).push(int(1.15 * ONE)).emit("add").store(int(SPK) + 1).load(PZ).store(int(SPK) + 2)
+            p.set(int(SPK) + 3, SPARK_FOR).set(SPKM, HOT_M)
+            p.set(SFX_T, 0).load(YPK).push(1).emit("eq").store(SFX_H)
+            p.set(ANIM, 3).set(F["buf"], 0)
             p.push(0).load(PHP).emit("lt", f"jz {ya}_dn", f"jmp {ya}_adv")
             p.mark(f"{ya}_dn")
-            p.set(F["dead"], 1).set(ANIM, 4).set(F["hs"], 0)
+            p.set(F["dead"], 1).set(ANIM, 4).set(F["hs"], 0).set(YPK, 0)
             p.mark(f"{ya}_adv")
             p.load(YTT)
             row(PMT, YMV, "total")
@@ -5675,8 +5735,67 @@ if L2:
         def yard_ai(e_):
             p.set(YK, e_["k"]).push(int(e_["pos"])).store(YAB).push(int(YTP) + YTPW * Y_TIERS.index(_ytier(e_))).store(YTB)
             p.emit(f"call {L_YAI}")
+
+        def yard_pose_emit():
+            """P73: ( -- pose | -1 ) what the fight has a body doing, as a pose of its own bank (YK which body, YAB its
+            record, YCBP its size's row of clips): DOWN (the fall, a pose a frame; lying; then up, a pose two frames,
+            over its last 24), STRUCK (out to the clip's worst in three frames and held there while it is held; back
+            over the last four), in a BLOW (the move's clip, by the blow's frame), SLIPPING; else -1: its guard, its walk"""
+            yp = L_YPOSE
+
+            def cb(i_):
+                p.load(YCBP)
+                if i_:
+                    p.push(i_).emit("add")
+                p.emit("loadi")
+            p.emit(f"jmp {yp}_over")
+            p.mark(yp)
+            p.load(YAB).push(5).emit("add", "loadi").push(2).emit("eq", f"jz {yp}_up")
+            p.load(YAB).push(12).emit("add", "loadi").store(YTT)                           # (how long it has been down)
+            p.load(YTT).push(DOWN_FOR - 24).emit("lt", f"jz {yp}_get")
+            p.load(YTT).emit(f"mini {NPOSE['down'] - 1}")
+            cb(Y_DN)
+            p.emit("add", "ret")
+            p.mark(f"{yp}_get")
+            p.load(YTT).push(DOWN_FOR - 24).emit("sub", "shr 1", f"mini {NPOSE['getup'] - 1}")
+            cb(Y_UP)
+            p.emit("add", "ret")
+            p.mark(f"{yp}_up")
+            p.load(YAB).push(7).emit("add", "loadi", "dup").store(YTT).emit(f"jz {yp}_free")      # (held)
+            p.push(4).load(YTT).emit("lt", f"jz {yp}_out")                                 # (4 < what is left: going out, held)
+            p.push(int(YR0)).load(YK).emit("add", "loadi").load(YTT).emit("sub", "maxi 0", "mini 3", f"jmp {yp}_k")
+            p.mark(f"{yp}_out")
+            p.push(8).load(YTT).emit("sub")
+            p.mark(f"{yp}_k")
+            p.push(int(YRK)).load(YK).emit("add", "loadi").push(NPOSE["hurt_hi"]).emit("mul", "add")
+            cb(Y_HI)
+            p.emit("add", "ret")
+            p.mark(f"{yp}_free")
+            p.push(int(YACT)).load(YK).emit("add", "loadi").store(YTT)
+            p.load(YTT).push(Y_BLOW).emit("eq", f"jz {yp}_nb")
+            p.load(YCBP).push(int(YSP)).load(YK).emit("add", "loadi").push(15).emit("and", "add", "loadi")
+            p.push(int(YTM)).load(YK).emit("add", "loadi", "add", "ret")
+            p.mark(f"{yp}_nb")
+            p.load(YTT).push(Y_DODGE).emit("eq", f"jz {yp}_no")
+            cb(Y_DODGE_MV)
+            p.push(int(YTM)).load(YK).emit("add", "loadi", "add", "ret")
+            p.mark(f"{yp}_no")
+            p.push(-1).emit("ret")
+            p.mark(f"{yp}_over")
+
+        def yard_pose(e_):
+            """( its guard's or its walk's pose -- its pose )"""
+            yq = p.label("ypq")
+            p.set(YK, e_["k"]).push(int(e_["pos"])).store(YAB).push(int(YCB) + YCBW * Y_TIERS.index(_ytier(e_))).store(YCBP)
+            p.emit(f"call {L_YPOSE}", "dup").push(0).emit("lt", f"jz {yq}")                # (it < 0: as it was)
+            p.emit("drop", f"jmp {yq}_d")
+            p.mark(yq)
+            p.emit("swap", "drop")
+            p.mark(f"{yq}_d")
         if YARD:
+            assert NPOSE["hurt_hi"] == NPOSE["hurt_lo"] == 8 and base["hurt_lo"] == base["hurt_hi"] + 8
             yard_ai_emit()
+            yard_pose_emit()
 
         wh = p.label("who")
         (p.push(0) if REACTOR else knob(p, "who")).emit("dup").load(WHOP).emit("eq", f"jz {wh}_set", "drop", f"jmp {wh}")
@@ -6628,6 +6747,8 @@ p.mark(jp)
 # ---- stunned: no will of his own, only the blow's momentum ------------------
 p.load(F["hs"]).emit(f"jz {L['hurt']}_no")
 p.addi(F["hs"], -1).set(ANIM, 3).set(F["buf"], 0)
+if YARD:
+    p.addi(YPT, 1)
 p.emit(f"jmp {L['motion']}")
 p.mark(f"{L['hurt']}_no")
 
@@ -8092,6 +8213,26 @@ sq_ = p.label("squash")                      # P15: the squash's clock, every fr
 p.load(LANDT).emit(f"jz {sq_}")
 p.addi(LANDT, -1)
 p.mark(sq_)
+if YARD:
+    # P73: STRUCK, HE SHOWS IT: high or low, a pose two frames; off his feet, the fall a pose a frame, a third of a
+    # second on his back, and up a pose two frames -- his own will back when it is done
+    yr = p.label("yhis")
+    p.load(YPK).emit(f"jz {yr}")
+    p.load(F["dead"]).emit(f"jz {yr}_a", f"jmp {yr}_c")
+    p.mark(f"{yr}_a")
+    p.load(F["hs"]).emit(f"jz {yr}_c")
+    p.load(YPK).push(3).emit("eq", f"jz {yr}_r")
+    p.load(YPT).push(36).emit("lt", f"jz {yr}_g")
+    p.load(YPT).emit(f"mini {NPOSE['down'] - 1}").push(base["down"]).emit("add", f"jmp {yr}_p")
+    p.mark(f"{yr}_g")
+    p.load(YPT).push(36).emit("sub", "shr 1", f"mini {NPOSE['getup'] - 1}").push(base["getup"]).emit("add", f"jmp {yr}_p")
+    p.mark(f"{yr}_r")
+    p.load(YPT).emit("shr 1", "mini 7").load(YPK).push(1).emit("sub").push(8).emit("mul", "add").push(base["hurt_hi"]).emit("add")
+    p.mark(f"{yr}_p")
+    p.store(POSE).emit(f"jmp {L['pd']}")
+    p.mark(f"{yr}_c")
+    p.set(YPK, 0)
+    p.mark(yr)
 fp = p.label("flippose")
 p.load(F["evf"]).emit(f"jz {fp}")
 p.load(F["evt"]).load(F["evf"]).emit("sub")
@@ -8432,18 +8573,12 @@ if CARTMESH:                                 # the pose is where its streams are
                 p.mark(mp)
                 p.set(MIRY, 0)
             p.load(e_["clk"]).emit("shr 1").push(base["idle"]).emit("add")
-            if YARD:                         # (P71: the double walks, strikes and slips in his own clips)
+            if YARD:                         # (P71: the double walks in his own clips; P73: and the fight's poses, as every body)
                 yp_ = p.label("ydouble")
                 p.load(e_["walk"]).emit(f"jz {yp_}_w")
                 p.emit("drop").load(e_["ph"]).emit("shr 16").push(31).emit("and").push(base["walk"]).emit("add")
                 p.mark(f"{yp_}_w")
-                p.load(int(YACT) + e_["k"]).push(Y_BLOW).emit("eq", f"jz {yp_}_b")
-                p.emit("drop").push(int(YCB) + Y_TIERS.index("rival") * YCBW).load(int(YSP) + e_["k"]).push(15).emit("and", "add", "loadi")
-                p.load(int(YTM) + e_["k"]).emit("add", f"jmp {yp_}")
-                p.mark(f"{yp_}_b")
-                p.load(int(YACT) + e_["k"]).push(Y_DODGE).emit("eq", f"jz {yp_}")
-                p.emit("drop").push(base["dodge_back"]).load(int(YTM) + e_["k"]).emit("add")
-                p.mark(yp_)
+                yard_pose(e_)
             p.push(SPAN).emit("mul").push(int(BANK)).emit("add")
             for cell_, step_ in ((int(RDESC) + 1, CM_LEN[0]), (int(RDESC) + 3, CM_LEN[1]),
                                  (int(RDESC) + 6, CM_LEN[2]), (int(RDESC) + 8, 0)):
@@ -8458,15 +8593,10 @@ if CARTMESH:                                 # the pose is where its streams are
             p.load(e_["clk"]).emit("shr 1")
             p.load(e_["walk"]).emit(f"jz {en_}")
             p.emit("drop").load(e_["ph"]).emit("shr 16").push(31).emit("and").push(e_["T"]["walk"]).emit("add")
-            if YARD:                         # (P71: in a blow, the move's clip of its bank, by the blow's frame; slipping, the dodge's)
+            if YARD:                         # (P71, P73: what the fight has it doing, in its own bank's clips)
                 p.mark(en_)
-                yb_, en_ = p.label("yblow"), p.label("ypose")
-                p.load(int(YACT) + e_["k"]).push(Y_BLOW).emit("eq", f"jz {yb_}")
-                p.emit("drop").push(int(YCB) + Y_TIERS.index(_ytier(e_)) * YCBW).load(int(YSP) + e_["k"]).push(15).emit("and", "add", "loadi")
-                p.load(int(YTM) + e_["k"]).emit("add", f"jmp {en_}")
-                p.mark(yb_)
-                p.load(int(YACT) + e_["k"]).push(Y_DODGE).emit("eq", f"jz {en_}")
-                p.emit("drop").push(e_["T"]["cb"].get("dodge_back", 0)).load(int(YTM) + e_["k"]).emit("add")
+                en_ = p.label("ypose")
+                yard_pose(e_)
             if L8:                           # (P41: whose turn it is, past the wait: the haymaker, by its turn's clock)
                 p.mark(en_)
                 en_ = p.label("estrike")
@@ -8829,6 +8959,15 @@ if L4:
             p.set(int(SPK) + 3, SPARK_FOR)
             p.push(int(ZMESH_T)).load(HITZ).emit("add", "loadi").store(SPKM)
             enemy_hurt(p, e_)
+            if YARD:
+                # P73: STRUCK, IT SHOWS IT -- high (his fist met its head) or low, in its own bank's clip, for as long
+                # as it is held; and the blow that takes the last of it stops the world six frames more
+                p.load(HITZ).push(0).emit("eq", "push 1", "xor").store(int(YRK) + e_["k"])
+                p.load(e_["stun"]).store(int(YR0) + e_["k"])
+                p.push(0).load(e_["hp"]).emit("lt", f"jz {fn_}_kd", f"jmp {fn_}_nk")
+                p.mark(f"{fn_}_kd")
+                p.addi(F["stop"], 6).set(F["shake"], 12)
+                p.mark(f"{fn_}_nk")
             if PARK:                                     # (P68: the dive TACKLES: what it strikes is down)
                 p.load(PARK_SPQ).emit(f"jz {fn_}_tk")
                 p.set(e_["st"], 2).set(e_["t"], 0)
@@ -10715,15 +10854,17 @@ if LAB:
             ta = h.label("etip")
             h.load(e_["yaw"])
             h.load(int(ETL) + k_)
-            h.load(e_["st"]).push(2).emit("eq", f"jz {ta}")
-            h.emit("drop").load(e_["t"]).push(14).emit("mul", "dup").push(250).emit("swap", "lt", f"jz {ta}")
-            h.emit("drop").push(250)
+            if not YARD:                     # (P73: in the yard a body down is in the fall's own clip: it is not tipped)
+                h.load(e_["st"]).push(2).emit("eq", f"jz {ta}")
+                h.emit("drop").load(e_["t"]).push(14).emit("mul", "dup").push(250).emit("swap", "lt", f"jz {ta}")
+                h.emit("drop").push(250)
             h.mark(ta)
             h.push(1023).emit("swap", "sub").push(1023).emit("and", "shl 10", "or")       # (back, away from his face)
 
         def flags(h, e_=e_):
             tf = h.label("efl")
-            h.push32(spec.OBJ_CART | spec.OBJ_CULL)
+            # (P73: THE DOUBLE IS HIS SHADOW -- his body, dark: in his own skin, before him, it could not be told from him)
+            h.push32(spec.OBJ_CART | spec.OBJ_CULL | ((spec.OBJ_OTINT | 13 << 27 | 13 << 22 | 17 << 17) if YARD and e_.get("rival") else 0))
             h.load(e_["fl"]).emit(f"jz {tf}")
             h.emit("drop").push32(FLASH | spec.OBJ_CART)
             h.mark(tf)
