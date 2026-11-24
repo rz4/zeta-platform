@@ -82,12 +82,13 @@ SWARM_TEST = os.environ.get("TND_SWARM") == "1"
 #                 where the blow lands.
 LAYER = int(os.environ.get("TND_LAYER", "9"))
 # (9 is NOT a layer: it is the default, the whole game. The lab is 10.)
-BASE = LAYER in (0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11)  # the base's own rules (the layers stand on them)
-L1 = LAYER in (1, 2, 3, 4, 5, 6, 7, 8, 10, 11)  # the left shoulder
-L2 = LAYER in (2, 3, 4, 5, 6, 7, 8, 10, 11)  # shadow boxing, and the gun
-L3 = LAYER in (3, 4, 5, 6, 7, 8, 10, 11)  # the right shoulder: targeting (P35)
-L4 = LAYER in (4, 5, 6, 7, 8, 10, 11)  # the enemies (P37): bodies from the cart (frontier 20's core)
-LAB = LAYER in (10, 11)          # THE LAB (P42): a white room to tune the fight in -- layer 4, no town
+BASE = LAYER in (0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12)  # the base's own rules (the layers stand on them)
+L1 = LAYER in (1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12)  # the left shoulder
+L2 = LAYER in (2, 3, 4, 5, 6, 7, 8, 10, 11, 12)  # shadow boxing, and the gun
+L3 = LAYER in (3, 4, 5, 6, 7, 8, 10, 11, 12)  # the right shoulder: targeting (P35)
+L4 = LAYER in (4, 5, 6, 7, 8, 10, 11, 12)  # the enemies (P37): bodies from the cart (frontier 20's core)
+LAB = LAYER in (10, 11, 12)      # THE LAB (P42): a white room to tune the fight in -- layer 4, no town
+PARK = LAYER == 12               # THE PARK (P58): the lab's moves, on a course that is a field, not a list
 REACTOR = LAYER == 11            # THE REACTOR (P45): the lab drawn in to one small room, its checks his own width,
                                  # and in its corner his double, doing what he does
 L5 = LAYER in (5, 6, 7, 8)       # the world (P38, docs/TND-WORLD.md): a key a gate, bolts, bunkers
@@ -105,7 +106,7 @@ CUT = 1.009                     # the one hip-height cut that fits both
 FLIP = True                     # winding, after the left-handed mirror
 
 d = np.load(BAKE)
-if LAYER in (10, 11):
+if LAYER in (10, 11, 12):
     # P49: THE ACROBATICS (the player: "the legs on the side flip should be
     # tucked too, work on the arcrobatics poses"): the lab's flips are the
     # shapes tools/tnd_acro.py bakes on the archive's rig -- the tuck with
@@ -152,7 +153,7 @@ SJ_WAYS = ("fwd", "back", "left", "right")
 CLIP_OF = dict({"run": "run2", "walk": "walk2", "idle": "guard2"},
                **{"kite_" + k_: "hop_" + k_ for k_ in ("fwd", "back", "left", "right")},
                **{k_: k_ + "_n" for k_ in STRIKES}) if BASE else {}
-if LAYER in (10, 11):                                       # (P49: the lab's acrobatics)
+if LAYER in (10, 11, 12):                                       # (P49: the lab's acrobatics)
     CLIP_OF.update(flip_fwd="acro_tuck", flip_back="acro_back", flip_cart="acro_side")
     CLIP_OF.update(run="acro_run")                         # (P51: the traceur's stride)
 if BASE:
@@ -161,7 +162,7 @@ if L1:
     SEQS += tuple("sj_" + k_ for k_ in SJ_WAYS)
 if L3:
     SEQS += ("run_gun_r", "run_gun_l", "run_gun_f")   # P36: the run, the gun out in one hand
-if LAYER in (10, 11):
+if LAYER in (10, 11, 12):
     SEQS += ("acro_leap", "acro_leap_l", "acro_land", "acro_roll", "acro_long")   # P50: the run's air (P51: either leg), its landing, its roll; P52 the long jump
 
 
@@ -359,7 +360,7 @@ END_PAUSE = cart.cram(Table(_pend), "pause_end")
 # twice the room it had, and a page-in copies 16K words -- a frame's work at
 # the SRAM's pace, on the frames the intro or the pause come and go.
 PAGE = 16384
-if os.environ.get("TND_CARTMESH") == "1" or LAYER in (4, 5, 6, 7, 8, 10, 11):   # (the whole of IMEM is the page --
+if os.environ.get("TND_CARTMESH") == "1" or LAYER in (4, 5, 6, 7, 8, 10, 11, 12):   # (the whole of IMEM is the page --
     PAGE = spec.IMEM_WORDS                    # the machine holds 32,768; a page-in is two frames' work)
 INTRO_PROG = cart.cram(Table([0] * PAGE), "intro_prog")
 PAUSE_PROG = cart.cram(Table([0] * PAGE), "pause_prog")
@@ -1493,7 +1494,9 @@ if LAB:
         assert len(b_.v) <= spec.MESH_NV_MAX and len(b_.f) <= spec.MESH_NF_MAX
         return int(cart.data(b_.mesh(), f"lab_tile{int(west_)}{int(east_)}{int(south_)}"))
     if not REACTOR:
-        _t_sw, _t_s, _t_se = _lab_tile(True, False, True), _lab_tile(False, False, True), _lab_tile(False, True, True)
+        _t_sw = None if PARK else _lab_tile(True, False, True)
+        _t_s = _lab_tile(False, False, True)
+        _t_se = None if PARK else _lab_tile(False, True, True)
         # (the north row is the south row turned half round: the checks fall the same)
         LAB_TILES = [(lab_xz(-24 + 16 * i_, -8), m_, 0) for i_, m_ in enumerate((_t_sw, _t_s, _t_s, _t_se))] + \
                     [(lab_xz(-24 + 16 * i_, 8), m_, 512) for i_, m_ in enumerate((_t_se, _t_s, _t_s, _t_sw))]
@@ -1548,6 +1551,18 @@ if LAB:
                     [(lab_xz(su_ * _q, -HALL_V), _rw1, 0) for su_ in (-1, 1)] + [(lab_xz(su_ * _q, HALL_V), _rw1, 512) for su_ in (-1, 1)] + \
                     [(lab_xz(-HALL_U, sv_ * _q), _rw0, 0) for sv_ in (-1, 1)] + [(lab_xz(HALL_U, sv_ * _q), _rw0, 512) for sv_ in (-1, 1)]
         PLATS = []
+    if PARK:
+        # P58: THE PARK (the player, 2026-11-23: "i think what we need is a
+        # platforming lab, to test out all the movement modes. you should be
+        # creative to push the zeta hypothesis"). The hall's middle tile,
+        # without end: a corridor east and west, its floor and walls drawn
+        # where the lens is (PARK_TILE). Its course is not the list above.
+        PLATS, LAB_TILES = [], []
+        PARK_TILE = _t_s
+        _cap = Build()                                          # (the corridor's ends, out in the haze: past the
+        _cap.quad([(0.0, -HT - 1, -1.0), (0.0, HT + 1, -1.0), (0.0, HT + 1, HALL_H + 1), (0.0, -HT - 1, HALL_H + 1)], (-1, 0, 0), _WHT)
+        PARK_CAP = int(cart.data(_cap.mesh(), "park_cap"))     # is nothing, and nothing is the frame's dark)
+        HALL_U = 16000.0                    # (a bound, not a wall: 28 minutes of running east)
     PLAT_SLIDE, PLAT_LOW, PLAT_STEP = 10.0, 0.25, 0.3
     PLAT_M = []
     for k_, (u0_, u1_, v0_, v1_, top_, how_) in enumerate(PLATS):
@@ -1556,6 +1571,426 @@ if LAB:
         b_.box(-w_, w_, -d_, d_, 0.0, top_, _GRY)
         b_.f = [(a_, bb_, c_, rgb((236, 196, 64) if how_ else _GRN) if i_ < 2 else col_) for i_, (a_, bb_, c_, col_) in enumerate(b_.f)]
         PLAT_M.append(int(cart.data(b_.mesh(), f"lab_plat{k_}")))
+    if PARK:
+        # P58: THE COURSE IS A FIELD. The lab's seven structures are CODE: each is
+        # written into every test that asks about the room (what holds him up,
+        # what puts him out, the arc's probe and its support, the lens, the
+        # arena, the drawing) -- seven times seven places, and the arc pays for
+        # every one of them at every step. The census (experiments/isa/) found
+        # the program page the binding store; so the lab can hold about as many
+        # structures as it has. Here the course is a FUNCTION of a station's
+        # number -- which movement mode it tests, how tight -- unfolded as he
+        # runs east into a ring of PARK_K rows in data memory, and of those only
+        # the PARK_NS nearest are asked about. The code is the same size for a
+        # course of ten stations or ten thousand; a frame's work is bounded by
+        # the window, not the course. (docs/ZETA-N-HYPOTHESIS.md: the window law,
+        # in the cart.)
+        #
+        # A STATION tests one mode. Its boxes are a template; their gaps (and a
+        # FLIP UP's height) are the mode's own reach, measured on this lab at P57
+        # with the knobs settled, times TAU -- 0.70 for the ten that teach, then
+        # rising to 0.94. Its first box (the ENTRY) is 0.8 high, a tap jump from
+        # the floor; its LAST is where it is cleared. Touch the floor between
+        # them and the streak is gone.
+        PARK_RUN, PARK_TAP, PARK_LONG, PARK_FLIP = 0.161, 3.06, 5.96, 7.5   # a frame; a tap jump; the long; a tap and its flip
+        PARK_TAU = (0.70, 0.78, 0.86, 0.94)
+        PARK_K, PARK_RW, PARK_NS, PARK_SW = 24, 16, 6, 10                   # rows, their words; slots, theirs
+        PARK_AHEAD, PARK_NEAR, PARK_GAP0 = 36.0, 12.0, 3.0
+        PARK_INVALID = 0x7FFFFFFF
+        STILL, SLIDES, RISES = 0, 1, 2
+        ENTRY, LAST = 1, 2
+        _G, _R, _Y, _K = (60, 190, 110), (214, 58, 54), (236, 196, 64), (40, 40, 44)
+
+        def _bx(gap=0.0, gt=0.0, ln=3.0, v0=-2.0, v1=2.0, top=0.8, tt=0.0, motion=STILL, role=0, adv=True, amp=0.0):
+            return dict(gap=gap, gt=gt, ln=ln, v0=v0, v1=v1, top=top, tt=tt, motion=motion, role=role, adv=adv, amp=amp)
+
+        def _entry(ln=3.0):
+            return _bx(gap=PARK_GAP0, ln=ln, role=ENTRY)
+        # (name, its colour, its boxes) -- the mode's colour on every top it has
+        PARK_STATIONS = [
+            ("TAP", _G, [_entry(), _bx(gt=PARK_TAP, ln=2.0), _bx(gt=PARK_TAP, ln=2.0), _bx(gt=PARK_TAP, ln=3.0, role=LAST)]),
+            ("STEPS", _G, [_entry(), _bx(gt=1.2, top=1.6), _bx(gt=1.2, top=2.4, ln=4.0, role=LAST)]),
+            ("LONG", _R, [_entry(ln=8.0), _bx(gt=PARK_LONG, ln=4.0, role=LAST)]),
+            ("FLIP", _R, [_entry(ln=4.0), _bx(gt=PARK_FLIP, ln=4.0, role=LAST)]),
+            ("FLIP UP", _R, [_entry(ln=4.0), _bx(gap=1.5, top=0.8, tt=2.6, ln=8.0, role=LAST)]),
+            # (a pad's pitch is a tap's rhythm: land, half a unit to press, gone -- small, and a little either side)
+            ("PADS", _G, [_entry(), _bx(gt=PARK_TAP, ln=1.6, v0=-0.9, v1=0.3), _bx(gt=PARK_TAP, ln=1.6, v0=-0.3, v1=0.9),
+                          _bx(gt=PARK_TAP, ln=1.6, v0=-0.9, v1=0.3), _bx(gt=PARK_TAP, ln=1.6, v0=-0.3, v1=0.9, role=LAST)]),
+            ("SLIDE", _Y, [_entry(), _bx(ln=3.0, motion=SLIDES, amp=8.0), _bx(gap=8.0, role=LAST)]),
+            ("LIFT", _Y, [_entry(), _bx(ln=4.0, top=PLAT_LOW, motion=RISES, amp=4.0 - PLAT_LOW), _bx(ln=4.0, top=4.0, role=LAST)]),
+            ("DROP", _R, [_entry(), _bx(top=1.6), _bx(top=2.4), _bx(gt=1.1 * PARK_FLIP, ln=5.0, top=0.4, role=LAST)]),
+            # (one tall wall on his right as he comes off the entry; across the lane from it, a ledge no flip reaches:
+            # the kick off the wall throws him 7.2 across, rising as the flip does)
+            ("WALL", _K, [_entry(), _bx(gap=0.5, ln=8.0, v0=-1.8, v1=-1.2, top=4.0),
+                          _bx(ln=8.0, v0=3.0, v1=7.0, top=3.6, tt=0.4, adv=False, role=LAST)]),
+        ]
+        PARK_TUTOR = (0, 1, 2, 3, 4, 5, 6, 7, 8, 9)         # the first ten: each mode once, in this order
+        PARK_KINDS = len(PARK_STATIONS)
+        PARK_SHIFT = 8                                      # (a box's corner, 16 bits << 8: to 127 units)
+
+        def _q(v_):
+            return int(round(v_ * ONE))
+
+        def _park_box_mesh(ln_, w_, h_):
+            b_ = Build()
+            b_.box(-ln_ / 2, ln_ / 2, -w_ / 2, w_ / 2, 0.0, h_, _GRY)
+            return b_
+
+        # every box has one topology: the faces' stream is ONE; a box's corners and a mode's colours are chosen by offset
+        _ref = _park_box_mesh(1.0, 1.0, 1.0)
+        PARK_NV, PARK_NF = len(_ref.v), len(_ref.f)
+        PARK_FSRC = cart.cram(Table([a_ | b_ << 10 | c_ << 20 for a_, b_, c_, _ in _ref.f]), "park_faces")
+        _cols = []
+        for _nm, _top, _ in PARK_STATIONS:
+            _c = [rgb((*_top,)) if i_ < 2 else col_ for i_, (_, _, _, col_) in enumerate(_ref.f)]
+            _cols += _halves16([((c_ >> 19 & 31) << 10) | ((c_ >> 11 & 31) << 5) | (c_ >> 3 & 31) for c_ in _c])
+        PARK_CW = len(_cols) // PARK_KINDS
+        PARK_CSRC = cart.cram(Table(_cols), "park_colours")
+        _tpl, _verts, PARK_KSTART, PARK_KCNT = [], [], [], []
+        for _nm, _top, _boxes in PARK_STATIONS:
+            PARK_KSTART.append(len(_tpl))
+            PARK_KCNT.append(len(_boxes))
+            for b_ in _boxes:
+                shape_ = len(_verts) // 4
+                for lv_ in range(4):
+                    tau_ = _q(PARK_TAU[lv_])
+                    lo_ = _q(b_["top"]) + ((_q(b_["tt"]) * tau_) >> 16)
+                    h_ = (lo_ + _q(b_["amp"])) if b_["motion"] == RISES else lo_
+                    m_ = _park_box_mesh(b_["ln"], b_["v1"] - b_["v0"], h_ / ONE)
+                    assert [f_[:3] for f_ in m_.f] == [f_[:3] for f_ in _ref.f], "a box of another topology"
+                    _verts.append(_halves16([(c_ + (1 << PARK_SHIFT >> 1)) >> PARK_SHIFT for v_ in m_.v for c_ in v_]))
+                (x0_, _), (x1_, _) = lab_xz(0, b_["v1"]), lab_xz(0, b_["v0"])
+                _tpl.append([_q(b_["gap"]), _q(b_["gt"]), _q(b_["ln"]), x0_, x1_, _q(b_["top"]), _q(b_["tt"]),
+                             b_["motion"] | b_["role"] << 2 | int(b_["adv"]) << 8, _q(b_["amp"]), shape_])
+        PARK_VW = len(_verts[0])
+        assert all(len(v_) == PARK_VW for v_ in _verts)
+        PARK_VSRC = cart.cram(Table([w_ for v_ in _verts for w_ in v_]), "park_corners")
+        PARK_TPLW = len(_tpl[0])
+        PARK_TPL = cart.data(Table([w_ for t_ in _tpl for w_ in t_]), "park_boxes")
+        PARK_KS = cart.data(Table([int(PARK_TPL) + PARK_TPLW * k_ for k_ in PARK_KSTART]), "park_kind_start")
+        PARK_KC = cart.data(Table(PARK_KCNT), "park_kind_count")
+        PARK_TUT = cart.data(Table(list(PARK_TUTOR)), "park_tutor")
+        PARK_TAU_T = cart.data(Table([_q(t_) for t_ in PARK_TAU]), "park_tau")
+        # THE RING: a row a box -- its bounds in the room (x0 x1 z0 z1, z as generated), its low top and how far it
+        # moves, what it is (motion | role << 2 | station's mode << 4 | station << 8), its phase, its cart mesh's five
+        # words, and this frame's slide, top and the slide's step (for him, riding it)
+        R_X0, R_X1, R_Z0, R_Z1, R_LO, R_AMP, R_INFO, R_PH, R_DESC, R_DZ, R_TOP, R_DD = 0, 1, 2, 3, 4, 5, 6, 7, 8, 13, 14, 15
+        PARK_ROWS = cart.data(Table([0] * (PARK_K * PARK_RW)), "park_rows")
+        # THE WINDOW: the nearest rows' bounds, as the tests read them -- raw, then out by a body's reach (0.35), the top,
+        # the row; an empty slot's x0 and X0 are past everything, so its first test fails
+        S_X0, S_X1, S_Z0, S_Z1, S_XX0, S_XX1, S_ZZ0, S_ZZ1, S_TOP, S_ID = range(PARK_SW)
+        PARK_SLOTS = cart.data(Table([PARK_INVALID if f_ in (S_X0, S_XX0) else 0 for _ in range(PARK_NS) for f_ in range(PARK_SW)]),
+                               "park_slots")
+
+        def SLC(s_, f_):
+            return int(PARK_SLOTS) + s_ * PARK_SW + f_
+        (PARK_GZ, PARK_GN, PARK_HEAD, PARK_RA, PARK_RI, PARK_SN, PARK_SB, PARK_BI, PARK_BC, PARK_KIND, PARK_LVL, PARK_TAUV,
+         PARK_PZ0, PARK_T0, PARK_CUR, PARK_DONE) = (cart.var("park_" + k_) for k_ in (
+            "gen_z", "gen_n", "head", "ra", "ri", "sn", "sb", "bi", "bc", "kind", "lvl", "tau", "prev_z0", "t0", "cur", "done"))
+        PARK_ST, PARK_ROLE = cart.var("park_st"), cart.var("park_role")
+
+        def _rf(g_, f_):
+            """( -- v ) this row's field"""
+            g_.load(PARK_RA).push(f_).emit("add", "loadi")
+
+        def _wf(g_, f_):
+            """( v -- ) into this row's field"""
+            g_.load(PARK_RA).push(f_).emit("add", "storei")
+
+        def park_unfold(g_):
+            """THE COURSE, A STATION A FRAME: while the next station starts within PARK_AHEAD of him, it is
+            unfolded into the ring -- its mode the tutor's for the first ten, then a hash of its number; its
+            tightness rising every eight; each box's gap its base plus TAU times the mode's reach"""
+            u_ = g_.label("pkgen")
+            g_.load(PARK_GZ).load(PZ).push32(_q(PARK_AHEAD)).emit("add", "lt", f"jz {u_}")
+            g_.load(PARK_GN).push(len(PARK_TUTOR)).emit("lt", f"jz {u_}_h")
+            g_.push(int(PARK_TUT)).load(PARK_GN).emit("add", "loadi").store(PARK_KIND).set(PARK_LVL, 0).emit(f"jmp {u_}_k")
+            g_.mark(f"{u_}_h")
+            g_.load(PARK_GN).push32(0x9E3779B1).emit("mul", "dup", "shr 15", "xor", "shr 4").push(0xFFFF).emit("and")
+            g_.push(PARK_KINDS).emit("mul", "shr 16").store(PARK_KIND)
+            g_.load(PARK_GN).push(len(PARK_TUTOR)).emit("sub", "shr 3").push(1).emit("add")
+            g_.emit("dup").push(3).emit("swap", "lt", f"jz {u_}_m3", "drop").push(3)       # (min 3)
+            g_.mark(f"{u_}_m3")
+            g_.store(PARK_LVL)
+            g_.mark(f"{u_}_k")
+            g_.push(int(PARK_TAU_T)).load(PARK_LVL).emit("add", "loadi").store(PARK_TAUV)
+            g_.push(int(PARK_KS)).load(PARK_KIND).emit("add", "loadi").store(PARK_BI)
+            g_.push(int(PARK_KC)).load(PARK_KIND).emit("add", "loadi").store(PARK_BC)
+
+            def tf_(k_):
+                g_.load(PARK_BI).push(k_).emit("add", "loadi")
+            g_.mark(f"{u_}_b")                                         # a box: the ring's next row
+            g_.load(PARK_HEAD).push(PARK_RW).emit("mul").push(int(PARK_ROWS)).emit("add").store(PARK_RA)
+            g_.addi(PARK_HEAD, 1)
+            g_.load(PARK_HEAD).push(PARK_K).emit("eq", f"jz {u_}_hk")
+            g_.set(PARK_HEAD, 0)
+            g_.mark(f"{u_}_hk")
+            tf_(1)
+            g_.load(PARK_TAUV).emit("mulq")
+            tf_(0)
+            g_.emit("add").store(PARK_T0)                              # its gap
+            tf_(7)
+            g_.push(256).emit("and", f"jz {u_}_same")                  # (beside the last: the same stretch)
+            g_.load(PARK_GZ).load(PARK_T0).emit("add").store(PARK_PZ0)
+            g_.load(PARK_PZ0)
+            tf_(2)
+            g_.emit("add").store(PARK_GZ)
+            g_.mark(f"{u_}_same")
+            g_.load(PARK_PZ0)
+            _wf(g_, R_Z0)
+            g_.load(PARK_PZ0)
+            tf_(2)
+            g_.emit("add")
+            _wf(g_, R_Z1)
+            tf_(3)
+            _wf(g_, R_X0)
+            tf_(4)
+            _wf(g_, R_X1)
+            tf_(6)
+            g_.load(PARK_TAUV).emit("mulq")
+            tf_(5)
+            g_.emit("add", "dup")
+            _wf(g_, R_LO)
+            _wf(g_, R_TOP)
+            tf_(8)
+            _wf(g_, R_AMP)
+            tf_(7)
+            g_.push(15).emit("and").load(PARK_KIND).emit("shl 4", "or").load(PARK_GN).emit("shl 8", "or")
+            _wf(g_, R_INFO)
+            g_.load(PARK_GN).push(97).emit("mul").push(511).emit("and")
+            _wf(g_, R_PH)
+            g_.push32(PARK_NV | PARK_NF << 16)
+            _wf(g_, R_DESC)
+            tf_(9)
+            g_.push(4).emit("mul").load(PARK_LVL).emit("add").push(PARK_VW).emit("mul").push32(int(PARK_VSRC)).emit("add")
+            _wf(g_, R_DESC + 1)
+            g_.push32(int(PARK_FSRC))
+            _wf(g_, R_DESC + 2)
+            g_.load(PARK_KIND).push(PARK_CW).emit("mul").push32(int(PARK_CSRC)).emit("add")
+            _wf(g_, R_DESC + 3)
+            g_.push(PARK_SHIFT)
+            _wf(g_, R_DESC + 4)
+            for k_ in (R_DZ, R_DD):
+                g_.push(0)
+                _wf(g_, k_)
+            g_.load(PARK_BI).push(PARK_TPLW).emit("add").store(PARK_BI)
+            g_.load(PARK_BC).push(1).emit("sub", "dup").store(PARK_BC).emit(f"jz {u_}_e", f"jmp {u_}_b")
+            g_.mark(f"{u_}_e")
+            g_.addi(PARK_GN, 1)
+            g_.mark(u_)
+
+        def park_ring(g_):
+            """THE RING MOVES and THE WINDOW IS CHOSEN: every row's slide or rise by the lab's clock (the lab's
+            own wave: 48 frames still at each end of 256 one way), and the first PARK_NS rows within PARK_NEAR
+            of him copied, bounds as the tests read them, into the window"""
+            wv_ = g_.label("pkwave")
+            g_.emit(f"jmp {wv_}_over")
+            g_.mark(wv_)                                               # ( t -- 0..1 in Q16 )
+            g_.push(511).emit("and", "dup").push(256).emit("lt", f"jz {wv_}_t", f"jmp {wv_}_u")
+            g_.mark(f"{wv_}_t")
+            g_.push(511).emit("swap", "sub")
+            g_.mark(f"{wv_}_u")
+            g_.push(48).emit("sub", "dup").push(0).emit("lt", f"jz {wv_}_a")
+            g_.emit("drop").push(0)
+            g_.mark(f"{wv_}_a")
+            g_.emit("dup").push(160).emit("lt", f"jz {wv_}_b", f"jmp {wv_}_c")
+            g_.mark(f"{wv_}_b")
+            g_.emit("drop").push(160)
+            g_.mark(f"{wv_}_c")
+            g_.push(26214).emit("mul", "shr 6", "ret")
+            g_.mark(f"{wv_}_over")
+            for s_ in range(PARK_NS):
+                g_.push32(PARK_INVALID).store(SLC(s_, S_X0)).push32(PARK_INVALID).store(SLC(s_, S_XX0))
+            g_.set(PARK_SN, 0).push32(int(PARK_ROWS)).store(PARK_RA).set(PARK_RI, 0)
+            lp_ = g_.label("pkring")
+            g_.mark(lp_)
+            _rf(g_, R_Z0)
+            g_.push32(PARK_INVALID).emit("eq", f"jz {lp_}_v", f"jmp {lp_}_nx")
+            g_.mark(f"{lp_}_v")
+            _rf(g_, R_INFO)
+            g_.push(3).emit("and", "dup", f"jz {lp_}_st")
+            g_.push(SLIDES).emit("eq", f"jz {lp_}_lift")
+            g_.load(LABT)
+            _rf(g_, R_PH)
+            g_.emit("add", f"call {wv_}")
+            _rf(g_, R_AMP)
+            g_.emit("mulq", "dup")                                     # (its slide now; the step from the last)
+            _rf(g_, R_DZ)
+            g_.emit("sub")
+            _wf(g_, R_DD)
+            _wf(g_, R_DZ)
+            g_.emit(f"jmp {lp_}_sel")
+            g_.mark(f"{lp_}_lift")
+            g_.load(LABT)
+            _rf(g_, R_PH)
+            g_.emit("add", f"call {wv_}")
+            _rf(g_, R_AMP)
+            g_.emit("mulq")
+            _rf(g_, R_LO)
+            g_.emit("add")
+            _wf(g_, R_TOP)
+            g_.emit(f"jmp {lp_}_sel")
+            g_.mark(f"{lp_}_st")
+            g_.emit("drop")
+            g_.mark(f"{lp_}_sel")
+            _rf(g_, R_Z0)
+            _rf(g_, R_DZ)
+            g_.emit("add").store(PARK_T0)
+            g_.load(PARK_T0).load(PZ).push32(_q(PARK_NEAR)).emit("add", "lt", f"jz {lp_}_nx")
+            g_.load(PZ).push32(_q(PARK_NEAR)).emit("sub")
+            _rf(g_, R_Z1)
+            _rf(g_, R_DZ)
+            g_.emit("add", "lt", f"jz {lp_}_nx")
+            g_.load(PARK_SN).push(PARK_NS).emit("lt", f"jz {lp_}_nx")
+            g_.load(PARK_SN).push(PARK_SW).emit("mul").push(int(PARK_SLOTS)).emit("add").store(PARK_SB)
+
+            def sf_(k_):
+                g_.load(PARK_SB).push(k_).emit("add", "storei")
+            m_ = _q(0.35)
+            _rf(g_, R_X0)
+            g_.emit("dup")
+            sf_(S_X0)
+            g_.push(m_).emit("sub")
+            sf_(S_XX0)
+            _rf(g_, R_X1)
+            g_.emit("dup")
+            sf_(S_X1)
+            g_.push(m_).emit("add")
+            sf_(S_XX1)
+            g_.load(PARK_T0).emit("dup")
+            sf_(S_Z0)
+            g_.push(m_).emit("sub")
+            sf_(S_ZZ0)
+            _rf(g_, R_Z1)
+            _rf(g_, R_DZ)
+            g_.emit("add", "dup")
+            sf_(S_Z1)
+            g_.push(m_).emit("add")
+            sf_(S_ZZ1)
+            _rf(g_, R_TOP)
+            sf_(S_TOP)
+            g_.load(PARK_RI)
+            sf_(S_ID)
+            g_.addi(PARK_SN, 1)
+            g_.mark(f"{lp_}_nx")
+            g_.load(PARK_RA).push(PARK_RW).emit("add").store(PARK_RA)
+            g_.addi(PARK_RI, 1)
+            g_.load(PARK_RI).push(PARK_K).emit("lt", f"jz {lp_}_e", f"jmp {lp_}")
+            g_.mark(f"{lp_}_e")
+
+        def park_draw(g_):
+            """the corridor's tiles where the lens is (snapped to the checks), and every row the lens can see, each
+            a cart mesh: its corners and its mode's colours chosen by two offsets in its own descriptor"""
+            g_.load(spec.CAM_Z).push32(_q(HALL_Z)).emit("sub", "shr 20", "shl 20").push32(_q(HALL_Z) + _q(8.0)).emit("add").store(PARK_T0)
+            for k_ in range(-2, 4):
+                for rx_, yaw_ in ((lab_xz(0, -8.0)[0], 0), (lab_xz(0, 8.0)[0], 512)):
+                    lt_ = g_.label("pktile")
+                    g_.push32(rx_).store(VIS["cx"]).load(PARK_T0).push32(_q(16.0 * k_)).emit("add").store(VIS["cz"])
+                    g_.push(int(round((PIECE_CY - 2.15) * ONE))).store(VIS["cy"]).push(int(round(PIECE_R * ONE))).store(VIS["r"])
+                    g_.emit(f"call {L_VIS}", f"jz {lt_}")
+                    g_.object(NOBJ, PARK_TILE, lambda h, v_=rx_: h.push32(v_), 0,
+                              lambda h, k2_=k_: h.load(PARK_T0).push32(_q(16.0 * k2_)).emit("add"), yaw_, spec.OBJ_CULL)
+                    g_.mark(lt_)
+            for k_ in (-2.5, 3.5):
+                for v_ in (-8.0, 8.0):
+                    g_.object(NOBJ, PARK_CAP, lambda h, x_=lab_xz(0, v_)[0]: h.push32(x_), 0,
+                              lambda h, k2_=k_: h.load(PARK_T0).push32(_q(16.0 * k2_)).emit("add"), 0, 0)
+            g_.push32(int(PARK_ROWS)).store(PARK_RA).set(PARK_RI, 0)
+            dl_ = g_.label("pkdraw")
+            g_.mark(dl_)
+            _rf(g_, R_Z0)
+            g_.push32(PARK_INVALID).emit("eq", f"jz {dl_}_v", f"jmp {dl_}_nx")
+            g_.mark(f"{dl_}_v")
+            _rf(g_, R_X0)
+            _rf(g_, R_X1)
+            g_.emit("add", "shr 1").store(VIS["cx"])
+            _rf(g_, R_Z0)
+            _rf(g_, R_Z1)
+            g_.emit("add", "shr 1")
+            _rf(g_, R_DZ)
+            g_.emit("add", "dup").store(VIS["cz"]).store(PARK_T0)
+            _rf(g_, R_TOP)
+            g_.emit("shr 1").push(int(2.15 * ONE)).emit("sub").store(VIS["cy"])
+            _rf(g_, R_Z1)
+            _rf(g_, R_Z0)
+            g_.emit("sub")
+            _rf(g_, R_X1)
+            _rf(g_, R_X0)
+            g_.emit("sub", "add", "shr 1").push32(_q(2.0)).emit("add").store(VIS["r"])
+            g_.emit(f"call {L_VIS}", f"jz {dl_}_nx")
+
+            def x_(h):
+                _rf(h, R_X0)
+                _rf(h, R_X1)
+                h.emit("add", "shr 1")
+
+            def y_(h):                                                 # (a lift's mesh is its whole height, sunk)
+                _rf(h, R_TOP)
+                _rf(h, R_LO)
+                h.emit("sub")
+                _rf(h, R_INFO)
+                h.push(3).emit("and").push(RISES).emit("eq")
+                _rf(h, R_AMP)
+                h.emit("mul", "sub")
+            g_.object(NOBJ, lambda h: h.load(PARK_RA).push(R_DESC).emit("add"), x_, y_, lambda h: h.load(PARK_T0),
+                      0, spec.OBJ_CART | spec.OBJ_CULL)
+            g_.mark(f"{dl_}_nx")
+            g_.load(PARK_RA).push(PARK_RW).emit("add").store(PARK_RA)
+            g_.addi(PARK_RI, 1)
+            g_.load(PARK_RI).push(PARK_K).emit("lt", f"jz {dl_}_e", f"jmp {dl_}")
+            g_.mark(f"{dl_}_e")
+
+        def park_streak(g_):
+            """THE STREAK: standing on a station's entry begins it; standing on its last box, not having touched the
+            floor since, clears it (once); the floor in between ends the streak"""
+            st_ = g_.label("pkstreak")
+            g_.load(F["py"]).emit(f"jz {st_}_g", f"jmp {st_}")
+            g_.mark(f"{st_}_g")
+            g_.push(0).load(PSI).emit("lt")                            # (0 < PSI + 1: on a row)
+            g_.load(PSI).push(0).emit("eq", "or", f"jz {st_}_fl")
+            g_.push(int(PARK_ROWS) + R_INFO).load(PSI).push(PARK_RW).emit("mul", "add", "loadi").emit("dup", "shr 8").store(PARK_ST)
+            g_.emit("shr 2").push(3).emit("and").store(PARK_ROLE)
+            g_.load(PARK_ROLE).push(ENTRY).emit("and", f"jz {st_}_ne")
+            g_.load(PARK_ST).load(PARK_DONE).emit("eq", f"jz {st_}_go", f"jmp {st_}_ne")
+            g_.mark(f"{st_}_go")
+            g_.load(PARK_ST).store(PARK_CUR).set(CRS, 1)
+            g_.mark(f"{st_}_ne")
+            g_.load(PARK_ROLE).push(LAST).emit("and", f"jz {st_}")
+            g_.load(CRS).push(1).emit("eq", f"jz {st_}")
+            g_.load(PARK_ST).load(PARK_CUR).emit("eq", f"jz {st_}")
+            g_.set(CRS, 2).addi(CRST, 1).load(PARK_ST).store(PARK_DONE)
+            g_.load(CRSB).load(CRST).emit("lt", f"jz {st_}")
+            g_.load(CRST).store(CRSB).emit(f"jmp {st_}")
+            g_.mark(f"{st_}_fl")                                       # the floor: a station begun is lost
+            g_.load(CRS).push(1).emit("eq", f"jz {st_}")
+            g_.set(CRS, 0).set(CRST, 0)
+            g_.mark(st_)
+
+        def park_streak_draw(g_):
+            """top middle: the streak (white while a station is under way, gold when one is cleared); under it, B and
+            the best"""
+            def dg_(cell_, at_, n_):
+                g_.load(cell_).store(TX["j"])
+                for i_ in range(n_ - 1, -1, -1):
+                    g_.load(TX["j"]).push(205).emit("mul", "shr 11", "dup").store(TX["r"])
+                    g_.push(10).emit("mul").load(TX["j"]).emit("swap", "sub").push(FONT_CH.index("0")).emit("add").store(at_ + i_)
+                    g_.load(TX["r"]).store(TX["j"])
+            cd_ = g_.label("pkdraw_s")
+            g_.load(CRST).load(CRS).emit("or", f"jz {cd_}_b")
+            dg_(CRST, int(STR_CS) + 1, 2)
+            for k_, v_ in (("str", int(STR_CS)), ("x", 148), ("y", 26), ("sc", 4)):
+                g_.set(TX[k_], v_)
+            g_.push32(0xF2E6B0).load(CRS).push(2).emit("eq", f"jz {cd_}_c")
+            g_.emit("drop").push32(0xFFD21E)
+            g_.mark(f"{cd_}_c")
+            g_.store(TX["rgb"]).emit(f"call {L_TEXT}")
+            g_.mark(f"{cd_}_b")
+            g_.load(CRSB).emit(f"jz {cd_}")
+            dg_(CRSB, int(STR_CB) + 2, 3)
+            for k_, v_ in (("str", int(STR_CB)), ("x", 140), ("y", 52), ("sc", 2), ("rgb", 0xB8B0A0)):
+                g_.set(TX[k_], v_)
+            g_.emit(f"call {L_TEXT}")
+            g_.mark(cd_)
     LAB_START = lab_xz(0, -11)
     # WHO STANDS THERE (the knob): slots 0 the elite, 1 the common, 2-5 the horde, 6 the clone
     LAB_WHO = (0b1000000, 0b1000001, 0b1000110, 0b0000001, 0b0001111, 0b0111111)
@@ -1567,6 +2002,11 @@ if LAB:
         LAB_START = lab_xz(1.5 * BODY_W, 1.5 * BODY_W)
         LAB_MARK = [lab_xz(7.5 * BODY_W - 0.02, 7.5 * BODY_W - 0.02)] * 7        # (a hair inside the bound, which is strict)
         LAB_YAW, LAB_FACE = 128, 640
+    if PARK:
+        # he begins at the corridor's west, facing east down it; anybody the knob places stands along its south side
+        LAB_START = lab_xz(-30.0, 0.0)
+        LAB_MARK = [lab_xz(u_, -12.0) for u_ in (-20, -14, -26, -8, -32, -2, -17)]
+        LAB_YAW, LAB_FACE = 0, 512
     WHO_T = cart.data(Table(LAB_WHO), "lab_who_is")
     # WHAT A BLOW DOES, a move a row (the jab, the cross, the hooks, the haymaker, the two uppercuts, a round, a charged one):
     # how fast it sends a body of the clone's weight (a frame), and how fast it throws one up
@@ -2539,7 +2979,7 @@ STR_RETRY = cart.data(Table(glyphs("RETRY")), "str_retry", borrow="auto")
 WORDMARK = [(cart.data(Table(glyphs(c)), "str_wm_" + c, borrow="auto"), x, col)
             for c, x, col in (("T", 9, 0xD8CFC1), ("N", 17, 0xD63A36), ("D", 25, 0xD8CFC1))]
 S_STRS = cart.data(Table([int(x) for x in STR_RANK]), "str_ranks", borrow="auto")
-if LAYER in (10, 11):
+if LAYER in (10, 11, 12):
     # P56: THE COURSE'S CLOCK (his tapes: the north wall's structures run as a route again and again, the climb
     # from the first step timed by him in his head -- 1.9 s to the ledge at best, 3.8 to the slider, 9.4 to the
     # lift, the 4.0 platform never reached in one go). Seconds and their tenths; under them his best.
@@ -3487,11 +3927,20 @@ if BASE:
         p.set(YAW, LAB_YAW).set(CY, LAB_YAW).set(HEAD, LAB_YAW).set(WHOP, -1)
         p.set(GRISE, JUMP_RISE).set(GFALL, JUMP_FALL).set(JV0, LEAP_TOP).set(LJMP, 0).set(CHG, 0).push32(LEAPK_D).store(LEAPK)
         for c_ in (PGH, ARP, PLO4, PLOP, LABT, JUGY, PASSK, SELN, WBEND, WBTO, WBD, GUNK, MUZT, HNDON, LNDON, LWON, LNDY, LJARM, PSTY, AIRP, RLND, RFLIP, int(BSL), int(BSL) + 1,
-                   ) + ((CRS, CRST, CRSB) if PLATS else ()) + (
+                   ) + ((CRS, CRST, CRSB) if (PLATS or PARK) else ()) + (
                    int(UXS), int(UXS) + 1, int(UXS) + 2) + ((MIRY, int(RXV), int(RXV) + 1) if REACTOR else ()):
             p.set(c_, 0)
         p.set(LNGX, ONE).set(HITZ, 1)
         p.set(PSI, -1).set(PLT5, int(PLAT_LOW * ONE))
+        if PARK:
+            for r_ in range(PARK_K):
+                p.push32(PARK_INVALID).store(int(PARK_ROWS) + r_ * PARK_RW + R_Z0)
+            for s_ in range(PARK_NS):
+                p.push32(PARK_INVALID).store(SLC(s_, S_X0)).push32(PARK_INVALID).store(SLC(s_, S_XX0))
+            p.push32(lab_xz(-26.0, 0)[1]).store(PARK_GZ)
+            for c_ in (PARK_GN, PARK_HEAD):
+                p.set(c_, 0)
+            p.set(PARK_CUR, -1).set(PARK_DONE, -1)
     p.set(WR, ONE)
 if SWARM_TEST:                                  # (the meter's hook: the fight in the
     p.set(PX, int(3 * ONE)).set(PZ, int(3 * ONE))               # first plaza, the
@@ -6252,9 +6701,12 @@ if LAB:
     # along with the slider.
     pl = p.label("plats")
     p.addi(LABT, 1)
+    if PARK:
+        park_unfold(p)
+        park_ring(p)
     # (each waits at its ends: of the 256 frames one way, the first and the
     # last 48 are stood still -- a lift can be stepped onto, and off)
-    for off_, dst_, k_, base_ in ((0, PLO4, int(PLAT_SLIDE * ONE / 160), 0), (128, PLT5, int((4.0 - PLAT_LOW) * ONE / 160), int(PLAT_LOW * ONE))):
+    for off_, dst_, k_, base_ in (() if PARK else ((0, PLO4, int(PLAT_SLIDE * ONE / 160), 0), (128, PLT5, int((4.0 - PLAT_LOW) * ONE / 160), int(PLAT_LOW * ONE)))):
         if dst_ is PLO4:
             p.load(PLO4).store(PLOP)
         p.load(LABT).push(off_).emit("add").push(511).emit("and", "dup").push(256).emit("lt", f"jz {pl}_t{off_}")
@@ -6286,10 +6738,28 @@ if LAB:
         p.load(LS1).load(W["dmg"]).emit("lt", "and", f"jz {pl}_n{k_}")
         p.load(W["dmg"]).store(LS1).set(LS2, k_)
         p.mark(f"{pl}_n{k_}")
+    if PARK:
+        for s_ in range(PARK_NS):                                      # (the same, over the window)
+            n_ = p.label("pkhold")
+            p.load(SLC(s_, S_X0)).load(PX).emit("lt", f"jz {n_}").load(PX).load(SLC(s_, S_X1)).emit("lt", f"jz {n_}")
+            p.load(SLC(s_, S_Z0)).load(PZ).emit("lt", f"jz {n_}").load(PZ).load(SLC(s_, S_Z1)).emit("lt", f"jz {n_}")
+            p.load(SLC(s_, S_TOP)).store(W["dmg"])
+            p.load(W["dmg"]).push(int(PLAT_STEP * ONE) + 1).emit("sub").load(LS0).emit("lt")
+            p.load(PSI).load(SLC(s_, S_ID)).emit("eq", "or")
+            p.load(LS1).load(W["dmg"]).emit("lt", "and", f"jz {n_}")
+            p.load(W["dmg"]).store(LS1).load(SLC(s_, S_ID)).store(LS2)
+            p.mark(n_)
     p.load(LS2).load(PSI).emit("eq", f"jz {pl}_new")
     p.load(LS1).store(PGH)                                             # the same one: he rides it
-    p.load(PSI).push(4).emit("eq").load(F["py"]).push(0).emit("eq", "and", f"jz {pl}")
-    p.load(PZ).load(PLO4).emit("add").load(PLOP).emit("sub").store(PZ)
+    if PARK:                                                           # (a slider carries him by its own step)
+        p.load(F["py"]).emit(f"jz {pl}_rd", f"jmp {pl}")
+        p.mark(f"{pl}_rd")
+        p.load(PSI).push(0).emit("lt", f"jz {pl}_rr", f"jmp {pl}")      # (the floor: nothing to ride)
+        p.mark(f"{pl}_rr")
+        p.push(int(PARK_ROWS) + R_DD).load(PSI).push(PARK_RW).emit("mul", "add", "loadi").load(PZ).emit("add").store(PZ)
+    else:
+        p.load(PSI).push(4).emit("eq").load(F["py"]).push(0).emit("eq", "and", f"jz {pl}")
+        p.load(PZ).load(PLO4).emit("add").load(PLOP).emit("sub").store(PZ)
     p.emit(f"jmp {pl}")
     p.mark(f"{pl}_new")
     p.load(LS0).load(LS1).emit("sub").store(F["py"]).load(LS1).store(PGH).load(LS2).store(PSI)
@@ -6381,6 +6851,38 @@ if LAB and PLATS:
             p.load(cell_).load(OUTM).push(64).emit("add", "add" if sign_ > 0 else "sub").store(cell_)
             p.mark(fc_)
         p.mark(dp_)
+if LAB and PARK:
+    # (P58: the same, over the park's window -- and on the ground only: in the air the arena already refuses a step
+    # into a structure, and refused there it is a WALL TOUCHED, which a kick needs; put out first, it never was)
+    po_ = p.label("pkouts")
+    p.load(F["py"]).emit(f"jz {po_}_g", f"jmp {po_}")
+    p.mark(f"{po_}_g")
+    for s_ in range(PARK_NS):
+        dp_ = p.label("pkout")
+        X0_, X1_, Z0_, Z1_ = (SLC(s_, k_) for k_ in (S_XX0, S_XX1, S_ZZ0, S_ZZ1))
+        p.load(X0_).load(PX).emit("lt", f"jz {dp_}").load(PX).load(X1_).emit("lt", f"jz {dp_}")
+        p.load(Z0_).load(PZ).emit("lt", f"jz {dp_}").load(PZ).load(Z1_).emit("lt", f"jz {dp_}")
+        p.load(SLC(s_, S_TOP)).push(int(PLAT_STEP * ONE) + 1).emit("sub").load(F["py"]).load(PGH).emit("add", "lt", f"jz {dp_}_in", f"jmp {dp_}")
+        p.mark(f"{dp_}_in")
+        for i_, (c_, b_, far_) in enumerate(((PX, X0_, False), (PX, X1_, True), (PZ, Z0_, False), (PZ, Z1_, True))):
+            (p.load(b_).load(c_) if far_ else p.load(c_).load(b_)).emit("sub").store(int(OUTD) + i_)
+        p.push32(0x7FFFFF).store(OUTM).set(OUTI, -1)
+        for i_, (cell_, sign_) in enumerate(((PX, -1), (PX, 1), (PZ, -1), (PZ, 1))):
+            nm_ = p.label("pkexit")
+            p.load(int(OUTD) + i_).load(OUTM).emit("lt", f"jz {nm_}")
+            p.load(PX).store(PTX).load(PZ).store(PTZ).load(F["py"]).load(PGH).emit("add").store(PTY)
+            dst_ = PTX if cell_ is PX else PTZ
+            p.load(cell_).load(int(OUTD) + i_).push(64).emit("add", "add" if sign_ > 0 else "sub").store(dst_)
+            p.emit(f"call {L_PROK}", f"jz {nm_}")
+            p.load(int(OUTD) + i_).store(OUTM).set(OUTI, i_)
+            p.mark(nm_)
+        for i_, (cell_, sign_) in enumerate(((PX, -1), (PX, 1), (PZ, -1), (PZ, 1))):
+            fc_ = p.label("pkface")
+            p.load(OUTI).push(i_).emit("eq", f"jz {fc_}")
+            p.load(cell_).load(OUTM).push(64).emit("add", "add" if sign_ > 0 else "sub").store(cell_)
+            p.mark(fc_)
+        p.mark(dp_)
+    p.mark(po_)
 if LAB:
     # P48 ("The running should feel very good at figuring out where your
     # jump and double jump (flip) should land"): WHERE HE WILL COME DOWN. In
@@ -6421,6 +6923,13 @@ if LAB:
         (p.load(PLT5) if how_ == "y" else p.push32(int(top_ * ONE)))
         p.push(int(PLAT_STEP * ONE) + 1).emit("sub").load(PTY).emit("lt", f"jz {pk}_side")
         p.mark(f"{pk}_n{k_}")
+    if PARK:
+        for s_ in range(PARK_NS):
+            n_ = f"{pk}_s{s_}"
+            p.load(SLC(s_, S_XX0)).load(PTX).emit("lt", f"jz {n_}").load(PTX).load(SLC(s_, S_XX1)).emit("lt", f"jz {n_}")
+            p.load(SLC(s_, S_ZZ0)).load(PTZ).emit("lt", f"jz {n_}").load(PTZ).load(SLC(s_, S_ZZ1)).emit("lt", f"jz {n_}")
+            p.load(SLC(s_, S_TOP)).push(int(PLAT_STEP * ONE) + 1).emit("sub").load(PTY).emit("lt", f"jz {pk}_side")
+            p.mark(n_)
     p.mark(f"{pk}_open")
     p.push(1).emit("ret")
     p.mark(f"{pk}_hall")
@@ -6526,6 +7035,16 @@ if LAB:
         p.load(LNDY).load(PTY).emit("lt", "and", f"jz {nt_}")
         p.load(PTY).store(LNDY)
         p.mark(nt_)
+    if PARK:
+        for s_ in range(PARK_NS):
+            nt_ = p.label("pktop")
+            p.load(SLC(s_, S_X0)).load(PRX).emit("lt", f"jz {nt_}").load(PRX).load(SLC(s_, S_X1)).emit("lt", f"jz {nt_}")
+            p.load(SLC(s_, S_Z0)).load(PRZ).emit("lt", f"jz {nt_}").load(PRZ).load(SLC(s_, S_Z1)).emit("lt", f"jz {nt_}")
+            p.load(SLC(s_, S_TOP)).store(PTY)
+            p.load(PTY).push(int(PLAT_STEP * ONE) + 1).emit("sub").load(PRY).emit("lt")
+            p.load(LNDY).load(PTY).emit("lt", "and", f"jz {nt_}")
+            p.load(PTY).store(LNDY)
+            p.mark(nt_)
     p.mark(nw_)
     p.load(PRY).load(LNDY).emit("lt", f"jz {lp}_ns")                    # (his feet under it: stepped up)
     p.load(LNDY).store(PRY)
@@ -7552,7 +8071,7 @@ if L2:
 
 # ---- P12: THE OPERATOR -- the special shots over the follow -----------------
 CW = CAM_W
-if LAB and PLATS:
+if LAB and (PLATS or PARK):
     # P56 (the player: "look at the top of platforms graphics are clipped";
     # his tape of P55: the lens 0.1 to 0.4 over a structure's top in 232
     # frames -- P53 lifted a lens found inside a structure just over its
@@ -7581,6 +8100,13 @@ if LAB and PLATS:
         (p.load(PLT5) if how_ == "y" else p.push32(int(top_ * ONE))).push(int(0.7 * ONE)).emit("add")
         p.load(PTY).emit("lt", f"jz {cm_}_hit")
         p.mark(nb_)
+    if PARK:
+        for s_ in range(PARK_NS):
+            nb_ = p.label("pklens")
+            p.load(SLC(s_, S_XX0)).load(PTX).emit("lt", f"jz {nb_}").load(PTX).load(SLC(s_, S_XX1)).emit("lt", f"jz {nb_}")
+            p.load(SLC(s_, S_ZZ0)).load(PTZ).emit("lt", f"jz {nb_}").load(PTZ).load(SLC(s_, S_ZZ1)).emit("lt", f"jz {nb_}")
+            p.load(SLC(s_, S_TOP)).push(int(0.7 * ONE)).emit("add").load(PTY).emit("lt", f"jz {cm_}_hit")
+            p.mark(nb_)
     p.load(OUTI).push(8).emit("lt", f"jz {cm_}", f"jmp {cm_}_n")
     p.mark(f"{cm_}_n")
     p.addi(OUTI, 1).emit(f"jmp {cm_}_l")
@@ -8641,6 +9167,8 @@ if LAB:
         p.emit(f"call {L_VIS}", f"jz {lt_}")
         p.object(NOBJ, m_, lambda h, v_=tx_: h.push32(v_), 0, lambda h, v_=tz_: h.push32(v_), yaw_, spec.OBJ_CULL)
         p.mark(lt_)
+    if PARK:
+        park_draw(p)
     for k_, (u0_, u1_, v0_, v1_, top_, how_) in enumerate(PLATS):
         cx_, cz_ = lab_xz((u0_ + u1_) / 2, (v0_ + v1_) / 2)
         p.object(NOBJ, PLAT_M[k_], lambda h, v_=cx_: h.push32(v_),
@@ -9318,6 +9846,8 @@ p.mark(lm)
 #                         combo over the meter once it passes one -- key
 #                         (rank + 1) << 8 | combo, so its fields cannot touch
 #   the opening           nothing                        (key 0)
+if LAB and PARK:
+    park_streak(p)
 if LAB and PLATS:
     # P56: THE COURSE: off the first step the clock runs (in time as he
     # lives it: slowed time costs); standing on the 4.0 platform it stops
@@ -9361,7 +9891,7 @@ p.emit("drop").push(99)
 p.mark(f"{hk}_k")
 p.load(SY["g"]).emit("add").store(SY["g"])
 p.mark(f"{hk}_c")
-if LAB and PLATS:                                     # (P56: and the course's clock: what it shows, and his best --
+if LAB and (PLATS or PARK):                           # (P56: and the course's clock: what it shows, and his best --
     p.load(CRST).push(1 << 12).emit("mul").load(SY["g"]).emit("add").store(SY["g"])   # fighting or not)
     p.load(CRSB).push(1 << 22).emit("mul").load(SY["g"]).emit("add").store(SY["g"])
     p.load(CRS).push(1 << 11).emit("mul").load(SY["g"]).emit("add").store(SY["g"])
@@ -9391,7 +9921,7 @@ if BASE:
 p.load(SY["g"]).push(int(S_SHOWN)).emit("loadi", "eq", f"jz {hk}_draw", f"jmp {hk}")
 p.mark(f"{hk}_draw")
 p.load(SY["g"]).push(int(S_SHOWN)).emit("storei")
-if LAB and PLATS:                                     # (the fight's own key, for what follows)
+if LAB and (PLATS or PARK):                           # (the fight's own key, for what follows)
     p.load(SY["g"]).push(0x7FF).emit("and").store(SY["g"])
 p.set(TX["n"], 1)                  # (P19: triangle 0 is the pointer's)
 p.load(SY["g"]).push(1).emit("eq", f"jz {hk}_fight")
@@ -9440,6 +9970,9 @@ if LAB and PLATS:
             p.load(TX["j"]).push(205).emit("mul", "shr 11", "dup").store(TX["r"])
             p.push(10).emit("mul").load(TX["j"]).emit("swap", "sub").push(FONT_CH.index("0")).emit("add").store(at_ + i_)
             p.load(TX["r"]).store(TX["j"])
+if LAB and PARK:
+    park_streak_draw(p)
+if LAB and PLATS:
     cd_ = p.label("clockdraw")
     p.load(CRS).emit(f"jz {cd_}_b")
     p.load(CRST).push(205).emit("mul", "shr 11").store(CRSS)
@@ -10331,6 +10864,14 @@ if LAB:
         (p.load(PLT5) if how_ == "y" else p.push32(int(top_ * ONE)))
         p.push(int(PLAT_STEP * ONE) + 1).emit("sub").load(F["py"]).load(PGH).emit("add", "lt", f"jz {la}_out")
         p.mark(f"{la}_n{k_}")
+    if PARK:
+        for s_ in range(PARK_NS):
+            n_ = f"{la}_s{s_}"
+            p.load(SLC(s_, S_XX0)).load(AR["x"]).emit("lt", f"jz {n_}").load(AR["x"]).load(SLC(s_, S_XX1)).emit("lt", f"jz {n_}")
+            p.load(SLC(s_, S_ZZ0)).load(AR["z"]).emit("lt", f"jz {n_}").load(AR["z"]).load(SLC(s_, S_ZZ1)).emit("lt", f"jz {n_}")
+            p.load(ARP).emit(f"jz {la}_out")
+            p.load(SLC(s_, S_TOP)).push(int(PLAT_STEP * ONE) + 1).emit("sub").load(F["py"]).load(PGH).emit("add", "lt", f"jz {la}_out")
+            p.mark(n_)
     p.push(1).emit("ret")
     p.mark(f"{la}_out")
     p.push(0).emit("ret")
