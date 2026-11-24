@@ -346,7 +346,9 @@ dv = []
 for k in range(13):
     u = k / 12
     p_ = keyed(DIVE_KEYS, u)
-    dv.append(grounded(p_, grounded(p_)[1] - 0.26 * np.sin(np.pi * u) ** 0.8)[0])
+    # (P69, the player: "tackl should be higher like hitting the ceneter of mass of he clone": half a unit of
+    # clearance, and the cart's arc 0.4 more: his body crosses at a standing body's middle)
+    dv.append(grounded(p_, grounded(p_)[1] - 0.50 * np.sin(np.pi * u) ** 0.8)[0])
 out["V_park_dive"], out["S_park_dive"] = (np.stack(x) for x in zip(*dv))
 for k_ in (0, 4, 8, 12):
     _w = out["V_park_dive"][k_]

@@ -3157,3 +3157,33 @@ Tests 22. Every other layer byte-identical; the lab's clips bit for bit.
 
 The running mode, as he left it ("done for now"): L twice and held, the run; R, slowed time; A, the jump by its
 hold, again the flip by the pad, at a wall the kick; B, the shot over the stride; X, the dive; Y, the slide.
+
+## P69: the dive at a body's middle; the run's turn a rate, paid every frame (2026-11-24)
+
+The player: "last issues. tackl should be higher like hitting the ceneter of mass of he clone, and make the
+running left right thurning while running smoother, use the laser in the gun for reference if thats smooth then
+good."
+
+THE DIVE, HIGHER. It leaves at 0.15 (0.12): half a unit up, fourteen frames; and its poses fly half a unit over
+his feet's height (a quarter): at its middle his body is between 0.9 and 1.25 over the floor -- a standing body's
+middle. The blow lands THERE whatever his own height in the arc: 0.95 up a body, its trunk (carried on his own
+height it reached 1.22, the head's zone, and took three).
+
+THE TURN. Measured, holding Right in the run with the gun out: his heading went round 13 of the turn's 1,024 (4.6
+degrees) on every frame, all at once from the first and none after the last -- and SLOWED, 13 on every THIRD frame
+and nothing between, where the fight's time runs: his body, the laser on it and the lens after it stepped 4.6
+degrees twenty times a second. The lens besides: slowed and running straight its yaw went +4, -2, -2 a frame --
+the point the focus lens looks at moves on the fight's frames only -- so the laser, steady in the world, shook on
+the glass.
+- the park's turn is a RATE, in 256ths of a notch: toward the runturn knob's by half of what is left a frame
+  (6, 10, 11, 12, 13), let go by three quarters (3, 1, 0); thirty frames of Right turn him 382 (390)
+- it is paid EVERY frame: slowed, the slow knob's share (a third), the fraction carried -- 4, 4, 5 a frame, and as
+  far round in all (128 of 130); on a held frame his body comes to his heading a frame behind it, as on the fight's
+- slowed, the lens's last step is a quarter of its gap, toward nothing (a gap under 4 is left): straight, it is
+  still (0 or 1 a frame; it was 2 to 4)
+Roughness (the mean change of a frame's change), slowed and turning: heading 8.7 to 0.4; the lens 4.0 to 0.7.
+
+One spot is as rough as it was: on the chimney's cap the walls squeeze the lens onto his head and its height moves
+half a unit in a frame as its reach changes (0.48 on P64's run, 0.53 on the path the bot takes now).
+
+Tests 23. Every other layer byte-identical; the lab's clips bit for bit.

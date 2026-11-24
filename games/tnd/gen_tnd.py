@@ -3403,6 +3403,47 @@ def held(bit):
     p.emit("load 1").push(bit).emit("and")
 
 
+def park_turn(also_head):
+    """P69 (the player: "make the running left right thurning while running smoother, use the laser in the gun for
+    reference"): the park's run turned a notch (the runturn knob: 13, 4.6 degrees) on every frame the pad was held,
+    all at once -- and SLOWED, on every third frame only, where the fight's time runs: his heading, the laser on it
+    and the lens after it went round in 4.6-degree steps twenty times a second. Its turn is a RATE now, in 256ths of
+    a notch: it comes to the knob's by half of what is left a frame and goes by three quarters when the pad is let
+    go; and it is paid EVERY frame -- slowed, the slow knob's share of it, the fraction carried."""
+    tl = p.label("pkturn")
+    if also_head:                              # (a held frame: his body comes to his heading a frame behind it, as
+        p.load(YAW).store(HEAD)                # the fight's own frames have it)
+    p.set(W["dg"], 0)
+    held(spec.PAD_LEFT)
+    p.emit(f"jz {tl}_r")
+    knob(p, "runturn").emit("shl 8").store(W["dg"]).emit(f"jmp {tl}_t")
+    p.mark(f"{tl}_r")
+    held(spec.PAD_RIGHT)
+    p.emit(f"jz {tl}_t")
+    knob(p, "runturn").emit("shl 8", "neg").store(W["dg"])
+    p.mark(f"{tl}_t")
+    p.load(W["dg"]).emit(f"jz {tl}_rel")
+    p.load(W["dg"]).load(PARK_TR).emit("sub", "dup", "abs").push(16).emit("lt", f"jz {tl}_big")
+    p.emit("drop").load(W["dg"]).store(PARK_TR).emit(f"jmp {tl}_adv")
+    p.mark(f"{tl}_big")
+    p.emit("shr 1").load(PARK_TR).emit("add").store(PARK_TR).emit(f"jmp {tl}_adv")
+    p.mark(f"{tl}_rel")
+    p.load(PARK_TR).emit("dup", "abs").push(64).emit("lt", f"jz {tl}_dec")
+    p.emit("drop").set(PARK_TR, 0).emit(f"jmp {tl}_adv")
+    p.mark(f"{tl}_dec")
+    p.emit("shr 2").store(PARK_TR)
+    p.mark(f"{tl}_adv")
+    p.load(PARK_TR)
+    p.load(SLOWON).emit(f"jz {tl}_full")
+    knob(p, "slow").emit("mini 7").push(int(PARK_RCP)).emit("add", "loadi", "mulq")
+    p.mark(f"{tl}_full")
+    p.load(PARK_TACC).emit("add", "dup").store(PARK_TACC).emit("shr 8").store(W["dg"])       # (whole notches, floored)
+    p.load(PARK_TACC).load(W["dg"]).emit("shl 8", "sub").store(PARK_TACC)
+    p.load(YAW).load(W["dg"]).emit("add").push(1023).emit("and").store(YAW)
+    if also_head:
+        p.load(YAW).store(F["cgr"])
+
+
 def speed2():
     """push |v|^2 (Q16)"""
     p.load(F["vx"]).emit("dup", "mulq").load(F["vz"]).emit("dup", "mulq", "add")
@@ -3549,9 +3590,12 @@ if LAB:
     PARK_KICKV = int(0.24 * ONE)                   # a wall kick's rise (the flip's is 0.20)
     PARK_UPKICK = int(0.16 * ONE)                  # P65: the kick straight up a face: 1.3 units
     PARK_CATCH_V = int(0.05 * ONE)                 # P66: the ledge is caught only by a jump rising slower than this
-    PARK_DIVE_V, PARK_DIVE_N = int(0.12 * ONE), 14        # P68: the dive's rise (a quarter of a unit, nine frames); the frames it is a blow
-    PARK_DIVE_K = int(round(12 * ONE / 0.22))             # (its thirteen poses over its rise and fall: 0.12 to -0.10)
-    PARK_DIVE_REACH, PARK_DIVE_HIGH = int(0.7 * ONE), int(0.7 * ONE)   # (his shoulder: ahead of him, and that high)
+    # P68: the dive's rise; the frames it is a blow. P69 (the player: "tackl should be higher like hitting the ceneter
+    # of mass of he clone"): 0.15 -- 0.4 up, twelve frames -- and its poses fly half a unit over that (the bake): his
+    # body crosses at a standing body's middle, and his shoulder strikes there
+    PARK_DIVE_V, PARK_DIVE_N = int(0.15 * ONE), 16
+    PARK_DIVE_K = int(round(12 * ONE / 0.275))            # (its thirteen poses over its rise and fall: 0.15 to -0.125)
+    PARK_DIVE_REACH, PARK_DIVE_HIGH = int(0.7 * ONE), int(0.95 * ONE)   # (his shoulder: ahead of him; and where on a body it lands)
     PARK_ROLL_BRAKE = int(0.80 * ONE)              # P63: Down held in the roll: its pace a frame
     PARK_INVTOP = int(ONE / (0.13 * 1.24) * ONE) >> 16
     LONG_G, LONG_V0 = int(0.0032 * ONE), 0.0595
@@ -3787,6 +3831,8 @@ if LAB:
         PARK_VKD = cart.var("park_upkick_done")    # P65: the straight-up kick, once an air
         PARK_VOFF, PARK_HPV, PARK_PYP = (cart.var("park_" + k_) for k_ in ("draw_dy", "room_y_was", "py_was"))   # P67
         PARK_RJS, PARK_DV = cart.var("park_dive_sound"), cart.var("park_diving")
+        PARK_TR, PARK_TACC, PARK_TOK = (cart.var("park_turn_" + k_) for k_ in ("rate", "carry", "ok"))   # P69
+        PARK_RCP = cart.data(Table([ONE // max(1, k_) for k_ in range(8)]), "park_rcp")                   # (1/n: the slow knob's share)
 
         def park_flip_pad(g_, tag_):
             """THE FLIP BY THE PAD (P62): how far it carries IS the pad -- Up his full pace, nothing half of it, Down
@@ -5080,9 +5126,16 @@ if PARK:
     p.mark(f"{prl}_d")
     p.set(SHOTS, 0)
     p.mark(prl)
+    # P69: ...and a held frame turns him too, if the run steered him on the fight's last frame
+    pht = p.label("pkheldturn")
+    p.load(PARK_TOK).load(F["sty"]).push(1).emit("eq", "and", f"jz {pht}")
+    park_turn(True)
+    p.mark(pht)
 p.emit(f"call {GEST}")
 p.set(GT["jump"], 0).emit(f"jmp {L['frozen']}")
 p.mark(f"{fc}_r")
+if PARK:
+    p.set(PARK_TOK, 0)
 # P16: THE FREEZE STILL LISTENS. A landed blow stops the world for its
 # hitstop, and until now it stopped the buttons too: on the first tape of
 # real play (docs/TND-PORT.md, P16) a third of every press began inside a
@@ -6770,7 +6823,10 @@ if PARK:
     park_flip_pad(p, fn_)
     p.emit(f"jmp {ev}_tr")                                     # (his pace is set: on to the way he goes)
     p.mark(fn_)
-if L1:
+if PARK:
+    park_turn(False)
+    p.set(PARK_TOK, 1)
+elif L1:
     p.if_pad(spec.PAD_LEFT, lambda q: knob(q.load(YAW), "runturn").emit("add").store(YAW))
     p.if_pad(spec.PAD_RIGHT, lambda q: knob(q.load(YAW), "runturn").emit("sub").store(YAW))
 else:
@@ -8188,7 +8244,7 @@ if PARK:
     p.mark(f"{rj}_c")
     p.load(PX).push(PARK_DIVE_REACH).load(F["ps"]).emit("mulq", "sub").store(F["fx"])
     p.load(PZ).push(PARK_DIVE_REACH).load(F["pc"]).emit("mulq", "add").store(F["fz"])
-    p.load(F["py"]).push(PARK_DIVE_HIGH).emit("add").store(F["fy"])
+    p.set(F["fy"], PARK_DIVE_HIGH)                                        # (P69: a standing body's middle, whatever his own height)
     p.emit(f"jmp {nf_}_land")
     p.mark(rj)
 p.load(ANIM).push(2).emit("eq", f"jz {nf_}")
@@ -9181,6 +9237,14 @@ if PARK:
     ys_ = p.label("pkyaws")
     p.load(F["sty"]).push(1).emit("eq", f"jz {ys_}_n")
     p.load(spec.CAM_YAW).load(PARK_YS).emit("sub").push(512).emit("add").push(1023).emit("and").push(512).emit("sub")
+    # P69: SLOWED, IT COMES BY A QUARTER OF THE GAP (toward nothing: a gap under 4 is left). The point the focus lens
+    # looks at moves only on the fight's frames, one in three, and the lens's place every frame: running straight
+    # its yaw went +4, -2, -2 of the turn's 1,024, twenty times a second -- and the laser, steady in the world, shook
+    # on the glass with it.
+    p.load(SLOWON).emit(f"jz {ys_}_rt")
+    p.emit("dup", "abs", "shr 2", "swap").push(0).emit("lt", f"jz {ys_}_rt")
+    p.emit("neg")
+    p.mark(f"{ys_}_rt")
     p.emit("dup").push(20).emit("lt", f"jz {ys_}_hi", f"jmp {ys_}_1")
     p.mark(f"{ys_}_hi")
     p.emit("drop").push(20)
