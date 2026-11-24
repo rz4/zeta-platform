@@ -1,0 +1,508 @@
+{
+ "schema": "zeta-xp-1",
+ "id": "tnd-park-0008",
+ "machine": {
+  "tape": {
+   "file": "20261124-110203.ztp",
+   "sha256": "3c813e6e4693134781e5947a6f534c06c417d4d974085150a71df3a36ac27a1e",
+   "format": "ZTP0",
+   "loader_build": 107,
+   "cart_sum": "0x37851ef5",
+   "runs": 3772
+  },
+  "cart": {
+   "file": "20261124-110203.park.zbin",
+   "sum": "0x37851ef5",
+   "built_at_commit": "d5aa275",
+   "recipe": "TND_SONG=1 TND_LAYER=12 python3 games/tnd/gen_tnd.py",
+   "symbols_sha256": "c18c386e7b7e61fd9cdcb7d51c030bc1d678bb0912f6a48a8836988aecb94aaf"
+  },
+  "card_at_start": "20261121-172911.card.bin",
+  "backend": "law (zeta.cabinet.VirtualMachine)",
+  "spec_loader_build": 107,
+  "ingested_at_commit": "5d4eeb8"
+ },
+ "evidence": {
+  "frames": 39745,
+  "seconds": 662.4,
+  "end_state_sha256": "e33d1389b5e46aa3f5d2a07eb9d54ce0752d1c56fc5c3006d8004d74e6b6fb4e",
+  "reproduce": "python3 -m zeta.experience ingest 20261124-110203.ztp --game 20261124-110203.park.zbin --symbols ..."
+ },
+ "knobs": [
+  {
+   "axis": "tnd.lab.who",
+   "knob": "who",
+   "index": 0,
+   "default": 0,
+   "final": 0,
+   "signed_notches": 0,
+   "step": 1,
+   "unit": "index",
+   "dwell_frames": {
+    "0": 39745
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.weight",
+   "knob": "weight",
+   "index": 1,
+   "default": 58982,
+   "final": 58982,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "58982": 39745
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.knock",
+   "knob": "knock",
+   "index": 2,
+   "default": 58982,
+   "final": 58982,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "58982": 39745
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.lift",
+   "knob": "lift",
+   "index": 3,
+   "default": 65536,
+   "final": 65536,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "65536": 39745
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.stun",
+   "knob": "stun",
+   "index": 4,
+   "default": 65536,
+   "final": 65536,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "65536": 39745
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.hstop",
+   "knob": "hstop",
+   "index": 5,
+   "default": 65536,
+   "final": 65536,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "65536": 39745
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.slide",
+   "knob": "slide",
+   "index": 6,
+   "default": 57671,
+   "final": 57671,
+   "signed_notches": 0,
+   "step": 655,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "57671": 39745
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.egrav",
+   "knob": "egrav",
+   "index": 7,
+   "default": 786,
+   "final": 786,
+   "signed_notches": 0,
+   "step": 65,
+   "unit": "Q16.16 (65536 = 1.0) a frame squared",
+   "dwell_frames": {
+    "786": 39745
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.pivot",
+   "knob": "pivot",
+   "index": 8,
+   "default": 176,
+   "final": 176,
+   "signed_notches": 0,
+   "step": 16,
+   "unit": "of 1024 a frame",
+   "dwell_frames": {
+    "176": 39745
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.lunge",
+   "knob": "lunge",
+   "index": 9,
+   "default": 58983,
+   "final": 58983,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "58983": 39745
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.keep",
+   "knob": "keep",
+   "index": 10,
+   "default": 40,
+   "final": 40,
+   "signed_notches": 0,
+   "step": 4,
+   "unit": "frames",
+   "dwell_frames": {
+    "40": 39745
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.hold",
+   "knob": "hold",
+   "index": 11,
+   "default": 14,
+   "final": 14,
+   "signed_notches": 0,
+   "step": 2,
+   "unit": "frames",
+   "dwell_frames": {
+    "14": 39745
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.slow",
+   "knob": "slow",
+   "index": 12,
+   "default": 3,
+   "final": 3,
+   "signed_notches": 0,
+   "step": 1,
+   "unit": "frames",
+   "dwell_frames": {
+    "3": 39745
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.dodge",
+   "knob": "dodge",
+   "index": 13,
+   "default": 65536,
+   "final": 65536,
+   "signed_notches": 0,
+   "step": 16384,
+   "unit": "his widths (0.58), Q16.16",
+   "dwell_frames": {
+    "65536": 39745
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.jump",
+   "knob": "jump",
+   "index": 14,
+   "default": 12190,
+   "final": 12190,
+   "signed_notches": 0,
+   "step": 655,
+   "unit": "Q16.16 (65536 = 1.0) a frame",
+   "dwell_frames": {
+    "12190": 39745
+   },
+   "changes": [],
+   "changes_total": 0
+  }
+ ],
+ "observed": {
+  "minutes": 11.04,
+  "buttons": {
+   "a": {
+    "presses": 614,
+    "held_share": 0.3
+   },
+   "b": {
+    "presses": 112,
+    "held_share": 0.032
+   },
+   "x": {
+    "presses": 191,
+    "held_share": 0.045
+   },
+   "y": {
+    "presses": 13,
+    "held_share": 0.006
+   },
+   "l": {
+    "presses": 90,
+    "held_share": 0.905
+   },
+   "r": {
+    "presses": 68,
+    "held_share": 0.368
+   },
+   "select": {
+    "presses": 0,
+    "held_share": 0.0
+   }
+  },
+  "held_together_share": {
+   "l+r": 0.363,
+   "b+r": 0.018,
+   "y+b": 0.0,
+   "x+a": 0.001,
+   "l+a": 0.3
+  },
+  "slowed_share": 0.374,
+  "stance_share": {
+   "tank": 0.096,
+   "run": 0.842,
+   "boxer": 0.062,
+   "targeting": 0.0
+  },
+  "blows": {
+   "thrown": 86,
+   "a_minute": 7.8,
+   "by_move": {
+    "jab": 79,
+    "cross": 4,
+    "lead_hook": 1,
+    "gun": 1,
+    "gun_charged": 1
+   },
+   "begun_in_slowed_time_share": 0.012
+  },
+  "bodies": {
+   "blows_landed": 0,
+   "landed_a_minute": 0.0,
+   "put_down": 0,
+   "highest_thrown": 0.0,
+   "frames_one_was_above_half_a_unit": 0,
+   "above_three_units": {
+    "frames": 0,
+    "ranges": []
+   },
+   "struck_in_the_air": 0
+  },
+  "jab_strings": {
+   "that_began_with_a_hit": 0,
+   "mean_landed_in_a_row_by_length": {},
+   "five_or_more_in_a_row": {
+    "count": 0,
+    "frames": []
+   }
+  },
+  "passes": {
+   "y_with_b_held": {
+    "count": 0,
+    "frames": []
+   },
+   "b_with_y_held": {
+    "count": 0
+   },
+   "x_with_a_held": {
+    "count": 5
+   },
+   "thrown_as": {
+    "the_boxers_stun": 0,
+    "the_runs_tackle": 0
+   }
+  },
+  "special_chosen_under_a_held_jab": {
+   "steps": 1,
+   "thrown": 1,
+   "as": {
+    "lead_hook": 1,
+    "rear_uppercut": 0,
+    "haymaker": 0
+   }
+  },
+  "close_quarters_rounds_at_least": 1,
+  "jumps": 442,
+  "dodges_and_flips": 298,
+  "structures": {
+   "minutes_on_one": 4.09,
+   "frames_on_each": {
+    "0": 466,
+    "1": 255,
+    "2": 214,
+    "3": 241,
+    "4": 161,
+    "5": 211,
+    "6": 301,
+    "7": 684,
+    "8": 218,
+    "9": 417,
+    "10": 146,
+    "11": 154,
+    "12": 224,
+    "13": 267,
+    "14": 72,
+    "15": 104,
+    "16": 142,
+    "17": 254,
+    "18": 268,
+    "19": 519,
+    "20": 126,
+    "21": 121,
+    "22": 225,
+    "23": 202,
+    "24": 215,
+    "25": 117,
+    "26": 52,
+    "27": 331,
+    "28": 44,
+    "29": 398,
+    "30": 370,
+    "31": 511,
+    "32": 186,
+    "33": 85,
+    "34": 159,
+    "35": 155,
+    "36": 151,
+    "37": 201,
+    "38": 737,
+    "39": 436,
+    "40": 292,
+    "41": 332,
+    "42": 232,
+    "43": 480,
+    "44": 82,
+    "45": 174,
+    "46": 199,
+    "47": 225,
+    "48": 430,
+    "49": 359,
+    "50": 479,
+    "51": 249,
+    "52": 170,
+    "53": 206,
+    "54": 524,
+    "55": 164
+   },
+   "highest_stood": 7.5
+  },
+  "tuner_open_minutes": 0.0,
+  "b_held": {
+   "share": 0.032,
+   "of_which": {
+    "standing": 0.207,
+    "walking": 0.121,
+    "running": 0.632
+   }
+  }
+ },
+ "title": "the P66 park, eleven minutes: the snapping is in the drawing, not the jump",
+ "human": {
+  "said": [
+   "plugged. better, but the snapping still happens when in platforms especially high ones. the gun in slowmo only does 3 shot bursts. and the jab needs improvement."
+  ],
+  "said_on": "2026-11-24",
+  "knobs_chosen": []
+ },
+ "agent": {
+  "observations": [
+   {
+    "what": "88 attempts, 56 cleared (64%); best streak 15; furthest east 3,639; 84% in the run, 42% of it slowed",
+    "frames": []
+   },
+   {
+    "what": "his height in the room: 10 one-frame rises over 0.3 in the run. The height he was DRAWN at (f_py + curb_y): 488, the worst 5.96; more than 0.3 from where he was for 2,556 of 33,472 frames",
+    "frames": []
+   },
+   {
+    "what": "B in the run 110 presses (77 slowed), 76 shots; slowed, 51 of 77 presses answered within 25 frames; the 23 unanswered all during the reload, six rounds spent; slowed bursts of 6, 18, 6, 6, 5, 3, 4",
+    "frames": []
+   },
+   {
+    "what": "rendered through the game's lens: the running jab's arm is hidden by his back",
+    "frames": []
+   },
+   {
+    "what": "the same tape on P67 (motion identical frame for frame): drawn rises over 0.25: 0; slowed presses answered 72 of 77",
+    "frames": []
+   }
+  ],
+  "readings": [
+   {
+    "supposes": "the snapping he sees is the drawn height's eased ground term re-basing under him in the air",
+    "or": [
+     "the ledge catch's lift alone (17 climbs on this tape)"
+    ],
+    "confidence": "high"
+   },
+   {
+    "supposes": "'3 shot bursts' is the six-round cylinder and its reload counted in slowed frames (he says 3; the machine fired 6)",
+    "or": [
+     "he wants no magazine at all in the park",
+     "something drawn: two rounds can be in the air at once"
+    ],
+    "confidence": "medium"
+   },
+   {
+    "supposes": "the jab's fault is that it cannot be seen from behind and is silent",
+    "or": [
+     "he wants it to land blows",
+     "he wants it planted, as the lab's"
+    ],
+    "confidence": "low"
+   }
+  ],
+  "proposed": [
+   "P67: drawn at his true height, a given lift climbed; the reload by the clock; the jab thrown with the shoulder, heard, X again the cross"
+  ]
+ },
+ "result": {
+  "commits": [
+   "5d4eeb8"
+  ],
+  "proved": [
+   "replay of this tape on P67: motion identical; drawn one-frame rises over 0.25: 488 -> 0"
+  ],
+  "cost": "",
+  "next_record": null,
+  "verdict": "pending",
+  "imprints": []
+ }
+}
