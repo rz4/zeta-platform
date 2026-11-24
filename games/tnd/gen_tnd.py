@@ -502,6 +502,9 @@ if CARTMESH:
     TIER_IS = {"elite": (0.045, 2.4, 8), "common": (0.040, 2.1, 5), "horde": (0.030, 1.8, 3)}
     if L8:                         # (P41: they press him -- the patrol's own pace is the horde's)
         TIER_IS = {k_: (v_[0] * 1.6, v_[1], v_[2]) for k_, v_ in TIER_IS.items()}
+    YARD_KIT = {"horde": ("guard2", "walk2", "special"),
+                "common": ("guard2", "walk2", "special", "jab", "cross"),
+                "elite": ("guard2", "walk2", "special", "jab", "cross", "lead_hook", "rear_hook", "lead_uppercut", "dodge_back")}
     TIER, ENEMY = {}, []
     for name_, count_ in CROWD:
         if name_ == "rival" or name_ in TIER:
@@ -511,12 +514,17 @@ if CARTMESH:
         h_ = (np.ones(len(tri_), bool), np.arange(int(t_["F"].max()) + 1), tri_)
         fs_ = cart.cram(Table([a | b << 10 | c << 20 for a, b, c in tri_]), f"{name_}_faces")
         clips_ = (("guard2", "walk2") + (("special",) if L8 else ())) if L4 else ("idle",)   # (P41: the haymaker is theirs)
+        if YARD:
+            # P71 (the player: "the enemies depending on which tier they are should be the difficulty ... the highest
+            # tier can essentially use my full kit. lower less of the kit"): a size's bank holds the clips of ITS kit
+            clips_ = YARD_KIT[name_]
         ps_ = [half_streams(V_, S_, h_) for c_ in clips_ for V_, S_ in zip(t_["V_" + c_], t_["S_" + c_])]
         TIER[name_] = dict(nv=len(h_[1]), nf=len(tri_), faces=int(fs_), lv=len(ps_[0][0]), span=len(ps_[0][0]) + len(ps_[0][1]),
                            bank=int(cart.cram(Table([x for st in ps_ for part in st for x in part]), f"{name_}_poses")),
                            n=len(t_["V_" + clips_[0]]), walk=len(t_["V_" + clips_[0]]),
                            atk=sum(len(t_["V_" + c_]) for c_ in clips_[:2]), natk=len(t_["V_" + clips_[-1]]),
                            pace=int(TIER_IS[name_][0] * ONE), stand=TIER_IS[name_][1], hp=TIER_IS[name_][2])
+        TIER[name_]["cb"] = {c_: sum(len(t_["V_" + c2_]) for c2_ in clips_[:i_]) for i_, c_ in enumerate(clips_)}
     _slot = 0
     for name_, count_ in CROWD:
         for _ in range(0 if name_ == "rival" else count_):
@@ -2225,7 +2233,9 @@ if LAB:
         # he begins south of the ring, facing north into it. WHO STANDS (the knob): everyone -- the elite and the double
         # in the ring, the common and the horde down the range; then the ring alone, the range alone, the double alone
         LAB_START = lab_xz(0.0, -8.5)
-        LAB_WHO = (0b1111111, 0b1000001, 0b0111110, 0b1000000, 0b0000001, 0b0111111)
+        # P71: ...and whether they FIGHT (bit 7): everyone, fighting; the ring's two, fighting; the range, standing (to be
+        # shot at); everyone, standing; the double alone, fighting; all but the double, fighting
+        LAB_WHO = (0b11111111, 0b11000001, 0b00111110, 0b01111111, 0b11000000, 0b10111111)
         # (THE RANGE: a round flies 13 units, tapped or charged -- so they stand 5, 8, 10, 11.5 and 12.6 from the pad, the
         # last at the end of its reach; and each on a bearing of its own from it -- -14.6, +7.8, -4.0, +4.0 and 0 degrees
         # -- so the near ones do not stand in front of the far)
@@ -3974,6 +3984,70 @@ if LAB:
         MIRY = cart.var("rx_miry")                   # (P45: his double's height is his)
         RXV, RXO = cart.var("rx_sent", 2), cart.var("rx_was", 2)     # how fast HE is being sent (x, z), and where he was
     EVX, EVZ, EY, EVY, ETL = (cart.var("lab_" + k, len(ENEMY)) for k in ("evx", "evz", "ey", "evy", "tilt"))
+    if YARD:
+        # ---- P71: THE YARD'S FIGHT ------------------------------------------------------------------------------------
+        # The player, 2026-11-24: "i want a challenge, remember the enemies depending on which tier they are should be
+        # the difficulty, still meaty and modest health, the highest tier can essentially use my full kit. lower less
+        # of the kit". Each body, up and free: AWAKE (he came within seven and a half units, or struck it) it walks to its place at
+        # his side; in reach, its turn and two at most at once, it TELLS (it blinks, still closing) and throws a STRING
+        # -- its size's own, of its size's moves, each blow the move's own frames -- which lands if he is in the
+        # move's reach before it, on the ground, and not in a dodge's, a flip's or a roll's frames: the move's worth
+        # off his 140 by its size, and he reels. Struck, it loses its string. The sizes that have a dodge slip his
+        # swing as it starts, some of the time. The DOUBLE has the whole of it: every blow, the dodge, and from four
+        # units out to twelve, the gun -- it goes where he was when the draw began, and a step aside is a miss.
+        #   the horde    slow to it, a long tell: the haymaker
+        #   the common   jab, cross, the haymaker: strings of two and three
+        #   the elite    and the hooks and the uppercut; it dodges four swings in ten
+        #   the double   his kit; it dodges two in three; quick to tell, quick again
+        Y_FREE, Y_TELL, Y_BLOW, Y_DODGE = range(4)
+        YMOVE = {n_: i_ for i_, n_ in enumerate(PMN)}
+        Y_GUN, Y_DODGE_MV = YMOVE["gun"], 9
+        YARD_TIERS = {  # pace a frame; the tell's frames; the wait after a string; dodges of 256; its blows' weight; strings
+            "horde": (0.045, 40, 90, 0, 0.8, [["special"]] * 4),
+            "common": (0.058, 26, 60, 0, 1.0, [["jab", "cross"], ["jab", "jab", "cross"], ["special"], ["cross"]]),
+            "elite": (0.068, 18, 40, 100, 1.15, [["jab", "cross", "lead_hook"], ["jab", "jab", "rear_hook"], ["lead_uppercut", "cross"],
+                                                 ["lead_hook", "special"]]),
+            "rival": (0.076, 12, 26, 170, 1.25, [["jab", "cross", "lead_hook", "special"], ["jab", "jab", "cross", "rear_uppercut"],
+                                                 ["lead_hook", "rear_hook", "lead_uppercut"], ["gun"]])}
+        Y_MAXATK, Y_AGGRO2, Y_LEASH2 = 2, int(7.5 ** 2 * ONE), int(24.0 ** 2 * ONE)     # (7.5: from where he begins, nobody is awake)
+        Y_REACH2, Y_GUN_LO2, Y_GUN_HI2 = int(1.7 ** 2 * ONE), int(4.0 ** 2 * ONE), int(12.0 ** 2 * ONE)
+        Y_SIDE, Y_DODGE_F, Y_DODGE_V = 1.25, 12, int(0.11 * ONE)
+        # a move's reach (squared) and its worth off his 140: jab, cross, the hooks, the haymaker, the uppercuts, the round
+        _yr = {"jab": 1.6, "cross": 1.7, "lead_hook": 1.5, "rear_hook": 1.5, "special": 2.0, "lead_uppercut": 1.4, "rear_uppercut": 1.4,
+               "gun": 13.0, "gun_charged": 13.0}
+        _yd = {"jab": 5, "cross": 8, "lead_hook": 12, "rear_hook": 12, "special": 26, "lead_uppercut": 14, "rear_uppercut": 14, "gun": 10,
+               "gun_charged": 10}
+        YR2 = cart.data(Table([int(_yr[m_] ** 2 * ONE) for m_ in PMN]), "yard_reach2")
+        YDM = cart.data(Table([_yd[m_] for m_ in PMN]), "yard_worth")
+        Y_TIERS = list(YARD_TIERS)                     # (their order: the rows of what follows)
+        _scr = []
+        for t_ in Y_TIERS:                             # a string a word: its moves a nibble each, the low first; then 15s
+            for st_ in YARD_TIERS[t_][5]:
+                assert len(st_) <= 6
+                _scr.append(sum(YMOVE[m_] << 4 * i_ for i_, m_ in enumerate(st_)) | (0xFFFFFFF >> 4 * len(st_) << 4 * len(st_)))
+        YSCR = cart.data(Table(_scr), "yard_strings")
+
+        def _ytier(e_):
+            return "rival" if e_.get("rival") else next(n_ for n_, T_ in TIER.items() if T_ is e_["T"])
+
+        def _yclip(t_, m_):
+            """where a move's clip begins in a size's bank (the double's is his own)"""
+            m_ = "dodge_back" if m_ == "dodge" else m_
+            return base[m_] if t_ == "rival" else TIER[t_]["cb"].get(m_, 0)
+        YCBW = len(PMN) + 1
+        YCB = cart.data(Table([_yclip(t_, m_) for t_ in Y_TIERS for m_ in list(PMN) + ["dodge"]]), "yard_clip")
+        # a size's row: its pace, its tell, its wait, its dodges of 256, its blows' weight, its strings, the gun
+        YTP = cart.data(Table([w_ for i_, t_ in enumerate(Y_TIERS) for w_ in (
+            int(YARD_TIERS[t_][0] * ONE), YARD_TIERS[t_][1], YARD_TIERS[t_][2], YARD_TIERS[t_][3], int(YARD_TIERS[t_][4] * ONE),
+            int(YSCR) + 4 * i_, int(t_ == "rival"))]), "yard_sizes")
+        YTPW = 7
+        YMK = cart.data(Table([w_ for m_ in LAB_MARK for w_ in m_]), "yard_marks")
+        YOF = cart.data(Table([v_ & 1023 for v_ in (-114, 114, -228, 228, -327, 327, 0)]), "yard_fan")
+        YACT, YTM, YSP, YCD, YAWK, YHIT, YAIM = (cart.var("yard_" + k_, len(ENEMY)) for k_ in ("act", "t", "sp", "cd", "awake", "landed", "aim"))
+        YFIGHT, YNC, YNS, YNPREV, YD2, YMV, YBR, YK, YAB, YTB, YST, YTT = (cart.var("yard_" + k_) for k_ in (
+            "fight", "n", "begun", "n_was", "d2", "mv", "brg", "k", "body", "size", "state", "now"))
+        YP = cart.var("yard_step", 4)
+        L_YAI = p.label("yardai")
     L_HITR = p.label("hitr")
 
 
@@ -5334,6 +5408,299 @@ if L2:
         # wall stops it; held, it does not turn; else it turns to face him.
         # Down, it lies DOWN_FOR frames and gets up where it lies. And WHO
         # stands there is the knob's: turned, they are put back on their marks.
+
+        def yard_ai_emit():
+            """P71: one body's part in the fight (see the tables) -- awake or not; free, telling, in a blow, dodging.
+            ONE routine: YK is which body, YAB its record, YTB its size's row. (Written out a body each it was 2,900
+            words and the cart 1,433 over its page: the bodies are rows, and so is this.)"""
+            ya = L_YAI
+
+            def ef(o_):
+                p.load(YAB)
+                if o_:
+                    p.push(o_).emit("add")
+                p.emit("loadi")
+
+            def es(o_):                                            # ( v -- )
+                p.load(YAB)
+                if o_:
+                    p.push(o_).emit("add")
+                p.emit("storei")
+
+            def af(a_):
+                p.push(int(a_)).load(YK).emit("add", "loadi")
+
+            def as_(a_):                                           # ( v -- )
+                p.push(int(a_)).load(YK).emit("add", "storei")
+
+            def aset(a_, v_):
+                p.push(v_)
+                as_(a_)
+
+            def tp(i_):
+                p.load(YTB)
+                if i_:
+                    p.push(i_).emit("add")
+                p.emit("loadi")
+
+            def step_and_keep():                                   # (YP: where it would be, where it was) -> its record
+                keep_in_arena(YP, int(YP) + 1, int(YP) + 2, int(YP) + 3)
+                for o_ in range(4):
+                    p.load(int(YP) + o_)
+                    es(o_)
+            F_YAW, F_ST, F_STUN, F_FL, F_PH, F_WALK = 4, 5, 7, 8, 9, 11
+            p.emit(f"jmp {ya}_over")
+            p.mark(ya)
+            # down, held, or in the air: out of it (and struck, awake)
+            ef(F_ST)
+            p.push(1).emit("eq", f"jz {ya}_off")
+            ef(F_STUN)
+            p.emit(f"jz {ya}_ns")
+            aset(YAWK, 1)
+            p.emit(f"jmp {ya}_off")
+            p.mark(f"{ya}_ns")
+            af(EY)
+            p.emit(f"jz {ya}_on")
+            p.mark(f"{ya}_off")
+            aset(YACT, Y_FREE)
+            aset(YTM, 0)
+            p.push(0)
+            es(F_WALK)
+            p.emit("ret")
+            p.mark(f"{ya}_on")
+            p.push(0)
+            es(F_WALK)
+            p.load(PX)
+            ef(0)
+            p.emit("sub").store(W["qx"]).load(PZ)
+            ef(1)
+            p.emit("sub").store(W["qz"])
+            p.load(W["qx"]).emit("dup", "mulq").load(W["qz"]).emit("dup", "mulq", "add").store(YD2)
+            p.load(YFIGHT).load(F["dead"]).push(0).emit("eq", "and", f"jz {ya}_sleep")
+            p.load(YD2).push32(Y_AGGRO2).emit("lt", f"jz {ya}_a1")
+            aset(YAWK, 1)
+            p.mark(f"{ya}_a1")
+            p.push32(Y_LEASH2).load(YD2).emit("lt", f"jz {ya}_aw")
+            p.mark(f"{ya}_sleep")
+            aset(YAWK, 0)
+            p.mark(f"{ya}_aw")
+            af(YCD)
+            p.emit(f"jz {ya}_c0")
+            af(YCD)
+            p.push(1).emit("sub")
+            as_(YCD)
+            p.mark(f"{ya}_c0")
+            af(YACT)
+            p.store(YST)
+            p.load(YST).emit(f"jz {ya}_free")
+            p.load(YST).push(Y_TELL).emit("eq", f"jz {ya}_n1", f"jmp {ya}_tell")
+            p.mark(f"{ya}_n1")
+            p.load(YST).push(Y_BLOW).emit("eq", f"jz {ya}_dodge", f"jmp {ya}_blow")
+            # FREE
+            p.mark(f"{ya}_free")
+            af(YAWK)
+            p.emit(f"jz {ya}_home")
+            af(YCD)
+            p.emit(f"jz {ya}_rdy", f"jmp {ya}_nodo")
+            p.mark(f"{ya}_rdy")
+            p.load(YNPREV).load(YNS).emit("add").push(Y_MAXATK).emit("lt", f"jz {ya}_nodo")
+            p.load(YD2).push32(Y_REACH2).emit("lt", f"jz {ya}_far")
+            p.emit(f"load {spec.REG_FRAME}").push(13).emit("mul").load(YK).push(5).emit("mul", "add", "shr 2").push(3).emit("and")
+            tp(6)                                                  # (the double's fourth string is the gun's: not from here)
+            p.emit(f"jz {ya}_ng")
+            p.emit("dup").push(3).emit("eq", f"jz {ya}_ng")
+            p.emit("drop").push(0)
+            p.mark(f"{ya}_ng")
+            tp(5)
+            p.emit("add", "loadi")
+            p.mark(f"{ya}_begin")                                  # ( its string -- )
+            as_(YSP)
+            aset(YACT, Y_TELL)
+            aset(YTM, 0)
+            p.addi(YNS, 1).emit("ret")
+            p.mark(f"{ya}_far")
+            tp(6)
+            p.emit(f"jz {ya}_nodo")
+            p.push32(Y_GUN_LO2).load(YD2).emit("lt").load(YD2).push32(Y_GUN_HI2).emit("lt", "and", f"jz {ya}_nodo")
+            tp(5)
+            p.push(3).emit("add", "loadi", f"jmp {ya}_begin")
+            p.mark(f"{ya}_nodo")
+            tp(3)                                                  # (his swing's second frame, in reach of it: slipped)
+            p.emit(f"jz {ya}_close")
+            p.load(ANIM).push(2).emit("eq").load(AF).push(2).emit("eq", "and", f"jz {ya}_close")
+            p.load(YD2).push32(int(2.4 ** 2 * ONE)).emit("lt", f"jz {ya}_close")
+            p.emit(f"load {spec.REG_FRAME}").push(29).emit("mul").load(YK).push(11).emit("mul", "add", "shr 1").push(255).emit("and")
+            tp(3)
+            p.emit("lt", f"jz {ya}_close")
+            aset(YACT, Y_DODGE)
+            aset(YTM, 0)
+            p.emit("ret")
+            # to its place BEFORE HIM: a fan about the way he faces -- the double dead ahead, the elite and the common a
+            # ninth of a turn to either side, the horde wider -- so what strikes him he can see (the lens is behind him)
+            p.mark(f"{ya}_close")
+            p.push(int(YOF)).load(YK).emit("add", "loadi").load(HEAD).emit("add").store(YBR)
+            sin_of(p, cell=YBR)
+            p.push(int(Y_SIDE * ONE)).emit("mulq").load(PX).emit("swap", "sub")
+            ef(0)
+            p.emit("sub").store(W["qx"])
+            sin_of(p, 256, cell=YBR)
+            p.push(int(Y_SIDE * ONE)).emit("mulq").load(PZ).emit("add")
+            ef(1)
+            p.emit("sub").store(W["qz"]).emit(f"jmp {ya}_walk")
+            p.mark(f"{ya}_home")                                   # asleep: back to its mark
+            p.push(int(YMK)).load(YK).emit("shl 1", "add", "dup", "loadi")
+            ef(0)
+            p.emit("sub").store(W["qx"]).push(1).emit("add", "loadi")
+            ef(1)
+            p.emit("sub").store(W["qz"])
+            p.mark(f"{ya}_walk")
+            p.load(W["qx"]).emit("dup", "mulq").load(W["qz"]).emit("dup", "mulq", "add")
+            p.push(int(0.3 ** 2 * ONE)).emit("swap", "lt", f"jz {ya}_ret")              # (0.09 < how far: not there yet)
+            p.emit(f"call {L_YAW}")
+            p.load(F["brg"]).store(YBR)
+            for o_ in (0, 1):
+                ef(o_)
+                p.store(int(YP) + 2 + o_)
+            sin_of(p, cell=YBR)
+            tp(0)
+            p.emit("mulq")
+            ef(0)
+            p.emit("swap", "sub").store(YP)
+            sin_of(p, 256, cell=YBR)
+            tp(0)
+            p.emit("mulq")
+            ef(1)
+            p.emit("add").store(int(YP) + 1)
+            step_and_keep()
+            ef(F_PH)
+            tp(0)
+            p.push(E_LEGS).emit("mul", "add")
+            es(F_PH)
+            p.push(1)
+            es(F_WALK)
+            p.mark(f"{ya}_ret")
+            p.emit("ret")
+            # TELLING: it blinks, and closes; then the string
+            p.mark(f"{ya}_tell")
+            p.addi(YNC, 1)
+            af(YTM)
+            p.push(1).emit("add", "dup").store(YTT)
+            as_(YTM)
+            p.load(YTT).push(7).emit("and", f"jz {ya}_bl", f"jmp {ya}_nb")
+            p.mark(f"{ya}_bl")
+            p.push(4)
+            es(F_FL)
+            p.mark(f"{ya}_nb")
+            p.load(YTT)
+            tp(1)
+            p.emit("lt", f"jz {ya}_go", f"jmp {ya}_close")
+            p.mark(f"{ya}_go")
+            p.emit(f"call {L_YAW}")
+            p.load(F["brg"])
+            as_(YAIM)
+            aset(YACT, Y_BLOW)
+            aset(YTM, 0)
+            aset(YHIT, 0)
+            p.emit("ret")
+            # A BLOW of its string
+            p.mark(f"{ya}_blow")
+            p.addi(YNC, 1)
+            af(YTM)
+            p.push(1).emit("add", "dup").store(YTT)
+            as_(YTM)
+            af(YSP)
+            p.push(15).emit("and").store(YMV)
+            af(YHIT)
+            p.emit(f"jz {ya}_h0", f"jmp {ya}_adv")
+            p.mark(f"{ya}_h0")
+            p.load(YTT)
+            row(PMT, YMV, "start")
+            p.emit("lt", f"jz {ya}_h1", f"jmp {ya}_adv")
+            p.mark(f"{ya}_h1")
+            p.load(YTT)
+            row(PMT, YMV, "endact")
+            p.emit("lt", f"jz {ya}_adv")
+            p.load(YD2).push(int(YR2)).load(YMV).emit("add", "loadi", "lt", f"jz {ya}_adv")
+            p.emit(f"call {L_YAW}")
+            p.load(YMV).push(Y_GUN).emit("eq", f"jz {ya}_fc")    # (a round goes where the draw aimed: 30 of 1,024 either side)
+            p.load(F["brg"])
+            af(YAIM)
+            p.emit("sub").push(512).emit("add").push(1023).emit("and").push(512).emit("sub", "abs")
+            p.push(30).emit("lt", f"jz {ya}_adv", f"jmp {ya}_ok")
+            p.mark(f"{ya}_fc")
+            p.load(F["brg"])
+            ef(F_YAW)
+            p.emit("sub").push(512).emit("add").push(1023).emit("and").push(512).emit("sub", "abs")
+            p.push(128).emit("lt", f"jz {ya}_adv")                 # (he is before it, an eighth of a turn either side)
+            p.mark(f"{ya}_ok")
+            p.load(F["evf"]).load(F["dead"]).emit("or", f"jz {ya}_hh", f"jmp {ya}_adv")
+            p.mark(f"{ya}_hh")
+            p.push(int(0.9 * ONE)).load(F["py"]).emit("lt", f"jz {ya}_land", f"jmp {ya}_adv")
+            p.mark(f"{ya}_land")
+            aset(YHIT, 1)
+            p.push(int(YDM)).load(YMV).emit("add", "loadi")
+            tp(4)
+            p.emit("mulq").store(W["dmg"])
+            p.load(PHP).load(W["dmg"]).emit("sub").store(PHP)
+            p.load(W["dmg"]).emit("shr 2").push(3).emit("add").store(F["stop"])
+            p.set(F["shake"], 7).set(F["hs"], 14).set(ANIM, 3).set(F["buf"], 0).set(SG_T["st"], 0)
+            p.push(0).load(PHP).emit("lt", f"jz {ya}_dn", f"jmp {ya}_adv")
+            p.mark(f"{ya}_dn")
+            p.set(F["dead"], 1).set(ANIM, 4).set(F["hs"], 0)
+            p.mark(f"{ya}_adv")
+            p.load(YTT)
+            row(PMT, YMV, "total")
+            p.emit("lt", f"jz {ya}_nxt", "ret")
+            p.mark(f"{ya}_nxt")
+            af(YSP)
+            p.emit("shr 4", "dup")
+            as_(YSP)
+            p.push(15).emit("and").push(15).emit("eq", f"jz {ya}_more")                 # (the string's end)
+            aset(YACT, Y_FREE)
+            aset(YTM, 0)
+            tp(2)
+            as_(YCD)
+            p.emit("ret")
+            p.mark(f"{ya}_more")
+            aset(YTM, 0)
+            aset(YHIT, 0)
+            p.emit(f"call {L_YAW}")
+            p.load(F["brg"])
+            as_(YAIM)
+            p.emit("ret")
+            # A DODGE: away from him
+            p.mark(f"{ya}_dodge")
+            af(YTM)
+            p.push(1).emit("add", "dup").store(YTT)
+            as_(YTM)
+            p.emit(f"call {L_YAW}")
+            p.load(F["brg"]).store(YBR)
+            for o_ in (0, 1):
+                ef(o_)
+                p.store(int(YP) + 2 + o_)
+            sin_of(p, cell=YBR)
+            p.push(Y_DODGE_V).emit("mulq")
+            ef(0)
+            p.emit("add").store(YP)
+            sin_of(p, 256, cell=YBR)
+            p.push(Y_DODGE_V).emit("mulq")
+            ef(1)
+            p.emit("swap", "sub").store(int(YP) + 1)
+            step_and_keep()
+            p.load(YTT).push(Y_DODGE_F).emit("lt", f"jz {ya}_de", "ret")
+            p.mark(f"{ya}_de")
+            aset(YACT, Y_FREE)
+            aset(YTM, 0)
+            aset(YCD, 14)
+            p.emit("ret")
+            p.mark(f"{ya}_over")
+
+        def yard_ai(e_):
+            p.set(YK, e_["k"]).push(int(e_["pos"])).store(YAB).push(int(YTP) + YTPW * Y_TIERS.index(_ytier(e_))).store(YTB)
+            p.emit(f"call {L_YAI}")
+        if YARD:
+            yard_ai_emit()
+
         wh = p.label("who")
         (p.push(0) if REACTOR else knob(p, "who")).emit("dup").load(WHOP).emit("eq", f"jz {wh}_set", "drop", f"jmp {wh}")
         p.mark(f"{wh}_set")
@@ -5344,9 +5711,13 @@ if L2:
             for c_, v_ in zip((int(e_["pos"]), int(e_["pos"]) + 1, int(e_["old"]), int(e_["old"]) + 1), LAB_MARK[k_] * 2):
                 p.push32(v_).store(c_)
             p.set(e_["yaw"], LAB_FACE).set(e_["hp"], e_["T"]["hp"]).set(e_["stun"], 0).set(e_["t"], 0)
-            for a_ in (EVX, EVZ, EY, EVY, ETL):
+            for a_ in (EVX, EVZ, EY, EVY, ETL) + ((YACT, YTM, YCD, YAWK, YHIT) if YARD else ()):
                 p.set(int(a_) + k_, 0)
+        if YARD:
+            p.load(LS0).emit("shr 7").push(1).emit("and").store(YFIGHT)
         p.mark(wh)
+        if YARD:
+            p.set(YNC, 0).set(YNS, 0)
         for e_ in ENEMY:
             ea = p.label("labenemy")
             k_ = e_["k"]
@@ -5429,6 +5800,10 @@ if L2:
                     p.load(c_).emit("add").store(c_)
                 p.mark(rt)
             p.mark(ea)
+            if YARD:
+                yard_ai(e_)
+        if YARD:
+            p.load(YNC).store(YNPREV)
     if L4 and not LAB:
         # P37: THE ENEMIES MOVE (the player: "lets have then move and make them
         # target able"). Each, up: held by a blow it stands; else it walks to
@@ -7925,6 +8300,9 @@ RETRY_CELLS = ((PX, START_X), (PZ, START_Z), (YAW, START_YAW), (CY, START_YAW),
              *((imp(i, "st"), 0) for i in range(N_IMP)))       # (P20b: no swarm)
 for c, v in RETRY_CELLS:
     p.set(c, v)
+if YARD:                                        # (P71: ...and everyone back on their marks, whole)
+    p.set(WHOP, -1)
+    p.push32(LAB_START[0]).store(PX).push32(LAB_START[1]).store(PZ).set(YAW, LAB_YAW).set(CY, LAB_YAW).set(HEAD, LAB_YAW)
 if L8:
     # P41: DOWN IN THE STREET, HE WAKES IN THE BUNKER HE LAST TOOK -- inside
     # its door, rested (and so are they: see L_REST). The world is as he
@@ -8076,7 +8454,20 @@ if CARTMESH:                                 # the pose is where its streams are
                 p.set(_ey, 0).set(MIRY, 0).emit(f"jmp {mp}_d")
                 p.mark(mp)
                 p.set(MIRY, 0)
-            p.load(e_["clk"]).emit("shr 1").push(base["idle"]).emit("add").push(SPAN).emit("mul").push(int(BANK)).emit("add")
+            p.load(e_["clk"]).emit("shr 1").push(base["idle"]).emit("add")
+            if YARD:                         # (P71: the double walks, strikes and slips in his own clips)
+                yp_ = p.label("ydouble")
+                p.load(e_["walk"]).emit(f"jz {yp_}_w")
+                p.emit("drop").load(e_["ph"]).emit("shr 16").push(31).emit("and").push(base["walk"]).emit("add")
+                p.mark(f"{yp_}_w")
+                p.load(int(YACT) + e_["k"]).push(Y_BLOW).emit("eq", f"jz {yp_}_b")
+                p.emit("drop").push(int(YCB) + Y_TIERS.index("rival") * YCBW).load(int(YSP) + e_["k"]).push(15).emit("and", "add", "loadi")
+                p.load(int(YTM) + e_["k"]).emit("add", f"jmp {yp_}")
+                p.mark(f"{yp_}_b")
+                p.load(int(YACT) + e_["k"]).push(Y_DODGE).emit("eq", f"jz {yp_}")
+                p.emit("drop").push(base["dodge_back"]).load(int(YTM) + e_["k"]).emit("add")
+                p.mark(yp_)
+            p.push(SPAN).emit("mul").push(int(BANK)).emit("add")
             for cell_, step_ in ((int(RDESC) + 1, CM_LEN[0]), (int(RDESC) + 3, CM_LEN[1]),
                                  (int(RDESC) + 6, CM_LEN[2]), (int(RDESC) + 8, 0)):
                 p.emit("dup").store(cell_)
@@ -8090,6 +8481,15 @@ if CARTMESH:                                 # the pose is where its streams are
             p.load(e_["clk"]).emit("shr 1")
             p.load(e_["walk"]).emit(f"jz {en_}")
             p.emit("drop").load(e_["ph"]).emit("shr 16").push(31).emit("and").push(e_["T"]["walk"]).emit("add")
+            if YARD:                         # (P71: in a blow, the move's clip of its bank, by the blow's frame; slipping, the dodge's)
+                p.mark(en_)
+                yb_, en_ = p.label("yblow"), p.label("ypose")
+                p.load(int(YACT) + e_["k"]).push(Y_BLOW).emit("eq", f"jz {yb_}")
+                p.emit("drop").push(int(YCB) + Y_TIERS.index(_ytier(e_)) * YCBW).load(int(YSP) + e_["k"]).push(15).emit("and", "add", "loadi")
+                p.load(int(YTM) + e_["k"]).emit("add", f"jmp {en_}")
+                p.mark(yb_)
+                p.load(int(YACT) + e_["k"]).push(Y_DODGE).emit("eq", f"jz {en_}")
+                p.emit("drop").push(e_["T"]["cb"].get("dodge_back", 0)).load(int(YTM) + e_["k"]).emit("add")
             if L8:                           # (P41: whose turn it is, past the wait: the haymaker, by its turn's clock)
                 p.mark(en_)
                 en_ = p.label("estrike")

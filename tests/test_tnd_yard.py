@@ -73,6 +73,19 @@ class Yard:
         for k in ("yaw", "head", "cam_yaw"):
             g.d[g.syms[k]] = yaw & 1023
 
+    def who(self, n):
+        """the who knob: 0 everyone, fighting; 1 the ring's two; 2 the range, standing; 3 everyone, standing; 4 the
+        double alone; 5 all but the double"""
+        self.g.d[self.g.syms["knobs"]] = n
+        self.g.step(0)
+
+    def arr(self, name, k):
+        return self.g.d[self.g.syms[name] + k]
+
+    def far(self, k):
+        (u, v), (bu, bv) = self.uv(), self.body(k)
+        return math.hypot(bu - u, bv - v)
+
     def boxes(self):
         out = []
         for r in self.g.rows():
@@ -102,8 +115,9 @@ def test_the_room_is_a_table(cart):
 
 
 def test_the_ring_takes_fists(cart):
-    """walked north into the ring, the tank's jabs land on the double"""
+    """walked north into the ring (everyone standing: the knob), the tank's jabs land on the double"""
     y = Yard(cart)
+    y.who(3)
     for _ in range(120):
         y.g.step(U)
     hp = y.g.cell("e6_hp")
@@ -117,6 +131,7 @@ def test_the_range_is_the_guns_reach(cart):
     """from the firing pad each body has a bearing of its own, and all five are inside the 13 units a round flies:
     a tapped round takes one off each; from a unit further back, the last is out of reach -- of the charged round too"""
     y = Yard(cart)
+    y.who(3)                                     # (everyone, standing: the range as a range)
     pad = (-23.0, 8.5)
     far = max(range(1, 6), key=lambda k: y.body(k)[0])
     for k in range(1, 6):
@@ -201,3 +216,153 @@ def test_a_minute_of_anything_stays_in_the_room_and_the_frame(cart):
         assert abs(u) <= 32 and abs(v) <= 16, f"frame {i}: he is at {u:.1f}, {v:.1f}"
     assert max(used) < spec.FUEL, f"a frame ran out of fuel ({max(used)})"
     assert max(objs) <= spec.OL_MAX - 4, f"{max(objs)} objects"
+
+
+# ---- P71: THE FIGHT ----------------------------------------------------------------------------------------------
+NAMES = ("jab", "cross", "lead_hook", "rear_hook", "special", "lead_uppercut", "rear_uppercut", "gun", "gun_charged")
+SIZE_OF = (2, 1, 0, 0, 0, 0, 3)                # body -> its size's row: the horde, the common, the elite, the double
+FREE, TELL, BLOW, DODGE = range(4)
+
+
+def _strings(y):
+    """the cart's own table: for each size, its four strings as move names"""
+    a = y.g.syms["yard_strings"]
+    out = []
+    for size in range(4):
+        rows = []
+        for s_ in range(4):
+            w, moves = y.g.d[a + 4 * size + s_], []
+            while w & 15 != 15:
+                moves.append(NAMES[w & 15])
+                w >>= 4
+            rows.append(moves)
+        out.append(rows)
+    return out
+
+
+def test_a_size_is_how_much_of_his_kit_it_has(cart):
+    """("the highest tier can essentially use my full kit. lower less of the kit"): the horde's strings are the
+    haymaker; the common's of three moves; the elite's of six; the double's of every fist he has, and the gun"""
+    y = Yard(cart)
+    horde, common, elite, double = ({m for st in rows for m in st} for rows in _strings(y))
+    assert horde == {"special"}
+    assert common == {"jab", "cross", "special"}
+    assert horde < common < elite and len(elite) == 6 and "gun" not in elite
+    assert double >= {"jab", "cross", "lead_hook", "rear_hook", "special", "lead_uppercut", "rear_uppercut", "gun"}
+
+
+def test_they_come_and_strike_and_the_far_ones_sleep(cart):
+    """he walks toward the ring and stands: the elite and the double wake (seven and a half units), come to places BEFORE him,
+    tell, and their strings land -- he is hurt, by more than one move; the five down the range are asleep on
+    their marks; and no more than two are at it at once"""
+    y = Yard(cart)
+    g = y.g
+    marks = [y.body(k) for k in range(7)]
+    for _ in range(120):                         # (where he begins, nobody is awake)
+        g.step(0)
+    assert not any(y.arr("yard_awake", k) for k in range(7)) and g.cell("p_hp") == 140
+    for _ in range(70):
+        g.step(U)
+    hp, moves, most = g.cell("p_hp"), set(), 0
+    for i in range(240):
+        g.step(0)
+        at_it = [k for k in range(7) if y.arr("yard_act", k) in (TELL, BLOW)]
+        most = max(most, len(at_it))
+        moves |= {NAMES[y.arr("yard_sp", k) & 15] for k in at_it if y.arr("yard_act", k) == BLOW and y.arr("yard_landed", k)}
+        if g.cell("f_dead"):
+            break
+    assert g.cell("p_hp") < hp - 30, f"he had {hp}, has {g.cell('p_hp')}"
+    assert len(moves) >= 2, f"what landed: {moves}"
+    assert most <= 2, f"{most} at once"
+    for k in range(1, 6):
+        assert not y.arr("yard_awake", k) and math.dist(y.body(k), marks[k]) < 0.01, f"body {k} left its mark"
+    hd = g.cell("head") / 1024 * 2 * math.pi
+    (u, v) = y.uv()
+    for k in (0, 6):
+        bu, bv = y.body(k)
+        off = (math.atan2(bv - v, bu - u) - hd + math.pi) % (2 * math.pi) - math.pi
+        assert abs(off) < math.radians(80) and y.far(k) < 6, f"body {k} is {math.degrees(off):.0f} degrees off his facing, {y.far(k):.1f} away"
+
+
+def test_the_horde_throws_only_its_haymaker_and_slowly(cart):
+    """by the range, the horde's four come: over twenty seconds every blow of theirs is the haymaker, and each tells
+    for forty frames before it (the double's tell is twelve)"""
+    y = Yard(cart)
+    g = y.g
+    y.who(5)                                     # (all but the double)
+    y.put(-9.0, 5.0, 256)
+    thrown, tells, t0 = set(), [], {}
+    for i in range(1200):
+        g.d[g.syms["p_hp"]] = 140                # (he is kept standing: this is about them)
+        g.step(0)
+        for k in range(2, 6):
+            act = y.arr("yard_act", k)
+            if act == TELL and k not in t0:
+                t0[k] = i
+            if act == BLOW:
+                thrown.add(NAMES[y.arr("yard_sp", k) & 15])
+                if k in t0:
+                    tells.append(i - t0.pop(k))
+            if act == FREE:
+                t0.pop(k, None)
+    assert thrown == {"special"}, thrown
+    assert tells and min(tells) >= 40, tells
+
+
+def test_struck_it_loses_its_string_and_a_dodge_is_not_hit(cart):
+    """a body held by a blow is out of its string; and through a dodge's frames nothing of theirs lands"""
+    y = Yard(cart)
+    g = y.g
+    for _ in range(70):
+        g.step(U)
+    for i in range(300):
+        g.step(0)
+        k = next((k for k in (0, 6) if y.arr("yard_act", k) == TELL), None)
+        if k is not None:
+            break
+    assert k is not None, "nobody told"
+    g.d[g.syms[f"e{k}_stun"]] = 12
+    g.step(0)
+    assert y.arr("yard_act", k) == FREE, "held, it kept its string"
+    hp = g.cell("p_hp")
+    for i in range(300):
+        g.d[g.syms["f_evf"]] = 6                 # (a dodge's frames, held open)
+        g.step(0)
+    assert g.cell("p_hp") == hp, f"in a dodge he lost {hp - g.cell('p_hp')}"
+
+
+def test_down_and_a_is_the_room_again(cart):
+    """standing in it he goes down; after the beat, A: his health, his place, and everyone whole on their marks"""
+    y = Yard(cart)
+    g = y.g
+    marks = [y.body(k) for k in range(7)]
+    for _ in range(70):
+        g.step(U)
+    for i in range(1500):
+        g.step(0)
+        if g.cell("f_dead"):
+            break
+    assert g.cell("f_dead"), "twenty-five seconds standing in it and he is up"
+    assert 150 < i < 1200, f"down after {i} frames"
+    for _ in range(60):
+        g.step(0)
+    for q in [A] * 3 + [0] * 3:
+        g.step(q)
+    assert g.cell("f_dead") == 0 and g.cell("p_hp") == 140
+    assert all(g.cell(f"e{k}_st") == 1 for k in range(7))
+    assert all(math.dist(y.body(k), marks[k]) < 0.5 for k in range(7)), [y.body(k) for k in range(7)]
+    assert abs(y.uv()[0]) < 1.5 and y.uv()[1] < -7
+
+
+def test_standing_they_only_stand(cart):
+    """the knob's "everyone, standing": he walks in among them and nobody moves or tells"""
+    y = Yard(cart)
+    g = y.g
+    y.who(3)
+    marks = [y.body(k) for k in range(7)]
+    for _ in range(100):
+        g.step(U)
+    for _ in range(200):
+        g.step(0)
+        assert not any(y.arr("yard_act", k) for k in range(7))
+    assert g.cell("p_hp") == 140 and all(math.dist(y.body(k), marks[k]) < 0.01 for k in range(7))

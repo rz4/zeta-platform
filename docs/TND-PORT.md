@@ -3219,3 +3219,53 @@ Tests 5 (tests/test_tnd_yard.py): the table inside the walls and the seven on th
 range from the pad; the track's south side run by a scripted runner without the floor; a minute of anything inside
 the room and the frame. The other three sides of the track are laid from the park's measured reaches and are not yet
 run by a test. Layers 0, 4, 8, 10, 11 and 12 and the full cart are byte-identical.
+
+## P71: THE YARD'S FIGHT -- a size is how much of his kit it has (2026-11-24)
+
+The player, the yard on glass: "lets at the fighting. i want a challenge, remember the enemies depending on which
+tier they are should be the difficulty, still meaty and modest health, the highest tier can essentially use my full
+kit. lower less of the kit".
+
+Until now the lab's bodies stood and answered a blow (P42), and layer 8's packs walked up and threw one haymaker in
+turn (P41). Every size's pose file already held his whole kit. In the yard:
+
+| | its kit | its strings | its tell | then it waits | it slips | its blows weigh |
+|---|---|---|---|---|---|---|
+| the horde (3 to take) | the haymaker | the haymaker | 40 frames | 90 | never | 0.8 |
+| the common (5) | jab, cross, haymaker | jab-cross; jab-jab-cross; haymaker; cross | 26 | 60 | never | 1.0 |
+| the elite (8) | and the hooks, the lead uppercut, a dodge | jab-cross-hook; jab-jab-rear hook; uppercut-cross; hook-haymaker | 18 | 40 | 100 of 256 | 1.15 |
+| the double (12) | every fist he has, the dodge, the gun | jab-cross-hook-haymaker; jab-jab-cross-uppercut; hook-hook-uppercut; the gun | 12 | 26 | 170 of 256 | 1.25 |
+
+(What they take is as it was -- a jab one, a hook two, the haymaker four -- and they answer a blow as the lab's do:
+sent, lifted, held, down. A blow's worth off his 140: jab 5, cross 8, a hook 12, an uppercut 14, the haymaker 26,
+a round 10, times its size's weight.)
+
+A BODY'S PART. Up, free and on the floor: AWAKE (he came within 7.5 units, or struck it; asleep again past 24, and
+back to its mark) it walks at its size's pace to its place BEFORE HIM -- a fan about the way he faces, the double
+dead ahead, the elite and the common a ninth of a turn either side, the horde wider: the lens is behind him, and
+what strikes him he can see. In reach, its wait over and fewer than two at it, it TELLS -- it blinks, still closing
+-- and throws a string, each blow the move's own frames, in the move's own clip of its size's bank. A blow lands if
+he is in that move's reach, before it, on the ground and not in a dodge's, a flip's or a roll's frames: he reels
+(the hitstop by the blow's worth), and at nothing he is down -- and A, after the beat, is the room again, everyone
+whole on their marks. Struck, a body loses its string: that is how it is stopped. A size with a dodge slips his
+swing on its second frame, some of the time, a unit and a third back. The double, from four units to twelve, draws:
+the round goes where the draw aimed, and a step aside is a miss.
+
+THE WHO KNOB says who stands and whether they fight: everyone, fighting; the ring's two; the range, standing;
+everyone, standing; the double alone; all but the double.
+
+ONE ROUTINE. Written out a body each it was 2,900 words and the cart 34,201 against a page of 32,768 -- the loader
+refused it. It is one routine now, run through three pointers (which body, its record, its size's row), 2,000 words
+smaller; the strings are a word each, a move a nibble; the sizes are rows. The census's lesson again: the bodies
+are data, and so is what they do.
+
+MEASURED. He walks toward the ring and stands: down in five seconds (the elite and the double: eleven blows).
+Mashing X without turning: he puts the double down once, they slip 14 of his swings, and he is down in thirteen
+seconds. A minute of everything at random with the fight on: 44,422 instructions a frame at the worst (of 65,536),
+48 objects; on the simulated silicon 54% of the frame at the median, 74% at the peak. The program is 28,759 words
+(about 500 from its limit); data memory has 109 words free.
+
+Not done: they walk through the track's boxes and the ring's posts (the arena they are kept in is the hall's
+walls); they do not jump, run or dive; a blow of theirs does not move him; nothing is tuned on glass yet.
+
+Tests 11 (tests/test_tnd_yard.py). Layers 0, 4, 8, 10, 11 and 12 and the full cart are byte-identical.
