@@ -59,23 +59,31 @@ def test_the_bot_clears_every_kind_of_station_in_a_row(cart):
 
 def test_the_reaches(cart):
     """P59's physics, against P58's obstacles ("the obstacle sizes are fine its the player physics and that need
-    calibration"): his pace 0.20 a frame, the tap 1.28 up and 3.8 far coming down hard (18 frames), the flip on top
-    of it; the long jump on B held, 3.6 units let go at once to 10.8 held 40 frames; no coasting"""
+    calibration"): his pace 0.20 a frame, no coasting; P61: the first jump by its hold (0.85 up tapped, 1.4 held),
+    the flip on top of it, the pad moving the flip's landing about half a unit; no long jump"""
     out = subprocess.run([sys.executable, str(ROOT / "experiments" / "park" / "reach.py"), str(cart)],
                          capture_output=True, text=True, check=True, cwd=ROOT).stdout
     r = json.loads(out.strip().splitlines()[-1])
     assert abs(r["run_a_frame"] - 0.20) < 0.01
-    assert abs(r["tap"][0] - 3.8) < 0.15 and abs(r["tap"][1] - 1.28) < 0.05 and r["tap"][2] <= 19
-    assert abs(r["tap_flip_at_8"][0] - 8.46) < 0.3 and r["tap_flip_at_8"][1] > 3.0
-    assert abs(r["long_b_1"][0] - 3.6) < 0.2 and abs(r["long_b_40"][0] - 10.8) < 0.4
+    # (P61: "the first jump should be modulated a bit with how long the jump button is held but not to much")
+    lo, mid, hi = r["tap_held_1"], r["tap_held_8"], r["tap_held_20"]
+    assert 0.75 < lo[1] < 0.95 and 1.2 < mid[1] < 1.35 and 1.3 < hi[1] < 1.5 and lo[0] < mid[0] < hi[0]
+    assert r["tap_flip_at_8"][1] > 2.5
+    # (P61: "The dpad on the filp jump should control the landing location a bit in all 4 directions")
+    assert 0.3 < r["flip_nudged_left"][1] < 0.8
     assert r["coast_after_20"] < 0.2
+
+
+def _run(g):
+    """into the run: L clicked twice and held (P61: the lab's run; everything else the lab's controls)"""
+    for q in (L, L, 0, 0, 0, L, L, L):
+        g.step(q)
 
 
 def _on_the_first_entry(cart):
     import bot
     g = bot.Park(cart)
-    for q in (L, L, 0, 0, 0, L, L, L):
-        g.step(q)
+    _run(g)
     entry = min(b["z0"] for b in g.rows() if b["role"] & 1)
     pressed = 0
     for _ in range(200):
@@ -111,24 +119,25 @@ def test_just_off_an_edge_a_jump_is_still_a_jump(cart):
 
 def test_an_early_press_is_kept_for_the_landing(cart):
     """the BUFFER: with the flip spent, A a few frames before he lands is a press on landing -- let go already, he
-    jumps at once"""
-    g = _on_the_first_entry(cart)
-    for _ in range(3):
-        g.step(L | U | A)
-    g.step(L | U)
-    for _ in range(6):
-        g.step(L | U)
-    for _ in range(3):
-        g.step(L | U | A)                       # (the flip)
-    while (g.cell("f_pvy") > 0 or g.py() > 0.7) and g.py() > 0:
-        g.step(L | U)
-    assert g.py() > 0.1
-    landed = jumped = False
-    for k in range(10):
-        g.step(L | U | (A if k < 2 else 0))     # (too early for the ground, the flip spent: kept)
-        landed |= g.py() == 0
-        jumped |= landed and g.py() > 0 and g.cell("f_pvy") > 0
-    assert landed and jumped, "the early press was lost"
+    jumps at once. (The same session twice: once to find the landing, once pressing four frames before it.)"""
+    import bot
+
+    def session(early_at=None):
+        g = _on_the_first_entry(cart)
+        pads = [L | U | A] * 10 + [L | U] + [L | U | A] * 3 + [L | U] * 60
+        if early_at is not None:
+            pads[early_at] |= A
+            pads[early_at + 1] |= A
+        trace = []
+        for p in pads:
+            g.step(p)
+            trace.append((g.py(), g.cell("f_pvy")))
+        return trace
+    ref = session()
+    land = next(i for i in range(15, len(ref)) if ref[i][0] == 0)
+    got = session(land - 4)
+    assert ref[land + 2][0] == 0, "(the reference stands after landing)"
+    assert any(py > 0 and vy > 0 for py, vy in got[land:land + 4]), "the early press was lost"
 
 
 def test_an_orb_is_taken_once(cart):
@@ -159,24 +168,28 @@ def test_the_window_is_bounded_and_the_course_is_not(cart):
     assert len(rows) <= bot.K and all(u - 90 < b["z0"] < u + 60 for b in rows), "a row far from him"
 
 
-def test_only_R_slows_time_and_the_park_is_always_the_run(cart):
-    """P59 ("be able to be run without the slow mo, slow mo is more of just for extra precision"): no shoulder
-    held, he is in the run; holding A, B, X or Y slows nothing; R held slows time -- and (P60: "the gun stuff is
-    still linked in this mode") brings up no aim, no gun"""
+def test_the_run_is_Ls_double_click_and_in_it_R_is_slowed_time(cart):
+    """P61 ("double tap left shoulder enters running, then right instead of target is the running slow motion"; "the
+    rest of the controls should stay the same"): no shoulder, the tank; L once, the boxer; L twice and held, the run
+    -- and in the run, R held slows time and brings up no aim; A, B, X and Y held slow nothing"""
     import bot
     g = bot.Park(cart)
-    for _ in range(20):
+    for _ in range(10):
         g.step(U)
+    assert g.cell("f_sty") == 0
+    _run(g)
+    for _ in range(10):
+        g.step(L | U)
     assert g.cell("f_sty") == 1
     for b in (A, spec.PAD_B, spec.PAD_X, spec.PAD_Y, spec.PAD_R):
         seen = 0
         for _ in range(30):
-            g.step(U | b)
+            g.step(L | U | b)
             seen |= g.cell("slow_on")
         for _ in range(30):
-            g.step(U)
+            g.step(L | U)
         assert bool(seen) == (b == spec.PAD_R), f"button {b}: slowed {bool(seen)}"
-        assert g.cell("aimed") == 0, "the gun came up"
+        assert g.cell("aimed") == 0 or b == spec.PAD_B, "R brought the gun up"
 
 
 def test_the_lens_is_behind_him(cart):
@@ -185,30 +198,35 @@ def test_the_lens_is_behind_him(cart):
     import bot
     g = bot.Park(cart)
     g.d[g.syms["px"]] = int(round((-64.0 + 8.0) * ONE)) & 0xFFFFFFFF
+    _run(g)
     for pad in (U, U | spec.PAD_RIGHT, U, U | spec.PAD_LEFT, U):
         for k in range(30):
-            g.step(pad)
+            g.step(L | pad)
             if k >= 6:
                 gap = ((g.cell("yaw") - g.cell("cam_yaw") + 512) & 1023) - 512
                 assert abs(gap) <= 16, f"the lens {gap} yaw units off his back"
 
 
-def test_the_long_jumps_landing_runs_out_while_B_is_held(cart):
-    """P59 ("long jump should be down in running where you can see the dot extending to judge it correctly"): B
-    held in the run, the landing is shown and moves further each frame; let go, he lands there"""
+def test_a_spent_flip_is_saved_by_a_kick_straight_up_a_wall(cart):
+    """P61 ("straight on wall jump should be a verticle wall kick up to save a failing jump"): the flip spent, falling
+    against a face across his way, A is a kick straight up it -- he rises again, and is not thrown back"""
     import bot
     g = bot.Park(cart)
-    g.d[g.syms["px"]] = int(round((-64.0 + 8.0) * ONE)) & 0xFFFFFFFF
-    for _ in range(40):
-        g.step(U)
-    ahead = []
+    _run(g)
     for _ in range(30):
-        g.step(U | spec.PAD_B)
-        assert g.cell("land_on")
-        ahead.append(g.cell("land_z") / ONE - g.u())
-    assert all(b >= a for a, b in zip(ahead, ahead[1:])) and ahead[-1] - ahead[0] > 4.0, "the dot did not run out"
-    shown = g.cell("land_z") / ONE
-    g.step(U)
-    while g.py() > 0 or g.cell("f_pvy") > 0:
-        g.step(U)
-    assert abs(g.u() - shown) < 0.6, f"landed {g.u() - shown:+.2f} from the dot"
+        g.step(L | U)
+    face = next(b for b in g.rows() if b["kind"] == 1 and b["top"] > 2.5)       # (STEPS' top step: a face 3.0 high)
+    g.d[g.syms["pz"]] = int(round((face["z0"] - 0.6) * ONE)) & 0xFFFFFFFF
+    g.d[g.syms["px"]] = int(round((face["x0"] + face["x1"]) / 2 * ONE)) & 0xFFFFFFFF            # (its middle, across)
+    for k, v in (("f_py", int(2.0 * ONE)), ("f_pvy", -int(0.02 * ONE)), ("f_flipu", 1), ("lab_gh", 0), ("lab_si", -1)):
+        g.d[g.syms[k]] = v & 0xFFFFFFFF
+    for i in range(20):
+        g.step(L | U)
+        if g.cell("wall_t") and g.py() > 0:
+            u_before, vy_before = g.u(), g.cell("f_pvy")
+            g.step(L | U | A)
+            g.step(L | U)
+            assert g.cell("f_pvy") > 0 > vy_before, "no kick up"
+            assert g.u() >= u_before - 0.05, "thrown back off the face"
+            return
+    raise AssertionError("never fell against the face with the flip spent")

@@ -2,7 +2,7 @@
 """reach.py -- how far and how high each of the run's moves goes in the park (layer 12), on the open floor.
 
 The park's stations were sized from P58's (gen_tnd.py PARK_TAP, PARK_LONG, PARK_FLIP); the moves must still clear
-them. Run me after changing a jump. (P59: the long jump is B held, let go; X is the superman punch.)
+them. Run me after changing a jump. (P61: no long jump; the first jump by its hold; the pad nudges the flip; X is the superman punch.)
 """
 import json
 import sys
@@ -29,16 +29,15 @@ def runner():
 
 
 def fly(g, hold=3, flip_at=None, press=None):
-    for _ in range(hold):
-        g.step(L | U | (A if press is None else press))
-    if press == spec.PAD_B:
-        g.step(L | U)                            # (B let go: the long jump goes)
+    """from the press: A (or `press`) held `hold` frames, the flip pressed at `flip_at` frames -- how far, how high,
+    how many frames in the air"""
     u0, top, air = g.u(), 0.0, 0
     for i in range(140):
-        g.step(L | U | (A if flip_at is not None and flip_at <= i < flip_at + 3 else 0))
+        b = (A if press is None else press) if i < hold else 0
+        g.step(L | U | b | (A if flip_at is not None and flip_at <= i < flip_at + 2 else 0))
         if g.py() == 0 and air > 2:
             break
-        air += 1
+        air += g.py() > 0
         top = max(top, g.py())
     return round(g.u() - u0, 2), round(top, 2), air
 
@@ -55,8 +54,20 @@ def main():
         out["tap"] = fly(runner())
         for fa in (4, 8, 12):
             out[f"tap_flip_at_{fa}"] = fly(runner(), flip_at=fa)
-        for n in (1, 20, 40):
-            out[f"long_b_{n}"] = fly(runner(), hold=n, press=spec.PAD_B)
+        for n in (1, 8, 20):
+            out[f"tap_held_{n}"] = fly(runner(), hold=n)
+        for name, pad in (("left", spec.PAD_LEFT), ("down", spec.PAD_DOWN)):
+            g = runner()
+            v0 = -64.0 - g.cell("px") / ONE
+            d, top, air = fly(g, flip_at=5, press=None) if False else (None, None, None)
+            for i in range(3):
+                g.step(L | U | A)
+            u0 = g.u()
+            for i in range(80):
+                g.step(L | U | (A if 5 <= i < 7 else 0) | (pad if i >= 7 else 0))
+                if i > 9 and g.py() == 0:
+                    break
+            out[f"flip_nudged_{name}"] = (round(g.u() - u0, 2), round(-64.0 - g.cell("px") / ONE - v0, 2))
         out["superman"] = fly(runner(), hold=2, press=spec.PAD_X)
         g = runner()
         for _ in range(20):

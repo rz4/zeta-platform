@@ -8,8 +8,8 @@ corridor -- reads what it stands on and what comes next from the machine's own
 data memory, and presses what the mode asks for:
 
   a tap at a box's edge (TAP, STEPS, the PADS' straight line), from the floor
-  onto an ENTRY; A held through the run-up and let go at the edge (LONG); a tap
-  and a second press in the air (FLIP, DROP); a tap at the face and the flip at
+  onto an ENTRY; a tap and a second press in the air (LONG since P61, FLIP,
+  DROP, CHAIN); a tap at the face and the flip at
   the top (FLIP UP); stood still on the entry until the slider or the lift
   comes, ridden, and walked off at the far end (SLIDE, LIFT).
 
@@ -130,6 +130,8 @@ def play(cart_path, stations=12, say=print):
                 tgt = next((b for b in rows if b["z0"] <= mark <= b["z1"] + 2.0), None)   # top it falls toward)
                 if tgt is not None and tgt["z1"] - tgt["z0"] < 3.5 and mark > tgt["z1"] - 0.5:
                     pad &= ~U
+                    if g.cell("f_flipu"):                      # (P61: in the flip, Down draws the landing back)
+                        pad |= spec.PAD_DOWN
             if climbing is not None and py > 0 and not queue and g.cell("wall_t") and len(g.pads) - last_kick > 5 \
                     and py + g.cell("lab_gh") / ONE < climbing + 0.3:   # (WALL: kick from wall to wall until over the cap)
                 queue, last_kick = [0, 0, A, A], len(g.pads)
@@ -165,15 +167,17 @@ def play(cart_path, stations=12, say=print):
                     pad = L                                   # (the lift is up: wait for it at the edge)
                 elif on and nxt["motion"] in (1, 2):
                     pass                                      # (it is here: walk on)
-                elif on and kind == 2 and on["role"] & 1 and nxt["z0"] - on["z1"] > 3.0:   # LONG: B held, the dot run out
-                    mark = g.cell("land_z") / ONE if g.cell("land_on") else None          # past the gap: let go
-                    if edge < 4.5 and edge > 0.25 and (mark is None or mark < nxt["z0"] + 1.2):
-                        pad = L | U | spec.PAD_B
                 elif on and kind in (4, 13) and nxt["top"] > on["top"] + 1.0:   # FLIP UP: the tap at the face, the flip on top
                     if edge < 0.45:
                         queue = tap[:3] + [0] * 8 + [A, A, A]
                 elif on and nxt["z0"] - on["z1"] > 0.3 and edge < 0.45:   # a gap: the tap (P59: it jumps on the press)
-                    queue = tap[:3] + ([0] * 9 + [A, A, A] if kind in (3, 8, 11) and nxt["z0"] - on["z1"] > 4.0 else [0, 0])
+                    gap_ = nxt["z0"] - on["z1"]                # (P61: the first jump by its hold -- held for a long gap;
+                    if gap_ > 4.4:                             # past a held jump's reach, the flip)
+                        queue = tap[:3] + [0] * 9 + [A, A, A]
+                    elif gap_ > 2.8:
+                        queue = [A] * 16 + [0, 0]
+                    else:
+                        queue = tap[:3] + [0, 0]
                 elif nxt["top"] > (on["top"] if on else 0) + 0.25 and nxt["z0"] - u < (1.6 if not on else 1.0):
                     queue = list(tap)                         # a step up (or the entry, from the floor)
                 if queue:

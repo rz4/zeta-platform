@@ -2957,3 +2957,29 @@ shoulder. also there's a beap whine i hear through out."
   from the lift, a section higher every two stations cleared in a row (the 2 kHz line: 31.6 times its band in the
   lab's song, 5.6 in the park's). The lab still loops the intro: a question for the player.
 - the bot clears 41 in a row; tests 9 pass; every other layer byte-identical.
+
+## P61: the park keeps the lab's controls; its run is the parkour (2026-11-24)
+
+The player: "make sure this is mode of button only works when double tap holding [the] shoulder. The rest of the
+controls should stay the same" -- "double tap left shoulder enters running, then right instead of target is the
+running slow motion"; "The dpad on the filp jump should control the landing location a bit in all 4 directions.
+drop the b long jump ... b should just be the gun. the wall jump is getting better, the marker should also just be
+a plain circle on the wall like how its on the floor. straight on wall jump should be a verticle wall kick up to
+save a failing jump. The camera for the turning and the jumps needs work. in slow motion its almost perfect. in non
+slowmotion it should should be the outer tangent of the jump curve. the first jump should be modulated a bit with
+how long the jump button is held but not to much. the second jump is not but the added control with the dpad can
+make precision landing better."
+
+- the lab's controls everywhere: the tank, L the boxer, R the target, B the gun. L clicked twice and held is the
+  run (the lab's P24); in the run R is slowed time (never the target), and nothing else slows it there.
+- no long jump.
+- the first jump by its hold: 0.85 up and 3.2 far tapped, 1.29 and 4.2 held 8 frames, 1.40 and 4.6 held 20 (0.92
+  of its pull rising while held, 1.45 let go). The flip is not modulated.
+- the flip steered: in it the pad moves him, 0.045 a frame, on, back and aside (about half a unit over a flip);
+  it does not turn him.
+- a face across his way, the flip spent: A is a kick straight up it (the flip's rise, nothing thrown back). With
+  the flip still his, A at a face is the flip.
+- the wall's mark is the floor's, stood on the wall facing the way it stops him.
+- time running, in the air, the lens rides the outside of the arc (MY READING of "outer tangent"): up at once to
+  the walked arc's top, looking down at where he comes down. Slowed, as it was.
+- the bot clears 41 in a row; tests 9 pass; every other layer byte-identical.
