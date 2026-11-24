@@ -1,0 +1,407 @@
+{
+ "schema": "zeta-xp-1",
+ "id": "tnd-lab-0010",
+ "machine": {
+  "tape": {
+   "file": "20261123-212951.ztp",
+   "sha256": "15061c23086ad9d6c4beee352c6c65612c5cad873b9210b36df5a633bd2378b3",
+   "format": "ZTP0",
+   "loader_build": 107,
+   "cart_sum": "0x6e4ecb2e",
+   "runs": 585
+  },
+  "cart": {
+   "file": "20261123-212951.lab.zbin",
+   "sum": "0x6e4ecb2e",
+   "built_at_commit": "be8a39f",
+   "recipe": "TND_SONG=1 TND_LAYER=10 python3 games/tnd/gen_tnd.py (TND_ISA 2, the ISA-2 core)",
+   "symbols_sha256": "e621143cf3ebd77111c13af4c38fa8ca2279add59fa5a8c01db11533f5789877"
+  },
+  "card_at_start": "20261121-172911.card.bin",
+  "backend": "law (zeta.cabinet.VirtualMachine)",
+  "spec_loader_build": 107,
+  "ingested_at_commit": "ff843cd"
+ },
+ "evidence": {
+  "frames": 9797,
+  "seconds": 163.3,
+  "end_state_sha256": "9cf29d543ea7fbc762084dd2613ca9f28c848f5c2c3ae286970b37480d1892b4",
+  "reproduce": "python3 -m zeta.experience ingest 20261123-212951.ztp --game 20261123-212951.lab.zbin --symbols ..."
+ },
+ "knobs": [
+  {
+   "axis": "tnd.lab.who",
+   "knob": "who",
+   "index": 0,
+   "default": 0,
+   "final": 0,
+   "signed_notches": 0,
+   "step": 1,
+   "unit": "index",
+   "dwell_frames": {
+    "0": 9797
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.weight",
+   "knob": "weight",
+   "index": 1,
+   "default": 58982,
+   "final": 58982,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "58982": 9797
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.knock",
+   "knob": "knock",
+   "index": 2,
+   "default": 58982,
+   "final": 58982,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "58982": 9797
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.lift",
+   "knob": "lift",
+   "index": 3,
+   "default": 65536,
+   "final": 65536,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "65536": 9797
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.stun",
+   "knob": "stun",
+   "index": 4,
+   "default": 65536,
+   "final": 65536,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "65536": 9797
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.hstop",
+   "knob": "hstop",
+   "index": 5,
+   "default": 65536,
+   "final": 65536,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "65536": 9797
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.slide",
+   "knob": "slide",
+   "index": 6,
+   "default": 57671,
+   "final": 57671,
+   "signed_notches": 0,
+   "step": 655,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "57671": 9797
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.egrav",
+   "knob": "egrav",
+   "index": 7,
+   "default": 786,
+   "final": 786,
+   "signed_notches": 0,
+   "step": 65,
+   "unit": "Q16.16 (65536 = 1.0) a frame squared",
+   "dwell_frames": {
+    "786": 9797
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.pivot",
+   "knob": "pivot",
+   "index": 8,
+   "default": 176,
+   "final": 176,
+   "signed_notches": 0,
+   "step": 16,
+   "unit": "of 1024 a frame",
+   "dwell_frames": {
+    "176": 9797
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.lunge",
+   "knob": "lunge",
+   "index": 9,
+   "default": 58983,
+   "final": 58983,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "58983": 9797
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.keep",
+   "knob": "keep",
+   "index": 10,
+   "default": 40,
+   "final": 40,
+   "signed_notches": 0,
+   "step": 4,
+   "unit": "frames",
+   "dwell_frames": {
+    "40": 9797
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.hold",
+   "knob": "hold",
+   "index": 11,
+   "default": 14,
+   "final": 14,
+   "signed_notches": 0,
+   "step": 2,
+   "unit": "frames",
+   "dwell_frames": {
+    "14": 9797
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.slow",
+   "knob": "slow",
+   "index": 12,
+   "default": 3,
+   "final": 3,
+   "signed_notches": 0,
+   "step": 1,
+   "unit": "frames",
+   "dwell_frames": {
+    "3": 9797
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.dodge",
+   "knob": "dodge",
+   "index": 13,
+   "default": 65536,
+   "final": 65536,
+   "signed_notches": 0,
+   "step": 16384,
+   "unit": "his widths (0.58), Q16.16",
+   "dwell_frames": {
+    "65536": 9797
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.jump",
+   "knob": "jump",
+   "index": 14,
+   "default": 12190,
+   "final": 12190,
+   "signed_notches": 0,
+   "step": 655,
+   "unit": "Q16.16 (65536 = 1.0) a frame",
+   "dwell_frames": {
+    "12190": 9797
+   },
+   "changes": [],
+   "changes_total": 0
+  }
+ ],
+ "observed": {
+  "minutes": 2.72,
+  "buttons": {
+   "a": {
+    "presses": 110,
+    "held_share": 0.241
+   },
+   "b": {
+    "presses": 0,
+    "held_share": 0.0
+   },
+   "x": {
+    "presses": 0,
+    "held_share": 0.0
+   },
+   "y": {
+    "presses": 0,
+    "held_share": 0.0
+   },
+   "l": {
+    "presses": 28,
+    "held_share": 0.839
+   },
+   "r": {
+    "presses": 0,
+    "held_share": 0.0
+   },
+   "select": {
+    "presses": 0,
+    "held_share": 0.0
+   }
+  },
+  "held_together_share": {
+   "l+r": 0.0,
+   "b+r": 0.0,
+   "y+b": 0.0,
+   "x+a": 0.0,
+   "l+a": 0.241
+  },
+  "slowed_share": 0.115,
+  "stance_share": {
+   "tank": 0.161,
+   "run": 0.714,
+   "boxer": 0.126,
+   "targeting": 0.0
+  },
+  "blows": {
+   "thrown": 0,
+   "a_minute": 0.0,
+   "by_move": {},
+   "begun_in_slowed_time_share": 0
+  },
+  "bodies": {
+   "blows_landed": 0,
+   "landed_a_minute": 0.0,
+   "put_down": 0,
+   "highest_thrown": 0.0,
+   "frames_one_was_above_half_a_unit": 0,
+   "above_three_units": {
+    "frames": 0,
+    "ranges": []
+   },
+   "struck_in_the_air": 0
+  },
+  "jab_strings": {
+   "that_began_with_a_hit": 0,
+   "mean_landed_in_a_row_by_length": {},
+   "five_or_more_in_a_row": {
+    "count": 0,
+    "frames": []
+   }
+  },
+  "passes": {
+   "y_with_b_held": {
+    "count": 0,
+    "frames": []
+   },
+   "b_with_y_held": {
+    "count": 0
+   },
+   "x_with_a_held": {
+    "count": 0
+   },
+   "thrown_as": {
+    "the_boxers_stun": 0,
+    "the_runs_tackle": 0
+   }
+  },
+  "special_chosen_under_a_held_jab": {
+   "steps": 0,
+   "thrown": 0,
+   "as": {
+    "lead_hook": 0,
+    "rear_uppercut": 0,
+    "haymaker": 0
+   }
+  },
+  "close_quarters_rounds_at_least": 0,
+  "jumps": 77,
+  "dodges_and_flips": 78,
+  "structures": {
+   "minutes_on_one": 1.42,
+   "frames_on_each": {
+    "0": 594,
+    "1": 458,
+    "2": 529,
+    "3": 636,
+    "4": 1489,
+    "5": 1062,
+    "6": 361
+   },
+   "highest_stood": 4.0
+  },
+  "tuner_open_minutes": 0.0
+ },
+ "title": "P57 lab on the ISA-2 core: the first session on the new silicon; the course in 13.3 s",
+ "human": {
+  "said": [],
+  "said_on": null,
+  "knobs_chosen": []
+ },
+ "agent": {
+  "observations": [
+   {
+    "what": "the first session on the ISA-2 core (the pocket-sd of fit run 45272274880) with the ISA-2 lab: 9,797 frames, no trap; instructions a frame median 11,064, worst 31,115",
+    "frames": []
+   },
+   {
+    "what": "5 timed course attempts, 1 finished: 13.3 s, his best (14.5 s in tnd-lab-0009)",
+    "frames": []
+   },
+   {
+    "what": "71% in the run, 77 jumps, 78 dodges and flips, slowed time 12%; no blows thrown",
+    "frames": []
+   }
+  ],
+  "readings": [],
+  "proposed": []
+ },
+ "result": {
+  "commits": [],
+  "proved": [
+   "the ISA-2 core and an ISA-2 cart run on the Pocket"
+  ],
+  "cost": "",
+  "next_record": null,
+  "verdict": "pending",
+  "imprints": []
+ }
+}
