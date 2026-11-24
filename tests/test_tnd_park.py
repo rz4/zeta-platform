@@ -279,3 +279,30 @@ def test_the_flips_carry_is_the_pad(cart):
         up, none, down = flip(U, standing), flip(0, standing), flip(spec.PAD_DOWN, standing)
         assert up > none + 1.5 and none > down + 1.0, f"standing {standing}: {up:.1f}, {none:.1f}, {down:.1f}"
     assert flip(U, True) > 4.5, "from a stand the flip does not carry"
+
+
+def test_down_held_brakes_the_roll(cart):
+    """P63 ("holding down depad from coming of the roll should slow it down"): out of a flip he rolls, keeping his
+    pace -- sixteen frames, over three units; with Down held the roll takes a fifth of it a frame: under a unit"""
+    import bot
+
+    def roll(pad_in_roll):
+        g = bot.Park(cart)
+        g.d[g.syms["px"]] = int(round((-64.0 + 8.0) * ONE)) & 0xFFFFFFFF
+        _run(g)
+        for _ in range(60):
+            g.step(L | U)
+        landed, rolled = None, 0
+        for i in range(140):
+            g.step(L | pad_in_roll if landed is not None else L | U | (A if i < 6 or 8 <= i < 10 else 0))
+            if landed is None and i > 12 and g.py() == 0:
+                landed = g.u()
+            if landed is not None:
+                rolled += g.cell("f_evk") == 8 and g.cell("f_evf") > 0
+                if g.cell("f_evf") == 0 and g.cell("f_spd") < 700:
+                    break
+        return g.u() - landed, rolled
+    free, n = roll(0)
+    held, _ = roll(spec.PAD_DOWN)
+    assert n >= 12, "he did not roll out of the flip"
+    assert free > 3.0 and held < 1.2, f"the roll went {free:.2f}; with Down held {held:.2f}"

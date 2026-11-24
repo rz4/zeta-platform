@@ -3536,6 +3536,7 @@ if LAB:
     PARK_CATCH = int(0.7 * ONE) + 1                # THE LEDGE CAUGHT: in the run's air, this far under a top is on it
     PARK_FLIP_HALF, PARK_FLIP_LOW = int(0.13 * 1.24 * 0.5 * ONE), int(0.13 * 1.24 * 0.15 * ONE)   # the flip's pace by the pad
     PARK_KICKV = int(0.24 * ONE)                   # a wall kick's rise (the flip's is 0.20)
+    PARK_ROLL_BRAKE = int(0.80 * ONE)              # P63: Down held in the roll: its pace a frame
     PARK_INVTOP = int(ONE / (0.13 * 1.24) * ONE) >> 16
     LONG_G, LONG_V0 = int(0.0032 * ONE), 0.0595
     TAP_K, LONG_K = int(TAP_V0 * ONE / (_JK / ONE)), int(LONG_V0 * ONE / (_JK / ONE))   # x the jump knob
@@ -6607,6 +6608,15 @@ if LAB:                                           # (P51: out of the roll, the s
     p.set(F["ph"], 0)
     p.mark(re_)
 if PARK:
+    # P63 (the player: "i also think holding down depad from coming of the roll should slow it down may help"): the
+    # roll out of a flip keeps the pace he landed with -- sixteen frames, three units at his pace, off the end of a
+    # short top. With Down held, each frame of the roll takes a fifth of it: about a unit, and he comes out slow.
+    rb_ = p.label("pkrollbrake")
+    p.load(F["evk"]).push(ROLL_K).emit("eq", f"jz {rb_}")
+    p.emit("load 1").push(spec.PAD_DOWN).emit("and", f"jz {rb_}")
+    for c_ in (F["evx"], F["evz"], F["spd"]):
+        p.load(c_).push(PARK_ROLL_BRAKE).emit("mulq").store(c_)
+    p.mark(rb_)
     pf_ = p.label("pkflipthrow")
     p.load(PARK_FLP).emit(f"jz {pf_}")
     p.load(F["py"]).emit(f"jz {pf_}")

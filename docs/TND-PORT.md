@@ -3007,3 +3007,10 @@ steered. Layer 12 only, the obstacles as they were:
 
 Measured with the bot given a human's timing (each jump up to 6 frames early or late, 150 seconds, three seeds):
 P61 cleared 1, 37 and 19 stations (best streaks 1, 12, 11); P62 43, 47 and 48 (41, 47, 45). Tests 11.
+
+## P63: Down held brakes the roll (2026-11-24)
+
+The player: "i also think holding down depad from coming of the roll should slow it down may help". The roll out
+of a flip keeps the pace he lands with: 16 frames, 3.65 units after the landing with the pad let go -- off the end
+of a short top. In the park, with Down held, each frame of the roll takes a fifth of its pace: 0.78 units, and he
+comes out nearly at a stand. (Up held, he runs on as before.) tests/test_tnd_park.py: 12.
