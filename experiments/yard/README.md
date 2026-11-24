@@ -24,8 +24,8 @@ wall, blue a mark; the numbers are tops; E the elite, D the double, C the common
 
 A size is how much of his kit it has: the horde the haymaker, slowly told; the
 common jab, cross and haymaker in strings of two and three; the elite the hooks
-and the uppercut too, and a dodge; the double every fist he has, the dodge and
-the gun. Awake (he came within 7.5 units, or struck it) a body comes to a place
+and the uppercut too, and a dodge; the double every fist he has, and the dodge.
+(Nobody has the gun: P72.) Awake (he came within 7.5 units, or struck it) a body comes to a place
 before him, tells -- it blinks -- and throws a string; two at once at most;
 struck, it loses its string. The table is in `docs/TND-PORT.md`, P71, and in
 the cart: `YARD_TIERS` in `games/tnd/gen_tnd.py`.

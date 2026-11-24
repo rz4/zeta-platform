@@ -3993,24 +3993,25 @@ if LAB:
         # -- its size's own, of its size's moves, each blow the move's own frames -- which lands if he is in the
         # move's reach before it, on the ground, and not in a dodge's, a flip's or a roll's frames: the move's worth
         # off his 140 by its size, and he reels. Struck, it loses its string. The sizes that have a dodge slip his
-        # swing as it starts, some of the time. The DOUBLE has the whole of it: every blow, the dodge, and from four
-        # units out to twelve, the gun -- it goes where he was when the draw began, and a step aside is a miss.
+        # swing as it starts, some of the time. The DOUBLE has the whole of it: every blow, and the dodge.
         #   the horde    slow to it, a long tell: the haymaker
         #   the common   jab, cross, the haymaker: strings of two and three
         #   the elite    and the hooks and the uppercut; it dodges four swings in ten
         #   the double   his kit; it dodges two in three; quick to tell, quick again
         Y_FREE, Y_TELL, Y_BLOW, Y_DODGE = range(4)
         YMOVE = {n_: i_ for i_, n_ in enumerate(PMN)}
-        Y_GUN, Y_DODGE_MV = YMOVE["gun"], 9
+        Y_DODGE_MV = 9
         YARD_TIERS = {  # pace a frame; the tell's frames; the wait after a string; dodges of 256; its blows' weight; strings
             "horde": (0.045, 40, 90, 0, 0.8, [["special"]] * 4),
             "common": (0.058, 26, 60, 0, 1.0, [["jab", "cross"], ["jab", "jab", "cross"], ["special"], ["cross"]]),
             "elite": (0.068, 18, 40, 100, 1.15, [["jab", "cross", "lead_hook"], ["jab", "jab", "rear_hook"], ["lead_uppercut", "cross"],
                                                  ["lead_hook", "special"]]),
             "rival": (0.076, 12, 26, 170, 1.25, [["jab", "cross", "lead_hook", "special"], ["jab", "jab", "cross", "rear_uppercut"],
-                                                 ["lead_hook", "rear_hook", "lead_uppercut"], ["gun"]])}
+                                                 ["lead_hook", "rear_hook", "lead_uppercut"], ["cross", "lead_uppercut", "special"]])}
+        # (P72, the player, the fight on glass: "remove gun, from them" -- the double's fourth string was the gun's,
+        # drawn from four units to twelve; nobody shoots him now)
         Y_MAXATK, Y_AGGRO2, Y_LEASH2 = 2, int(7.5 ** 2 * ONE), int(24.0 ** 2 * ONE)     # (7.5: from where he begins, nobody is awake)
-        Y_REACH2, Y_GUN_LO2, Y_GUN_HI2 = int(1.7 ** 2 * ONE), int(4.0 ** 2 * ONE), int(12.0 ** 2 * ONE)
+        Y_REACH2 = int(1.7 ** 2 * ONE)
         Y_SIDE, Y_DODGE_F, Y_DODGE_V = 1.25, 12, int(0.11 * ONE)
         # a move's reach (squared) and its worth off his 140: jab, cross, the hooks, the haymaker, the uppercuts, the round
         _yr = {"jab": 1.6, "cross": 1.7, "lead_hook": 1.5, "rear_hook": 1.5, "special": 2.0, "lead_uppercut": 1.4, "rear_uppercut": 1.4,
@@ -4036,14 +4037,14 @@ if LAB:
             return base[m_] if t_ == "rival" else TIER[t_]["cb"].get(m_, 0)
         YCBW = len(PMN) + 1
         YCB = cart.data(Table([_yclip(t_, m_) for t_ in Y_TIERS for m_ in list(PMN) + ["dodge"]]), "yard_clip")
-        # a size's row: its pace, its tell, its wait, its dodges of 256, its blows' weight, its strings, the gun
+        # a size's row: its pace, its tell, its wait, its dodges of 256, its blows' weight, its strings
         YTP = cart.data(Table([w_ for i_, t_ in enumerate(Y_TIERS) for w_ in (
             int(YARD_TIERS[t_][0] * ONE), YARD_TIERS[t_][1], YARD_TIERS[t_][2], YARD_TIERS[t_][3], int(YARD_TIERS[t_][4] * ONE),
-            int(YSCR) + 4 * i_, int(t_ == "rival"))]), "yard_sizes")
-        YTPW = 7
+            int(YSCR) + 4 * i_)]), "yard_sizes")
+        YTPW = 6
         YMK = cart.data(Table([w_ for m_ in LAB_MARK for w_ in m_]), "yard_marks")
         YOF = cart.data(Table([v_ & 1023 for v_ in (-114, 114, -228, 228, -327, 327, 0)]), "yard_fan")
-        YACT, YTM, YSP, YCD, YAWK, YHIT, YAIM = (cart.var("yard_" + k_, len(ENEMY)) for k_ in ("act", "t", "sp", "cd", "awake", "landed", "aim"))
+        YACT, YTM, YSP, YCD, YAWK, YHIT = (cart.var("yard_" + k_, len(ENEMY)) for k_ in ("act", "t", "sp", "cd", "awake", "landed"))
         YFIGHT, YNC, YNS, YNPREV, YD2, YMV, YBR, YK, YAB, YTB, YST, YTT = (cart.var("yard_" + k_) for k_ in (
             "fight", "n", "begun", "n_was", "d2", "mv", "brg", "k", "body", "size", "state", "now"))
         YP = cart.var("yard_step", 4)
@@ -5506,24 +5507,13 @@ if L2:
             p.load(YNPREV).load(YNS).emit("add").push(Y_MAXATK).emit("lt", f"jz {ya}_nodo")
             p.load(YD2).push32(Y_REACH2).emit("lt", f"jz {ya}_far")
             p.emit(f"load {spec.REG_FRAME}").push(13).emit("mul").load(YK).push(5).emit("mul", "add", "shr 2").push(3).emit("and")
-            tp(6)                                                  # (the double's fourth string is the gun's: not from here)
-            p.emit(f"jz {ya}_ng")
-            p.emit("dup").push(3).emit("eq", f"jz {ya}_ng")
-            p.emit("drop").push(0)
-            p.mark(f"{ya}_ng")
             tp(5)
             p.emit("add", "loadi")
-            p.mark(f"{ya}_begin")                                  # ( its string -- )
             as_(YSP)
             aset(YACT, Y_TELL)
             aset(YTM, 0)
             p.addi(YNS, 1).emit("ret")
             p.mark(f"{ya}_far")
-            tp(6)
-            p.emit(f"jz {ya}_nodo")
-            p.push32(Y_GUN_LO2).load(YD2).emit("lt").load(YD2).push32(Y_GUN_HI2).emit("lt", "and", f"jz {ya}_nodo")
-            tp(5)
-            p.push(3).emit("add", "loadi", f"jmp {ya}_begin")
             p.mark(f"{ya}_nodo")
             tp(3)                                                  # (his swing's second frame, in reach of it: slipped)
             p.emit(f"jz {ya}_close")
@@ -5595,9 +5585,6 @@ if L2:
             tp(1)
             p.emit("lt", f"jz {ya}_go", f"jmp {ya}_close")
             p.mark(f"{ya}_go")
-            p.emit(f"call {L_YAW}")
-            p.load(F["brg"])
-            as_(YAIM)
             aset(YACT, Y_BLOW)
             aset(YTM, 0)
             aset(YHIT, 0)
@@ -5622,17 +5609,10 @@ if L2:
             p.emit("lt", f"jz {ya}_adv")
             p.load(YD2).push(int(YR2)).load(YMV).emit("add", "loadi", "lt", f"jz {ya}_adv")
             p.emit(f"call {L_YAW}")
-            p.load(YMV).push(Y_GUN).emit("eq", f"jz {ya}_fc")    # (a round goes where the draw aimed: 30 of 1,024 either side)
-            p.load(F["brg"])
-            af(YAIM)
-            p.emit("sub").push(512).emit("add").push(1023).emit("and").push(512).emit("sub", "abs")
-            p.push(30).emit("lt", f"jz {ya}_adv", f"jmp {ya}_ok")
-            p.mark(f"{ya}_fc")
             p.load(F["brg"])
             ef(F_YAW)
             p.emit("sub").push(512).emit("add").push(1023).emit("and").push(512).emit("sub", "abs")
             p.push(128).emit("lt", f"jz {ya}_adv")                 # (he is before it, an eighth of a turn either side)
-            p.mark(f"{ya}_ok")
             p.load(F["evf"]).load(F["dead"]).emit("or", f"jz {ya}_hh", f"jmp {ya}_adv")
             p.mark(f"{ya}_hh")
             p.push(int(0.9 * ONE)).load(F["py"]).emit("lt", f"jz {ya}_land", f"jmp {ya}_adv")
@@ -5664,9 +5644,6 @@ if L2:
             p.mark(f"{ya}_more")
             aset(YTM, 0)
             aset(YHIT, 0)
-            p.emit(f"call {L_YAW}")
-            p.load(F["brg"])
-            as_(YAIM)
             p.emit("ret")
             # A DODGE: away from him
             p.mark(f"{ya}_dodge")

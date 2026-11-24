@@ -242,13 +242,15 @@ def _strings(y):
 
 def test_a_size_is_how_much_of_his_kit_it_has(cart):
     """("the highest tier can essentially use my full kit. lower less of the kit"): the horde's strings are the
-    haymaker; the common's of three moves; the elite's of six; the double's of every fist he has, and the gun"""
+    haymaker; the common's of three moves; the elite's of six; the double's of every fist he has. Nobody has the
+    gun (P72: "remove gun, from them")"""
     y = Yard(cart)
     horde, common, elite, double = ({m for st in rows for m in st} for rows in _strings(y))
     assert horde == {"special"}
     assert common == {"jab", "cross", "special"}
     assert horde < common < elite and len(elite) == 6 and "gun" not in elite
-    assert double >= {"jab", "cross", "lead_hook", "rear_hook", "special", "lead_uppercut", "rear_uppercut", "gun"}
+    assert double == {"jab", "cross", "lead_hook", "rear_hook", "special", "lead_uppercut", "rear_uppercut"}
+    assert not any("gun" in m for size in (horde, common, elite, double) for m in size)
 
 
 def test_they_come_and_strike_and_the_far_ones_sleep(cart):
@@ -366,3 +368,20 @@ def test_standing_they_only_stand(cart):
         g.step(0)
         assert not any(y.arr("yard_act", k) for k in range(7))
     assert g.cell("p_hp") == 140 and all(math.dist(y.body(k), marks[k]) < 0.01 for k in range(7))
+
+
+def test_nobody_shoots_him(cart):
+    """P72 ("remove gun, from them"): he stands eight units from the double, awake and in the open, for fifteen
+    seconds: nothing of theirs is a round, and nothing lands from out of a fist's reach"""
+    y = Yard(cart)
+    g = y.g
+    y.who(4)                                     # (the double alone)
+    bu, bv = y.body(6)
+    y.put(bu, bv - 8.0, 256)
+    g.d[g.syms["e6_stun"]] = 4                   # (struck: it is awake)
+    for i in range(900):
+        hp = g.cell("p_hp")
+        y.put(*[a + b for a, b in zip(y.body(6), (0.0, -8.0))], 256)          # (kept eight units off it)
+        g.step(0)
+        assert g.cell("p_hp") == hp, f"frame {i}: he lost {hp - g.cell('p_hp')} from eight units"
+        assert not (y.arr("yard_act", 6) == BLOW and NAMES[y.arr("yard_sp", 6) & 15].startswith("gun"))

@@ -3269,3 +3269,14 @@ Not done: they walk through the track's boxes and the ring's posts (the arena th
 walls); they do not jump, run or dive; a blow of theirs does not move him; nothing is tuned on glass yet.
 
 Tests 11 (tests/test_tnd_yard.py). Layers 0, 4, 8, 10, 11 and 12 and the full cart are byte-identical.
+
+## P72: nobody shoots him (2026-11-24)
+
+The player, the fight on glass: "remove gun, from them".
+
+The double's fourth string was the gun's, drawn from four units to twelve. It is a fist string (cross, uppercut,
+haymaker); the routine's gun branches, the size rows' gun word and the aim cells are gone. The double's kit is every
+fist he has, and the dodge. (P71's table: strike "the gun" from the double's row.)
+
+Tests 12 (one new: eight units from the double, awake, for fifteen seconds -- nothing lands). The program is 28,697
+words; data memory has 113 free.
