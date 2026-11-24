@@ -4030,7 +4030,7 @@ if LAB:
                                                  ["lead_hook", "rear_hook", "lead_uppercut"], ["cross", "lead_uppercut", "special"]])}
         # (P72, the player, the fight on glass: "remove gun, from them" -- the double's fourth string was the gun's,
         # drawn from four units to twelve; nobody shoots him now)
-        Y_MAXATK, Y_AGGRO2, Y_LEASH2 = 2, int(7.5 ** 2 * ONE), int(24.0 ** 2 * ONE)     # (7.5: from where he begins, nobody is awake)
+        Y_AGGRO2, Y_LEASH2 = int(7.5 ** 2 * ONE), int(24.0 ** 2 * ONE)     # (7.5: from where he begins, nobody is awake)
         Y_REACH2 = int(1.7 ** 2 * ONE)
         Y_SIDE, Y_DODGE_F, Y_DODGE_V = 1.35, 12, int(0.11 * ONE)
         Y_LENS2 = int(1.6 ** 2 * ONE)                      # P73: nearer the lens than this a body is not drawn -- and does not begin
@@ -4066,19 +4066,23 @@ if LAB:
         YPK, YPT, YCBP = cart.var("yard_his"), cart.var("yard_his_t"), cart.var("yard_row")
         L_YPOSE = p.label("yardpose")
         Y_HS, Y_DOWN_HS, Y_STOP_MOST = 16, 60, 14          # he reels sixteen frames; down and up, sixty; the hitstop's most
-        # a size's row: its pace, its tell, its wait, its dodges of 256, its blows' weight, its strings
+        # a size's row: its pace, its tell, its wait, its dodges of 256, its blows' weight, its strings, its faces
         YTP = cart.data(Table([w_ for i_, t_ in enumerate(Y_TIERS) for w_ in (
             int(YARD_TIERS[t_][0] * ONE), YARD_TIERS[t_][1], YARD_TIERS[t_][2], YARD_TIERS[t_][3], int(YARD_TIERS[t_][4] * ONE),
-            int(YSCR) + 4 * i_)]), "yard_sizes")
-        YTPW = 6
+            int(YSCR) + 4 * i_, TIER[t_]["nf"])]), "yard_sizes")
+        YTPW = 7
         YMK = cart.data(Table([w_ for m_ in LAB_MARK for w_ in m_]), "yard_marks")
-        # (P73, his tape of P72: the double's place was DEAD AHEAD -- behind his own back from the lens, in his own skin:
-        # it landed 35 of the 73 blows on him and he never put it down. Nobody's place is on that line: the double and
-        # the elite a tenth of a turn to either side, then the common, then the horde wider)
-        YOF = cart.data(Table([v_ & 1023 for v_ in (100, -199, 199, -299, 299, 398, -100)]), "yard_fan")
+        # (P73, his tape of P72: the double's place was DEAD AHEAD -- behind his own back from the lens, in his own skin.
+        # Nobody's place is on that line. P74: a body's bearing in the ARC it waits in, three units before him -- the
+        # double and the elite a fortieth of a turn either side of his line, then the common, then the horde, out to a
+        # sixth -- and its bearing out WIDE, behind the shot, when the frame's store has no room for it)
+        Y_ARC, Y_WIDE = 3.0, 4.5
+        YOF = cart.data(Table([v_ & 1023 for v_ in (-26, 77, -77, 128, -128, 179, 26) + (340, -340, 400, -400, 460, -460, 512)]), "yard_fan")
         YACT, YTM, YSP, YCD, YAWK, YHIT = (cart.var("yard_" + k_, len(ENEMY)) for k_ in ("act", "t", "sp", "cd", "awake", "landed"))
-        YFIGHT, YNC, YNS, YNPREV, YD2, YMV, YBR, YK, YAB, YTB, YST, YTT = (cart.var("yard_" + k_) for k_ in (
-            "fight", "n", "begun", "n_was", "d2", "mv", "brg", "k", "body", "size", "state", "now"))
+        YFIGHT, YSC, YSD, YRAD, YD2, YMV, YBR, YK, YAB, YTB, YST, YTT = (cart.var("yard_" + k_) for k_ in (
+            "fight", "sides", "sides_was", "reach", "d2", "mv", "brg", "k", "body", "size", "state", "now"))
+        YENG = cart.var("yard_side", len(ENEMY))           # P74: engaged: which side it has (1, 2), or none
+        YFB, YSPD, YSPN = cart.var("yard_face_t"), cart.var("yard_spot_tap"), cart.var("yard_spot_n")
         YP = cart.var("yard_step", 4)
         L_YAI = p.label("yardai")
     L_HITR = p.label("hitr")
@@ -4789,6 +4793,11 @@ if BASE:
             if t_ < NE:
                 e_ = ENEMY[t_]
                 p.load(e_["st"]).push(1).emit("eq", f"jz {tv}")
+                if YARD:
+                    # P74 (his tape of P73: locked on one of the horde, it was NOT DRAWN three frames in four -- 35
+                    # seconds squared up to a body he could not see, a drawn one within six units most of that): R
+                    # takes, and steps to, only a body the frame drew
+                    p.load(int(YSEEN) + t_).emit(f"jz {tv}")
                 xc_, zc_ = int(e_["pos"]), int(e_["pos"]) + 1
             else:
                 item_exists(p).emit(f"jz {tv}")
@@ -4809,7 +4818,35 @@ if BASE:
         p.load(RPREV).emit(f"jz {sel}_near")
         p.emit("load 1").push(spec.PAD_L).emit("and", f"jz {sel}_pad", f"jmp {sel}_set")
         p.mark(f"{sel}_pad")
-        for bit_, d_ in ((spec.PAD_UP, -1), (spec.PAD_DOWN, 1)):      # the spot: it steps, and stays
+        if YARD:
+            # P74 (the player: "the up down targeting leaks into the other moves, it shouldnt"; his tape: of 22 times
+            # the spot stepped, 17 were Up or Down HELD for something else -- a blow's way, the gun, a dodge -- with a
+            # face button inside ten frames, and it sat at HIGH for most of his locked time by accident): the spot
+            # steps on a TAP OF ITS OWN -- Up or Down pressed with no face button down or just let go, and let go
+            # inside fourteen frames with none pressed meanwhile. Held, or with a button, it is that move's.
+            st_ = p.label("spottap")
+            p.emit("load 1").push(spec.PAD_A | spec.PAD_B | spec.PAD_X | spec.PAD_Y).emit("and", f"jz {st_}_nf")
+            p.set(YFB, 0).set(YSPD, 0).emit(f"jmp {st_}")
+            p.mark(f"{st_}_nf")
+            p.load(YFB).emit("mini 60").push(1).emit("add").store(YFB)
+            p.load(YSPD).emit(f"jz {st_}_new")
+            p.emit("load 1").push(spec.PAD_UP | spec.PAD_DOWN).emit("and", f"jz {st_}_go")
+            p.addi(YSPN, 1).load(YSPN).push(15).emit("lt", f"jz {st_}_x", f"jmp {st_}")     # (still down: a hold is not a tap)
+            p.mark(f"{st_}_x")
+            p.set(YSPD, 0).emit(f"jmp {st_}")
+            p.mark(f"{st_}_go")
+            p.load(SPOT).load(YSPD).emit("add", "maxi 0", "mini 2").store(SPOT).set(YSPD, 0).emit(f"jmp {st_}")
+            p.mark(f"{st_}_new")
+            p.push(10).load(YFB).emit("lt", f"jz {st_}")                                   # (10 < since a face button)
+            fresh(spec.PAD_UP)
+            p.emit(f"jz {st_}_d")
+            p.set(YSPD, -1).set(YSPN, 0).emit(f"jmp {st_}")
+            p.mark(f"{st_}_d")
+            fresh(spec.PAD_DOWN)
+            p.emit(f"jz {st_}")
+            p.set(YSPD, 1).set(YSPN, 0)
+            p.mark(st_)
+        for bit_, d_ in (() if YARD else ((spec.PAD_UP, -1), (spec.PAD_DOWN, 1))):      # the spot: it steps, and stays
             sp_ = p.label("spot")
             fresh(bit_)
             p.emit(f"jz {sp_}")
@@ -4876,6 +4913,8 @@ if BASE:
         p.push(int(TPZ)).load(TSEL).emit("add", "loadi").store(TGTZ)
         p.set(TOK, 1).emit(f"jmp {sel}")
         p.mark(f"{sel}_off")
+        if YARD:
+            p.set(YSPD, 0)
         p.set(TOK, 0)
         p.mark(sel)
         p.load(RHELD).store(RPREV)
@@ -5497,6 +5536,7 @@ if L2:
             p.mark(f"{ya}_off")
             aset(YACT, Y_FREE)
             aset(YTM, 0)
+            aset(YENG, 0)
             p.push(0)
             es(F_WALK)
             p.emit("ret")
@@ -5523,6 +5563,8 @@ if L2:
             p.push(1).emit("sub")
             as_(YCD)
             p.mark(f"{ya}_c0")
+            af(YENG)
+            p.load(YSC).emit("or").store(YSC)
             af(YACT)
             p.store(YST)
             p.load(YST).emit(f"jz {ya}_free")
@@ -5533,24 +5575,55 @@ if L2:
             p.mark(f"{ya}_free")
             af(YAWK)
             p.emit(f"jz {ya}_home")
-            af(YCD)
-            p.emit(f"jz {ya}_rdy", f"jmp {ya}_nodo")
-            p.mark(f"{ya}_rdy")
-            p.load(YNPREV).load(YNS).emit("add").push(Y_MAXATK).emit("lt", f"jz {ya}_nodo")
-            p.load(YD2).push32(Y_REACH2).emit("lt", f"jz {ya}_far")
-            # P73: ONLY A BODY THAT IS DRAWN BEGINS A STRING (his tape of P72: for 606 of 10,520 frames a standing body
-            # was within arm's length of the lens, where a body is not drawn -- and told and struck from there; and the
-            # double, last in the frame's store, was not drawn at all). The drawing says who it drew, below.
+            # P74 (his tape of P73, ten minutes: the four of the horde landed 7 of 149 blows -- their places were at his
+            # sides and behind, out of the shot, where a body neither is drawn nor begins -- and the double 94): THE
+            # FIGHT HAS TURNS. Two SIDES before him (a tenth of a turn either way, in reach); a body ENGAGES -- takes a
+            # side -- on its own frame of an eight-frame round, if it is ready, drawn, and a side is free; engaged, it
+            # closes, tells and throws its string, and the string done (or it struck, or two and a half seconds without
+            # a blow begun) it gives the side up. The others WAIT in an arc before him, three units out -- as many as
+            # the frame's store can draw; past that, out wide, behind the shot, until there is room.
+            af(YENG)
+            p.emit(f"jz {ya}_try")
+            af(YTM)
+            p.push(1).emit("add", "dup")
+            as_(YTM)
+            p.push(150).emit("lt", f"jz {ya}_quit")
             af(YSEEN)
             p.emit(f"jz {ya}_nodo")
+            p.load(YD2).push32(Y_REACH2).emit("lt", f"jz {ya}_nodo")
+            p.emit(f"call {L_YAW}")                                # (...and it has come round to its side: a sixteenth
+            p.load(F["brg"]).push(512).emit("add").load(HEAD).emit("sub").push(512).emit("add").push(1023).emit("and")   # of a turn off his line)
+            p.push(512).emit("sub", "abs").push(63).emit("swap", "lt", f"jz {ya}_nodo")
             p.emit(f"load {spec.REG_FRAME}").push(13).emit("mul").load(YK).push(5).emit("mul", "add", "shr 2").push(3).emit("and")
             tp(5)
             p.emit("add", "loadi")
             as_(YSP)
             aset(YACT, Y_TELL)
             aset(YTM, 0)
-            p.addi(YNS, 1).emit("ret")
-            p.mark(f"{ya}_far")
+            p.emit("ret")
+            p.mark(f"{ya}_quit")
+            aset(YENG, 0)
+            aset(YTM, 0)
+            aset(YCD, 30)
+            p.emit(f"jmp {ya}_nodo")
+            p.mark(f"{ya}_try")
+            af(YCD)
+            p.emit(f"jz {ya}_rdy", f"jmp {ya}_nodo")
+            p.mark(f"{ya}_rdy")
+            af(YSEEN)
+            p.emit(f"jz {ya}_nodo")
+            p.emit(f"load {spec.REG_FRAME}", "shr 2").load(YK).emit("add").push(7).emit("and", f"jz {ya}_mine", f"jmp {ya}_nodo")
+            p.mark(f"{ya}_mine")
+            p.load(YSD).load(YSC).emit("or").store(YST)
+            p.push(1).load(YST).push(1).emit("and", f"jz {ya}_side")                    # (side 1 free; else side 2, if it is)
+            p.emit("drop").load(YST).push(2).emit("and", f"jz {ya}_s2", f"jmp {ya}_nodo")
+            p.mark(f"{ya}_s2")
+            p.push(2)
+            p.mark(f"{ya}_side")
+            p.emit("dup")
+            as_(YENG)
+            p.load(YSC).emit("or").store(YSC)
+            aset(YTM, 0)
             p.mark(f"{ya}_nodo")
             tp(3)                                                  # (his swing's second frame, in reach of it: slipped)
             p.emit(f"jz {ya}_close")
@@ -5562,19 +5635,33 @@ if L2:
             aset(YACT, Y_DODGE)
             aset(YTM, 0)
             p.emit("ret")
-            # to its place BEFORE HIM: a fan about the way he faces -- the double dead ahead, the elite and the common a
-            # ninth of a turn to either side, the horde wider -- so what strikes him he can see (the lens is behind him)
+            # ITS PLACE, about the way he faces (the lens is behind him): engaged, its side, in reach; waiting, its own
+            # bearing in the arc; no room in the frame's store for it, out wide
             p.mark(f"{ya}_close")
-            p.push(int(YOF)).load(YK).emit("add", "loadi").load(HEAD).emit("add").store(YBR)
+            af(YENG)
+            p.emit("dup", f"jz {ya}_wait")
+            p.push(200).emit("mul").push(300).emit("sub", "neg").push(int(Y_SIDE * ONE)).store(YRAD).emit(f"jmp {ya}_at")   # (1: +100, 2: -100)
+            p.mark(f"{ya}_wait")
+            p.emit("drop")
+            af(YSEEN)
+            p.load(YCF)
+            tp(6)
+            p.emit("add").push(spec.CM_FMAX - PLAYER_NF - 24 + 1).emit("lt", "or", f"jz {ya}_wide")
+            p.push(int(YOF)).load(YK).emit("add", "loadi").push(int(Y_ARC * ONE)).store(YRAD).emit(f"jmp {ya}_at")
+            p.mark(f"{ya}_wide")
+            p.push(int(YOF) + len(ENEMY)).load(YK).emit("add", "loadi").push(int(Y_WIDE * ONE)).store(YRAD)
+            p.mark(f"{ya}_at")
+            p.load(HEAD).emit("add").store(YBR)
             sin_of(p, cell=YBR)
-            p.push(int(Y_SIDE * ONE)).emit("mulq").load(PX).emit("swap", "sub")
+            p.load(YRAD).emit("mulq").load(PX).emit("swap", "sub")
             ef(0)
             p.emit("sub").store(W["qx"])
             sin_of(p, 256, cell=YBR)
-            p.push(int(Y_SIDE * ONE)).emit("mulq").load(PZ).emit("add")
+            p.load(YRAD).emit("mulq").load(PZ).emit("add")
             ef(1)
             p.emit("sub").store(W["qz"]).emit(f"jmp {ya}_walk")
             p.mark(f"{ya}_home")                                   # asleep: back to its mark
+            aset(YENG, 0)
             p.push(int(YMK)).load(YK).emit("shl 1", "add", "dup", "loadi")
             ef(0)
             p.emit("sub").store(W["qx"]).push(1).emit("add", "loadi")
@@ -5609,7 +5696,6 @@ if L2:
             p.emit("ret")
             # TELLING: it blinks, and closes; then the string
             p.mark(f"{ya}_tell")
-            p.addi(YNC, 1)
             af(YTM)
             p.push(1).emit("add", "dup").store(YTT)
             as_(YTM)
@@ -5628,7 +5714,6 @@ if L2:
             p.emit("ret")
             # A BLOW of its string
             p.mark(f"{ya}_blow")
-            p.addi(YNC, 1)
             af(YTM)
             p.push(1).emit("add", "dup").store(YTT)
             as_(YTM)
@@ -5706,8 +5791,9 @@ if L2:
             af(YSP)
             p.emit("shr 4", "dup")
             as_(YSP)
-            p.push(15).emit("and").push(15).emit("eq", f"jz {ya}_more")                 # (the string's end)
+            p.push(15).emit("and").push(15).emit("eq", f"jz {ya}_more")                 # (the string's end: its side is given up)
             aset(YACT, Y_FREE)
+            aset(YENG, 0)
             aset(YTM, 0)
             tp(2)
             as_(YCD)
@@ -5824,7 +5910,7 @@ if L2:
             p.load(LS0).emit("shr 7").push(1).emit("and").store(YFIGHT)
         p.mark(wh)
         if YARD:
-            p.set(YNC, 0).set(YNS, 0)
+            p.set(YSC, 0)
         for e_ in ENEMY:
             ea = p.label("labenemy")
             k_ = e_["k"]
@@ -5910,7 +5996,7 @@ if L2:
             if YARD:
                 yard_ai(e_)
         if YARD:
-            p.load(YNC).store(YNPREV)
+            p.load(YSC).store(YSD)
     if L4 and not LAB:
         # P37: THE ENEMIES MOVE (the player: "lets have then move and make them
         # target able"). Each, up: held by a blow it stands; else it walks to
@@ -11259,7 +11345,8 @@ p.mark(lm)
 #                         (rank + 1) << 8 | combo, so its fields cannot touch
 #   the opening           nothing                        (key 0)
 if LAB and PARK:
-    park_streak(p)
+    if not YARD:                                 # (the yard has no stations: nothing to clear)
+        park_streak(p)
 if LAB and PLATS:
     # P56: THE COURSE: off the first step the clock runs (in time as he
     # lives it: slowed time costs); standing on the 4.0 platform it stops

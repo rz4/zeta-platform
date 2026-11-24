@@ -3323,3 +3323,44 @@ from its limit), data memory 58 free: the next thing in this room needs room mad
 
 Tests 16 (tests/test_tnd_yard.py). Layers 0, 4, 8, 10, 11, 12 and the full cart byte-identical. (The lab and the
 reactor have the same store and the same single double; with one body standing they are inside it.)
+
+## P74: the lock takes what is drawn; the spot is a tap of its own; the fight has turns (2026-11-24)
+
+The player, ten minutes of P73 on glass: "plugged. its starting to be fun. the targeting needs work. one thing i
+noticed is that the up down targeting leaks into the other moves, it shouldnt. look at how i played and make as
+many improvements as you can".
+
+HIS TAPE (38,442 frames: the tank 39%, the boxer 49%, the run 12%; R held 53%; down 10 times). 149 blows landed on
+him: the double 94, the elite 33, the common 15, the horde's four 7. He took 1,967 off them -- 1,671 of it with the
+gun up -- and put bodies down 232 times; 63% of his jabs landed.
+
+THE LOCK. Locked on a body for 17,501 frames: it was NOT DRAWN 28% of them -- on one of the horde, 75% (35 seconds
+squared up to a body he could not see; a drawn one stood within six units in 713 of 996 of those frames sampled).
+The chosen body changed 287 times, 232 of them with neither Left nor Right down (the one he had went down and the
+nearest was taken anew), and his body swung more than 53 degrees after 40. R TAKES, AND STEPS TO, ONLY A BODY THE
+FRAME DREW: what it squares him to is in the shot.
+
+THE SPOT. It stepped 22 times; 17 of them were Up or Down HELD for something else (10 to 95 frames, a face button
+inside ten frames either side -- a blow's way, the gun, a dodge), all in the tank with R held, and it sat at HIGH
+for 9,548 of his locked frames against 6,342 at the middle. THE SPOT STEPS ON A TAP OF ITS OWN: Up or Down pressed
+with no face button down or let go inside ten frames, and let go inside fourteen frames with none pressed
+meanwhile. Held, or with a button, it is that move's.
+
+THE FIGHT HAS TURNS. The horde's places were at his sides and behind -- out of the shot, where since P73 a body
+neither is drawn nor begins -- so the four of them were awake two thirds of the time, drawn a fifth of that, and
+landed 7 blows. Now: two SIDES before him, a tenth of a turn either way, in reach. A body ENGAGES -- takes a free
+side -- on its own frame of an eight-frame round if it is ready and drawn; engaged it closes, comes round to its
+side (a sixteenth of a turn off his line before it may tell), tells and throws its string; the string done, or it
+struck, or two and a half seconds with no blow begun, it gives the side up. The others WAIT in an arc three units
+before him, each on its own bearing, as many as the frame's store can draw; past that, out wide behind the shot
+until there is room. A minute among the horde and the double: every one of them lands, two engaged at the most,
+the horde drawn half the time it is awake.
+
+MEASURED, a minute of everything at random: 48,018 instructions a frame at the worst (of 65,536); on the simulated
+silicon 50% of the frame at the median, 80% at the peak (it was 74%: more bodies are in the shot). The program is
+29,167 words -- about 100 from its limit -- and data memory has 37 free.
+
+Seen on the tape and NOT changed: the gun is 85% of what he takes off them (a round is one, of bodies of three to
+twelve, six rounds, 0.4 seconds to load); bodies get up whole after two and a half seconds, for ever.
+
+Tests 19 (tests/test_tnd_yard.py). Layers 0, 4, 8, 10, 11, 12 and the full cart byte-identical.

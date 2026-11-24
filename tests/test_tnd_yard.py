@@ -421,23 +421,28 @@ def test_nothing_that_fights_is_undrawn(cart):
 
 
 def test_their_places_are_off_the_lenss_line(cart):
-    """P73: the double's place was dead ahead -- behind his own back from the lens. Standing among them, each that
-    has come to him is at least a fifth of a turn's tenth off the way he faces, either side"""
+    """P73: the double's place was dead ahead -- behind his own back from the lens. P74: a body begins its string
+    only from its side: at the frame it tells, it is at least a twentieth of a turn off the way he faces"""
     y = Yard(cart)
     g = y.g
     for _ in range(70):
         g.step(U)
-    for _ in range(150):
+    begun = 0
+    was = [FREE] * 7
+    for _ in range(900):
         g.d[g.syms["p_hp"]] = 140
         g.step(0)
-    hd = g.cell("head") / 1024 * 2 * math.pi
-    u, v = y.uv()
-    near = [k for k in range(7) if y.far(k) < 2.2]
-    assert len(near) >= 2, near
-    for k in near:
-        bu, bv = y.body(k)
-        off = (math.atan2(bv - v, bu - u) - hd + math.pi) % (2 * math.pi) - math.pi
-        assert abs(off) > math.radians(18), f"body {k} stands {math.degrees(off):.0f} degrees off his facing"
+        hd = g.cell("head") / 1024 * 2 * math.pi
+        u, v = y.uv()
+        for k in range(7):
+            act = y.arr("yard_act", k)
+            if act == TELL and was[k] == FREE:
+                bu, bv = y.body(k)
+                off = (math.atan2(bv - v, bu - u) - hd + math.pi) % (2 * math.pi) - math.pi
+                assert abs(off) > math.radians(18), f"body {k} begins from {math.degrees(off):.0f} degrees off his facing"
+                begun += 1
+            was[k] = act
+    assert begun >= 6, begun
 
 
 def test_a_blow_of_theirs_has_weight(cart):
@@ -504,3 +509,83 @@ def test_struck_they_show_it_and_go_down_in_the_falls_clip(cart):
     assert poses["struck"] > 20 and poses["down"] > 60 and poses["up"] > 10, poses
     assert g.cell(f"e{k}_st") == 1 and g.cell(f"e{k}_hp") == 3, "it did not get up whole"
     assert hi > 0 and dn == hi + 16 and up == dn + 12, (hi, dn, up)
+
+
+# ---- P74: THE TARGETING, AND THE FIGHT'S TURNS -------------------------------------------------------------------
+def test_the_fight_has_turns(cart):
+    """P74 (his tape of P73: the horde's four landed 7 of 149 blows -- their places were out of the shot -- and the
+    double 94): among the horde and the double for a minute, no more than two are engaged at once, the horde gets its
+    blows in as well as the double, and those that wait are drawn most of the time they are awake"""
+    y = Yard(cart)
+    g = y.g
+    y.put(-9.0, 2.0, 256)
+    landed, awake, seen, most = set(), np.zeros(7), np.zeros(7), 0
+    for i in range(3600):
+        g.d[g.syms["p_hp"]] = 140
+        was = [y.arr("yard_landed", k) for k in range(7)]
+        g.step(spec.PAD_LEFT if i % 400 < 30 else 0)
+        for k in range(7):
+            awake[k] += y.arr("yard_awake", k)
+            seen[k] += bool(y.arr("yard_awake", k) and y.arr("yard_seen", k))
+            if y.arr("yard_landed", k) and not was[k]:
+                landed.add(k)
+        most = max(most, sum(1 for k in range(7) if y.arr("yard_side", k)))
+    assert most == 2, f"{most} engaged at once"
+    assert 6 in landed and len(landed & {2, 3, 4, 5}) >= 3, f"who landed a blow: {sorted(landed)}"
+    horde = [seen[k] / awake[k] for k in range(2, 6) if awake[k] > 600]
+    assert len(horde) >= 3 and np.mean(horde) > 0.4, f"the horde, drawn while awake: {horde}"
+
+
+def test_r_takes_only_what_is_drawn(cart):
+    """P74 (his tape: locked on one of the horde it was not drawn three frames in four -- 35 seconds squared up to a
+    body he could not see): R held among them, the body it has chosen is one the frame drew"""
+    y = Yard(cart)
+    g = y.g
+    y.put(-9.0, 2.0, 256)
+    R = spec.PAD_R
+    for _ in range(120):
+        g.d[g.syms["p_hp"]] = 140
+        g.step(0)
+    locked = undrawn = run = 0
+    for i in range(1500):
+        g.d[g.syms["p_hp"]] = 140
+        seen_was = [y.arr("yard_seen", k) for k in range(7)]
+        g.step(R | (spec.PAD_RIGHT if i % 90 == 45 else 0))
+        t = g.cell("t_sel")
+        t = t - (1 << 32) if t >= 1 << 31 else t
+        if g.cell("t_ok") and 0 <= t < 7:
+            locked += 1
+            run = run + 1 if not seen_was[t] else 0
+            undrawn += not seen_was[t]
+            assert run <= 2, f"frame {i}: locked on body {t}, undrawn {run} frames running"
+    assert locked > 600, f"locked for {locked} frames"
+    assert undrawn < locked * 0.02, f"{undrawn} of {locked} locked frames on an undrawn body"
+
+
+def test_the_spot_steps_on_a_tap_of_its_own(cart):
+    """P74 ("the up down targeting leaks into the other moves, it shouldnt"; his tape: 17 of 22 steps of the spot were
+    Up or Down held for another move): with R held, a tap of Down steps the spot; Down held does not; Down with a
+    blow's button does not; nor a tap just after one"""
+    y = Yard(cart)
+    g = y.g
+    y.who(3)                                     # (everyone standing: the double before him)
+    for _ in range(110):
+        g.step(U)
+    R, D = spec.PAD_R, spec.PAD_DOWN
+
+    def spot(keys):
+        for _ in range(30):
+            g.step(R)
+        was = g.cell("t_spot")
+        for q in keys:
+            g.step(R | q)
+        for _ in range(20):
+            g.step(R)
+        return g.cell("t_spot") - was
+    assert g.cell("t_spot") == 1
+    assert spot([D] * 4) == 1, "a tap of Down did not step it"
+    assert spot([U] * 4) == -1, "a tap of Up did not step it back"
+    assert spot([D] * 30) == 0, "Down HELD stepped it"
+    assert spot([D] * 3 + [D | X] * 3 + [D] * 3) == 0, "Down with a blow stepped it"
+    assert spot([X] * 3 + [0] * 3 + [D] * 4) == 0, "a tap just after a blow's button stepped it"
+    assert g.cell("t_spot") == 1
