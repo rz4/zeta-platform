@@ -1,0 +1,471 @@
+{
+ "schema": "zeta-xp-1",
+ "id": "tnd-park-0010",
+ "machine": {
+  "tape": {
+   "file": "20261124-123738.ztp",
+   "sha256": "8818ba41b5710dd8400bc7cfa9e2e7f0fa4d7e71bef822c53aaad73a1d1696c6",
+   "format": "ZTP0",
+   "loader_build": 107,
+   "cart_sum": "0x344355a3",
+   "runs": 1416
+  },
+  "cart": {
+   "file": "20261124-123738.park.zbin",
+   "sum": "0x344355a3",
+   "built_at_commit": "f5ae1e8",
+   "recipe": "TND_SONG=1 TND_LAYER=12 python3 games/tnd/gen_tnd.py",
+   "symbols_sha256": "3a8d25bcef6bcc7d9bab0a8d37bdc7f4cdf0cbf582e69f7750f68d9c2da7c33b"
+  },
+  "card_at_start": "20261121-172911.card.bin",
+  "backend": "law (zeta.cabinet.VirtualMachine)",
+  "spec_loader_build": 107,
+  "ingested_at_commit": "42b6ae0"
+ },
+ "evidence": {
+  "frames": 18512,
+  "seconds": 308.5,
+  "end_state_sha256": "b33c0b9a3ea59d9b3bf1a735fc3e02c4ec21227717ddde0877ace39227fb2053",
+  "reproduce": "python3 -m zeta.experience ingest 20261124-123738.ztp --game 20261124-123738.park.zbin --symbols ..."
+ },
+ "knobs": [
+  {
+   "axis": "tnd.lab.who",
+   "knob": "who",
+   "index": 0,
+   "default": 0,
+   "final": 0,
+   "signed_notches": 0,
+   "step": 1,
+   "unit": "index",
+   "dwell_frames": {
+    "0": 18512
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.weight",
+   "knob": "weight",
+   "index": 1,
+   "default": 58982,
+   "final": 58982,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "58982": 18512
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.knock",
+   "knob": "knock",
+   "index": 2,
+   "default": 58982,
+   "final": 58982,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "58982": 18512
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.lift",
+   "knob": "lift",
+   "index": 3,
+   "default": 65536,
+   "final": 65536,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "65536": 18512
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.stun",
+   "knob": "stun",
+   "index": 4,
+   "default": 65536,
+   "final": 65536,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "65536": 18512
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.hstop",
+   "knob": "hstop",
+   "index": 5,
+   "default": 65536,
+   "final": 65536,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "65536": 18512
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.slide",
+   "knob": "slide",
+   "index": 6,
+   "default": 57671,
+   "final": 57671,
+   "signed_notches": 0,
+   "step": 655,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "57671": 18512
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.egrav",
+   "knob": "egrav",
+   "index": 7,
+   "default": 786,
+   "final": 786,
+   "signed_notches": 0,
+   "step": 65,
+   "unit": "Q16.16 (65536 = 1.0) a frame squared",
+   "dwell_frames": {
+    "786": 18512
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.pivot",
+   "knob": "pivot",
+   "index": 8,
+   "default": 176,
+   "final": 176,
+   "signed_notches": 0,
+   "step": 16,
+   "unit": "of 1024 a frame",
+   "dwell_frames": {
+    "176": 18512
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.lunge",
+   "knob": "lunge",
+   "index": 9,
+   "default": 58983,
+   "final": 58983,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "58983": 18512
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.keep",
+   "knob": "keep",
+   "index": 10,
+   "default": 40,
+   "final": 40,
+   "signed_notches": 0,
+   "step": 4,
+   "unit": "frames",
+   "dwell_frames": {
+    "40": 18512
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.hold",
+   "knob": "hold",
+   "index": 11,
+   "default": 14,
+   "final": 14,
+   "signed_notches": 0,
+   "step": 2,
+   "unit": "frames",
+   "dwell_frames": {
+    "14": 18512
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.slow",
+   "knob": "slow",
+   "index": 12,
+   "default": 3,
+   "final": 3,
+   "signed_notches": 0,
+   "step": 1,
+   "unit": "frames",
+   "dwell_frames": {
+    "3": 18512
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.dodge",
+   "knob": "dodge",
+   "index": 13,
+   "default": 65536,
+   "final": 65536,
+   "signed_notches": 0,
+   "step": 16384,
+   "unit": "his widths (0.58), Q16.16",
+   "dwell_frames": {
+    "65536": 18512
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.jump",
+   "knob": "jump",
+   "index": 14,
+   "default": 12190,
+   "final": 12190,
+   "signed_notches": 0,
+   "step": 655,
+   "unit": "Q16.16 (65536 = 1.0) a frame",
+   "dwell_frames": {
+    "12190": 18512
+   },
+   "changes": [],
+   "changes_total": 0
+  }
+ ],
+ "observed": {
+  "minutes": 5.14,
+  "buttons": {
+   "a": {
+    "presses": 126,
+    "held_share": 0.142
+   },
+   "b": {
+    "presses": 144,
+    "held_share": 0.177
+   },
+   "x": {
+    "presses": 94,
+    "held_share": 0.094
+   },
+   "y": {
+    "presses": 29,
+    "held_share": 0.028
+   },
+   "l": {
+    "presses": 30,
+    "held_share": 0.934
+   },
+   "r": {
+    "presses": 16,
+    "held_share": 0.315
+   },
+   "select": {
+    "presses": 0,
+    "held_share": 0.0
+   }
+  },
+  "held_together_share": {
+   "l+r": 0.31,
+   "b+r": 0.053,
+   "y+b": 0.0,
+   "x+a": 0.001,
+   "l+a": 0.138
+  },
+  "slowed_share": 0.313,
+  "stance_share": {
+   "tank": 0.066,
+   "run": 0.903,
+   "boxer": 0.03,
+   "targeting": 0.0
+  },
+  "blows": {
+   "thrown": 27,
+   "a_minute": 5.3,
+   "by_move": {
+    "jab": 19,
+    "cross": 3,
+    "lead_hook": 4,
+    "gun_charged": 1
+   },
+   "begun_in_slowed_time_share": 0.0
+  },
+  "bodies": {
+   "blows_landed": 0,
+   "landed_a_minute": 0.0,
+   "put_down": 0,
+   "highest_thrown": 0.0,
+   "frames_one_was_above_half_a_unit": 0,
+   "above_three_units": {
+    "frames": 0,
+    "ranges": []
+   },
+   "struck_in_the_air": 0
+  },
+  "jab_strings": {
+   "that_began_with_a_hit": 0,
+   "mean_landed_in_a_row_by_length": {},
+   "five_or_more_in_a_row": {
+    "count": 0,
+    "frames": []
+   }
+  },
+  "passes": {
+   "y_with_b_held": {
+    "count": 1,
+    "frames": [
+     6070
+    ],
+    "in_slowed_time": 1,
+    "stance": {
+     "tank": 0,
+     "run": 1,
+     "boxer": 0,
+     "targeting": 0
+    }
+   },
+   "b_with_y_held": {
+    "count": 0
+   },
+   "x_with_a_held": {
+    "count": 4
+   },
+   "thrown_as": {
+    "the_boxers_stun": 0,
+    "the_runs_tackle": 0
+   }
+  },
+  "special_chosen_under_a_held_jab": {
+   "steps": 0,
+   "thrown": 0,
+   "as": {
+    "lead_hook": 0,
+    "rear_uppercut": 0,
+    "haymaker": 0
+   }
+  },
+  "close_quarters_rounds_at_least": 1,
+  "jumps": 181,
+  "dodges_and_flips": 126,
+  "structures": {
+   "minutes_on_one": 0.42,
+   "frames_on_each": {
+    "0": 270,
+    "1": 16,
+    "2": 27,
+    "3": 14,
+    "4": 15,
+    "5": 9,
+    "7": 29,
+    "8": 24,
+    "9": 39,
+    "10": 56,
+    "11": 25,
+    "12": 52,
+    "13": 25,
+    "14": 31,
+    "16": 26,
+    "17": 118,
+    "19": 21,
+    "22": 24,
+    "27": 106,
+    "28": 13,
+    "29": 36,
+    "30": 54,
+    "31": 31,
+    "34": 26,
+    "35": 26,
+    "37": 16,
+    "38": 17,
+    "39": 15,
+    "40": 32,
+    "41": 20,
+    "42": 10,
+    "45": 5,
+    "46": 42,
+    "47": 34,
+    "49": 15,
+    "50": 31,
+    "51": 70,
+    "52": 30,
+    "53": 21,
+    "54": 31,
+    "55": 20
+   },
+   "highest_stood": 7.5
+  },
+  "tuner_open_minutes": 0.0,
+  "b_held": {
+   "share": 0.177,
+   "of_which": {
+    "standing": 0.068,
+    "walking": 0.0,
+    "running": 0.928
+   }
+  }
+ },
+ "title": "the P68 park, five minutes: the dive too low; the turn steps",
+ "human": {
+  "said": [
+   "last issues. tackl should be higher like hitting the ceneter of mass of he clone, and make the running left right thurning while running smoother, use the laser in the gun for reference if thats smooth then good."
+  ],
+  "said_on": "2026-11-24",
+  "knobs_chosen": []
+ },
+ "agent": {
+  "observations": [
+   {
+    "what": "on the machine, Right held in the run with the gun out: heading -13 of 1,024 every frame in time; slowed, -13 every third frame and 0 between; the slowed lens +4, -2, -2 a frame running straight",
+    "frames": []
+   },
+   {
+    "what": "the P68 dive: 0.30 up, its body 0.2 to 0.6 over the floor",
+    "frames": []
+   }
+  ],
+  "readings": [
+   {
+    "supposes": "the roughness he sees on the laser is the slowed heading's 4.6-degree steps and the slowed lens's shake, more than the turn's hard start in time",
+    "or": [
+     "he means the turn in time: it is eased now too"
+    ],
+    "confidence": "medium"
+   }
+  ],
+  "proposed": [
+   "P69: the dive half a unit higher, its blow at a body's middle; the turn a rate paid every frame; the slowed lens filtered"
+  ]
+ },
+ "result": {
+  "commits": [
+   "42b6ae0"
+  ],
+  "proved": [],
+  "cost": "",
+  "next_record": null,
+  "verdict": "pending",
+  "imprints": []
+ }
+}
