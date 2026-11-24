@@ -3211,9 +3211,9 @@ WHAT THE RANGE TAUGHT. A round flies 13 units, tapped or charged (the charged on
 range stood bodies at 10 to 45 in one line, and only the nearest could be hit -- too far, and each behind the last.
 They stand 5 to 12.6 from the pad, each on a bearing of its own.
 
-MEASURED, a minute of walking, fists, the run, jumps, dives and shots at random with all seven standing: 27,613
-instructions a frame at the median and 39,457 at the worst (of 65,536); 46 objects at the worst (of 64); on the
-simulated silicon the frame is 53% of its clocks at the median and 74% at its peak (the gate is 90%).
+MEASURED, a minute of walking, fists, the run, jumps, dives and shots at random with all seven standing: 27,581
+instructions a frame at the median and 39,444 at the worst (of 65,536); 46 objects at the worst (of 64); on the
+simulated silicon the frame is 53% of its clocks at the median and 73% at its peak (the gate is 90%).
 
 Tests 5 (tests/test_tnd_yard.py): the table inside the walls and the seven on their marks; fists in the ring; the
 range from the pad; the track's south side run by a scripted runner without the floor; a minute of anything inside

@@ -37,9 +37,9 @@ A minute of walking, fists, the run, jumps, dives and shots at random
 
 | | the yard | limit |
 |---|---|---|
-| VM instructions a frame, median / worst | 27,613 / 39,457 | 65,536 |
+| VM instructions a frame, median / worst | 27,581 / 39,444 | 65,536 |
 | objects, worst | 46 | 64 |
-| frame clocks (simulated silicon), median / peak | 53% / 74% | 90% gate |
+| frame clocks (simulated silicon), median / peak | 53% / 73% | 90% gate |
 | data memory free | 290 | -- |
 
 ## Not in the first cut
