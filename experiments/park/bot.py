@@ -19,7 +19,11 @@ then a kick at each wall touched, until he is over the chimney's cap.
 It reports, a station at a time, cleared or not, and the streak the game
 itself kept.
 
-    python3 experiments/park/bot.py [CART.zol] [STATIONS] [--tape OUT.ztp]
+    python3 experiments/park/bot.py [CART.zol] [STATIONS] [--jitter=FRAMES --seed=N]
+
+--jitter gives it a human's timing: each jump pressed up to that many frames
+early or late (late presses fall to the edge's grace), 150 seconds of play;
+it prints stations cleared a minute -- the measure of "playable in real time".
 """
 from __future__ import annotations
 
@@ -91,7 +95,11 @@ class Park:
         return self.cell("f_py") / ONE
 
 
-def play(cart_path, stations=12, say=print):
+def play(cart_path, stations=12, say=print, jitter=0, seed=0, max_frames=60 * 60 * 4):
+    """jitter: a human's timing -- each jump pressed up to this many frames early or late, at random (seeded)"""
+    import random
+    rnd = random.Random(seed)
+    slip = 0
     blank = np.zeros((spec.H, spec.W, 3), np.uint8)
     keep, gpu.render = gpu.render, (lambda *a, **k: blank)
     try:
@@ -104,7 +112,7 @@ def play(cart_path, stations=12, say=print):
             g.step(L)
         log, queue, frames, climbing, last_kick, was_air, climb_mid, toward = [], [], 0, None, 0, False, 0.0, 0
         cleared_before = 0
-        while frames < 60 * 60 * 4:
+        while frames < max_frames:
             frames += 1
             u, py, psi = g.u(), g.py(), g.cell("lab_si")
             vv0 = -64.0 - g.cell("px") / ONE                  # (his lane only, and no orbs: they are not footing)
@@ -170,14 +178,17 @@ def play(cart_path, stations=12, say=print):
                 elif on and kind in (4, 13) and nxt["top"] > on["top"] + 1.0:   # FLIP UP: the tap at the face, the flip on top
                     if edge < 0.45:
                         queue = tap[:3] + [0] * 8 + [A, A, A]
-                elif on and nxt["z0"] - on["z1"] > 0.3 and edge < 0.45:   # a gap: the tap (P59: it jumps on the press)
+                elif on and nxt["z0"] - on["z1"] > 0.3 and edge < 0.45 + 0.2 * max(0, -slip):   # a gap: the jump, on the press
                     gap_ = nxt["z0"] - on["z1"]                # (P61: the first jump by its hold -- held for a long gap;
+                    if jitter:                                 # (late: the press waits its frames, off the edge or not)
+                        queue = [0] * max(0, slip)
                     if gap_ > 4.4:                             # past a held jump's reach, the flip)
-                        queue = tap[:3] + [0] * 9 + [A, A, A]
+                        queue = queue + tap[:3] + [0] * 9 + [A, A, A]
                     elif gap_ > 2.8:
-                        queue = [A] * 16 + [0, 0]
+                        queue = queue + [A] * 16 + [0, 0]
                     else:
-                        queue = tap[:3] + [0, 0]
+                        queue = queue + tap[:3] + [0, 0]
+                    slip = rnd.randint(-jitter, jitter) if jitter else 0
                 elif nxt["top"] > (on["top"] if on else 0) + 0.25 and nxt["z0"] - u < (1.6 if not on else 1.0):
                     queue = list(tap)                         # a step up (or the entry, from the floor)
                 if queue:
@@ -201,7 +212,14 @@ def play(cart_path, stations=12, say=print):
 def main():
     cart = sys.argv[1] if len(sys.argv) > 1 and sys.argv[1].endswith(".zol") else str(ROOT / "build" / "layer12" / "tnd.zol")
     n = next((int(a) for a in sys.argv[1:] if a.isdigit()), 12)
-    g, log = play(cart, n)
+    jit = next((int(a.split("=")[1]) for a in sys.argv[1:] if a.startswith("--jitter=")), 0)
+    seed = next((int(a.split("=")[1]) for a in sys.argv[1:] if a.startswith("--seed=")), 0)
+    g, log = play(cart, n, jitter=jit, seed=seed, **({"say": lambda *a: None, "max_frames": 60 * 150} if jit else {}))
+    if jit:
+        st = [g.cell("course_state")]
+        print(json.dumps({"jitter": jit, "seed": seed, "frames": len(g.pads), "cleared": len(log), "reached_u": round(g.u(), 1),
+                          "best": g.cell("course_best"), "a_minute": round(len(log) / (len(g.pads) / 3600), 1)}))
+        return
     print(json.dumps({"stations_cleared": len(log), "frames": len(g.pads), "best": g.cell("course_best"), "orbs": g.cell("park_orbs"),
                       "reached_u": round(g.u(), 1)}, indent=1))
 

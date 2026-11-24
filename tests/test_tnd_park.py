@@ -67,10 +67,10 @@ def test_the_reaches(cart):
     assert abs(r["run_a_frame"] - 0.20) < 0.01
     # (P61: "the first jump should be modulated a bit with how long the jump button is held but not to much")
     lo, mid, hi = r["tap_held_1"], r["tap_held_8"], r["tap_held_20"]
-    assert 0.75 < lo[1] < 0.95 and 1.2 < mid[1] < 1.35 and 1.3 < hi[1] < 1.5 and lo[0] < mid[0] < hi[0]
+    assert 0.75 < lo[1] < 0.95 and 1.1 < mid[1] < 1.35 and 1.2 < hi[1] < 1.4 and lo[0] < mid[0] < hi[0]   # (P62: held, 1.28)
     assert r["tap_flip_at_8"][1] > 2.5
     # (P61: "The dpad on the filp jump should control the landing location a bit in all 4 directions")
-    assert 0.3 < r["flip_nudged_left"][1] < 0.8
+    assert 0.5 < r["flip_nudged_left"][1] < 1.8
     assert r["coast_after_20"] < 0.2
 
 
@@ -230,3 +230,52 @@ def test_a_spent_flip_is_saved_by_a_kick_straight_up_a_wall(cart):
             assert g.u() >= u_before - 0.05, "thrown back off the face"
             return
     raise AssertionError("never fell against the face with the flip spent")
+
+
+def test_a_little_short_he_catches_the_ledge(cart):
+    """P62 (his tape: 23 failures came down a little short of the box, at its face): in the run's air, his feet up to
+    0.7 under a top he has reached, he is on it -- a jump begun well early for TAP's first gap still ends on the next
+    box (and on the ground a step is still a step: 0.3)"""
+    import bot
+    for lead in (0.9, 1.5):
+        g = bot.Park(cart)
+        _run(g)
+        rows = [b for b in g.rows() if b["st"] == 0 and b["motion"] != 3]
+        e, nxt = rows[0], rows[1]
+        for _ in range(300):
+            on = g.cell("lab_si") == e["r"] and g.py() == 0
+            if on and e["z1"] - g.u() < lead:
+                break
+            g.step(L | U | (A if not on and g.py() == 0 and e["z0"] - g.u() < 1.8 and g.cell("lab_si") < 0 else 0))
+        for i in range(40):
+            g.step(L | U | (A if i < 8 else 0))
+            if i > 3 and g.py() == 0:
+                break
+        assert g.cell("lab_si") == nxt["r"], f"begun {lead} early: not on the next box"
+    for _ in range(3):
+        g.step(L)
+    assert g.py() == 0 and g.cell("park_step") < int(0.35 * ONE), "on the ground the step is not a step"
+
+
+def test_the_flips_carry_is_the_pad(cart):
+    """P62 (his tape: 15 failures past the box -- a flip carried five to seven units over a short top; he flips most
+    jumps, and stands on a box before going 58% of the real time): how far the flip goes is the pad -- Up furthest,
+    nothing about two thirds, Down a short hop -- and it is the same rule from a stand"""
+    import bot
+
+    def flip(pad_after, standing):
+        g = bot.Park(cart)
+        g.d[g.syms["px"]] = int(round((-64.0 + 8.0) * ONE)) & 0xFFFFFFFF
+        _run(g)
+        for _ in range(10 if standing else 60):
+            g.step(L | (0 if standing else U))
+        u0 = g.u()
+        for i in range(90):
+            g.step(L | (U if not standing and i < 8 else 0) | (A if i < 6 or 8 <= i < 10 else 0) | (pad_after if i >= 10 else 0))
+            if i > 12 and g.py() == 0:
+                break
+        return g.u() - u0
+    for standing in (False, True):
+        up, none, down = flip(U, standing), flip(0, standing), flip(spec.PAD_DOWN, standing)
+        assert up > none + 1.5 and none > down + 1.0, f"standing {standing}: {up:.1f}, {none:.1f}, {down:.1f}"
+    assert flip(U, True) > 4.5, "from a stand the flip does not carry"

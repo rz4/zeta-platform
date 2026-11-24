@@ -2983,3 +2983,27 @@ make precision landing better."
 - time running, in the air, the lens rides the outside of the arc (MY READING of "outer tangent"): up at once to
   the walked arc's top, looking down at where he comes down. Slowed, as it was.
 - the bot clears 41 in a row; tests 9 pass; every other layer byte-identical.
+
+## P62: the park made playable in real time, from his own twenty minutes (2026-11-24)
+
+The player: "look at my game play improve this based on how i want to use it. it should still be human playable
+not in slow mo."
+
+His tape of P61 (20 minutes; `experiments/tnd/tnd-park-0004.json`), observed: 87% in the run, 62% of the run in
+slowed time; 154 attempts, 80 cleared -- in real time 32 of 75, slowed 48 of 79; real time WALL 0 of 9, PADS 2 of
+11, CHAIN 0 of 3. The 74 failures: 23 short of the box (many by 0.4, at its face), 15 past it (a flip carried
+five to seven units over a short top), 14 run off an edge unjumped, 10 under a top (7 the chimney's cap), 10 beside
+it. A is held, never tapped (median 17 frames); most jumps are flipped, Up held through 65% of the flip; in real
+time he stands still on a box 58% of the time before going. So: stop, line up, the full jump, the flip, the flip
+steered. Layer 12 only, the obstacles as they were:
+
+- THE LEDGE CAUGHT: in the run's air, his feet up to 0.7 under a top he has reached, he is on it (on the ground a
+  step is still 0.3). A jump begun 1.7 early for a 2.6 gap still ends on the box.
+- THE FLIP'S CARRY IS THE PAD: Up his full pace, nothing half, Down a seventh, whatever pace he left the ground
+  with -- from a run 7.8 / 5.0 / 3.0 units, from a stand 5.8 / 3.0 / 1.0; Left and Right 0.05 a frame aside.
+- the held jump is the jump the course was sized for (1.28 up, about 4 far); a quick tap the low one (0.85, 3.2).
+- ten frames of grace off an edge, ten for an early press.
+- the chimney: after the first kick any side wall kicks; a kick rises 0.24 (the flip 0.20); a touch counts 12 frames.
+
+Measured with the bot given a human's timing (each jump up to 6 frames early or late, 150 seconds, three seeds):
+P61 cleared 1, 37 and 19 stations (best streaks 1, 12, 11); P62 43, 47 and 48 (41, 47, 45). Tests 11.
