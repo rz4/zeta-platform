@@ -2939,3 +2939,21 @@ times its pull going up (18 frames in the air, was 22); the grip on his heading 
 the pick-up 0.60 (0.30) -- let go, he stands within 20 frames; in the air, the pad let go brakes him (0.88 a frame)
 to stick a short top; no kick off a face across his way (it threw him back the way he came). The bot clears 41
 stations in a row; the law against the silicon 400 frames bit-equal; instructions median 26,774, worst 49,138.
+
+## P60: the park is the run -- the lens behind him, no gun, and the whine was the record (2026-11-23)
+
+The player: "feels a bit better but the camera should be always behind the player. the gun stuff is still linked
+in this mode, and all the other controls are working, it should be the running mode with the double right
+shoulder. also there's a beap whine i hear through out."
+
+- the park steers as the parkour run does (P24's double click): Left and Right turn him, Up drives -- P59's
+  course-relative pad is taken back -- and the lens is behind him: half the gap to his heading a frame, in the air
+  too (within 12 yaw units while he turns).
+- R is the park's slowed time and nothing else: it was the lab's targeting key, so holding it for slowed time
+  chose the clone, locked, brought the aim up and planted him. Now the targeting never sees it.
+- THE WHINE: the record's intro carries a steady 2,004 Hz line -- in the original MP3 at 44.1 kHz, not made by the
+  bake (a low-pass or the soxr resampler leave it as it is). The song climbs its ladder with a fight's rank; the
+  lab and the park have none, so they loop the intro and its line for ever. In the park the ladder is the streak:
+  from the lift, a section higher every two stations cleared in a row (the 2 kHz line: 31.6 times its band in the
+  lab's song, 5.6 in the park's). The lab still loops the intro: a question for the player.
+- the bot clears 41 in a row; tests 9 pass; every other layer byte-identical.

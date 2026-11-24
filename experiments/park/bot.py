@@ -120,8 +120,10 @@ def play(cart_path, stations=12, say=print):
                 vv_ = -64.0 - g.cell("px") / ONE
                 steer = spec.PAD_LEFT if tv_ > vv_ + 0.35 else spec.PAD_RIGHT if tv_ < vv_ - 0.35 else 0
             if not steer and not (on and nxt is not None and nxt["kind"] == 9 and on["role"] & 1) and climbing is None:
-                # (P59: keep to the lane -- the pad's ways are the course's: a diagonal back to its middle line, a moment)
-                steer = spec.PAD_LEFT if vv0 < -0.6 else spec.PAD_RIGHT if vv0 > 0.6 else 0
+                yaw_ = g.cell("yaw") & 1023                    # (keep to the lane: the heading toward its middle line --
+                yaw_ = yaw_ - 1024 if yaw_ > 512 else yaw_     # the run turns as the tank does)
+                want = max(-40, min(40, int((0.0 - vv0) * 30)))
+                steer = spec.PAD_LEFT if yaw_ < want - 12 else spec.PAD_RIGHT if yaw_ > want + 12 else 0
             pad |= steer
             if py > 0 and nxt is not None and climbing is None and not queue and g.cell("land_on") and not g.cell("land_wall"):
                 mark = g.cell("land_z") / ONE                  # (in the air: let go to stick it, if the dot is past the
@@ -145,7 +147,9 @@ def play(cart_path, stations=12, say=print):
                 tap = [A, A, A, 0, 0]
                 vv = (-64.0 - g.cell("px") / ONE)
                 if on and kind == 9 and on["role"] & 1:       # WALL: veer a little right; the tap; then the climb
-                    pad = L | U | (spec.PAD_RIGHT if edge < 1.0 else 0)   # (P59: near its end, 45 degrees into the wall)
+                    yaw = g.cell("yaw") & 1023                  # (near its end, turned into the wall)
+                    yaw = yaw - 1024 if yaw > 512 else yaw
+                    pad = L | U | (spec.PAD_RIGHT if edge < 1.6 and yaw > -64 else 0)
                     if edge < 0.45:
                         queue = [A, A, A, 0, 0]
                         climbing = max(b["top"] for b in rows if b["st"] == nxt["st"] and b["role"] & 2)

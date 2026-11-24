@@ -3752,8 +3752,7 @@ if LAB:
     if PARK:
         PARK_CYT, PARK_JBT = cart.var("park_coyote"), cart.var("park_buffer")
         PARK_DN, PARK_LJC, PARK_SLQ, PARK_SPQ = (cart.var("park_" + k_) for k_ in ("down", "lj_charge", "slide_q", "super_q"))
-        PARK_REF = cart.var("park_ref")            # P59: the way "up" the pad is: the course's line, or back along it
-        PARK_TURN = 64                             # (his turn onto the pad's way, a frame: 22 degrees)
+        PARK_RH = cart.var("park_r")               # P60: R held -- slowed time, and only that
 
         def park_ljv(g_):
             """( -- v0 ) the long jump's launch for the charge so far"""
@@ -4094,7 +4093,7 @@ if BASE:
                 p.push32(lab_xz(-26.0 + 4.0 * l_, 0)[1]).store(int(PARK_GZL) + l_).set(int(PARK_GNL) + l_, 0)
             for c_ in (PARK_GN, PARK_HEAD, PARK_ORBS):
                 p.set(c_, 0)
-            p.set(PARK_CUR, -1).set(PARK_DONE, -1).set(PARK_REF, LAB_YAW)
+            p.set(PARK_CUR, -1).set(PARK_DONE, -1)
     p.set(WR, ONE)
 if SWARM_TEST:                                  # (the meter's hook: the fight in the
     p.set(PX, int(3 * ONE)).set(PZ, int(3 * ONE))               # first plaza, the
@@ -4453,7 +4452,9 @@ if BASE:
     p.store(spec.GRADE_SRC)
     # no shoulders in the base; and a pick-up holds him, crouched, till it is done
     if L3:
-        p.emit("load 1").push(spec.PAD_R).emit("and").store(RHELD)
+        p.emit("load 1").push(spec.PAD_R).emit("and").store(PARK_RH if PARK else RHELD)
+        if PARK:                                  # (P60: "the gun stuff is still linked": R is the park's slowed time
+            p.set(RHELD, 0)                       # alone -- the targeting, the gun and the lock never see it)
     p.emit("load 1").push(0xFFFF & ~((0 if L1 else spec.PAD_L) | spec.PAD_R | spec.PAD_SELECT))
     p.emit("and").store(spec.REG_PAD)
     if L4:
@@ -4591,7 +4592,7 @@ if BASE:
         knob(p, "hold").load(GT["shoot"]).emit("lt", "or")
         knob(p, "hold").load(AHOLD).emit("lt", "or").store(SLOWON)
         if PARK:                                  # (P59: in the park, slowed time is R held, and only that)
-            p.load(RHELD).store(SLOWON)           # (R is read into RHELD and taken off the pad, above)
+            p.load(PARK_RH).store(SLOWON)         # (R is read apart and taken off the pad, above)
     pk = p.label("pick")                          # (he bows to it -- the fold the
     p.push(0).load(PICK).emit("lt", f"jz {pk}_up")   # body already has, part way -- and
     p.addi(PICK, -1).set(LANDT, LAND_FOR // 2 + 1)   # comes back up; only ABOVE zero)
@@ -5932,7 +5933,7 @@ if L1:
         # (...or the pad held TOWARD the wall: in a chimney, the way to the wall he means to kick from)
         pw_ = p.label("wjpad")
         p.emit("load 1").push(15).emit("and", f"jz {pw_}_v")
-        p.push(int(OCTANT)).emit("load 1").push(15).emit("and", "add", "loadi").load(PARK_REF).emit("add").store(W["k"])
+        p.push(int(OCTANT)).emit("load 1").push(15).emit("and", "add", "loadi").load(YAW).emit("add").store(W["k"])
         sin_of(p, cell=W["k"])
         p.push(0).emit("swap", "sub").load(WSX).emit("mul").push32(int(0.3 * ONE)).emit("swap", "lt", f"jz {pw_}_v")
         p.emit(f"jmp {pw_}")
@@ -6638,28 +6639,6 @@ if L1:
     p.load(F["spd"]).push(SLIDE_BOOST).emit("mulq").store(SLV)
     p.emit(f"jmp {sd_}_on")
     p.mark(sd_)
-if PARK:
-    # P59 (the player: "the camera must compensate for the lack of analog control"): THE PAD'S EIGHT WAYS ARE THE
-    # COURSE'S. The run turned like the tank -- left and right a few degrees a frame -- with the lens trailing his
-    # heading, so a digital pad could never hold a straight line, and "straight" drifted with the lens. In the park
-    # the eight ways are taken from a REFERENCE that is the course's own line (east), and the lens holds that line:
-    # Up is straight down the course, a diagonal exactly 45 degrees, Left straight across; he swings onto the way
-    # quickly. Down turns him back toward the lens; let go of it, and if he is running back the reference (and the
-    # lens) come round to that way -- Up carries on.
-    rf_ = p.label("pkref")
-    p.emit("load 1").push(spec.PAD_DOWN).emit("and", f"jz {rf_}_n", f"jmp {rf_}")
-    p.mark(f"{rf_}_n")
-    p.load(YAW).load(PARK_REF).emit("sub").push(512).emit("add").push(1023).emit("and").push(512).emit("sub")
-    p.emit("dup").push(0).emit("lt", f"jz {rf_}_a").push(0).emit("swap", "sub")
-    p.mark(f"{rf_}_a")
-    p.push(340).emit("swap", "lt", f"jz {rf_}")                      # (more than 120 degrees off: he turned round)
-    p.load(YAW).push(128).emit("add").push(768).emit("and").store(PARK_REF)
-    p.mark(rf_)
-    p.emit("load 1").push(15).emit("and", "dup", f"jz {ev}_nd")
-    p.push(int(OCTANT)).emit("add", "loadi").load(PARK_REF).emit("add").push(1023).emit("and").store(W["head"])
-    p.push(PARK_TURN).store(W["dg"]).emit(f"call {L_STEER}")
-    p.load(YAW).push(1023).emit("and", "dup").store(YAW).store(F["cgr"])
-    p.push(1).emit(f"jmp {ev}_nd")
 if L1:
     p.if_pad(spec.PAD_LEFT, lambda q: knob(q.load(YAW), "runturn").emit("add").store(YAW))
     p.if_pad(spec.PAD_RIGHT, lambda q: knob(q.load(YAW), "runturn").emit("sub").store(YAW))
@@ -8250,8 +8229,8 @@ p.load(F["brg"]).push(THREAT_KEEP).emit("add")
 p.mark(f"{th_}_s")
 p.push(1023).emit("and").store(W["oy"])
 p.mark(th_)
-if PARK:                                          # (P59: the lens holds the course's line, not his heading)
-    p.load(PARK_REF).store(W["oy"])
+if PARK:                                          # (P60: "the camera should be always behind the player")
+    p.load(YAW).store(W["oy"])
 p.load(W["oy"]).load(CY).emit("sub").push(512).emit("add")
 p.push(1023).emit("and").push(512).emit("sub").store(T)   # d in -512..511
 if L1:
@@ -8261,8 +8240,11 @@ if L1:
     tr_ = p.label("trail")
     p.load(F["sty"]).push(1).emit("eq", f"jz {tr_}")
     p.load(T)
-    knob(p, "trail").emit("mulq")
-    if LAB:                                       # (P51: in the air, into where he will land -- a quarter of the gap a frame)
+    if PARK:                                      # (P60: behind him -- half the gap a frame, in the air too)
+        p.emit("shr 1")
+    else:
+        knob(p, "trail").emit("mulq")
+    if LAB and not PARK:                          # (P51: in the air, into where he will land -- a quarter of the gap a frame)
         p.load(LNDON).emit(f"jz {tr_}_g")
         p.emit("drop").load(T).emit("shr 2")
         p.mark(f"{tr_}_g")
@@ -10865,6 +10847,14 @@ else:
     p.load(SM["j"]).load(SY["rank"]).emit("lt", f"jz {pg}_go")
     p.addi(SM["t"], 1)                                   # one step further
     p.mark(f"{pg}_go")
+    if PARK:
+        # P60 (the player: "there's a beap whine i hear through out"): the record's INTRO carries a steady 2 kHz line
+        # (it is in the original, not the bake), and the song climbs its ladder with a fight's rank -- the park has
+        # none, so it looped the intro for ever. Here the ladder is the STREAK: from the lift, a section higher every
+        # two stations cleared in a row, down again with it; cut on the bar
+        p.load(CRST).emit("shr 1").push(1).emit("add", "dup").push(6).emit("swap", "lt", f"jz {pg}_k6", "drop").push(6)
+        p.mark(f"{pg}_k6")
+        p.store(SM["t"]).set(SM["q"], 2)
     p.load(SY["rank"]).store(SM["last"]).load(F["hs"]).store(SM["hs"])
     p.load(SM["t"]).store(SM["pend"])                    # (pend == cur: none)
     # the cut, if one is pending and its grid line falls in this frame

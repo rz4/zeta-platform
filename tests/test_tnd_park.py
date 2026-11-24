@@ -161,7 +161,8 @@ def test_the_window_is_bounded_and_the_course_is_not(cart):
 
 def test_only_R_slows_time_and_the_park_is_always_the_run(cart):
     """P59 ("be able to be run without the slow mo, slow mo is more of just for extra precision"): no shoulder
-    held, he is in the run; holding A, B, X or Y slows nothing; R held slows time"""
+    held, he is in the run; holding A, B, X or Y slows nothing; R held slows time -- and (P60: "the gun stuff is
+    still linked in this mode") brings up no aim, no gun"""
     import bot
     g = bot.Park(cart)
     for _ in range(20):
@@ -175,24 +176,21 @@ def test_only_R_slows_time_and_the_park_is_always_the_run(cart):
         for _ in range(30):
             g.step(U)
         assert bool(seen) == (b == spec.PAD_R), f"button {b}: slowed {bool(seen)}"
+        assert g.cell("aimed") == 0, "the gun came up"
 
 
-def test_the_pads_ways_are_the_courses(cart):
-    """P59 ("the camera must compensate for the lack of analog control"): Up is exactly down the course, a diagonal
-    exactly 45 degrees, Left straight across -- and the lens holds the course's line throughout"""
+def test_the_lens_is_behind_him(cart):
+    """P60 ("the camera should be always behind the player"): the park's run steers as the run does -- Left and Right
+    turn him -- and the lens keeps squarely behind him, a few degrees at most even while he turns"""
     import bot
     g = bot.Park(cart)
     g.d[g.syms["px"]] = int(round((-64.0 + 8.0) * ONE)) & 0xFFFFFFFF
-    for pad, want in ((U, 0), (U | spec.PAD_LEFT, 128), (U, 0), (spec.PAD_LEFT, 256), (U | spec.PAD_RIGHT, 896), (U, 0)):
-        for _ in range(14):
+    for pad in (U, U | spec.PAD_RIGHT, U, U | spec.PAD_LEFT, U):
+        for k in range(30):
             g.step(pad)
-        assert g.cell("yaw") & 1023 == want, f"pad {pad}: heading {g.cell('yaw') & 1023}"
-        assert g.cell("park_ref") == 0
-    for _ in range(20):
-        g.step(spec.PAD_DOWN)
-    for _ in range(20):
-        g.step(U)
-    assert g.cell("park_ref") == 512 and g.cell("yaw") & 1023 == 512, "turned round, Up did not carry on"
+            if k >= 6:
+                gap = ((g.cell("yaw") - g.cell("cam_yaw") + 512) & 1023) - 512
+                assert abs(gap) <= 16, f"the lens {gap} yaw units off his back"
 
 
 def test_the_long_jumps_landing_runs_out_while_B_is_held(cart):
