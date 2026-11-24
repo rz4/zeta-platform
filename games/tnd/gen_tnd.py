@@ -175,7 +175,7 @@ if L3:
 if LAYER in (10, 11, 12):
     SEQS += ("acro_leap", "acro_leap_l", "acro_land", "acro_roll", "acro_long")   # P50: the run's air (P51: either leg), its landing, its roll; P52 the long jump
 if LAYER == 12:
-    SEQS += ("park_rjab",)       # P66: the jab on the run -- his upper half's poses
+    SEQS += ("park_rjab", "park_rcross")   # P66: the jab on the run -- his upper half's poses; P67: and the cross
 
 
 def to_zeta(V):
@@ -3550,6 +3550,7 @@ if LAB:
     PARK_KICKV = int(0.24 * ONE)                   # a wall kick's rise (the flip's is 0.20)
     PARK_UPKICK = int(0.16 * ONE)                  # P65: the kick straight up a face: 1.3 units
     PARK_CATCH_V = int(0.05 * ONE)                 # P66: the ledge is caught only by a jump rising slower than this
+    PARK_RJ_CUT, PARK_RJ_STRING = 6, 40            # P67: the next may start with this much of the last left; the string's memory
     PARK_RJ_N = NPOSE.get("park_rjab", 0)               # P66: the jab on the run: its arm's frames
     PARK_ROLL_BRAKE = int(0.80 * ONE)              # P63: Down held in the roll: its pace a frame
     PARK_INVTOP = int(ONE / (0.13 * 1.24) * ONE) >> 16
@@ -3784,6 +3785,8 @@ if LAB:
         PARK_CAMY, PARK_CG0, PARK_DRW, PARK_CT = (cart.var("park_" + k_) for k_ in ("cam_y", "cam_ground", "cam_draw", "cam_t"))
         PARK_CAMQ, PARK_YS = cart.var("park_cam_asks"), cart.var("park_cam_yaw")
         PARK_VKD = cart.var("park_upkick_done")    # P65: the straight-up kick, once an air
+        PARK_VOFF, PARK_HPV, PARK_PYP = (cart.var("park_" + k_) for k_ in ("draw_dy", "room_y_was", "py_was"))   # P67
+        PARK_RJQ, PARK_RJH, PARK_RJC, PARK_RJS = (cart.var("park_rj_" + k_) for k_ in ("asked", "hand", "string", "sound"))
 
         def park_flip_pad(g_, tag_):
             """THE FLIP BY THE PAD (P62): how far it carries IS the pad -- Up his full pace, nothing half of it, Down
@@ -5066,6 +5069,17 @@ p.mark(fc)
 p.load(F["dead"]).emit(f"jz {L['dead']}_no", f"jmp {L['dead']}")
 p.mark(f"{L['dead']}_no")
 p.load(F["skip"]).emit(f"jz {fc}_r")             # a held frame: listen, and hold
+if PARK:
+    # P67 (the player: "the gun in slowmo only does 3 shot bursts"; his tape of P66: slowed, six rounds went in
+    # fifty frames and then 23 presses met an empty gun -- its 24 frames of reload were the fight's, 84 on the clock):
+    # the park's cylinder turns by the clock; slowed, it is full again in the same 0.4 seconds
+    prl = p.label("pkreload")
+    p.load(RLD).emit(f"jz {prl}")
+    p.addi(RLD, -1)
+    p.load(RLD).emit(f"jz {prl}_d", f"jmp {prl}")
+    p.mark(f"{prl}_d")
+    p.set(SHOTS, 0)
+    p.mark(prl)
 p.emit(f"call {GEST}")
 p.set(GT["jump"], 0).emit(f"jmp {L['frozen']}")
 p.mark(f"{fc}_r")
@@ -5129,6 +5143,9 @@ if L2:
             p.load(PARK_SPQ).emit(f"jz {lk3}_rj")
             p.addi(PARK_SPQ, -1)
             p.mark(f"{lk3}_rj")
+            p.load(PARK_RJC).emit(f"jz {lk3}_rc")
+            p.addi(PARK_RJC, -1)
+            p.mark(f"{lk3}_rc")
         p.load(SJD).push(5).emit("eq", f"jz {lk3}_sm")
         p.load(TGX).load(PX).emit("sub", "dup", "mulq").load(TGZ).load(PZ).emit("sub", "dup", "mulq", "add")
         p.push32(int((SUPER_STOP / ONE) ** 2 * ONE)).emit("lt", f"jz {lk3}_sm")
@@ -5539,12 +5556,22 @@ if PARK:
     p.mark(f"{rq_}_x")
     # P66 (the player: "the running jab should not make the player jump"): X on the run is the jab's ARM over the
     # run's legs (the two halves' poses, below) -- on the ground or in the air; the run goes on under it. No leap.
+    # P67 ("the jab needs improvement"): thrown with the body (the poses); HEARD (the swing's whoosh); and a STRING,
+    # as the boxer's X is -- pressed again inside a second it is the CROSS, off the other hand, then the jab, ... A
+    # press while the arm is still going out is kept, and thrown as the arm comes back.
     p.load(GTAP["carve"]).emit(f"jz {rq_}")
-    p.set(GTAP["carve"], 0)
-    p.load(PARK_SPQ).emit(f"jz {rq_}_j", f"jmp {rq_}")
-    p.mark(f"{rq_}_j")
-    p.set(PARK_SPQ, PARK_RJ_N)
+    p.set(GTAP["carve"], 0).set(PARK_RJQ, 1)
     p.mark(rq_)
+    p.load(PARK_RJQ).emit(f"jz {rq_}_n")
+    p.push(PARK_RJ_CUT).load(PARK_SPQ).emit("lt", f"jz {rq_}_go", f"jmp {rq_}_n")     # (CUT < what is left: not yet)
+    p.mark(f"{rq_}_go")
+    p.load(PARK_RJC).emit(f"jz {rq_}_first")
+    p.load(PARK_RJH).push(1).emit("xor").store(PARK_RJH).emit(f"jmp {rq_}_st")
+    p.mark(f"{rq_}_first")
+    p.set(PARK_RJH, 0)
+    p.mark(f"{rq_}_st")
+    p.set(PARK_SPQ, PARK_RJ_N).set(PARK_RJC, PARK_RJ_N + PARK_RJ_STRING).set(PARK_RJQ, 0).set(PARK_RJS, 1)
+    p.mark(f"{rq_}_n")
 # the special: its own tap
 sp = p.label("g_sp")
 p.load(GTAP["special"]).emit(f"jz {sp}")          # (P30, layer 2: Y is the string's
@@ -7841,7 +7868,8 @@ if CARTMESH:                                 # the pose is where its streams are
             p.load(F["evf"]).emit(f"jz {ru}_e", f"jmp {ru}")
             p.mark(f"{ru}_e")
             p.load(PARK_SPQ).emit(f"jz {ru}_g")
-            p.push(base["park_rjab"] + PARK_RJ_N).load(PARK_SPQ).emit("sub").store(LS0).emit(f"jmp {ru}_set")
+            p.push(base["park_rjab"] + PARK_RJ_N).load(PARK_SPQ).emit("sub")
+            p.load(PARK_RJH).push(base["park_rcross"] - base["park_rjab"]).emit("mul", "add").store(LS0).emit(f"jmp {ru}_set")
             p.mark(f"{ru}_g")
             p.load(RSHOT).emit(f"jz {ru}")
             p.push(base["gun"] + 5 + RUN_ARM).load(RSHOT).emit("sub", f"mini {base['gun'] + NPOSE['gun'] - 1}").store(LS0)
@@ -8053,12 +8081,21 @@ if BASE:
     p.mark(f"{sw_}_e")
     if LAB:                                      # (P42: his feet are on what he stands on)
         p.load(PGH).store(W["dmg"])
-    p.load(W["dmg"]).load(GYC).emit("sub", "dup").push(0).emit("lt", f"jz {sw_}_p")
-    p.emit(f"jmp {sw_}_q")                                      # (toward it by a quarter,
-    p.mark(f"{sw_}_p")                                          # rounded so it arrives: up
-    p.push(3).emit("add")                                       # rounds up, and down the
-    p.mark(f"{sw_}_q")                                          # shift already rounds down)
-    p.emit("shr 2").load(GYC).emit("add").store(GYC)
+    if PARK:
+        # P67 (the player: "the snapping still happens when in platforms especially high ones"): he is drawn at his
+        # height over what he stands on PLUS this -- and this came to what he stands on by a quarter a frame (it is
+        # the kerb's ease). In the air, his feet crossing a box's edge, what is under him changes at once and his
+        # height over it with it -- so he was drawn the box's height too low that frame, and too high leaving it:
+        # 0.5 down and 0.6 up on a box of 0.8, more on a higher. In the park it IS what he stands on; what is eased
+        # is a lift he is given (the ledge caught, a step), below, where he is drawn.
+        p.load(W["dmg"]).store(GYC)
+    else:
+        p.load(W["dmg"]).load(GYC).emit("sub", "dup").push(0).emit("lt", f"jz {sw_}_p")
+        p.emit(f"jmp {sw_}_q")                                      # (toward it by a quarter,
+        p.mark(f"{sw_}_p")                                          # rounded so it arrives: up
+        p.push(3).emit("add")                                       # rounds up, and down the
+        p.mark(f"{sw_}_q")                                          # shift already rounds down)
+        p.emit("shr 2").load(GYC).emit("add").store(GYC)
 
 # his trig, for his keys and his fist: the BODY's facing
 sin_of(p, 256, cell=HEAD)
@@ -10017,6 +10054,40 @@ p.load(LEANR).emit("sub", "dup").push(0).emit("swap", "lt", f"jz {lb_}_p")   # (
 p.push(7).emit("add")                                # eighth, rounded away from zero: it arrives)
 p.mark(f"{lb_}_p")
 p.emit("shr 3").load(LEANR).emit("add").store(LEANR)
+if PARK:
+    # P67: A LIFT GIVEN HIM IS CLIMBED. The ledge caught puts his feet on a top up to 0.7 over them in one frame (and
+    # a step 0.3): his height in the room is taken a frame to a frame, and a rise no jump gives -- more than 0.25, or
+    # any at all on the frame he lands -- is owed to where he is drawn and paid back a third a frame (slowed, a
+    # seventh): he comes up onto it in eight frames.
+    vo = p.label("pkvoff")
+    p.load(F["py"]).load(GYC).emit("add").store(LS0)
+    p.load(LS0).load(PARK_HPV).emit("sub").store(W["dmg"])
+    p.push(int(0.25 * ONE)).load(W["dmg"]).emit("lt", f"jz {vo}_b", f"jmp {vo}_hit")
+    p.mark(f"{vo}_b")
+    p.push(int(0.03 * ONE)).load(W["dmg"]).emit("lt", f"jz {vo}_no")
+    p.load(F["py"]).emit(f"jz {vo}_g", f"jmp {vo}_no")
+    p.mark(f"{vo}_g")
+    p.load(PARK_PYP).emit(f"jz {vo}_no")
+    p.mark(f"{vo}_hit")
+    p.load(PARK_VOFF).load(W["dmg"]).emit("sub", "dup").push(-ONE).emit("lt", f"jz {vo}_c")   # (it < -1: no more than a unit)
+    p.emit("drop").push(-ONE)
+    p.mark(f"{vo}_c")
+    p.store(PARK_VOFF)
+    p.load(LS0).store(PARK_HPV).load(F["py"]).store(PARK_PYP).emit(f"jmp {vo}_z")   # (the frame it is given: drawn where he was)
+    p.mark(f"{vo}_no")
+    p.load(LS0).store(PARK_HPV).load(F["py"]).store(PARK_PYP)
+    p.load(PARK_VOFF).emit(f"jz {vo}_z")
+    p.load(SLOWON).emit(f"jz {vo}_real")                   # (a third of what is left, no more than 0.15 a frame;
+    p.load(PARK_VOFF).push(int(0.14 * ONE)).emit("mulq", "dup").push(-int(0.05 * ONE)).emit("lt", f"jz {vo}_go")   # slowed, a seventh and 0.05)
+    p.emit("drop").push(-int(0.05 * ONE)).emit(f"jmp {vo}_go")
+    p.mark(f"{vo}_real")
+    p.load(PARK_VOFF).push(int(0.33 * ONE)).emit("mulq", "dup").push(-int(0.15 * ONE)).emit("lt", f"jz {vo}_go")
+    p.emit("drop").push(-int(0.15 * ONE))
+    p.mark(f"{vo}_go")
+    p.load(PARK_VOFF).emit("swap", "sub").store(PARK_VOFF)
+    p.push(-int(0.03 * ONE)).load(PARK_VOFF).emit("lt", f"jz {vo}_z")
+    p.set(PARK_VOFF, 0)
+    p.mark(f"{vo}_z")
 for m in ((UPPER, LOWER) if "player" not in OMIT else ()):
     # down, he folds FORWARD over his feet, away from the lens -- the
     # archive's collapse folds over the guard, and backwards took him out
@@ -10024,7 +10095,7 @@ for m in ((UPPER, LOWER) if "player" not in OMIT else ()):
     _up = (lambda k_: (f"load {int(UXS) + k_}", "add")) if LAB and m == UPPER else (lambda k_: ())   # (P46: bent at the waist)
     p.object(NOBJ, m, (f"load {int(PX)}", f"load {int(W['x'])}", "add") + _up(0),
              (f"load {int(F['py'])}", f"load {int(W['y'])}", "add")
-             + ((f"load {int(GYC)}", "add") if BASE else ()) + _up(1),
+             + ((f"load {int(GYC)}", "add") if BASE else ()) + ((f"load {int(PARK_VOFF)}", "add") if PARK else ()) + _up(1),
              (f"load {int(PZ)}", f"load {int(W['z'])}", "add") + _up(2),
              (f"load {int(HEAD)}", f"load {int(F['tilt'])}", f"load {int(W['qx'])}", "add")
              + ((f"load {int(WBD)}", "add") if LAB and m == UPPER else ()) + (
@@ -11347,6 +11418,10 @@ p.set(int(PLAYD["step"]) + 1, int(SND_BOOM)).set(SG["st"], 0).emit(f"jmp {sw}_l"
 p.mark(f"{sw}_lw")
 p.set(int(PLAYD["whiff"]) + 1, int(SND_WHOOSH)).set(SG["wt"], 0)
 p.mark(f"{sw}_l")
+if PARK:                                              # (P67: the jab on the run is heard)
+    p.load(PARK_RJS).emit(f"jz {sw}_rj")
+    p.set(PARK_RJS, 0).set(int(PLAYD["whiff"]) + 1, int(SND_WHOOSH)).set(SG["wt"], 0)
+    p.mark(f"{sw}_rj")
 p.load(ANIM).push(1).emit("eq", f"jz {sw}_s")         # a step each half stride
 p.load(AF).push(15).emit("and", f"jz {sw}_s1", f"jmp {sw}_s")
 p.mark(f"{sw}_s1")

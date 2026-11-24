@@ -3097,3 +3097,36 @@ air (the body's two halves, P43): fourteen poses of his upper half baked on the 
 lunge ahead of the hips. It is an arm: it lands no blow (the park has nothing to hit on the run).
 
 Tests 17. Every other layer byte-identical; the lab's clips bit for bit.
+
+## P67: he is drawn where he is; the cylinder turns by the clock; the jab is thrown with the body (2026-11-24)
+
+The player: "plugged. better, but the snapping still happens when in platforms especially high ones. the gun in
+slowmo only does 3 shot bursts. and the jab needs improvement."
+
+THE SNAPPING WAS THE DRAWING. P66 looked for it in the physics and found a real fault (the catch lifting a rising
+jump), but not this one. His tape of P66 (11 minutes; 88 attempts, 56 cleared; best streak 15) replayed with the
+drawn height beside the true: his height in the room made 10 one-frame rises over 0.3; the height he was DRAWN at
+made 488, the worst 5.96, and was more than 0.3 from where he was for 2,556 of 33,472 frames of the run. He is
+drawn at his height over what is under him plus a copy of ITS height that comes to it a quarter a frame (the
+kerb's ease, P42's platforms riding on it). In the air, his feet crossing a box's edge, what is under him changes
+at once and his height over it with it -- so that frame he was drawn the box's height too low, and leaving it too
+high: 0.5 down and 0.6 up on a box of 0.8, and by the box's height on a higher one, as he said. In the park the
+copy IS the height. What is eased is a lift GIVEN him -- the ledge caught (up to 0.7 in a frame), a step: a rise no
+jump gives (over 0.25, or any on the frame he lands) is owed to the drawing and paid back a third a frame, no more
+than 0.15 (slowed: a seventh, 0.05) -- he comes up onto it. The same tape on P67, his motion frame for frame the
+tape's: 0 one-frame rises over 0.25 (the most 0.24, a jump's own speed); 29 frames more than 0.3 from where he is,
+all of them the 17 climbs.
+
+THE GUN, SLOWED. He taps B every 8 frames slowed: six rounds in fifty frames, and then the cylinder's 24 frames of
+reload were the FIGHT's frames -- 84 on the clock, in which 23 of his 77 slowed presses met an empty gun (51
+answered). The park's cylinder turns by the clock: 72 of 77 answered on the same tape. (Six rounds is the mag knob.)
+
+THE JAB. Through the game's lens, behind him, P66's arm went straight out on his centre line and his own back hid
+it. It is thrown with the body, as the boxer's is: the lead shoulder turned in behind the hand (26 degrees), the
+other hand at his chin, and the fist PUT by the rig's own reach ahead of that shoulder and outside it, where the
+lens sees the arm go out past him; out in two frames, held five. It is heard (the swing's whoosh). And it is a
+string, as the boxer's X is: pressed again inside a second it is the CROSS off the other hand (the same poses
+mirrored, park_rcross), then the jab; a press while the arm is going out is kept and thrown as it comes back.
+
+Tests 21. Every other layer byte-identical; the lab's clips bit for bit. (The lab layers draw him the same lagging
+way over their structures; not changed here.)

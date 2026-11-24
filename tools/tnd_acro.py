@@ -330,17 +330,41 @@ RJ_N = 14
 RJ_DROP = float(np.mean([grounded(pstride(f / 16))[1] for f in range(16)]))
 RJ_BASE = pstride(0.0)
 def rjab(u, tw):
+    # P67 (the player: "the jab needs improvement"; seen through the game's lens, behind him, the arm went straight
+    # out ahead on his centre line and his own back hid it): it is thrown with the BODY, as the boxer's is -- the
+    # lead shoulder turned in behind the hand, the trunk into it, the other hand at his chin -- and the fist is PUT
+    # (the rig's own reach, as the punches are) ahead of that shoulder and a hand outside it, at his head's height,
+    # where the lens sees the arm go out past him. Out in two frames, held five, back.
     ready = dict(RJ_BASE, **arms(14, 104, 14, 104))
-    out_ = dict(RJ_BASE, **arms(4, 126, 138, 5), **{"Spine": [17, -3 + tw * 0.4, 0], "Spine1": [9, -2 + tw, 0],
-                                                     "Neck": [-2, 4 - tw * 0.5, 0], "Head": [-2, 3 - tw * 0.4, 0]})
-    return keyed([(0.0, ready), (0.22, out_), (0.48, out_), (1.0, ready)], u)
-def _fist(tw):
-    return frozen(bm._pose_and_skin(rjab(0.3, tw), np.array([0.0, -RJ_DROP, 0.0]), None))[0][:, 0].max()
-RJ_TW = 16.0 if _fist(16.0) > _fist(-16.0) else -16.0
-rj = [frozen(bm._pose_and_skin(rjab(k / (RJ_N - 1), RJ_TW), np.array([0.0, -RJ_DROP, 0.0]), None)) for k in range(RJ_N)]
+    out_ = dict(RJ_BASE, **arms(8, 118, 60, 80), **{"Spine": [19, -3 + tw * 0.45, 0], "Spine1": [11, -2 + tw, 0],
+                                                    "Neck": [-4, 4 - tw * 0.6, 0], "Head": [-2, 3 - tw * 0.3, 0]})
+    return keyed([(0.0, ready), (0.16, out_), (0.46, out_), (1.0, ready)], u)
+def rjab_w(u):
+    return bm._smoothstep(u / 0.16) if u < 0.16 else 1.0 if u <= 0.46 else 1.0 - bm._smoothstep((u - 0.46) / 0.54)
+def rjab_frame(u, who):
+    p_ = rjab(u, RJ_TW)
+    if who == "rear":
+        p_ = mirror(p_)
+    w = rjab_w(u)
+    def repose(Vt, skel_, angles, w=w):
+        body = anat.pose(angles)
+        arm = anat.arm(who)
+        out_d, up, fwd = np.asarray(arm.outward, float), np.array([0.0, 0.0, 1.0]), np.array([1.0, 0.0, 0.0])   # (the archive's axes)
+        sh, el, fist = body.at(arm.shoulder_bone), body.at(arm.elbow_bone), Vt[arm.knuckles].mean(0)
+        reach = np.linalg.norm(el - sh) + np.linalg.norm(fist - el)
+        aim = fwd + 0.42 * out_d + 0.24 * up                 # (ahead of the shoulder, a hand outside it, a little up)
+        at = sh + 0.96 * reach * aim / np.linalg.norm(aim)   # (the arm all but straight: it never stretches)
+        bm._reach_arm(Vt, arm, body, at, out_d - 0.6 * up, w)
+    return frozen(bm._pose_and_skin(p_, np.array([0.0, -RJ_DROP, 0.0]), None, repose))
+RJ_TW = -26.0
+rj = [rjab_frame(k / (RJ_N - 1), "lead") for k in range(RJ_N)]
 out["V_park_rjab"], out["S_park_rjab"] = (np.stack(x) for x in zip(*rj))
-_v = out["V_park_rjab"][4]
-print("rjab: twist", RJ_TW, "| fist reaches x", round(float(_v[:, 0].max()), 2), "at z", round(float(_v[_v[:, 0].argmax(), 2]), 2), "| top", round(float(_v[:, 2].max()), 2))
+# (the CROSS: the same blow off the other hand -- the string's second, as the boxer's is)
+rc = [rjab_frame(k / (RJ_N - 1), "rear") for k in range(RJ_N)]
+out["V_park_rcross"], out["S_park_rcross"] = (np.stack(x) for x in zip(*rc))
+for nm_ in ("park_rjab", "park_rcross"):
+    _w = out["V_" + nm_][4]; _i = _w[:, 0].argmax()
+    print(nm_, "fist x fwd %.2f  y left %.2f  z up %.2f" % tuple(_w[_i]), "| body y %.2f..%.2f" % (out["V_" + nm_][0][:, 1].min(), out["V_" + nm_][0][:, 1].max()))
 np.savez_compressed(sys.argv[1], **out)
 print({k: v.shape for k, v in out.items()})
 '''

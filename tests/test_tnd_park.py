@@ -444,3 +444,104 @@ def test_a_shot_and_a_jab_on_the_run_leave_the_run_going(cart):
             upper.add(g.cell("aim_upose"))
         assert g.u() - u0 > 30 * 0.19, f"{name}: he covered {g.u() - u0:.2f} in 30 frames"
         assert any(not 387 <= u < 387 + 16 for u in upper), f"{name}: his upper half never left the stride"
+
+
+def _drawn(g):
+    """the height his body is drawn at (the draw's own sum)"""
+    import bot
+    return g.py() + (bot.s32(g.d[g.syms["curb_y"]]) + bot.s32(g.d[g.syms["park_draw_dy"]])) / ONE
+
+
+def test_he_is_drawn_where_he_is_over_the_boxes(cart):
+    """P67 ("the snapping still happens when in platforms especially high ones"; on his tape of P66 the drawn body
+    made 488 upward one-frame jumps over 0.3, the worst 5.96): he was drawn at his height over what is under him plus
+    an EASED copy of its height, so crossing a box's edge in the air dropped him by the box and leaving it threw him
+    up. Jumping onto a box and running off it, he is drawn where he is, and never moves more than a jump's speed"""
+    import bot
+    g = bot.Park(cart)
+    _run(g)
+    entry = min(b["z0"] for b in g.rows() if b["role"] & 1)
+    for _ in range(200):
+        if g.u() > entry - 1.4:
+            break
+        g.step(L | U)
+    was = _drawn(g)
+    crossed = False
+    for i in range(40):
+        g.step(L | U | (A if i < 10 else 0))
+        true, now = g.py() + g.cell("lab_gh") / ONE, _drawn(g)
+        crossed |= g.cell("lab_gh") > 0
+        assert abs(now - true) < 0.01, f"frame {i}: drawn at {now:.2f}, he is at {true:.2f}"
+        assert abs(now - was) < 0.3, f"frame {i}: the drawn body moved {now - was:+.2f}"
+        was = now
+    assert crossed, "he never crossed the box"
+
+
+def test_a_ledge_caught_is_climbed_not_jumped_to(cart):
+    """P67: the catch puts his feet on the top at once (the game's truth) -- the body is drawn coming up onto it over
+    several frames, and ends where he is. (He is put at a jump's top beside a face, 0.6 under its top.)"""
+    import bot
+    g = bot.Park(cart)
+    _run(g)
+    for _ in range(30):
+        g.step(L | U)
+    face = next(b for b in g.rows() if b["kind"] == 1 and b["top"] > 1.5)
+    g.d[g.syms["pz"]] = int(round((face["z0"] - 0.5) * ONE)) & 0xFFFFFFFF
+    g.d[g.syms["px"]] = int(round((face["x0"] + face["x1"]) / 2 * ONE)) & 0xFFFFFFFF
+    for k, v in (("f_py", int((face["top"] - 0.6) * ONE)), ("f_pvy", int(0.02 * ONE)), ("f_flipu", 1), ("lab_gh", 0), ("lab_si", -1)):
+        g.d[g.syms[k]] = v & 0xFFFFFFFF
+    g.step(L | U)                                        # (a frame for the drawing to find him there:
+    g.d[g.syms["park_draw_dy"]] = 0                      # being put there is itself a lift it would climb)
+    true, drawn = [g.py() + g.cell("lab_gh") / ONE], [_drawn(g)]
+    for i in range(30):
+        g.step(L | U)
+        true.append(g.py() + g.cell("lab_gh") / ONE)
+        drawn.append(_drawn(g))
+    lift = max(np.diff(true))
+    assert lift > 0.3, f"no ledge was caught (the biggest lift {lift:.2f})"
+    assert max(np.diff(drawn)) < 0.3, f"the drawn body jumped {max(np.diff(drawn)):.2f}"
+    assert sum(1 for a, b in zip(true, drawn) if abs(a - b) > 0.02) >= 4, "it was not climbed over several frames"
+    assert abs(drawn[-1] - true[-1]) < 0.01, "the climb never ended"
+
+
+def test_the_gun_reloads_by_the_clock_in_slowed_time(cart):
+    """P67 ("the gun in slowmo only does 3 shot bursts"; his tape: slowed, six rounds and then 23 presses on an empty
+    gun -- its reload counted the fight's frames, 84 on the clock): twenty taps of B, slowed, and most are shots"""
+    import bot
+    shots = {}
+    for name, hold in (("real", 0), ("slowed", spec.PAD_R)):
+        g = bot.Park(cart)
+        g.d[g.syms["px"]] = int(round((-64.0 + 8.0) * ONE)) & 0xFFFFFFFF
+        _run(g)
+        for _ in range(60):
+            g.step(L | U | hold)
+        n, was = 0, g.cell("run_shot")
+        for i in range(240):
+            g.step(L | U | hold | (spec.PAD_B if i % 12 < 4 else 0))
+            n += g.cell("run_shot") > was
+            was = g.cell("run_shot")
+        shots[name] = n
+    assert shots["slowed"] >= 15 and shots["real"] >= 17, shots
+
+
+def test_x_twice_on_the_run_is_the_jab_then_the_cross(cart):
+    """P67 ("the jab needs improvement"): X on the run is a string as the boxer's is -- the jab, and pressed again
+    the cross off the other hand; alone again after a second, the jab"""
+    import bot
+    g = bot.Park(cart)
+    g.d[g.syms["px"]] = int(round((-64.0 + 8.0) * ONE)) & 0xFFFFFFFF
+    _run(g)
+    for _ in range(60):
+        g.step(L | U)
+    hands, was = [], 0
+    for i in range(160):
+        g.step(L | U | (spec.PAD_X if i in (0, 1, 2, 12, 13, 14, 110, 111, 112) else 0))
+        left = g.cell("park_super_q")
+        if left > was:                                   # (a blow begun)
+            hands.append((i, g.cell("park_rj_hand"), None))
+        elif was and left and hands[-1][2] is None:
+            hands[-1] = hands[-1][:2] + (g.cell("aim_upose"),)
+        was = left
+        assert g.py() == 0 and 387 <= g.cell("pose") < 387 + 16
+    assert [h[1] for h in hands] == [0, 1, 0], hands
+    assert hands[0][2] != hands[1][2], "the cross is the jab's own poses"
