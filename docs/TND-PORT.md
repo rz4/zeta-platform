@@ -3364,3 +3364,40 @@ Seen on the tape and NOT changed: the gun is 85% of what he takes off them (a ro
 twelve, six rounds, 0.4 seconds to load); bodies get up whole after two and a half seconds, for ever.
 
 Tests 19 (tests/test_tnd_yard.py). Layers 0, 4, 8, 10, 11, 12 and the full cart byte-identical.
+
+## P75: the lock, again; A in the tank; the slide is a blow (2026-11-24)
+
+The player, two more sessions (17 minutes of P73, 11 of P74): "look at both, targeting still needs work. also slide
+wilhile running should do damage, and down a in the tank should be back dodge, just a in tank is quick turn".
+
+HIS TAPE OF P74 (39,488 frames; the tank 67%, the boxer 26%; down 7 times; 100 blows on him: the double 50, the
+elite 46, the common 4, the horde none). What P74 changed held: locked on a body, it was undrawn 0% of the time
+(17% on the second P73 session); the spot changed twice (58). What the tape shows of the lock now:
+- STEPS WENT THE WRONG WAY: of 11 steps with Left or Right, 6 went to the side he pressed. The order is round the
+  ring, so the next one left of the leftmost is the rightmost. A step takes the next one on THAT side, half a turn
+  at most; none there: it stays.
+- HE STOOD, HOLDING THE PAD: R alone in the tank plants him (P37, his own rule: the pad is only the choosing) -- and
+  with it held he held Up for 1,109 frames and Down for 925 of 9,111, 38 and 22 presses, and stood; 14 of the 100
+  blows landed on him so. In the yard, locked, UP AND DOWN WALK him to it and from it (his steering is on it); Left
+  and Right still step; he does not turn. (MY READING of the tape, against his rule of P37: to be judged on glass.)
+- R took the nearest drawn body 81 times in 84, and one that was at him 58 times against 11: left as it is.
+
+A IN THE TANK: alone, the quick turn (it was Down with A); with Down, the dodge back (it was A alone); with a side,
+the dodge that way, as ever. Locked, A alone is still the dodge back: his facing is the lock's. (On the tape he
+pressed A alone 70 times and Down with A 38.)
+
+THE SLIDE IS A BLOW (Y in the run): through its eighteen frames his feet take a body's legs -- the hook's two off
+it, held twice as long -- and the body is down, as the dive's is.
+
+A FIGHT CALLS THE OTHERS: in eleven minutes in the ring the range's five, twelve units off, slept and landed
+nothing. With anybody awake, he wakes what is within sixteen units. (From where he begins nobody is awake.)
+
+Room made: the long jump's charge and the locked run's shot and superman punch are not built into the yard (its run
+has no lock and no long jump). The program is 29,095 words, 170 from its limit; data memory 35 free.
+
+MEASURED, a minute of everything at random: 43,855 instructions a frame at the worst; on the simulated silicon 51%
+of the frame at the median, 80% at the 99th percentile, 87% AT THE PEAK -- under the gate of 90%, by less than it
+was (80% at P74): more bodies come to the fight.
+
+Tests 23. Layers 0, 4, 8, 10, 11, 12 and the full cart byte-identical. (A in the tank and the slide's blow are the
+yard's only: the other layers keep Down+A for the quick turn until he says.)

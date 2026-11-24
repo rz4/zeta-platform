@@ -3723,6 +3723,7 @@ if LAB:
     PARK_DIVE_V, PARK_DIVE_N = int(0.15 * ONE), 16
     PARK_DIVE_K = int(round(12 * ONE / 0.275))            # (its thirteen poses over its rise and fall: 0.15 to -0.125)
     PARK_DIVE_REACH, PARK_DIVE_HIGH = int(0.7 * ONE), int(0.95 * ONE)   # (his shoulder: ahead of him; and where on a body it lands)
+    PARK_SLIDE_N = 18                              # P75: the frames the slide is a blow
     PARK_ROLL_BRAKE = int(0.80 * ONE)              # P63: Down held in the roll: its pace a frame
     PARK_INVTOP = int(ONE / (0.13 * 1.24) * ONE) >> 16
     LONG_G, LONG_V0 = int(0.0032 * ONE), 0.0595
@@ -4083,6 +4084,7 @@ if LAB:
             "fight", "sides", "sides_was", "reach", "d2", "mv", "brg", "k", "body", "size", "state", "now"))
         YENG = cart.var("yard_side", len(ENEMY))           # P74: engaged: which side it has (1, 2), or none
         YFB, YSPD, YSPN = cart.var("yard_face_t"), cart.var("yard_spot_tap"), cart.var("yard_spot_n")
+        YHOT, YHC = cart.var("yard_hot"), cart.var("yard_hot_n")       # P75: anybody awake (last frame; this)
         YP = cart.var("yard_step", 4)
         L_YAI = p.label("yardai")
     L_HITR = p.label("hitr")
@@ -4874,7 +4876,9 @@ if BASE:
         # second of a pair could never be reached. Left is the next key up,
         # Right the same round backwards.)
         p.push(int(TB)).load(TSEL).emit("add", "loadi").store(W["dg"])       # his own
-        p.push(9000).store(W["dc"]).load(TSEL).store(W["k"])
+        # (P75, his tape of P74: 6 of 11 steps went to the side he pressed -- round the ring the next one LEFT of the
+        # leftmost is the rightmost. In the yard a step takes the next one on THAT side, half a turn at most; none: it stays)
+        p.push(4096 if YARD else 9000).store(W["dc"]).load(TSEL).store(W["k"])
         fresh(spec.PAD_LEFT)
         p.store(W["d2"])                          # (1: leftward -- a raised bearing)
         for t_ in range(NE + 1):
@@ -5550,7 +5554,14 @@ if L2:
             p.emit("sub").store(W["qz"])
             p.load(W["qx"]).emit("dup", "mulq").load(W["qz"]).emit("dup", "mulq", "add").store(YD2)
             p.load(YFIGHT).load(F["dead"]).push(0).emit("eq", "and", f"jz {ya}_sleep")
-            p.load(YD2).push32(Y_AGGRO2).emit("lt", f"jz {ya}_a1")
+            p.load(YD2).push32(Y_AGGRO2).emit("lt", f"jz {ya}_a0")
+            aset(YAWK, 1)
+            p.mark(f"{ya}_a0")
+            # P75 (his tape of P74: eleven minutes in the ring with the two of it -- the range's five, twelve units
+            # off, slept through it and landed nothing): A FIGHT CALLS THE OTHERS. With anybody awake, he wakes what
+            # is within sixteen units.
+            p.load(YHOT).emit(f"jz {ya}_a1")
+            p.load(YD2).push32(int(16.0 ** 2 * ONE)).emit("lt", f"jz {ya}_a1")
             aset(YAWK, 1)
             p.mark(f"{ya}_a1")
             p.push32(Y_LEASH2).load(YD2).emit("lt", f"jz {ya}_aw")
@@ -5565,6 +5576,8 @@ if L2:
             p.mark(f"{ya}_c0")
             af(YENG)
             p.load(YSC).emit("or").store(YSC)
+            af(YAWK)
+            p.load(YHC).emit("or").store(YHC)
             af(YACT)
             p.store(YST)
             p.load(YST).emit(f"jz {ya}_free")
@@ -5910,7 +5923,7 @@ if L2:
             p.load(LS0).emit("shr 7").push(1).emit("and").store(YFIGHT)
         p.mark(wh)
         if YARD:
-            p.set(YSC, 0)
+            p.set(YSC, 0).set(YHC, 0)
         for e_ in ENEMY:
             ea = p.label("labenemy")
             k_ = e_["k"]
@@ -5996,7 +6009,7 @@ if L2:
             if YARD:
                 yard_ai(e_)
         if YARD:
-            p.load(YSC).store(YSD)
+            p.load(YSC).store(YSD).load(YHC).store(YHOT)
     if L4 and not LAB:
         # P37: THE ENEMIES MOVE (the player: "lets have then move and make them
         # target able"). Each, up: held by a blow it stands; else it walks to
@@ -6550,22 +6563,23 @@ if LAB:
     if PARK:
         # P59: THE LONG JUMP ON DOWN. In the run, on the ground, Down held charges it (the landing shown, further each
         # frame); let go, he goes -- low and flat, the long jump's own pull
-        lj_ = p.label("pklong")
-        p.load(F["sty"]).push(1).emit("eq", f"jz {lj_}_z")
-        p.load(F["py"]).emit(f"jz {lj_}_g")
-        p.mark(f"{lj_}_z")
-        p.set(PARK_LJC, 0).emit(f"jmp {lj_}")
-        p.mark(f"{lj_}_g")
-        p.load(PARK_DN).emit(f"jz {lj_}_up")                     # (P61: never -- "drop the b long jump")
-        p.load(PARK_LJC).push(PARK_LJ_MAX).emit("lt", f"jz {lj_}")
-        p.addi(PARK_LJC, 1).emit(f"jmp {lj_}")
-        p.mark(f"{lj_}_up")
-        p.load(PARK_LJC).emit(f"jz {lj_}")
-        park_ljv(p)
-        p.emit("dup").store(F["pvy"]).store(JV0)
-        p.set(GRISE, LONG_G).set(GFALL, LONG_G).set(LJMP, 1).push32(_leapk(LONG_V0)).store(LEAPK)
-        p.set(F["py"], 1).set(PARK_LJC, 0).set(PARK_CYT, 0).set(CHG, 0)
-        p.mark(lj_)
+        if not YARD:                                # (the yard: no long jump)
+            lj_ = p.label("pklong")
+            p.load(F["sty"]).push(1).emit("eq", f"jz {lj_}_z")
+            p.load(F["py"]).emit(f"jz {lj_}_g")
+            p.mark(f"{lj_}_z")
+            p.set(PARK_LJC, 0).emit(f"jmp {lj_}")
+            p.mark(f"{lj_}_g")
+            p.load(PARK_DN).emit(f"jz {lj_}_up")                     # (P61: never -- "drop the b long jump")
+            p.load(PARK_LJC).push(PARK_LJ_MAX).emit("lt", f"jz {lj_}")
+            p.addi(PARK_LJC, 1).emit(f"jmp {lj_}")
+            p.mark(f"{lj_}_up")
+            p.load(PARK_LJC).emit(f"jz {lj_}")
+            park_ljv(p)
+            p.emit("dup").store(F["pvy"]).store(JV0)
+            p.set(GRISE, LONG_G).set(GFALL, LONG_G).set(LJMP, 1).push32(_leapk(LONG_V0)).store(LEAPK)
+            p.set(F["py"], 1).set(PARK_LJC, 0).set(PARK_CYT, 0).set(CHG, 0)
+            p.mark(lj_)
 # THE JUMP: X's press, at once -- unless A is down (carve+jump launches)
 jp = p.label("jump")
 if L2:
@@ -6607,7 +6621,15 @@ p.emit("lt", f"jz {dcn}_r", f"jmp {jp}")
 p.mark(f"{dcn}_r")
 p.set(ANIM, 0)
 p.mark(dcn)
-if BASE:                                          # P21: Down alone with A: the quick turn
+if YARD:
+    # P75 (the player: "down a in the tank should be back dodge, just a in tank is quick turn"): A ALONE is the quick
+    # turn; with Down it is the dodge back, as with any way held it is the dodge that way. (Locked, his facing is the
+    # lock's: there A alone is still the dodge back.)
+    p.emit("load 1").push(15).emit("and").load(LOCK).emit("or", f"jz {dg_}_q", f"jmp {dg_}_nq")
+    p.mark(f"{dg_}_q")
+    p.set(QT, 512).set(WSPD, 0).emit(f"jmp {jp}")
+    p.mark(f"{dg_}_nq")
+elif BASE:                                        # P21: Down alone with A: the quick turn
     p.emit("load 1").push(15).emit("and").push(spec.PAD_DOWN).emit("eq", f"jz {dg_}_nq")
     p.set(QT, 512).set(WSPD, 0).emit(f"jmp {jp}")
     p.mark(f"{dg_}_nq")
@@ -7162,22 +7184,23 @@ if L3:
         p.load(F["bmv"]).store(F["mv"]).set(F["buf"], 0).set(RSHOT, RUN_ARM)
         p.load(HEAD).store(W["head"]).emit(f"call {L_FIRE}", f"jmp {L['walk']}_q")
         p.mark(prs)
-    rs_ = p.label("runshot")
-    p.load(LOCK).load(F["sty"]).push(1).emit("eq", "and", f"jz {rs_}")
-    p.push(MOVE["gun"] - 1).load(F["bmv"]).emit("lt", f"jz {rs_}_p")
-    p.load(F["bmv"]).store(F["mv"]).set(F["buf"], 0).set(RSHOT, RUN_ARM)
-    p.load(LBRG).store(W["head"]).emit(f"call {L_FIRE}", f"jmp {L['walk']}_q")
-    p.mark(f"{rs_}_p")
-    p.load(F["py"]).emit(f"jz {rs_}_g", f"jmp {rs_}")
-    p.mark(f"{rs_}_g")
-    p.set(F["bmv"], MOVE["special"]).set(F["c3"], 3).set(SJD, 5).set(F["spd"], 0).set(F["py"], 1)
-    knob(p, "jump").store(F["pvy"])
-    p.load(LBRG).emit("dup").store(YAW).store(HEAD)
-    sin_of(p, cell=LBRG)
-    p.push(SUPER_V).emit("mulq").push(0).emit("swap", "sub").store(F["vx"])
-    sin_of(p, 256, cell=LBRG)
-    p.push(SUPER_V).emit("mulq").store(F["vz"])
-    p.mark(rs_)
+    if not YARD:                                    # (the yard's run has no lock: R is its slowed time)
+        rs_ = p.label("runshot")
+        p.load(LOCK).load(F["sty"]).push(1).emit("eq", "and", f"jz {rs_}")
+        p.push(MOVE["gun"] - 1).load(F["bmv"]).emit("lt", f"jz {rs_}_p")
+        p.load(F["bmv"]).store(F["mv"]).set(F["buf"], 0).set(RSHOT, RUN_ARM)
+        p.load(LBRG).store(W["head"]).emit(f"call {L_FIRE}", f"jmp {L['walk']}_q")
+        p.mark(f"{rs_}_p")
+        p.load(F["py"]).emit(f"jz {rs_}_g", f"jmp {rs_}")
+        p.mark(f"{rs_}_g")
+        p.set(F["bmv"], MOVE["special"]).set(F["c3"], 3).set(SJD, 5).set(F["spd"], 0).set(F["py"], 1)
+        knob(p, "jump").store(F["pvy"])
+        p.load(LBRG).emit("dup").store(YAW).store(HEAD)
+        sin_of(p, cell=LBRG)
+        p.push(SUPER_V).emit("mulq").push(0).emit("swap", "sub").store(F["vx"])
+        sin_of(p, 256, cell=LBRG)
+        p.push(SUPER_V).emit("mulq").store(F["vz"])
+        p.mark(rs_)
 # LAUNCH: the buffered move, and its lunge as ONE impulse (tear.py _launch)
 p.load(F["bmv"]).store(F["mv"])
 p.set(ANIM, 2).set(AF, 0).set(F["con"], 0).set(F["buf"], 0)
@@ -7477,6 +7500,8 @@ if L1:
     p.load(F["py"]).emit(f"jz {sd_}_g", f"jmp {sd_}")
     p.mark(f"{sd_}_g")
     p.set(SLT, SLIDE_MAX).set(SLF, 0)
+    if YARD:                                                       # (P75: "slide wilhile running should do damage": below)
+        p.set(PARK_SPQ, PARK_SLIDE_N).set(F["con"], 0)
     p.load(F["spd"]).push(SLIDE_BOOST).emit("mulq").store(SLV)
     p.emit(f"jmp {sd_}_on")
     p.mark(sd_)
@@ -7666,7 +7691,10 @@ if BASE:
     if L1:                                        # (out of the run: its speed, and the
         p.load(F["spd"]).push(int(0.8 * ONE)).emit("mulq").store(F["spd"])   # lean it gives him, die away)
     p.push(0)
-    if L3:                                        # (P35: locked, he is planted)
+    # P75 (his tape of P74: with R held in the tank he held Up for 1,109 frames and Down for 925 -- and stood, planted;
+    # 14 blows landed on him so): in the yard, locked, Up and Down WALK him to it and from it (his steering is on it);
+    # Left and Right still step to the next. He does not turn.
+    if L3 and not YARD:                           # (P35: locked, he is planted)
         p.load(LOCK)
         if L4:
             p.load(PLANT).emit("or")
@@ -8946,6 +8974,13 @@ if PARK:
     p.load(PX).push(PARK_DIVE_REACH).load(F["ps"]).emit("mulq", "sub").store(F["fx"])
     p.load(PZ).push(PARK_DIVE_REACH).load(F["pc"]).emit("mulq", "add").store(F["fz"])
     p.set(F["fy"], PARK_DIVE_HIGH)                                        # (P69: a standing body's middle, whatever his own height)
+    if YARD:
+        # P75 (the player: "slide wilhile running should do damage"): THE SLIDE IS A BLOW TOO, through its frames --
+        # his feet, low: it takes a body's LEGS (the hook's worth, held twice as long), and what it takes is down
+        sl_ = p.label("slidelow")
+        p.load(ANIM).push(7).emit("eq", f"jz {sl_}")
+        p.set(F["fy"], int(0.3 * ONE))
+        p.mark(sl_)
     p.emit(f"jmp {nf_}_land")
     p.mark(rj)
 p.load(ANIM).push(2).emit("eq", f"jz {nf_}")

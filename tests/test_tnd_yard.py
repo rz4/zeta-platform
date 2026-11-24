@@ -266,7 +266,7 @@ def test_they_come_and_strike_and_the_far_ones_sleep(cart):
     for _ in range(70):
         g.step(U)
     hp, moves, most = g.cell("p_hp"), set(), 0
-    for i in range(240):
+    for i in range(420):                         # (P74: a body comes round to its side before it tells: seven seconds)
         g.step(0)
         at_it = [k for k in range(7) if y.arr("yard_act", k) in (TELL, BLOW)]
         most = max(most, len(at_it))
@@ -589,3 +589,116 @@ def test_the_spot_steps_on_a_tap_of_its_own(cart):
     assert spot([D] * 3 + [D | X] * 3 + [D] * 3) == 0, "Down with a blow stepped it"
     assert spot([X] * 3 + [0] * 3 + [D] * 4) == 0, "a tap just after a blow's button stepped it"
     assert g.cell("t_spot") == 1
+
+
+# ---- P75 -------------------------------------------------------------------------------------------------------------
+def _wrap(a):
+    return ((a + 512) % 1024) - 512
+
+
+def test_a_in_the_tank(cart):
+    """P75 ("down a in the tank should be back dodge, just a in tank is quick turn"): A alone turns him half round
+    where he stands; Down with A is the dodge back; a side with A the dodge that way; and locked, A alone is still
+    the dodge back (his facing is the lock's)"""
+    D, LEFT = spec.PAD_DOWN, spec.PAD_LEFT
+    out = {}
+    for name, keys in (("alone", [A] * 3), ("down", [D | A] * 3 + [D] * 3), ("left", [LEFT | A] * 3)):
+        y = Yard(cart)
+        g = y.g
+        y.who(3)
+        for _ in range(20):
+            g.step(0)
+        yaw, (u0, v0) = g.cell("yaw"), y.uv()
+        for q in keys + [0] * 40:
+            g.step(q)
+        out[name] = (_wrap(g.cell("yaw") - yaw), y.uv()[0] - u0, y.uv()[1] - v0)
+    assert abs(out["alone"][0]) == 512 and abs(out["alone"][1]) + abs(out["alone"][2]) < 0.05, out["alone"]
+    assert out["down"][0] == 0 and out["down"][2] < -0.4, out["down"]              # (he faces north: back is south)
+    assert out["left"][0] == 0 and out["left"][1] < -0.4, out["left"]
+    y = Yard(cart)
+    g = y.g
+    y.who(3)
+    for _ in range(100):
+        g.step(U)
+    for _ in range(20):
+        g.step(spec.PAD_R)
+    assert g.cell("locked")
+    yaw = g.cell("yaw")
+    for q in [spec.PAD_R | A] * 3 + [spec.PAD_R] * 40:
+        g.step(q)
+    assert abs(_wrap(g.cell("yaw") - yaw)) < 64, "locked, A alone turned him round"
+
+
+def test_the_slide_is_a_blow(cart):
+    """P75 ("slide wilhile running should do damage"): Y in the run, into a body: it takes its legs -- the hook's
+    two off it -- and the body is down"""
+    y = Yard(cart)
+    g = y.g
+    y.who(3)
+    bu, bv = y.body(2)
+    y.put(bu, bv - 5.0, 256)
+    for q in (L, L, 0, 0, 0, L, L, L):
+        g.step(q)
+    hp = g.cell("e2_hp")
+    for i in range(90):
+        g.step(L | U | (spec.PAD_Y if y.far(2) < 2.6 and i % 2 == 0 else 0))
+        if g.cell("e2_hp") < hp:
+            break
+    assert g.cell("e2_hp") == hp - 2 and g.cell("e2_st") == 2, (g.cell("e2_hp"), g.cell("e2_st"))
+    assert g.cell("aim_zone") == 2 and g.cell("anim") == 7, "it was not the slide, at the legs"
+
+
+def test_locked_in_the_tank_he_walks_to_it_and_steps_to_the_side_pressed(cart):
+    """P75 (his tape of P74: R held in the tank, he held Up 1,109 frames and Down 925 and stood; and 6 of 11 steps
+    with Left and Right went to the side pressed): locked, Up walks him to it and Down from it, without turning;
+    Left takes the next body on his left and Right the next on his right -- and at the last on a side, it stays"""
+    y = Yard(cart)
+    g = y.g
+    y.who(3)                                     # (everyone standing)
+    R, D, LEFT, RIGHT = spec.PAD_R, spec.PAD_DOWN, spec.PAD_LEFT, spec.PAD_RIGHT
+    y.put(-14.0, 3.0, 256)                       # south of the range's five, facing them
+    for _ in range(30):
+        g.step(R)
+    assert g.cell("locked")
+
+    def chosen():
+        t = g.cell("t_sel")
+        return t - (1 << 32) if t >= 1 << 31 else t
+
+    def bearing(k):
+        (u, v), (bu, bv) = y.uv(), y.body(k)
+        return math.degrees(math.atan2(bv - v, bu - u))             # (counter-clockwise: a greater bearing is to his left)
+    t0, far0 = chosen(), y.far(chosen())
+    for _ in range(40):
+        g.step(R | U)
+    assert chosen() == t0 and y.far(t0) < far0 - 0.8, f"Up, locked: {far0:.2f} -> {y.far(t0):.2f}"
+    for _ in range(40):
+        g.step(R | D)
+    assert y.far(t0) > far0 - 0.3, f"Down, locked: {y.far(t0):.2f}"
+    steps = 0
+    for key, sign in ((LEFT, 1), (LEFT, 1), (LEFT, 1), (LEFT, 1), (LEFT, 1), (RIGHT, -1), (RIGHT, -1), (RIGHT, -1), (RIGHT, -1), (RIGHT, -1), (RIGHT, -1)):
+        was = chosen()
+        for q in [R | key] * 3 + [R] * 25:
+            g.step(q)
+        now = chosen()
+        if now != was:
+            d = (bearing(now) - bearing(was) + 180) % 360 - 180
+            assert d * sign > 0, f"{'Left' if sign > 0 else 'Right'} went {d:+.0f} degrees round"
+            steps += 1
+    assert steps >= 5, f"{steps} steps"
+
+
+def test_a_fight_calls_the_others(cart):
+    """P75 (his tape of P74: eleven minutes in the ring; the range's five slept through it): standing in the ring's
+    middle with the ring's two awake, bodies of the range wake -- they are within sixteen units -- and from where he
+    begins, with nobody awake, nobody does"""
+    y = Yard(cart)
+    g = y.g
+    for _ in range(200):
+        g.step(0)
+    assert not any(y.arr("yard_awake", k) for k in range(7))
+    y.put(0.0, 0.0, 256)
+    for _ in range(300):
+        g.d[g.syms["p_hp"]] = 140
+        g.step(0)
+    assert sum(y.arr("yard_awake", k) for k in range(1, 6)) >= 2, [y.arr("yard_awake", k) for k in range(7)]
