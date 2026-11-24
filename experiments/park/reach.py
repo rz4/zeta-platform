@@ -2,7 +2,7 @@
 """reach.py -- how far and how high each of the run's moves goes in the park (layer 12), on the open floor.
 
 The park's stations were sized from P58's (gen_tnd.py PARK_TAP, PARK_LONG, PARK_FLIP); the moves must still clear
-them. Run me after changing a jump. (P61: no long jump; the first jump by its hold; the pad nudges the flip; X is the jab on the run (P66: no leap).)
+them. Run me after changing a jump. (P61: no long jump; the first jump by its hold; the pad nudges the flip; X is the dive (P68).)
 """
 import json
 import sys

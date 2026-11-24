@@ -3130,3 +3130,30 @@ mirrored, park_rcross), then the jab; a press while the arm is going out is kept
 
 Tests 21. Every other layer byte-identical; the lab's clips bit for bit. (The lab layers draw him the same lagging
 way over their structures; not changed here.)
+
+## P68: X on the run is the dive -- a tackle, and its roll (2026-11-24)
+
+The player, of P67's jab on the run: "it should hit" -- and, plugged again: "i think its almost done, the jab
+should be switched for a dive tackle roll. and then the running mode is done for now."
+
+(The jab was first made to land: through the frames its arm was out it entered the swing's own landing path --
+the key rung, a body struck, the hitstop, the spark. That path is the dive's now; the jab, its cross and their
+poses are gone from the park.)
+
+THE DIVE. X on the run, from the ground: he throws himself flat along his line -- 0.30 up, eleven frames, at the
+burst of pace P59's leap had -- in thirteen poses of its own (tools/tnd_acro.py, park_dive: thrown off the stride,
+laid out with his arms ahead and his head up, gathered for the floor), chosen by his rise and fall as the leap's
+are. They ride the long jump's flag and clip, which the park does not otherwise have. The flip is spent in it.
+
+THE TACKLE. Through the dive's fourteen frames his shoulder is a blow as a swing's fist is, 0.7 ahead of him and
+0.7 up: what it meets takes the hook's two, is held and sent 0.9 -- and is DOWN. The blow's own hitstop and shake;
+the spark where it landed; once a dive. Dived at nothing, nothing.
+
+THE ROLL. He comes down into the flip's roll, the speed kept, Down its brake -- taken up a quarter of the way
+round: he lands flat and head first, where the roll's turn is a quarter in, and its upright absorb is not his.
+Twelve frames, and up into the stride.
+
+Tests 22. Every other layer byte-identical; the lab's clips bit for bit.
+
+The running mode, as he left it ("done for now"): L twice and held, the run; R, slowed time; A, the jump by its
+hold, again the flip by the pad, at a wall the kick; B, the shot over the stride; X, the dive; Y, the slide.

@@ -323,48 +323,34 @@ for name in ("park_leap", "park_leap_l"):
     for k in range(3):
         V_[k, :, 2] -= V_[k, :, 2].min() * (1.0 - bm._smoothstep(k / 3))
     out["V_" + name] = V_
-# ---- P66 (the player: "the running jab should not make the player jump"): THE JAB ON THE RUN -- his upper half's
-# poses, laid over the stride's legs by the cart. The trunk is the stride's, at the stride's own height, so the two
-# halves meet; the lead hand goes out along his line and comes back to the pump; the chest turns in behind it.
-RJ_N = 14
-RJ_DROP = float(np.mean([grounded(pstride(f / 16))[1] for f in range(16)]))
-RJ_BASE = pstride(0.0)
-def rjab(u, tw):
-    # P67 (the player: "the jab needs improvement"; seen through the game's lens, behind him, the arm went straight
-    # out ahead on his centre line and his own back hid it): it is thrown with the BODY, as the boxer's is -- the
-    # lead shoulder turned in behind the hand, the trunk into it, the other hand at his chin -- and the fist is PUT
-    # (the rig's own reach, as the punches are) ahead of that shoulder and a hand outside it, at his head's height,
-    # where the lens sees the arm go out past him. Out in two frames, held five, back.
-    ready = dict(RJ_BASE, **arms(14, 104, 14, 104))
-    out_ = dict(RJ_BASE, **arms(8, 118, 60, 80), **{"Spine": [19, -3 + tw * 0.45, 0], "Spine1": [11, -2 + tw, 0],
-                                                    "Neck": [-4, 4 - tw * 0.6, 0], "Head": [-2, 3 - tw * 0.3, 0]})
-    return keyed([(0.0, ready), (0.16, out_), (0.46, out_), (1.0, ready)], u)
-def rjab_w(u):
-    return bm._smoothstep(u / 0.16) if u < 0.16 else 1.0 if u <= 0.46 else 1.0 - bm._smoothstep((u - 0.46) / 0.54)
-def rjab_frame(u, who):
-    p_ = rjab(u, RJ_TW)
-    if who == "rear":
-        p_ = mirror(p_)
-    w = rjab_w(u)
-    def repose(Vt, skel_, angles, w=w):
-        body = anat.pose(angles)
-        arm = anat.arm(who)
-        out_d, up, fwd = np.asarray(arm.outward, float), np.array([0.0, 0.0, 1.0]), np.array([1.0, 0.0, 0.0])   # (the archive's axes)
-        sh, el, fist = body.at(arm.shoulder_bone), body.at(arm.elbow_bone), Vt[arm.knuckles].mean(0)
-        reach = np.linalg.norm(el - sh) + np.linalg.norm(fist - el)
-        aim = fwd + 0.42 * out_d + 0.24 * up                 # (ahead of the shoulder, a hand outside it, a little up)
-        at = sh + 0.96 * reach * aim / np.linalg.norm(aim)   # (the arm all but straight: it never stretches)
-        bm._reach_arm(Vt, arm, body, at, out_d - 0.6 * up, w)
-    return frozen(bm._pose_and_skin(p_, np.array([0.0, -RJ_DROP, 0.0]), None, repose))
-RJ_TW = -26.0
-rj = [rjab_frame(k / (RJ_N - 1), "lead") for k in range(RJ_N)]
-out["V_park_rjab"], out["S_park_rjab"] = (np.stack(x) for x in zip(*rj))
-# (the CROSS: the same blow off the other hand -- the string's second, as the boxer's is)
-rc = [rjab_frame(k / (RJ_N - 1), "rear") for k in range(RJ_N)]
-out["V_park_rcross"], out["S_park_rcross"] = (np.stack(x) for x in zip(*rc))
-for nm_ in ("park_rjab", "park_rcross"):
-    _w = out["V_" + nm_][4]; _i = _w[:, 0].argmax()
-    print(nm_, "fist x fwd %.2f  y left %.2f  z up %.2f" % tuple(_w[_i]), "| body y %.2f..%.2f" % (out["V_" + nm_][0][:, 1].min(), out["V_" + nm_][0][:, 1].max()))
+# ---- P68 (the player: "the jab should be switched for a dive tackle roll"): THE DIVE. Thirteen poses, the cart's by
+# his rise and fall (as the leap's are): thrown off the stride, laid out flat along his line with his arms ahead of
+# him and his head up, then gathered -- hands reaching for the floor, knees coming under -- into the roll's first
+# pose. Each sits on its own lowest point, lifted by a clearance that is nothing at either end: he leaves the floor
+# and comes back to it, and flies a forearm over it between.
+DIVE_KEYS = [
+    (0.0, dict(PRUN, **arms(70, 50, 70, 50), **{"Hips": [38, -4, 0], "Spine": [16, -2, 0], "Spine1": [8, -1, 0], "Neck": [-12, 2, 0],
+        "RightUpLeg": [-34, 0, -9], "RightLeg": [46, 0, 0], "RightFoot": [0, 0, 0],
+        "LeftUpLeg": [22, 0, 9], "LeftLeg": [14, 0, 0], "LeftFoot": [34, 0, 0]})),
+    (0.30, dict(PRUN, **arms(166, 8, 166, 8), **{"Hips": [80, 0, 0], "Spine": [5, 0, 0], "Spine1": [2, 0, 0], "Neck": [-30, 0, 0], "Head": [-18, 0, 0],
+        "RightUpLeg": [8, 0, -6], "RightLeg": [10, 0, 0], "RightFoot": [40, 0, 0],
+        "LeftUpLeg": [14, 0, 6], "LeftLeg": [16, 0, 0], "LeftFoot": [40, 0, 0]})),
+    (0.62, dict(PRUN, **arms(160, 12, 160, 12), **{"Hips": [84, 0, 0], "Spine": [8, 0, 0], "Spine1": [4, 0, 0], "Neck": [-26, 0, 0], "Head": [-14, 0, 0],
+        "RightUpLeg": [4, 0, -6], "RightLeg": [18, 0, 0], "RightFoot": [40, 0, 0],
+        "LeftUpLeg": [10, 0, 6], "LeftLeg": [24, 0, 0], "LeftFoot": [40, 0, 0]})),
+    (1.0, blend(dict(PRUN, **arms(104, 34, 104, 34), **{"Hips": [62, 0, 0], "Spine": [24, 0, 0], "Spine1": [14, 0, 0], "Neck": [8, 0, 0], "Head": [6, 0, 0],
+        "RightUpLeg": [-78, 0, -12], "RightLeg": [104, 0, 0], "RightFoot": [20, 0, 0],
+        "LeftUpLeg": [-66, 0, 12], "LeftLeg": [100, 0, 0], "LeftFoot": [20, 0, 0]}), PABSORB, 0.35)),
+]
+dv = []
+for k in range(13):
+    u = k / 12
+    p_ = keyed(DIVE_KEYS, u)
+    dv.append(grounded(p_, grounded(p_)[1] - 0.26 * np.sin(np.pi * u) ** 0.8)[0])
+out["V_park_dive"], out["S_park_dive"] = (np.stack(x) for x in zip(*dv))
+for k_ in (0, 4, 8, 12):
+    _w = out["V_park_dive"][k_]
+    print("park_dive", k_, "x %.2f..%.2f  z %.2f..%.2f" % (_w[:, 0].min(), _w[:, 0].max(), _w[:, 2].min(), _w[:, 2].max()))
 np.savez_compressed(sys.argv[1], **out)
 print({k: v.shape for k, v in out.items()})
 '''

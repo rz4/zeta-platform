@@ -425,25 +425,24 @@ def test_a_jump_begun_at_a_face_is_the_same_arc(cart):
     assert abs(tops[0] - tops[1]) < 0.02, f"the arcs differ: {tops}"
 
 
-def test_a_shot_and_a_jab_on_the_run_leave_the_run_going(cart):
-    """P66 ("the gun shot in running should not stop the running, the running jab should not make the player jump"):
-    B's round leaves and X's arm goes out with his legs in the stride, at the run's pace, his feet on the ground"""
+def test_a_shot_on_the_run_leaves_the_run_going(cart):
+    """P66 ("the gun shot in running should not stop the running"): B's round leaves with his legs in the stride, at
+    the run's pace, his feet on the ground, his upper half the gun's"""
     import bot
-    for name, button in (("the shot", spec.PAD_B), ("the jab", spec.PAD_X)):
-        g = bot.Park(cart)
-        g.d[g.syms["px"]] = int(round((-64.0 + 8.0) * ONE)) & 0xFFFFFFFF      # (the open floor beside the course)
-        _run(g)
-        for _ in range(60):
-            g.step(L | U)
-        pace, u0, upper = g.cell("f_spd"), g.u(), set()
-        for i in range(30):
-            g.step(L | U | (button if i < 3 else 0))
-            assert 387 <= g.cell("pose") < 387 + 16, f"{name}: his legs left the stride (pose {g.cell('pose')}) at frame {i}"
-            assert g.py() == 0, f"{name}: he left the ground"
-            assert g.cell("f_spd") == pace, f"{name}: his pace changed"
-            upper.add(g.cell("aim_upose"))
-        assert g.u() - u0 > 30 * 0.19, f"{name}: he covered {g.u() - u0:.2f} in 30 frames"
-        assert any(not 387 <= u < 387 + 16 for u in upper), f"{name}: his upper half never left the stride"
+    g = bot.Park(cart)
+    g.d[g.syms["px"]] = int(round((-64.0 + 8.0) * ONE)) & 0xFFFFFFFF      # (the open floor beside the course)
+    _run(g)
+    for _ in range(60):
+        g.step(L | U)
+    pace, u0, upper = g.cell("f_spd"), g.u(), set()
+    for i in range(30):
+        g.step(L | U | (spec.PAD_B if i < 3 else 0))
+        assert 387 <= g.cell("pose") < 387 + 16, f"his legs left the stride (pose {g.cell('pose')}) at frame {i}"
+        assert g.py() == 0, "he left the ground"
+        assert g.cell("f_spd") == pace, "his pace changed"
+        upper.add(g.cell("aim_upose"))
+    assert g.u() - u0 > 30 * 0.19, f"he covered {g.u() - u0:.2f} in 30 frames"
+    assert any(not 387 <= u < 387 + 16 for u in upper), "his upper half never left the stride"
 
 
 def _drawn(g):
@@ -524,24 +523,56 @@ def test_the_gun_reloads_by_the_clock_in_slowed_time(cart):
     assert shots["slowed"] >= 15 and shots["real"] >= 17, shots
 
 
-def test_x_twice_on_the_run_is_the_jab_then_the_cross(cart):
-    """P67 ("the jab needs improvement"): X on the run is a string as the boxer's is -- the jab, and pressed again
-    the cross off the other hand; alone again after a second, the jab"""
+def test_x_on_the_run_is_the_dive_and_its_roll(cart):
+    """P68 ("the jab should be switched for a dive tackle roll"): X on the run throws him flat along his line, low
+    (not a jump: under 0.35), in the dive's poses; he comes down into the roll, and up out of it into the stride,
+    having covered the ground the run does"""
     import bot
     g = bot.Park(cart)
     g.d[g.syms["px"]] = int(round((-64.0 + 8.0) * ONE)) & 0xFFFFFFFF
     _run(g)
     for _ in range(60):
         g.step(L | U)
-    hands, was = [], 0
-    for i in range(160):
-        g.step(L | U | (spec.PAD_X if i in (0, 1, 2, 12, 13, 14, 110, 111, 112) else 0))
-        left = g.cell("park_super_q")
-        if left > was:                                   # (a blow begun)
-            hands.append((i, g.cell("park_rj_hand"), None))
-        elif was and left and hands[-1][2] is None:
-            hands[-1] = hands[-1][:2] + (g.cell("aim_upose"),)
-        was = left
-        assert g.py() == 0 and 387 <= g.cell("pose") < 387 + 16
-    assert [h[1] for h in hands] == [0, 1, 0], hands
-    assert hands[0][2] != hands[1][2], "the cross is the jab's own poses"
+    u0, top, air, air_poses, rolled, last = g.u(), 0.0, 0, set(), 0, None
+    for i in range(34):
+        g.step(L | U | (spec.PAD_X if i < 3 else 0))
+        top = max(top, g.py())
+        if g.py() > 0:
+            air += 1
+            air_poses.add(g.cell("pose"))
+        elif g.cell("f_evf") > 0 and g.cell("f_evk") == 8:
+            rolled += 1
+        last = g.cell("pose")
+    assert 0.15 < top < 0.35 and 6 <= air <= 14, f"the dive rose {top:.2f} for {air} frames"
+    assert len(air_poses) >= 6 and not any(387 <= q < 387 + 16 for q in air_poses), f"the dive's poses: {sorted(air_poses)}"
+    assert 8 <= rolled <= 16, f"{rolled} frames of roll"
+    assert 387 <= last < 387 + 16 and g.py() == 0, "he did not come up running"
+    assert g.u() - u0 > 34 * 0.19, f"he covered {g.u() - u0:.2f}"
+
+
+def test_the_dive_tackles(cart):
+    """P68 (the player, of the jab the dive replaces: "it should hit"): dive at the double -- it takes the hook's
+    two, is DOWN, and is sent; the world stops for the blow, once; dived at nothing, nothing"""
+    import bot
+
+    def double(g):
+        a = g.syms["e6_pos"]
+        return bot.s32(g.d[a]) / ONE, bot.s32(g.d[a + 1]) / ONE
+    for at_it in (True, False):
+        g = bot.Park(cart)
+        cx, cz = double(g)
+        g.d[g.syms["px"]] = int(round((cx if at_it else cx + 4.0) * ONE)) & 0xFFFFFFFF
+        _run(g)
+        for _ in range(200):
+            if cz - g.u() < 2.6:
+                break
+            g.step(L | U)
+        hp, stops = g.cell("e6_hp"), 0
+        for i in range(40):
+            g.step(L | U | (spec.PAD_X if i < 3 else 0))
+            stops += g.cell("f_stop") > 0
+        if at_it:
+            assert g.cell("e6_hp") == hp - 2, f"the double had {hp}, has {g.cell('e6_hp')}"
+            assert g.cell("e6_st") == 2 and stops > 3 and double(g)[1] > cz + 0.3, (g.cell("e6_st"), stops, double(g)[1] - cz)
+        else:
+            assert g.cell("e6_hp") == hp and g.cell("e6_st") == 1 and stops == 0

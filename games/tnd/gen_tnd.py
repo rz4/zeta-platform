@@ -128,7 +128,8 @@ if LAYER in (10, 11, 12):
     # same clips re-posed with the fighter's carriage (tools/tnd_acro.py, park_*) -- the trunk 30 degrees forward,
     # not 56; the lab's are as they were
     _PARK_CLIPS = {"acro_run": "park_run", "acro_leap": "park_leap", "acro_leap_l": "park_leap_l",
-                   "acro_land": "park_land", "acro_roll": "park_roll"}
+                   "acro_land": "park_land", "acro_roll": "park_roll",
+                   "acro_long": "park_dive"}       # (P68: the long jump's clip, which the park does not have, is the DIVE)
     d = _Bake(np.load(ROOT / "assets" / "tnd" / "acro.npz"), d)
 F, C = d["F"], d["C"]
 SEQS = ("idle", "walk", "air", "jab", "cross", "lead_hook", "rear_hook", "special",
@@ -174,8 +175,6 @@ if L3:
     SEQS += ("run_gun_r", "run_gun_l", "run_gun_f")   # P36: the run, the gun out in one hand
 if LAYER in (10, 11, 12):
     SEQS += ("acro_leap", "acro_leap_l", "acro_land", "acro_roll", "acro_long")   # P50: the run's air (P51: either leg), its landing, its roll; P52 the long jump
-if LAYER == 12:
-    SEQS += ("park_rjab", "park_rcross")   # P66: the jab on the run -- his upper half's poses; P67: and the cross
 
 
 def to_zeta(V):
@@ -3550,8 +3549,9 @@ if LAB:
     PARK_KICKV = int(0.24 * ONE)                   # a wall kick's rise (the flip's is 0.20)
     PARK_UPKICK = int(0.16 * ONE)                  # P65: the kick straight up a face: 1.3 units
     PARK_CATCH_V = int(0.05 * ONE)                 # P66: the ledge is caught only by a jump rising slower than this
-    PARK_RJ_CUT, PARK_RJ_STRING = 6, 40            # P67: the next may start with this much of the last left; the string's memory
-    PARK_RJ_N = NPOSE.get("park_rjab", 0)               # P66: the jab on the run: its arm's frames
+    PARK_DIVE_V, PARK_DIVE_N = int(0.12 * ONE), 14        # P68: the dive's rise (a quarter of a unit, nine frames); the frames it is a blow
+    PARK_DIVE_K = int(round(12 * ONE / 0.22))             # (its thirteen poses over its rise and fall: 0.12 to -0.10)
+    PARK_DIVE_REACH, PARK_DIVE_HIGH = int(0.7 * ONE), int(0.7 * ONE)   # (his shoulder: ahead of him, and that high)
     PARK_ROLL_BRAKE = int(0.80 * ONE)              # P63: Down held in the roll: its pace a frame
     PARK_INVTOP = int(ONE / (0.13 * 1.24) * ONE) >> 16
     LONG_G, LONG_V0 = int(0.0032 * ONE), 0.0595
@@ -3786,7 +3786,7 @@ if LAB:
         PARK_CAMQ, PARK_YS = cart.var("park_cam_asks"), cart.var("park_cam_yaw")
         PARK_VKD = cart.var("park_upkick_done")    # P65: the straight-up kick, once an air
         PARK_VOFF, PARK_HPV, PARK_PYP = (cart.var("park_" + k_) for k_ in ("draw_dy", "room_y_was", "py_was"))   # P67
-        PARK_RJQ, PARK_RJH, PARK_RJC, PARK_RJS = (cart.var("park_rj_" + k_) for k_ in ("asked", "hand", "string", "sound"))
+        PARK_RJS, PARK_DV = cart.var("park_dive_sound"), cart.var("park_diving")
 
         def park_flip_pad(g_, tag_):
             """THE FLIP BY THE PAD (P62): how far it carries IS the pad -- Up his full pace, nothing half of it, Down
@@ -5143,9 +5143,6 @@ if L2:
             p.load(PARK_SPQ).emit(f"jz {lk3}_rj")
             p.addi(PARK_SPQ, -1)
             p.mark(f"{lk3}_rj")
-            p.load(PARK_RJC).emit(f"jz {lk3}_rc")
-            p.addi(PARK_RJC, -1)
-            p.mark(f"{lk3}_rc")
         p.load(SJD).push(5).emit("eq", f"jz {lk3}_sm")
         p.load(TGX).load(PX).emit("sub", "dup", "mulq").load(TGZ).load(PZ).emit("sub", "dup", "mulq", "add")
         p.push32(int((SUPER_STOP / ONE) ** 2 * ONE)).emit("lt", f"jz {lk3}_sm")
@@ -5554,24 +5551,19 @@ if PARK:
     p.load(GTAP["special"]).emit(f"jz {rq_}_x")
     p.set(GTAP["special"], 0).set(PARK_SLQ, 1)
     p.mark(f"{rq_}_x")
-    # P66 (the player: "the running jab should not make the player jump"): X on the run is the jab's ARM over the
-    # run's legs (the two halves' poses, below) -- on the ground or in the air; the run goes on under it. No leap.
-    # P67 ("the jab needs improvement"): thrown with the body (the poses); HEARD (the swing's whoosh); and a STRING,
-    # as the boxer's X is -- pressed again inside a second it is the CROSS, off the other hand, then the jab, ... A
-    # press while the arm is still going out is kept, and thrown as the arm comes back.
+    # P68 (the player: "the jab should be switched for a dive tackle roll"): X ON THE RUN IS THE DIVE. From the ground
+    # he throws himself flat along his line -- a quarter of a unit up, nine frames, a burst of pace -- and what stands
+    # in his way is TACKLED (below: his shoulder is a blow through those frames and the roll's first); he comes down
+    # into the roll (the flip's own, the speed kept, Down its brake) and up out of it running. The flip is spent in
+    # it; on the ground only. (P59's leap threw the jab; P66 to P67 it was the jab's arm over the stride.)
     p.load(GTAP["carve"]).emit(f"jz {rq_}")
-    p.set(GTAP["carve"], 0).set(PARK_RJQ, 1)
+    p.set(GTAP["carve"], 0)
+    p.load(F["py"]).load(F["evf"]).emit("or", f"jz {rq_}_g", f"jmp {rq_}")
+    p.mark(f"{rq_}_g")
+    p.set(F["py"], 1).set(F["pvy"], PARK_DIVE_V).set(JV0, PARK_DIVE_V).set(F["spd"], PARK_SUPER_SPD).set(F["flipu"], 1)
+    p.set(GRISE, TAP_G).set(GFALL, TAP_G).set(LJMP, 1).push32(PARK_DIVE_K).store(LEAPK)
+    p.set(PARK_SPQ, PARK_DIVE_N).set(PARK_RJS, 1).set(F["con"], 0).set(PARK_DV, 1)
     p.mark(rq_)
-    p.load(PARK_RJQ).emit(f"jz {rq_}_n")
-    p.push(PARK_RJ_CUT).load(PARK_SPQ).emit("lt", f"jz {rq_}_go", f"jmp {rq_}_n")     # (CUT < what is left: not yet)
-    p.mark(f"{rq_}_go")
-    p.load(PARK_RJC).emit(f"jz {rq_}_first")
-    p.load(PARK_RJH).push(1).emit("xor").store(PARK_RJH).emit(f"jmp {rq_}_st")
-    p.mark(f"{rq_}_first")
-    p.set(PARK_RJH, 0)
-    p.mark(f"{rq_}_st")
-    p.set(PARK_SPQ, PARK_RJ_N).set(PARK_RJC, PARK_RJ_N + PARK_RJ_STRING).set(PARK_RJQ, 0).set(PARK_RJS, 1)
-    p.mark(f"{rq_}_n")
 # the special: its own tap
 sp = p.label("g_sp")
 p.load(GTAP["special"]).emit(f"jz {sp}")          # (P30, layer 2: Y is the string's
@@ -7243,10 +7235,18 @@ if LAB:
     p.load(RFLIP).emit(f"jz {rl}_ab")
     p.push(ROLL_SPD).load(F["spd"]).emit("lt", f"jz {rl}_ab")
     p.set(F["evk"], ROLL_K).set(F["evt"], ROLL_F).set(F["evf"], ROLL_F)
+    if PARK:
+        # P68: out of the DIVE the roll is taken up a quarter of the way round -- he comes down flat, head first,
+        # and that is where the roll's turn is a quarter in: its absorb (upright, in the knees) is not his
+        p.load(PARK_DV).emit(f"jz {rl}_dv")
+        p.set(F["evf"], ROLL_F - ROLL_F // 4)
+        p.mark(f"{rl}_dv")
     p.load(F["vx"]).store(F["evx"]).load(F["vz"]).store(F["evz"]).set(RLND, 0).emit(f"jmp {rl}")
     p.mark(f"{rl}_ab")
     p.set(RLND, LAND_RF)
     p.mark(rl)
+    if PARK:
+        p.set(PARK_DV, 0)
 if L1:
     p.set(WJN, 0).set(WALLT, 0)                           # (...and the wall jumps)
     sjl = p.label("sjland")                               # (P33: the strafe jump lands,
@@ -7861,19 +7861,14 @@ if CARTMESH:                                 # the pose is where its streams are
         p.push(SPAN).emit("mul").push(int(BANK)).emit("add", "dup").store(UPPER + 1).push(CM_LEN[0]).emit("add").store(UPPER + 3)
         p.mark(gr)
         if PARK:
-            # P66: ON THE RUN his upper half is the jab's, thrown (X), or the gun's, fired (B) -- over the stride,
-            # the leap or the landing, whichever his legs are in
+            # P66: ON THE RUN his upper half is the gun's, fired (B) -- over the stride, the leap or the landing,
+            # whichever his legs are in
             ru = p.label("pkupper")
             p.load(F["sty"]).push(1).emit("eq").load(ANIM).push(5).emit("eq", "and", f"jz {ru}")
             p.load(F["evf"]).emit(f"jz {ru}_e", f"jmp {ru}")
             p.mark(f"{ru}_e")
-            p.load(PARK_SPQ).emit(f"jz {ru}_g")
-            p.push(base["park_rjab"] + PARK_RJ_N).load(PARK_SPQ).emit("sub")
-            p.load(PARK_RJH).push(base["park_rcross"] - base["park_rjab"]).emit("mul", "add").store(LS0).emit(f"jmp {ru}_set")
-            p.mark(f"{ru}_g")
             p.load(RSHOT).emit(f"jz {ru}")
             p.push(base["gun"] + 5 + RUN_ARM).load(RSHOT).emit("sub", f"mini {base['gun'] + NPOSE['gun'] - 1}").store(LS0)
-            p.mark(f"{ru}_set")
             p.load(LS0).store(UPOSE)
             if DEDUPE:
                 p.load(LS0).emit("shr 1").push(int(PSLOT)).emit("add", "loadi")
@@ -8176,6 +8171,26 @@ if LAB:
 # HIS FIST, if a swing is in its active frames and has not yet landed
 p.set(F["act"], 0)
 nf_ = p.label("nofist")
+if PARK:
+    # P68: THE DIVE IS A BLOW (the player, of the jab it replaces: "it should hit"). Through its frames his shoulder
+    # is a fist as a swing's is -- a reach ahead of him, low -- and what follows is the swing's own: the key rung, a
+    # body struck (the hook's worth off it, held, sent, the hitstop and the shake), the spark where it landed -- and
+    # the body is DOWN (below). Once a dive.
+    rj = p.label("pkdive")
+    p.load(F["sty"]).push(1).emit("eq", f"jz {rj}")
+    p.load(ANIM).push(2).emit("eq", f"jz {rj}_a", f"jmp {rj}")
+    p.mark(f"{rj}_a")
+    p.load(PARK_SPQ).emit(f"jz {rj}")
+    p.set(F["mv"], MOVE["lead_hook"])
+    row(PMT, F["mv"], "start")
+    p.push(PARK_DIVE_N - 1).load(PARK_SPQ).emit("sub", "add").store(AF)     # (the swing's own frame: its first is the spark's)
+    p.load(F["con"]).emit(f"jz {rj}_c", f"jmp {nf_}")
+    p.mark(f"{rj}_c")
+    p.load(PX).push(PARK_DIVE_REACH).load(F["ps"]).emit("mulq", "sub").store(F["fx"])
+    p.load(PZ).push(PARK_DIVE_REACH).load(F["pc"]).emit("mulq", "add").store(F["fz"])
+    p.load(F["py"]).push(PARK_DIVE_HIGH).emit("add").store(F["fy"])
+    p.emit(f"jmp {nf_}_land")
+    p.mark(rj)
 p.load(ANIM).push(2).emit("eq", f"jz {nf_}")
 p.load(F["con"]).emit(f"jz {nf_}_c", f"jmp {nf_}")
 p.mark(f"{nf_}_c")
@@ -8207,6 +8222,8 @@ if LAB:
     p.load(F["fx"]).load(F["ps"]).load(LS0).emit("mulq", "sub").store(F["fx"])
     p.load(F["fz"]).load(F["pc"]).load(LS0).emit("mulq", "add").store(F["fz"])
     p.mark(fb)
+if PARK:
+    p.mark(f"{nf_}_land")
 p.set(F["act"], 1)
 if L3:
     # P36: A FIST LANDS ON THE KEY (the superman punch has to LAND on
@@ -8282,6 +8299,10 @@ if L4:
             p.set(int(SPK) + 3, SPARK_FOR)
             p.push(int(ZMESH_T)).load(HITZ).emit("add", "loadi").store(SPKM)
             enemy_hurt(p, e_)
+            if PARK:                                     # (P68: the dive TACKLES: what it strikes is down)
+                p.load(PARK_SPQ).emit(f"jz {fn_}_tk")
+                p.set(e_["st"], 2).set(e_["t"], 0)
+                p.mark(f"{fn_}_tk")
             p.set(HK, e_["k"]).load(F["mv"]).store(HM)
             p.load(PASSK).emit(f"jz {fn_}_np")
             p.load(PASSK).push(HM_STUN - 1).emit("add").store(HM)  # (...and its own small send)
@@ -11418,7 +11439,7 @@ p.set(int(PLAYD["step"]) + 1, int(SND_BOOM)).set(SG["st"], 0).emit(f"jmp {sw}_l"
 p.mark(f"{sw}_lw")
 p.set(int(PLAYD["whiff"]) + 1, int(SND_WHOOSH)).set(SG["wt"], 0)
 p.mark(f"{sw}_l")
-if PARK:                                              # (P67: the jab on the run is heard)
+if PARK:                                              # (P68: the dive is heard)
     p.load(PARK_RJS).emit(f"jz {sw}_rj")
     p.set(PARK_RJS, 0).set(int(PLAYD["whiff"]) + 1, int(SND_WHOOSH)).set(SG["wt"], 0)
     p.mark(f"{sw}_rj")
