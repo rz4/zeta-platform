@@ -1592,7 +1592,9 @@ if LAB:
         # rising to 0.94. Its first box (the ENTRY) is 0.8 high, a tap jump from
         # the floor; its LAST is where it is cleared. Touch the floor between
         # them and the streak is gone.
-        PARK_RUN, PARK_TAP, PARK_LONG, PARK_FLIP = 0.161, 3.06, 5.96, 7.5   # a frame; a tap jump; the long; a tap and its flip
+        PARK_RUN, PARK_TAP, PARK_LONG, PARK_FLIP = 0.161, 3.71, 5.96, 7.7   # a frame; a tap; the long; a tap and its flip
+        # (measured by experiments/park/reach.py on the P58 jump: the tap 3.71 far and 1.28 up, with its flip at 8
+        # frames 7.69 and 3.07, the long jump 5.96 and 0.53)
         PARK_TAU = (0.70, 0.78, 0.86, 0.94)
         PARK_K, PARK_RW, PARK_NS, PARK_SW = 24, 16, 6, 10                   # rows, their words; slots, theirs
         PARK_AHEAD, PARK_NEAR, PARK_GAP0 = 36.0, 12.0, 3.0
@@ -1609,10 +1611,10 @@ if LAB:
         # (name, its colour, its boxes) -- the mode's colour on every top it has
         PARK_STATIONS = [
             ("TAP", _G, [_entry(), _bx(gt=PARK_TAP, ln=2.0), _bx(gt=PARK_TAP, ln=2.0), _bx(gt=PARK_TAP, ln=3.0, role=LAST)]),
-            ("STEPS", _G, [_entry(), _bx(gt=1.2, top=1.6), _bx(gt=1.2, top=2.4, ln=4.0, role=LAST)]),
+            ("STEPS", _G, [_entry(), _bx(gt=1.2, top=1.9), _bx(gt=1.2, top=3.0, ln=4.0, role=LAST)]),
             ("LONG", _R, [_entry(ln=8.0), _bx(gt=PARK_LONG, ln=4.0, role=LAST)]),
             ("FLIP", _R, [_entry(ln=4.0), _bx(gt=PARK_FLIP, ln=4.0, role=LAST)]),
-            ("FLIP UP", _R, [_entry(ln=4.0), _bx(gap=1.5, top=0.8, tt=2.6, ln=8.0, role=LAST)]),
+            ("FLIP UP", _R, [_entry(ln=4.0), _bx(gap=1.5, top=0.8, tt=3.0, ln=8.0, role=LAST)]),
             # (a pad's pitch is a tap's rhythm: land, half a unit to press, gone -- small, and a little either side)
             ("PADS", _G, [_entry(), _bx(gt=PARK_TAP, ln=1.6, v0=-0.9, v1=0.3), _bx(gt=PARK_TAP, ln=1.6, v0=-0.3, v1=0.9),
                           _bx(gt=PARK_TAP, ln=1.6, v0=-0.9, v1=0.3), _bx(gt=PARK_TAP, ln=1.6, v0=-0.3, v1=0.9, role=LAST)]),
@@ -1621,8 +1623,11 @@ if LAB:
             ("DROP", _R, [_entry(), _bx(top=1.6), _bx(top=2.4), _bx(gt=1.1 * PARK_FLIP, ln=5.0, top=0.4, role=LAST)]),
             # (one tall wall on his right as he comes off the entry; across the lane from it, a ledge no flip reaches:
             # the kick off the wall throws him 7.2 across, rising as the flip does)
-            ("WALL", _K, [_entry(), _bx(gap=0.5, ln=8.0, v0=-1.8, v1=-1.2, top=4.0),
-                          _bx(ln=8.0, v0=3.0, v1=7.0, top=3.6, tt=0.4, adv=False, role=LAST)]),
+            # (A CHIMNEY: two tall walls 2.6 apart from beside the entry's end, and its far end capped by a ledge higher
+            # than any flip -- climbed by kicking from wall to wall, each kick a flip's rise, six an air in the park)
+            ("WALL", _K, [_bx(gap=PARK_GAP0, ln=4.0, v0=-0.6, v1=2.0, role=ENTRY), _bx(gap=-2.5, ln=13.0, v0=-1.2, v1=-0.6, top=7.5),
+                          _bx(ln=13.0, v0=2.0, v1=2.6, top=7.5, adv=False),
+                          _bx(gap=7.5, ln=5.5, v0=-0.6, v1=2.0, top=4.4, tt=0.2, adv=False, role=LAST)]),
         ]
         PARK_TUTOR = (0, 1, 2, 3, 4, 5, 6, 7, 8, 9)         # the first ten: each mode once, in this order
         PARK_KINDS = len(PARK_STATIONS)
@@ -1735,10 +1740,12 @@ if LAB:
             g_.load(PARK_PZ0)
             tf_(2)
             g_.emit("add").store(PARK_GZ)
-            g_.mark(f"{u_}_same")
-            g_.load(PARK_PZ0)
+            g_.load(PARK_PZ0).emit(f"jmp {u_}_z")
+            g_.mark(f"{u_}_same")                                      # (beside: from the last's start, by its own gap)
+            g_.load(PARK_PZ0).load(PARK_T0).emit("add")
+            g_.mark(f"{u_}_z")
+            g_.emit("dup")
             _wf(g_, R_Z0)
-            g_.load(PARK_PZ0)
             tf_(2)
             g_.emit("add")
             _wf(g_, R_Z1)
@@ -3240,7 +3247,8 @@ RUN_STAND = int(0.02 * ONE)     # P24: under this speed, in the run, he stands
 WJ_KICK = int(0.30 * ONE)       # P25: the wall jump's push off the wall, a frame: across a
                                 # street (8.1 wall to wall, for him) before he is down, so
                                 # the next wall is his -- in the run and the boxer alike
-WJ_COYOTE, WJ_MAX = 8, 2        # ...the frames a touch still counts, and how many an air
+WJ_COYOTE, WJ_MAX = 8, (6 if PARK else 2)   # (P58: six in the park, for its chimneys)
+# ...the frames a touch still counts, and how many an air
 WJ_FRAMES = 24                  # ...and how long it throws him (a flip's length the spin knows)
 # P27: THE SLIDE (the player, asked what Down should do in the run: "slide!!").
 SLIDE_MIN = int(0.09 * ONE)     # he must be running this fast to go down into one
@@ -3386,7 +3394,11 @@ if LAB:
     LJ_HOLD = 12
     FLIP_FALL = int(0.050 * ONE)                   # P55: a flip comes down this hard ("drop more immediately")
     _JK = 12190                                    # the jump knob's own beginning (KNOBS_L1)
-    TAP_G, TAP_V0 = int(0.0198 * ONE), 0.189
+    # P58 (the player, of the park: "his running jump felt a bit low before ... we want to be able to have strong
+    # platforming capability"): in the park the tap leaves faster -- its top about 1.3 where it was 0.8, about 3.8
+    # far at his pace where it was 3.1 -- under the same pull
+    TAP_G, TAP_V0 = int(0.0198 * ONE), (0.235 if PARK else 0.189)
+    PARK_COYOTE, PARK_BUFFER = 6, 8                # P58: frames off an edge a jump still counts; an early A remembered
     LONG_G, LONG_V0 = int(0.0032 * ONE), 0.0595
     TAP_K, LONG_K = int(TAP_V0 * ONE / (_JK / ONE)), int(LONG_V0 * ONE / (_JK / ONE))   # x the jump knob
     def _leapk(v0_):                               # the leap's shapes over the flight: twelve over 2 v0 of vertical speed
@@ -3607,6 +3619,8 @@ if LAB:
     RPH, CAMP = cart.var("run_last_step"), cart.var("cam_pitch_base")   # P51: the stride's pose as he left the floor; the lens's pitch
     # P52: the pull up and down; the rise he left with and the leap's scale over it; the long jump; A held in the run
     GRISE, GFALL, JV0, LEAPK, LJMP, CHG, CHGN = (cart.var("jmp_" + k) for k in ("rise", "fall", "v0", "leapk", "long", "charge", "held"))
+    if PARK:
+        PARK_CYT, PARK_JBT = cart.var("park_coyote"), cart.var("park_buffer")
     # P53: the long jump armed from a stand; the stance a frame ago; the arc's walk through the room (where, how high,
     # how fast it falls, the frames, the step at each pace, which way is blocked); where it lands and how high; the wall
     LJARM, PSTY = cart.var("jmp_from_stand"), cart.var("sty_was")
@@ -5520,14 +5534,44 @@ if LAB:
     p.load(F["sty"]).store(PSTY)
     # P52: THE RUN'S JUMP, ON ITS RELEASE: a tap the running jump, held the long jump
     ch_ = p.label("charge")
+    if PARK:
+        # P58: STRONG PLATFORMING. Off an edge (not jumped), for PARK_COYOTE frames a jump is still a jump from the
+        # ground -- the run jumps on A's release, and a press begun on the edge used to be lost as he ran off it.
+        # And an A pressed in the air with the flip spent is remembered PARK_BUFFER frames: he lands, and it is a
+        # press then (still held, it charges; let go already, he jumps at once).
+        cy_ = p.label("coyote")
+        p.load(F["py"]).emit(f"jz {cy_}_g")
+        p.load(PARK_CYT).emit(f"jz {cy_}_b")
+        p.addi(PARK_CYT, -1).emit(f"jmp {cy_}_b")
+        p.mark(f"{cy_}_g")
+        p.set(PARK_CYT, PARK_COYOTE)
+        p.load(PARK_JBT).emit(f"jz {cy_}_b")
+        p.load(F["sty"]).push(1).emit("eq", f"jz {cy_}_b")
+        p.set(CHG, 1).set(CHGN, 0).set(PARK_JBT, 0)
+        p.mark(f"{cy_}_b")
+        p.load(PARK_JBT).emit(f"jz {cy_}")
+        p.addi(PARK_JBT, -1)
+        p.mark(cy_)
     p.load(CHG).emit(f"jz {ch_}")
     p.load(F["py"]).load(F["sty"]).push(1).emit("eq").push(1).emit("xor", "or", f"jz {ch_}_g")
+    if PARK:                                                      # (off an edge within the coyote's frames: kept)
+        p.load(F["sty"]).push(1).emit("eq", f"jz {ch_}_x")
+        p.load(PARK_CYT).emit(f"jz {ch_}_x", f"jmp {ch_}_g")
+        p.mark(f"{ch_}_x")
     p.set(CHG, 0).emit(f"jmp {ch_}")                              # (off an edge, or out of the run: no jump)
     p.mark(f"{ch_}_g")
     p.load(AHOLD).emit(f"jz {ch_}_go")
     p.load(AHOLD).store(CHGN).emit(f"jmp {ch_}")                  # (glass frames: held long, time slows, as for any button)
     p.mark(f"{ch_}_go")
+    if PARK:
+        p.set(PARK_CYT, 0)                                        # (a jump spends the edge's grace)
+        p.load(F["py"]).emit(f"jz {ch_}_up")                      # (from the air, within it: up from where he is)
+        p.set(CHG, 0)
+        p.emit(f"jmp {ch_}_lt")
+        p.mark(f"{ch_}_up")
     p.set(CHG, 0).set(F["py"], 1)
+    if PARK:
+        p.mark(f"{ch_}_lt")
     # P53 (the player: "the long jump would be if jump is held and the
     # player enters parkour from stationary"): it is the long jump when A
     # went down with him standing in the run -- or he went into the run
@@ -5547,6 +5591,8 @@ if L2:
 else:
     p.load(GT["jump"]).push(1).emit("eq", f"jz {jp}")   # (P18: no chords)
 p.load(F["py"]).load(F["acmb"]).emit("or", f"jz {jp}_g", f"jmp {jp}_fl")   # aloft: flip?
+if PARK:                                          # (P58: just off an edge, A is the ground's -- a jump, not the flip)
+    p.mark(f"{jp}_cy")
 p.mark(f"{jp}_g")
 if LAB:                                           # (P52: in the run, A on the ground waits to be let go)
     p.load(F["sty"]).push(1).emit("eq", f"jz {jp}_nc")
@@ -5671,6 +5717,12 @@ p.emit(f"jmp {jp}_f2g")                           # the jump flips that way at o
 # P10: THE FLIP -- a second A in the air, once a jump: forward from the run,
 # any of four ways from the boxing stance (the archive's one-axis rule)
 p.mark(f"{jp}_fl")
+if PARK:
+    p.load(F["acmb"]).emit(f"jz {jp}_c1", f"jmp {jp}_c2")
+    p.mark(f"{jp}_c1")
+    p.load(F["sty"]).push(1).emit("eq", f"jz {jp}_c2")
+    p.load(PARK_CYT).emit(f"jz {jp}_c2", f"jmp {jp}_cy")
+    p.mark(f"{jp}_c2")
 if L1:
     # P25: THE WALL JUMP (the player: "would be cool if we could do a wall
     # jump"). A in the air with a wall just touched: he kicks off it -- thrown
@@ -5697,6 +5749,10 @@ if L1:
     p.set(F["pvy"], FLIP_V).set(F["flipu"], 1)                            # the long flip's 24
     p.emit(f"jmp {jp}")                                                   # frames: 7.2 across)
     p.mark(wj_)
+if PARK:                                          # (P58: the flip spent, an A in the air is kept for the landing)
+    p.load(F["flipu"]).emit(f"jz {jp}_nb")
+    p.set(PARK_JBT, PARK_BUFFER)
+    p.mark(f"{jp}_nb")
 p.load(F["acmb"]).load(F["evf"]).emit("or").load(F["flipu"]).emit("or", f"jz {jp}_f1", f"jmp {jp}")
 p.mark(f"{jp}_f1")
 p.load(ANIM).push(2).emit("eq", f"jz {jp}_f2", f"jmp {jp}")

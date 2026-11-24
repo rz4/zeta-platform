@@ -14,8 +14,8 @@ data memory, and presses what the mode asks for:
   comes, ridden, and walked off at the far end (SLIDE, LIFT).
 
 It steers only where a station asks it to: toward the next pad's middle on
-the PADS (in the air), and right, into the wall, off a WALL's entry -- there the tap, the
-flip six frames on, and the kick the moment the wall is touched in the air.
+the PADS (in the air), and a little right off a WALL's entry -- there the tap,
+then a kick at each wall touched, until he is over the chimney's cap.
 It reports, a station at a time, cleared or not, and the streak the game
 itself kept.
 
@@ -102,7 +102,7 @@ def play(cart_path, stations=12, say=print):
             g.step(0)
         for _ in range(3):
             g.step(L)
-        log, queue, frames, kick_armed = [], [], 0, False
+        log, queue, frames, climbing, last_kick, was_air = [], [], 0, None, 0, False
         cleared_before = 0
         while frames < 60 * 60 * 4:
             frames += 1
@@ -119,8 +119,12 @@ def play(cart_path, stations=12, say=print):
                 vv_ = -64.0 - g.cell("px") / ONE
                 steer = spec.PAD_LEFT if tv_ > vv_ + 0.35 else spec.PAD_RIGHT if tv_ < vv_ - 0.35 else 0
             pad |= steer
-            if kick_armed and g.cell("wall_t") and py > 0:   # (WALL: the wall touched in the air -- kick)
-                queue, kick_armed = [A, A, A], False
+            if climbing is not None and py > 0 and not queue and g.cell("wall_t") and len(g.pads) - last_kick > 5 \
+                    and py + g.cell("lab_gh") / ONE < climbing + 0.3:   # (WALL: kick from wall to wall until over the cap)
+                queue, last_kick = [0, 0, A, A], len(g.pads)
+            if py == 0 and was_air:                           # (landed: the climb is over)
+                climbing = None
+            was_air = py > 0
             if queue:                                         # (a press under way: its frames, as scheduled)
                 pad = (pad & ~A) | queue.pop(0)
             elif py == 0 and nxt is not None:
@@ -128,12 +132,13 @@ def play(cart_path, stations=12, say=print):
                 edge = (on["z1"] - u) if on else None
                 tap = [A, A, A, 0, 0]
                 vv = (-64.0 - g.cell("px") / ONE)
-                if on and kind == 9 and on["role"] & 1:       # WALL: veer right toward the wall; the tap, the flip, the kick
+                if on and kind == 9 and on["role"] & 1:       # WALL: veer a little right; the tap; then the climb
                     yaw = g.cell("yaw") & 1023
                     yaw = yaw - 1024 if yaw > 512 else yaw
-                    pad = L | U | (spec.PAD_RIGHT if yaw > -40 else 0)
+                    pad = L | U | (spec.PAD_RIGHT if yaw > -16 else 0)
                     if edge < 0.8:
-                        queue, kick_armed = [A, A, A] + [0] * 3 + [A, A, A], True
+                        queue = [A, A, A, 0, 0]
+                        climbing = max(b["top"] for b in rows if b["st"] == nxt["st"] and b["role"] & 2)
                 elif on and on["motion"] == 1:                # riding the slider: still, until it is at its far end
                     pad = L if on["dz"] < on["amp"] - 0.15 else L | U
                 elif on and on["motion"] == 2:                # riding the lift: still, until it is at the top
