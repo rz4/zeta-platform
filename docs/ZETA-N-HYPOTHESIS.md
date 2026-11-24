@@ -104,6 +104,17 @@ the tree; none is offered as proof of the general claim.
   frame clocks peak 83%. A capability the old organization could not hold at
   all, on A(n) -- the hypothesis's mechanism without a new instruction.
 
+- **A frame, a body and a program word, costed** (TND's yard,
+  `experiments/streams/`, 2026-11-24): a fight frame at 57% is the clear
+  13.5%, the room's 420 faces 13.7% (rasteriser-bound), 1,885 faces of
+  cart meshes 17.9% (sequencer-bound, about 78 clocks a face, the same at
+  2.5 units as at 20), the program 12.3% (3.58 clocks an instruction).
+  An overlay costs 13.27 clocks a word. The mesh store, not the clock,
+  binds in play (2,018 of 2,048 faces at the most over a 16-minute
+  session). 35% of the yard's program never ran in that session, and by
+  its labels most of that is other scenes' code: streaming programs by
+  SCENE is supported, by style of play is not.
+
 ### The limits met so far (evidence against "always")
 
 - Doubling the frame's vertex cache wants about 17 M10K; 9 are free
