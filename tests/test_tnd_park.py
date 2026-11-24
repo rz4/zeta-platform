@@ -193,18 +193,62 @@ def test_the_run_is_Ls_double_click_and_in_it_R_is_slowed_time(cart):
 
 
 def test_the_lens_is_behind_him(cart):
-    """P60 ("the camera should be always behind the player"): the park's run steers as the run does -- Left and Right
-    turn him -- and the lens keeps squarely behind him, a few degrees at most even while he turns"""
+    """P60 ("the camera should be always behind the player"), P64 (steady): the park's run steers as the run does --
+    Left and Right turn him -- and the lens comes round behind him: within 60 of the turn's 1,024 while he turns,
+    and squarely behind (8) soon after he stops"""
     import bot
     g = bot.Park(cart)
     g.d[g.syms["px"]] = int(round((-64.0 + 8.0) * ONE)) & 0xFFFFFFFF
     _run(g)
-    for pad in (U, U | spec.PAD_RIGHT, U, U | spec.PAD_LEFT, U):
+
+    def gap():
+        return ((g.cell("yaw") - g.cell("cam_yaw") + 512) & 1023) - 512
+    for pad in (U | spec.PAD_RIGHT, U | spec.PAD_LEFT):
         for k in range(30):
             g.step(L | pad)
-            if k >= 6:
-                gap = ((g.cell("yaw") - g.cell("cam_yaw") + 512) & 1023) - 512
-                assert abs(gap) <= 16, f"the lens {gap} yaw units off his back"
+            assert abs(gap()) <= 60, f"the lens {gap()} yaw units off his back while he turns"
+        for k in range(24):
+            g.step(L | U)
+        assert abs(gap()) <= 8, f"the lens {gap()} off his back after he stopped turning"
+
+
+def test_the_runs_lens_is_steady(cart):
+    """P64 ("improving the cameras for running and slow mo running, it still feels to jaring. maybe making the running
+    not move with the arc"; his tape of P63: the lens's height moved up to 2.47 units in a frame, its yaw 50 after a
+    wall kick, its distance in steps of 0.43): over a run of the course -- jumps, flips, a chimney, ledges caught --
+    no frame moves the lens more than half a unit up or down, 20 of 1,024 round, or 8 in its pitch; and in a plain
+    jump on level ground it does not go up with him at all"""
+    import bot
+    cams = []
+    orig = bot.Park.step
+
+    def step(self, pad):
+        orig(self, pad)
+        cams.append((self.d[spec.CAM_Y], self.d[spec.CAM_YAW], self.d[spec.CAM_PITCH], self.cell("f_sty")))
+    bot.Park.step = step
+    try:
+        g, log = bot.play(cart, 11, say=lambda *a: None)
+    finally:
+        bot.Park.step = orig
+    assert len(log) >= 10
+    c = np.array(cams[60:], dtype=np.int64)
+    run = (c[1:, 3] == 1) & (c[:-1, 3] == 1)
+    dy = np.abs(np.diff(c[:, 0]))[run] / ONE
+    dyaw = np.abs(((np.diff(c[:, 1]) + 512) % 1024) - 512)[run]
+    dpit = np.abs(((np.diff(c[:, 2]) + 512) % 1024) - 512)[run]
+    assert dy.max() <= 0.5 and dyaw.max() <= 20 and dpit.max() <= 8, f"height {dy.max():.2f}, yaw {dyaw.max()}, pitch {dpit.max()}"
+    # a plain jump on the level floor: the lens stays where it was
+    g = bot.Park(cart)
+    g.d[g.syms["px"]] = int(round((-64.0 + 8.0) * ONE)) & 0xFFFFFFFF
+    _run(g)
+    for _ in range(60):
+        g.step(L | U)
+    y0, top = g.d[spec.CAM_Y], 0.0
+    for i in range(30):
+        g.step(L | U | (A if i < 8 else 0))
+        top = max(top, g.py())
+        assert abs(g.d[spec.CAM_Y] - y0) <= int(0.3 * ONE), "the lens went with a plain jump"
+    assert top > 1.0
 
 
 def test_a_spent_flip_is_saved_by_a_kick_straight_up_a_wall(cart):

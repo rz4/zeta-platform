@@ -3014,3 +3014,35 @@ The player: "i also think holding down depad from coming of the roll should slow
 of a flip keeps the pace he lands with: 16 frames, 3.65 units after the landing with the pad let go -- off the end
 of a short top. In the park, with Down held, each frame of the roll takes a fifth of its pace: 0.78 units, and he
 comes out nearly at a stand. (Up held, he runs on as before.) tests/test_tnd_park.py: 12.
+
+## P64: the run's lens, steady -- measured on his own session (2026-11-24)
+
+The player: "feels a lot better, maybe what we need is is just improving the cameras for running and slow mo
+running, it still feels to jaring. maybe making the running not move with the arc, since thats more with slow mo
+since its over the shoulder. i think we are close".
+
+His tape of P63 (7 minutes; 47 attempts, 35 cleared -- 74%, from 52% on P61; slowed time 47% of the run, from 62%).
+The run's steering does not read the lens, so the tape replays to the same motion under any lens (checked: his
+place, height, heading, the streak and the orbs equal every frame), and the lens is measured on his own play:
+
+| in the run, a frame | P63, real time | P64, real time | P63, slowed | P64, slowed |
+|---|---|---|---|---|
+| height moved more than 0.25 | 505 (worst 2.47) | 15 (worst 0.50) | 375 (worst 5.83) | 23 (worst 0.49) |
+| distance from him more than 0.25 | 233 (worst 3.50) | 78 (worst 0.29) | 30 | 0 |
+| yaw more than 24 of 1,024 | 102 (worst 134) | 0 (worst 20) | 31 (worst 234) | 0 (worst 20) |
+| pitch more than 8 | 572 (worst 34) | 0 (worst 7) | 473 | 0 |
+
+What was jolting it, and what it is now (layer 12, in the run):
+- its HEIGHT went to the arc's top at a takeoff and back at a landing (P61's "outer tangent", my reading). Time
+  running, it is level with where he will STAND -- the walked arc's landing height, so it comes level with a higher
+  top as he comes to it -- and does not go with a plain jump; past 0.9 over that (a flip) it goes up by nine tenths
+  of the rest, or he left the glass. Slowed, it is with his feet (over the shoulder, with the arc). Eased a quarter
+  of the way a frame, 0.20 a frame at most (0.30 slowed).
+- its PITCH dived at the landing spot: time running it is level; slowed, 6 of 1,024 a frame at most.
+- its YAW: a quarter of the gap to his heading, held through a wall kick's throw (the kick mirrors his heading),
+  and 20 a frame at most whatever asks (slowed, the focus lens swung it 64 to 88).
+- the DRAW-IN clear of structures stepped an eighth of the way (0.43): it is a goal now, in quickly, out slowly.
+- the town's LENS-OUT-OF-WALLS rule asked the arena, and the park's arena counts a box's footprint a wall at any
+  height: over a box the lens was shoved and re-aimed. In the park it asks about the corridor's walls only.
+- no landing SHAKE in the park's run (five frames side to side, a landing a second).
+Tests 13; every other layer byte-identical.

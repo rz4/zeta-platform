@@ -3765,6 +3765,9 @@ if LAB:
         PARK_LWAX, PARK_APX = cart.var("park_wall_axis"), cart.var("park_apex")
         PARK_STEPV = cart.var("park_step")         # P62: how far under a top his feet may be and still be put on it
         PARK_FLP = cart.var("park_flipping")       # P62: a run's flip is in the air (not a wall kick's throw)
+        # P64: THE RUN'S LENS, STEADY (below): its eased height, the height he last stood at, how far it is drawn in
+        PARK_CAMY, PARK_CG0, PARK_DRW, PARK_CT = (cart.var("park_" + k_) for k_ in ("cam_y", "cam_ground", "cam_draw", "cam_t"))
+        PARK_CAMQ, PARK_YS = cart.var("park_cam_asks"), cart.var("park_cam_yaw")
 
         def park_flip_pad(g_, tag_):
             """THE FLIP BY THE PAD (P62): how far it carries IS the pad -- Up his full pace, nothing half of it, Down
@@ -4128,7 +4131,8 @@ if BASE:
                 p.push32(lab_xz(-26.0 + 4.0 * l_, 0)[1]).store(int(PARK_GZL) + l_).set(int(PARK_GNL) + l_, 0)
             for c_ in (PARK_GN, PARK_HEAD, PARK_ORBS):
                 p.set(c_, 0)
-            p.set(PARK_CUR, -1).set(PARK_DONE, -1)
+            p.set(PARK_CUR, -1).set(PARK_DONE, -1).set(PARK_DRW, 128).set(PARK_CG0, 0).set(PARK_YS, LAB_YAW)
+            knob(p.push(0), "camh").emit("add").store(PARK_CAMY)
     p.set(WR, ONE)
 if SWARM_TEST:                                  # (the meter's hook: the fight in the
     p.set(PX, int(3 * ONE)).set(PZ, int(3 * ONE))               # first plaza, the
@@ -7183,6 +7187,9 @@ if L1:
 # words of a DMEM with 6. (The archive scales both by the fall's speed and
 # dips the camera; one strength here.)
 ld_ = p.label("land")
+if PARK:                                        # (P64: in the park's run a landing does not shake the lens -- there is
+    p.load(F["sty"]).push(1).emit("eq", f"jz {ld_}_sh", f"jmp {ld_}")    # one every second, five frames side to side)
+    p.mark(f"{ld_}_sh")
 p.load(F["shake"]).push(LAND_SHAKE).emit("lt", f"jz {ld_}")
 p.set(F["shake"], LAND_SHAKE)
 p.mark(ld_)
@@ -8340,8 +8347,23 @@ if L1:
     tr_ = p.label("trail")
     p.load(F["sty"]).push(1).emit("eq", f"jz {tr_}")
     p.load(T)
-    if PARK:                                      # (P60: behind him -- half the gap a frame, in the air too)
-        p.emit("shr 1")
+    if PARK:
+        # (P64: behind him -- a quarter of the gap a frame and 24 of the turn's 1,024 at most; and through a wall
+        # kick's throw it holds: the kick mirrors his heading, and the lens went round after it at 50 a frame)
+        yk_ = p.label("pkyaw")
+        p.emit("shr 2")
+        p.emit("dup").push(24).emit("lt", f"jz {yk_}_hi", f"jmp {yk_}_1")
+        p.mark(f"{yk_}_hi")
+        p.emit("drop").push(24)
+        p.mark(f"{yk_}_1")
+        p.push(-24).emit("over", "lt", f"jz {yk_}_lo", f"jmp {yk_}_2")
+        p.mark(f"{yk_}_lo")
+        p.emit("drop").push(-24)
+        p.mark(f"{yk_}_2")
+        p.load(WJN).emit(f"jz {yk_}")
+        p.load(F["py"]).emit(f"jz {yk_}")
+        p.emit("drop").push(0).emit(f"jmp {tr_}_a")
+        p.mark(yk_)
     else:
         knob(p, "trail").emit("mulq")
     if LAB and not PARK:                          # (P51: in the air, into where he will land -- a quarter of the gap a frame)
@@ -8447,17 +8469,53 @@ knob(p.load(F["py"]), "camh").emit("add")                     # (P9: up with him
 if LAB:
     p.load(GYC).emit("add")
 if PARK:
-    # P61 ("in slow motion its almost perfect. in non slowmotion it should should be the outer tangent of the jump
-    # curve" -- MY READING): time running, in the air, the lens rides the OUTSIDE of his arc -- it goes up at once to
-    # the arc's top (the walked arc's highest point) and stays there, looking down along the arc to where he comes
-    # down (the pitch below), rather than chasing him up from under it. Slowed, it is as it was.
-    ot_ = p.label("pkouter")
-    p.load(SLOWON).emit(f"jz {ot_}_r", f"jmp {ot_}")
-    p.mark(f"{ot_}_r")
-    p.load(LNDON).emit(f"jz {ot_}")
-    p.load(F["py"]).emit(f"jz {ot_}")
+    # P64 (the player: "improving the cameras for running and slow mo running, it still feels to jaring. maybe making
+    # the running not move with the arc, since thats more with slow mo since its over the shoulder"; his tape of P63:
+    # in real time the lens's height moved more than a quarter unit in a frame 505 times in 9,571 -- 102 at a takeoff,
+    # 61 at a landing, up to 2.47 units -- its distance stepped 0.43 at a time 233 times, its yaw 50 a frame after a
+    # wall kick). THE RUN'S LENS IS STEADY. Time running, its height is the height he last STOOD at: it does not go
+    # with the jump (it follows him down if he falls below that, and up by six tenths of what a flip takes him past
+    # 1.6 over it). Time slowed, it is over his shoulder and goes with the arc, as it did. Either way it is EASED --
+    # a quarter of the way a frame, 0.20 a frame at most running, 0.30 slowed -- so nothing snaps: not a takeoff, not
+    # a landing, not a ledge caught, not the switch between the two.
+    ot_ = p.label("pkcamy")
+    p.load(F["sty"]).push(1).emit("eq", f"jz {ot_}_lab")
     p.emit("drop")
-    knob(p.load(PARK_APX), "camh").emit("add")
+    p.load(F["py"]).load(PGH).emit("add").store(PARK_T0)                    # his feet, in the room
+    p.load(F["py"]).emit(f"jz {ot_}_g")
+    p.load(PARK_CG0).store(PARK_CT)                                           # in the air: where he stood...
+    p.load(LNDON).emit(f"jz {ot_}_nl")                                        # ...or WHERE HE WILL STAND: the walked
+    p.load(LWON).emit(f"jz {ot_}_ld", f"jmp {ot_}_nl")                        # arc's landing height (not a wall's
+    p.mark(f"{ot_}_ld")                                                       # mark) -- the lens is level with the
+    p.load(LNDY).store(PARK_CT).emit(f"jmp {ot_}_fr")                         # top he comes to as he comes to it
+    p.mark(f"{ot_}_nl")
+    p.load(PARK_T0).load(PARK_CT).emit("lt", f"jz {ot_}_fr")                  # (no landing known, fallen below it: with him)
+    p.load(PARK_T0).store(PARK_CT)
+    p.mark(f"{ot_}_fr")
+    # (...and he stays in the glass: a flip takes him two and three units up, off its top -- past 0.9 over where the
+    # lens is level with (0.9), it goes up by nine tenths of the rest)
+    p.load(PARK_CT).push(int(0.9 * ONE)).emit("add").load(PARK_T0).emit("lt", f"jz {ot_}_t")
+    p.load(PARK_T0).load(PARK_CT).emit("sub").push(int(0.9 * ONE)).emit("sub").push(int(0.9 * ONE)).emit("mulq")
+    p.load(PARK_CT).emit("add").store(PARK_CT).emit(f"jmp {ot_}_t")
+    p.mark(f"{ot_}_g")
+    p.load(PGH).emit("dup").store(PARK_CG0).store(PARK_CT)
+    p.mark(f"{ot_}_t")
+    p.push(int(0.20 * ONE)).store(W["dmg"])
+    p.load(SLOWON).emit(f"jz {ot_}_rt")
+    p.load(PARK_T0).store(PARK_CT).push(int(0.30 * ONE)).store(W["dmg"])      # slowed: with the arc
+    p.mark(f"{ot_}_rt")
+    knob(p.load(PARK_CT), "camh").emit("add").load(PARK_CAMY).emit("sub", "shr 2")       # a quarter of the way
+    p.emit("dup").load(W["dmg"]).emit("lt", f"jz {ot_}_hi", f"jmp {ot_}_c1")
+    p.mark(f"{ot_}_hi")
+    p.emit("drop").load(W["dmg"])
+    p.mark(f"{ot_}_c1")
+    p.push(0).load(W["dmg"]).emit("sub", "over", "lt", f"jz {ot_}_lo", f"jmp {ot_}_c2")   # (-cap < d)
+    p.mark(f"{ot_}_lo")
+    p.emit("drop").push(0).load(W["dmg"]).emit("sub")
+    p.mark(f"{ot_}_c2")
+    p.load(PARK_CAMY).emit("add", "dup").store(PARK_CAMY).emit(f"jmp {ot_}")
+    p.mark(f"{ot_}_lab")
+    p.emit("dup").store(PARK_CAMY)                                            # (out of the run: the lab's, kept for the join)
     p.mark(ot_)
 p.store(spec.CAM_Y)
 if L2:
@@ -8518,10 +8576,36 @@ if LAB and (PLATS or PARK):
             p.load(SLC(s_, S_ZZ0)).load(PTZ).emit("lt", f"jz {nb_}").load(PTZ).load(SLC(s_, S_ZZ1)).emit("lt", f"jz {nb_}")
             p.load(SLC(s_, S_TOP)).push(int(0.7 * ONE)).emit("add").load(PTY).emit("lt", f"jz {cm_}_hit")
             p.mark(nb_)
-    p.load(OUTI).push(8).emit("lt", f"jz {cm_}", f"jmp {cm_}_n")
+    p.load(OUTI).push(8).emit("lt", f"jz {cm_}{'_clr' if PARK else ''}", f"jmp {cm_}_n")
     p.mark(f"{cm_}_n")
     p.addi(OUTI, 1).emit(f"jmp {cm_}_l")
-    p.mark(f"{cm_}_hit")                                       # (the last eighth that was clear; none clear -- his back
+    if PARK:
+        # P64: THE DRAW-IN, EASED. It stopped at the last clear EIGHTH of the way, so near a structure the lens
+        # stepped 0.43 at a time. The clear eighths are now a goal: it comes IN quickly (a top must
+        # not cut the glass for long: five eighths of an eighth a frame) and goes back OUT at a quarter of one.
+        p.mark(f"{cm_}_clr")
+        p.set(OUTI, 9)
+        p.mark(f"{cm_}_hit")
+        p.load(OUTI).push(1).emit("sub", "shl 4").store(PARK_CT)               # (the goal, in sixteenths of an eighth)
+        p.load(PARK_CT).load(PARK_DRW).emit("lt", f"jz {cm_}_out")
+        p.load(PARK_DRW).push(10).emit("sub", "dup").load(PARK_CT).emit("lt", f"jz {cm_}_set")   # in: five eighths of one
+        p.emit("drop").load(PARK_CT).emit(f"jmp {cm_}_set")
+        p.mark(f"{cm_}_out")
+        p.load(PARK_DRW).push(4).emit("add", "dup").load(PARK_CT).emit("swap", "lt", f"jz {cm_}_set")   # out: a quarter
+        p.emit("drop").load(PARK_CT)
+        p.mark(f"{cm_}_set")
+        p.store(PARK_DRW)
+        p.load(PARK_DRW).emit(f"jz {cm_}_over")
+        p.load(int(OUTD)).load(PARK_DRW).emit("mul", "shr 7").load(PX).emit("add").store(spec.CAM_X)
+        p.load(int(OUTD) + 1).load(PARK_DRW).emit("mul", "shr 7").load(PZ).emit("add").store(spec.CAM_Z)
+        p.load(int(OUTD) + 2).load(PARK_DRW).emit("mul", "shr 7").load(int(OUTD) + 3).emit("add").store(spec.CAM_Y)
+        p.emit(f"jmp {cm_}")
+        p.mark(f"{cm_}_over")
+        p.load(PX).store(spec.CAM_X).load(PZ).store(spec.CAM_Z)
+        p.load(int(OUTD) + 3).push(int(0.4 * ONE)).emit("add").store(spec.CAM_Y).emit(f"jmp {cm_}")
+        p.mark(f"{cm_}_dead")
+    else:
+        p.mark(f"{cm_}_hit")                                   # (the last eighth that was clear; none clear -- his back
     p.load(OUTI).push(1).emit("eq", f"jz {cm_}_m")             # to a structure's side -- over his own head)
     p.load(PX).store(spec.CAM_X).load(PZ).store(spec.CAM_Z)
     p.load(int(OUTD) + 3).push(int(0.4 * ONE)).emit("add").store(spec.CAM_Y).emit(f"jmp {cm_}")
@@ -8599,13 +8683,12 @@ if LAB:
     _angle_to(LNDX, LNDZ, (f"load {int(LNDY)}",))
     _angle_to(PX, PZ, (f"load {int(F['py'])}", f"load {int(PGH)}", "add", f"push {int(0.9 * ONE)}", "add"))
     p.emit("add", "shr 1").load(CAMP).emit("sub")
-    if PARK:                                       # (P61: time running, the outside of the arc -- down to the spot
-        oa_ = p.label("pkouta")                    # itself, from above)
+    if PARK:                                       # (P64: time running, in the run: level -- no look down at the spot)
+        oa_ = p.label("pkouta")
         p.load(SLOWON).emit(f"jz {oa_}_r", f"jmp {oa_}")
         p.mark(f"{oa_}_r")
-        p.emit("drop")
-        _angle_to(LNDX, LNDZ, (f"load {int(LNDY)}",))
-        p.load(CAMP).emit("sub")
+        p.load(F["sty"]).push(1).emit("eq", f"jz {oa_}")
+        p.emit("drop").push(0)
         p.mark(oa_)
     p.emit("dup").push(0).emit("lt", f"jz {al}_lo")
     p.emit("drop").push(0)
@@ -8616,7 +8699,18 @@ if LAB:
     p.load(AIRP).emit("sub", "dup").push(0).emit("swap", "lt", f"jz {al}_p")
     p.push(3).emit("add")
     p.mark(f"{al}_p")
-    p.emit("shr 2").load(AIRP).emit("add").store(AIRP)
+    p.emit("shr 2")
+    if PARK:                                       # (P64: the look down, 6 of the turn's 1,024 a frame at most: it went 30)
+        ap_ = p.label("pkairp")
+        p.emit("dup").push(6).emit("lt", f"jz {ap_}_hi", f"jmp {ap_}_1")
+        p.mark(f"{ap_}_hi")
+        p.emit("drop").push(6)
+        p.mark(f"{ap_}_1")
+        p.push(-6).emit("over", "lt", f"jz {ap_}_lo", f"jmp {ap_}")
+        p.mark(f"{ap_}_lo")
+        p.emit("drop").push(-6)
+        p.mark(ap_)
+    p.load(AIRP).emit("add").store(AIRP)
     p.load(AIRP).emit("add").push(1023).emit("and")
 p.store(spec.CAM_PITCH)
 
@@ -8844,6 +8938,12 @@ p.mark(f"{op}_e")
 # (halfway, once, for a soft pull; then the bodies' own slide, from him --
 # whichever axis stays in the street -- so the lens is never left outside)
 cmc = p.label("lens")
+if PARK:
+    # P64: IN THE PARK THE LENS'S OWN WALLS ARE THE CORRIDOR'S. This asks the arena whether the lens's place is "on the
+    # street", shoves it aside if not and turns it to look at him -- and the park's arena counts a box's footprint a
+    # wall at any height: over a box the lens was shoved and re-aimed (a jump of 28 in its yaw at a flip, on his
+    # tape). The boxes are the draw-in's, above; here the arena is asked about the walls alone.
+    p.set(PARK_CAMQ, 1)
 if BASE:
     # P21: THE FOLLOW KEEPS ITS DISTANCE (the player: "make sure the camera
     # stays the same distance to the player when a wall is up close behind").
@@ -8919,6 +9019,8 @@ for reg, me, w in ((spec.CAM_X, PX, W["bx"]), (spec.CAM_Z, PZ, W["bz"])):
 keep_in_arena(W["bx"], W["bz"], PX, PZ)
 p.load(W["bx"]).store(spec.CAM_X).load(W["bz"]).store(spec.CAM_Z)
 p.mark(cmc)
+if PARK:
+    p.set(PARK_CAMQ, 0)
 if L2:
     lk2 = p.label("look")
     p.load(WR).push(ONE).emit("lt", f"jz {lk2}")             # (wandering: at him)
@@ -8945,6 +9047,26 @@ if L2:
     p.load(spec.CAM_YAW).emit("add").push(1023).emit("and").store(spec.CAM_YAW)
     p.load(spec.CAM_Y).load(FOCB).push(int(FOCUS_DROP * ONE)).emit("mulq", "sub").store(spec.CAM_Y)
     p.mark(f"{lk2}_f")
+if PARK:
+    # P64: IN THE RUN THE LENS TURNS 20 OF THE TURN'S 1,024 A FRAME AT MOST, whatever asked it to (slowed, the focus
+    # lens over his shoulder looks at a point a reach ahead of him, and from that close a small shift of its place
+    # swung it 64 to 88 in a frame, 44 times on his tape)
+    ys_ = p.label("pkyaws")
+    p.load(F["sty"]).push(1).emit("eq", f"jz {ys_}_n")
+    p.load(spec.CAM_YAW).load(PARK_YS).emit("sub").push(512).emit("add").push(1023).emit("and").push(512).emit("sub")
+    p.emit("dup").push(20).emit("lt", f"jz {ys_}_hi", f"jmp {ys_}_1")
+    p.mark(f"{ys_}_hi")
+    p.emit("drop").push(20)
+    p.mark(f"{ys_}_1")
+    p.push(-20).emit("over", "lt", f"jz {ys_}_lo", f"jmp {ys_}_2")
+    p.mark(f"{ys_}_lo")
+    p.emit("drop").push(-20)
+    p.mark(f"{ys_}_2")
+    p.load(PARK_YS).emit("add").push(1023).emit("and", "dup").store(PARK_YS).store(spec.CAM_YAW)
+    p.emit(f"jmp {ys_}")
+    p.mark(f"{ys_}_n")
+    p.load(spec.CAM_YAW).store(PARK_YS)
+    p.mark(ys_)
 # THE SHAKE: a landed blow jolts the lens side to side for its hitstop
 sk = p.label("shake")
 p.load(F["shake"]).emit(f"jz {sk}")
@@ -11300,6 +11422,9 @@ if LAB:
         p.push(int(PLAT_STEP * ONE) + 1).emit("sub").load(F["py"]).load(PGH).emit("add", "lt", f"jz {la}_out")
         p.mark(f"{la}_n{k_}")
     if PARK:
+        p.load(PARK_CAMQ).emit(f"jz {la}_bx")      # (P64: the lens asks about the walls only)
+        p.push(1).emit("ret")
+        p.mark(f"{la}_bx")
         for s_ in range(PARK_NS):
             n_ = f"{la}_s{s_}"
             p.load(SLC(s_, S_XX0)).load(AR["x"]).emit("lt", f"jz {n_}").load(AR["x"]).load(SLC(s_, S_XX1)).emit("lt", f"jz {n_}")
