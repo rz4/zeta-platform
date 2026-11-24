@@ -242,6 +242,79 @@ for kind, n in LENGTH.items():
     frames = [pose(kind, f / (n - 1)) for f in range(n)]
     out["V_" + kind] = np.stack([v for v, _ in frames])
     out["S_" + kind] = np.stack([c for _, c in frames])
+# ---- P65: THE PARK'S RUN, A FIGHTER'S (the player, of the park: "the thing that needs work now is just the player
+# poses and animation so it doesnt feel as cartoony, it should blend well with the rest of the move set like the
+# boxer and tank"). Seen from the side beside the tank's walk, the stride above is another animal: the trunk bent
+# 56 degrees forward through hips, spine and chest (the boxer's GUARD is 27), the head thrust out, the trailing leg
+# thrown straight back. These are the same clips re-posed with the fighter's carriage, under their own names
+# (park_*): the trunk 30 degrees and the head up; the thigh driven 52 forward and 24 back (65 and 30); the hands
+# pumping close, up by the chest, the elbow near a right angle; the leap a driven knee with the other leg folding
+# under him, not a split; the landing sat into the knees with the fists up, as he sits into his guard.
+PRUN = dict(RUN, **{"Hips": [6, -6, 0], "Spine": [15, -3, 0], "Spine1": [9, -2, 0], "Neck": [-2, 4, 0], "Head": [-2, 3, 0]})
+
+def pknee(ph):
+    keys = [(0.0, 80), (0.12, 48), (0.25, 14), (0.36, 34), (0.55, 24), (0.72, 20), (0.82, 66), (0.92, 104), (1.0, 80)]
+    ph = ph % 1.0
+    for (a0, k0), (a1, k1) in zip(keys, keys[1:]):
+        if a0 <= ph <= a1:
+            return k0 + (k1 - k0) * bm._smoothstep((ph - a0) / (a1 - a0))
+
+def pstride(ph):
+    p_ = dict(PRUN)
+    for side, m, q in (("Right", 1.0, ph), ("Left", -1.0, ph + 0.5)):
+        sn = np.sin(2 * np.pi * q)
+        p_[side + "UpLeg"] = [-14.0 - 38.0 * sn, 0, -9.0 * m]
+        p_[side + "Leg"] = [pknee(q), 0, 0]
+        p_[side + "Foot"] = [8 + 16 * max(0.0, np.sin(2 * np.pi * (q - 0.5))), 0, 0]
+        p_.update({k_: v_ for k_, v_ in arms(-32 * sn, 96 - 12 * sn, 0, 0).items() if k_.startswith(side)} if side == "Right"
+                  else {k_: v_ for k_, v_ in arms(0, 0, -32 * sn, 96 - 12 * sn).items() if k_.startswith(side)})
+    tw = np.sin(2 * np.pi * ph)
+    p_["Hips"] = [PRUN["Hips"][0], PRUN["Hips"][1] + 5 * tw, PRUN["Hips"][2]]
+    p_["Spine1"] = [PRUN["Spine1"][0], PRUN["Spine1"][1] - 6 * tw, PRUN["Spine1"][2]]
+    return p_
+
+PLEAP_KEYS = [
+    (0.0, dict(PRUN, **arms(-40, 84, 50, 96), **{
+        "RightUpLeg": [-82, 0, -9], "RightLeg": [88, 0, 0], "RightFoot": [6, 0, 0],
+        "LeftUpLeg": [22, 0, 9], "LeftLeg": [26, 0, 0], "LeftFoot": [30, 0, 0]})),
+    (0.45, dict(PRUN, **arms(-10, 80, 30, 86), **{
+        "RightUpLeg": [-58, 0, -9], "RightLeg": [56, 0, 0], "RightFoot": [0, 0, 0],
+        "LeftUpLeg": [8, 0, 9], "LeftLeg": [70, 0, 0], "LeftFoot": [20, 0, 0]})),
+    (1.0, dict(PRUN, **arms(48, 50, 48, 50), **{"Spine": [18, -3, 0],
+        "RightUpLeg": [-52, 0, -12], "RightLeg": [66, 0, 0], "RightFoot": [-6, 0, 0],
+        "LeftUpLeg": [-44, 0, 12], "LeftLeg": [72, 0, 0], "LeftFoot": [-6, 0, 0]})),
+]
+PABSORB = dict(PRUN, **arms(44, 70, 44, 70), **{"Hips": [18, -8, 0], "Spine": [22, -3, 0], "Spine1": [12, -2, 0],
+    "Neck": [-8, 4, 0], "RightUpLeg": [-80, 0, -12], "RightLeg": [112, 0, 0], "RightFoot": [28, 0, 0],
+    "LeftUpLeg": [-66, 0, 12], "LeftLeg": [106, 0, 0], "LeftFoot": [28, 0, 0]})
+out["V_park_run"], out["S_park_run"] = (np.stack(x) for x in zip(*[grounded(pstride(f / 16))[0] for f in range(16)]))
+for name, mk in (("park_leap", lambda p_: p_), ("park_leap_l", mirror)):
+    out["V_" + name], out["S_" + name] = (np.stack(x) for x in zip(*[frozen(bm._pose_and_skin(mk(keyed(PLEAP_KEYS, k / (LEAP_N - 1))), np.zeros(3), None))
+                                                                      for k in range(LEAP_N)]))
+PGATHER, PRUN0 = PLEAP_KEYS[-1][1], pstride(0.0)
+pland = [grounded(blend(PGATHER, PABSORB, bm._smoothstep(k / 2)))[0] for k in range(3)] + \
+        [grounded(blend(PABSORB, PRUN0, bm._smoothstep(k / 5)))[0] for k in range(1, 6)]
+out["V_park_land"], out["S_park_land"] = (np.stack(x) for x in zip(*pland))
+proll = []
+for f in range(16):
+    t = f / 15
+    if t < 0.25:
+        p_, w = blend(PABSORB, TUCK, bm._smoothstep(t / 0.25)), bm._smoothstep(t / 0.25)
+    elif t > 0.75:
+        p_, w = blend(TUCK, PRUN0, bm._smoothstep((t - 0.75) / 0.25)), bm._smoothstep((1.0 - t) / 0.25)
+    else:
+        p_, w = dict(TUCK), 1.0
+    def repose(Vt, skel_, angles, w=w):
+        body = anat.pose(angles)
+        for who in ("lead", "rear"):
+            arm, leg = anat.arm(who), anat.leg(who)
+            shin = leg.shin_foot & ~leg.foot
+            bm._reach_arm(Vt, arm, body, Vt[shin].mean(0) + 0.06 * arm.outward, arm.outward, w)
+    V_, S_ = frozen(bm._pose_and_skin(p_, np.zeros(3), None, repose))
+    V_ = V_.copy()
+    V_[:, 2] -= V_[:, 2].min()
+    proll.append((V_, S_))
+out["V_park_roll"], out["S_park_roll"] = (np.stack(x) for x in zip(*proll))
 np.savez_compressed(sys.argv[1], **out)
 print({k: v.shape for k, v in out.items()})
 '''

@@ -350,3 +350,52 @@ def test_down_held_brakes_the_roll(cart):
     held, _ = roll(spec.PAD_DOWN)
     assert n >= 12, "he did not roll out of the flip"
     assert free > 3.0 and held < 1.2, f"the roll went {free:.2f}; with Down held {held:.2f}"
+
+
+def test_the_parks_run_has_the_fighters_carriage():
+    """P65 ("the player poses and animation so it doesnt feel as cartoony, it should blend well with the rest of the
+    move set like the boxer and tank"): the park's stride is re-posed upright -- its head over its hips, not thrust a
+    body's length ahead of them as the lab's is -- and the lab's clips are as they were"""
+    acro = np.load(ROOT / "assets" / "tnd" / "acro.npz")
+    if "V_park_run" not in acro.files:
+        pytest.skip("the local asset has no park clips (tools/tnd_acro.py)")
+
+    def lean(V):
+        """how far ahead of the feet's middle the head is, over the body's height (archive axes: x ahead, z up)"""
+        top = V[V[:, 2] > V[:, 2].max() - 0.12]
+        return float(top[:, 0].mean() - V[V[:, 2] < V[:, 2].min() + 0.5][:, 0].mean()) / float(np.ptp(V[:, 2]))
+    lab = np.mean([lean(v) for v in acro["V_acro_run"]])
+    park = np.mean([lean(v) for v in acro["V_park_run"]])
+    assert park < 0.75 * lab, f"the park's run leans {park:.2f} of its height, the lab's {lab:.2f}"
+    assert np.ptp(acro["V_park_run"][0][:, 2]) > np.ptp(acro["V_acro_run"][0][:, 2]) + 0.05, "it does not stand taller"
+    for k in ("run", "leap", "leap_l", "land", "roll"):
+        assert acro["V_park_" + k].shape == acro["V_acro_" + k].shape
+
+
+def test_the_kick_up_a_face_is_once_an_air(cart):
+    """P65 (his tape of P64: four straight-up kicks took him to 7.7 over a cap at 4.5 and out of the chimney, three
+    times in five): the kick up a face is a save -- once an air, about 1.3 units -- and a second press does nothing"""
+    import bot
+    g = bot.Park(cart)
+    _run(g)
+    for _ in range(30):
+        g.step(L | U)
+    face = next(b for b in g.rows() if b["kind"] == 1 and b["top"] > 2.5)
+    g.d[g.syms["pz"]] = int(round((face["z0"] - 0.6) * ONE)) & 0xFFFFFFFF
+    g.d[g.syms["px"]] = int(round((face["x0"] + face["x1"]) / 2 * ONE)) & 0xFFFFFFFF
+    for k, v in (("f_py", int(1.8 * ONE)), ("f_pvy", -int(0.02 * ONE)), ("f_flipu", 1), ("lab_gh", 0), ("lab_si", -1)):
+        g.d[g.syms[k]] = v & 0xFFFFFFFF
+    kicks, top, y0 = 0, 0.0, None
+    for i in range(60):
+        press = g.cell("wall_t") > 0 and g.py() > 0
+        n0 = g.cell("wall_n")
+        g.step(L | U | (A if press else 0))
+        g.step(L | U)
+        if g.cell("wall_n") > n0:
+            kicks += 1
+            y0 = g.py() if y0 is None else y0
+        top = max(top, g.py())
+        if g.py() == 0 and i > 4:
+            break
+    assert kicks == 1, f"{kicks} kicks up the face in one air"
+    assert top - y0 < 1.6, f"the save rose {top - y0:.2f}"

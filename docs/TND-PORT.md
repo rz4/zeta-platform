@@ -3046,3 +3046,26 @@ What was jolting it, and what it is now (layer 12, in the run):
   height: over a box the lens was shoved and re-aimed. In the park it asks about the corridor's walls only.
 - no landing SHAKE in the park's run (five frames side to side, a landing a second).
 Tests 13; every other layer byte-identical.
+
+## P65: the park's run is a fighter's; the kick up a face is a save (2026-11-24)
+
+The player: "control and jumping in both feels good, the wall jump still has some issues. the thing that needs
+work now is just the player poses and animation so it doesnt feel as cartoony, it should blend well with the rest
+of the move set like the boxer and tank."
+
+THE POSES. Rendered from his side beside the tank's walk and the boxer's jab, the run was another animal: the
+trunk bent 56 degrees forward through hips, spine and chest (the boxer's guard is 27), the head thrust out, the
+trailing leg thrown straight back; the jump a hurdler's split. tools/tnd_acro.py bakes the same clips again with
+the fighter's carriage, under their own names (park_run, park_leap, park_leap_l, park_land, park_roll -- the same
+lengths; the lab's are bit for bit as they were): the trunk 30 degrees and the head up; the thigh 52 forward and
+24 back (65 and 30); the hands pumping close, up by the chest; the leap a driven knee with the other leg folding
+under him; the landing sat into the knees with the fists up. Layer 12 reads those. Its stride is five units a
+cycle (four): at his pace there the legs turned over six times a second.
+
+THE WALL JUMP. His tape of P64 (8 minutes; 90 attempts, 67 cleared; slowed 35% of the run; best streak 12): he
+does not climb the chimney wall to wall -- all 24 of his kicks were the kick straight up a face, at the cap. Each
+was the flip's whole rise (two units) and there was no limit: four took him to 7.7 over a cap at 4.5 and out over
+the chimney's walls, in three of his five tries. It is a save now: once an air, 1.3 units -- with the ledge caught,
+the cap from a flip that fell short.
+
+Tests 15 (the lab's clips unchanged; every other layer byte-identical).

@@ -89,6 +89,8 @@ L3 = LAYER in (3, 4, 5, 6, 7, 8, 10, 11, 12)  # the right shoulder: targeting (P
 L4 = LAYER in (4, 5, 6, 7, 8, 10, 11, 12)  # the enemies (P37): bodies from the cart (frontier 20's core)
 LAB = LAYER in (10, 11, 12)      # THE LAB (P42): a white room to tune the fight in -- layer 4, no town
 PARK = LAYER == 12               # THE PARK (P58): the lab's moves, on a course that is a field, not a list
+RUN_STRIDE = 3.2 if PARK else 4  # the run's cycle a unit of ground: four units a cycle; P65, the park: five (his pace
+#                                  is a quarter more there, and the legs turned over six times a second)
 REACTOR = LAYER == 11            # THE REACTOR (P45): the lab drawn in to one small room, its checks his own width,
                                  # and in its corner his double, doing what he does
 L5 = LAYER in (5, 6, 7, 8)       # the world (P38, docs/TND-WORLD.md): a key a gate, bolts, bunkers
@@ -118,7 +120,15 @@ if LAYER in (10, 11, 12):
             self._srcs, self.files = srcs, [k_ for s_ in srcs for k_ in s_.files]
 
         def __getitem__(self, k_):
+            if LAYER == 12 and k_[2:] in _PARK_CLIPS and k_[:2] in ("V_", "S_"):
+                k_ = k_[:2] + _PARK_CLIPS[k_[2:]]
             return next(s_[k_] for s_ in self._srcs if k_ in s_.files)
+    # P65 (the player, of the park: "the player poses and animation so it doesnt feel as cartoony, it should blend
+    # well with the rest of the move set like the boxer and tank"): the park's run, leap, landing and roll are the
+    # same clips re-posed with the fighter's carriage (tools/tnd_acro.py, park_*) -- the trunk 30 degrees forward,
+    # not 56; the lab's are as they were
+    _PARK_CLIPS = {"acro_run": "park_run", "acro_leap": "park_leap", "acro_leap_l": "park_leap_l",
+                   "acro_land": "park_land", "acro_roll": "park_roll"}
     d = _Bake(np.load(ROOT / "assets" / "tnd" / "acro.npz"), d)
 F, C = d["F"], d["C"]
 SEQS = ("idle", "walk", "air", "jab", "cross", "lead_hook", "rear_hook", "special",
@@ -3536,6 +3546,7 @@ if LAB:
     PARK_CATCH = int(0.7 * ONE) + 1                # THE LEDGE CAUGHT: in the run's air, this far under a top is on it
     PARK_FLIP_HALF, PARK_FLIP_LOW = int(0.13 * 1.24 * 0.5 * ONE), int(0.13 * 1.24 * 0.15 * ONE)   # the flip's pace by the pad
     PARK_KICKV = int(0.24 * ONE)                   # a wall kick's rise (the flip's is 0.20)
+    PARK_UPKICK = int(0.16 * ONE)                  # P65: the kick straight up a face: 1.3 units
     PARK_ROLL_BRAKE = int(0.80 * ONE)              # P63: Down held in the roll: its pace a frame
     PARK_INVTOP = int(ONE / (0.13 * 1.24) * ONE) >> 16
     LONG_G, LONG_V0 = int(0.0032 * ONE), 0.0595
@@ -3768,6 +3779,7 @@ if LAB:
         # P64: THE RUN'S LENS, STEADY (below): its eased height, the height he last stood at, how far it is drawn in
         PARK_CAMY, PARK_CG0, PARK_DRW, PARK_CT = (cart.var("park_" + k_) for k_ in ("cam_y", "cam_ground", "cam_draw", "cam_t"))
         PARK_CAMQ, PARK_YS = cart.var("park_cam_asks"), cart.var("park_cam_yaw")
+        PARK_VKD = cart.var("park_upkick_done")    # P65: the straight-up kick, once an air
 
         def park_flip_pad(g_, tag_):
             """THE FLIP BY THE PAD (P62): how far it carries IS the pad -- Up his full pace, nothing half of it, Down
@@ -5747,7 +5759,7 @@ if LAB:
         p.load(PARK_CYT).emit(f"jz {cy_}_b")
         p.addi(PARK_CYT, -1).emit(f"jmp {cy_}_b")
         p.mark(f"{cy_}_g")
-        p.set(PARK_CYT, PARK_COYOTE).set(PARK_FLP, 0)
+        p.set(PARK_CYT, PARK_COYOTE).set(PARK_FLP, 0).set(PARK_VKD, 0)
         p.load(PARK_JBT).emit(f"jz {cy_}_b")
         p.load(F["sty"]).push(1).emit("eq", f"jz {cy_}_b")
         p.set(CHG, 1).set(CHGN, 0).set(PARK_JBT, 0)
@@ -5968,7 +5980,13 @@ if L1:
         p.load(WALLA).push(1).emit("and", f"jz {hv_}", f"jmp {hv_}_s")
         p.mark(hv_)
         p.load(F["flipu"]).emit(f"jz {wj_}")      # (the flip still his: A is the flip -- the kick saves a spent one)
-        p.addi(WJN, 1).set(WALLT, 0).set(F["pvy"], FLIP_V)
+        # (P65, his tape of P64: all 24 of his kicks were this one, up the chimney cap's face -- each the flip's
+        # whole rise, two units, and as many as he pressed: four took him to 7.7 over a cap at 4.5 and out over the
+        # chimney's walls, three times in five. It is a SAVE: once an air, 1.3 units -- with the ledge caught, the
+        # cap from a flip that fell short.)
+        p.load(PARK_VKD).emit(f"jz {hv_}_ok", f"jmp {jp}")
+        p.mark(f"{hv_}_ok")
+        p.addi(WJN, 1).set(WALLT, 0).set(F["pvy"], PARK_UPKICK).set(PARK_VKD, 1)
         p.emit(f"jmp {jp}")
         p.mark(f"{hv_}_s")
         pw_ = p.label("wjpad")
@@ -6804,7 +6822,7 @@ p.mark(f"{ev}_al")
 p.push(int(0.7 * ONE)).emit("mulq")
 p.load(F["spd"]).push(int(0.3 * ONE)).emit("mulq", "add").store(F["spd"])
 p.mark(f"{ev}_ph")
-p.load(F["spd"]).push(int(4 * ONE)).emit("mulq").load(F["ph"]).emit("add").store(F["ph"])   # (a 4-unit stride)
+p.load(F["spd"]).push(int(RUN_STRIDE * ONE)).emit("mulq").load(F["ph"]).emit("add").store(F["ph"])   # (a 4-unit stride)
 if BASE:
     # (the player: "when stationary the player should be in the standing
     # position" -- the run held but nothing driven, his speed run down:
@@ -11296,7 +11314,7 @@ p.load(F["spd"]).emit(f"jz {rs_}")
 p.load(F["py"]).emit(f"jz {rs_}_g", f"jmp {rs_}")
 p.mark(f"{rs_}_g")
 p.load(F["ph"]).emit("shr 19")                                        # half strides so far
-p.load(F["ph"]).load(F["spd"]).push(int(4 * ONE)).emit("mulq", "sub", "shr 19")   # ...and a frame ago
+p.load(F["ph"]).load(F["spd"]).push(int(RUN_STRIDE * ONE)).emit("mulq", "sub", "shr 19")   # ...and a frame ago
 p.emit("eq", f"jz {rs_}_s", f"jmp {rs_}")
 p.mark(f"{rs_}_s")
 p.set(int(PLAYD["step"]) + 1, int(SND_STEP)).set(SG["st"], 0)
