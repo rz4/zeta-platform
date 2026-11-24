@@ -2,7 +2,7 @@
 """reach.py -- how far and how high each of the run's moves goes in the park (layer 12), on the open floor.
 
 The park's stations were sized from P58's (gen_tnd.py PARK_TAP, PARK_LONG, PARK_FLIP); the moves must still clear
-them. Run me after changing a jump. (P61: no long jump; the first jump by its hold; the pad nudges the flip; X is the superman punch.)
+them. Run me after changing a jump. (P61: no long jump; the first jump by its hold; the pad nudges the flip; X is the jab on the run (P66: no leap).)
 """
 import json
 import sys
@@ -68,7 +68,6 @@ def main():
                 if i > 9 and g.py() == 0:
                     break
             out[f"flip_nudged_{name}"] = (round(g.u() - u0, 2), round(-64.0 - g.cell("px") / ONE - v0, 2))
-        out["superman"] = fly(runner(), hold=2, press=spec.PAD_X)
         g = runner()
         for _ in range(20):
             g.step(L)                            # (let go of Up at full pace: how far he coasts)

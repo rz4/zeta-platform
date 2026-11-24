@@ -3069,3 +3069,31 @@ the chimney's walls, in three of his five tries. It is a save now: once an air, 
 the cap from a flip that fell short.
 
 Tests 15 (the lab's clips unchanged; every other layer byte-identical).
+
+## P66: the jump's arc is one arc; the shot and the jab ride the run (2026-11-24)
+
+The player: "plugged, almost there. the jump looks like the player snaps to the highest part of the arc to quick,
+controls and movement are good though. the gun shot in running should not stop the running, the running jab should
+not make the player jump."
+
+THE SNAP. His tape of P65 (3.5 minutes; 29 attempts, 22 cleared; slowed 17% of the run): of 135 jumps from the
+ground, 18 were lifted 0.6 in ONE frame (0.87 the most), three frames off the ground and still rising -- 17 of them
+in real time. It was P62's ledge catch: a jump begun near a face was over the box's edge within 0.7 of its top at
+once, was put on it, and went on rising from there, 0.4 higher than the jump is. (The ground's step did the same by
+0.2.) Rising, nothing puts him on a top now: a top is under him when his feet are over it; the catch is for a jump
+that has stopped rising (slower than 0.05 a frame). A jump begun against a face is the arc of one begun far from it
+(1.25 held, 0.92 tapped), he waits at the face a few frames as he rises and goes on at his pace. The bot with six
+frames of jitter clears as many (12/12/12 in 43 seconds; P65 12/11/13). And the leap's first poses hung 0.17 over
+his feet (the legs gathered at once), so the body was drawn 0.39 up in a frame his feet rose 0.22: they leave from
+the floor, the gap taken up over three poses.
+
+THE SHOT. The park's run has no lock (R is its slowed time), so its shot was the standing one: the whole body in
+the gun's clip, sliding along at the run's pace with its legs still. It is the locked run's (P36): the round leaves
+at once the way he faces; the stride goes on, his upper half the gun's.
+
+THE JAB. P59's superman leap is gone. X on the run is the jab's ARM over the run's legs, on the ground or in the
+air (the body's two halves, P43): fourteen poses of his upper half baked on the stride's own trunk and height
+(tools/tnd_acro.py, park_rjab) -- the boxer's standing jab laid over the stride tore at the waist, its trunk a
+lunge ahead of the hips. It is an arm: it lands no blow (the park has nothing to hit on the run).
+
+Tests 17. Every other layer byte-identical; the lab's clips bit for bit.

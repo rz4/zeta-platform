@@ -315,6 +315,32 @@ for f in range(16):
     V_[:, 2] -= V_[:, 2].min()
     proll.append((V_, S_))
 out["V_park_roll"], out["S_park_roll"] = (np.stack(x) for x in zip(*proll))
+# ---- P66 (the player: "the jump looks like the player snaps to the highest part of the arc to quick"): the leap's
+# first poses hung 0.17 over his feet's height (the legs already gathered), so leaving the ground the body was drawn
+# 0.39 up in a frame his feet had risen 0.22. They leave from the floor: the gap is taken up over the first three.
+for name in ("park_leap", "park_leap_l"):
+    V_ = out["V_" + name].copy()
+    for k in range(3):
+        V_[k, :, 2] -= V_[k, :, 2].min() * (1.0 - bm._smoothstep(k / 3))
+    out["V_" + name] = V_
+# ---- P66 (the player: "the running jab should not make the player jump"): THE JAB ON THE RUN -- his upper half's
+# poses, laid over the stride's legs by the cart. The trunk is the stride's, at the stride's own height, so the two
+# halves meet; the lead hand goes out along his line and comes back to the pump; the chest turns in behind it.
+RJ_N = 14
+RJ_DROP = float(np.mean([grounded(pstride(f / 16))[1] for f in range(16)]))
+RJ_BASE = pstride(0.0)
+def rjab(u, tw):
+    ready = dict(RJ_BASE, **arms(14, 104, 14, 104))
+    out_ = dict(RJ_BASE, **arms(4, 126, 138, 5), **{"Spine": [17, -3 + tw * 0.4, 0], "Spine1": [9, -2 + tw, 0],
+                                                     "Neck": [-2, 4 - tw * 0.5, 0], "Head": [-2, 3 - tw * 0.4, 0]})
+    return keyed([(0.0, ready), (0.22, out_), (0.48, out_), (1.0, ready)], u)
+def _fist(tw):
+    return frozen(bm._pose_and_skin(rjab(0.3, tw), np.array([0.0, -RJ_DROP, 0.0]), None))[0][:, 0].max()
+RJ_TW = 16.0 if _fist(16.0) > _fist(-16.0) else -16.0
+rj = [frozen(bm._pose_and_skin(rjab(k / (RJ_N - 1), RJ_TW), np.array([0.0, -RJ_DROP, 0.0]), None)) for k in range(RJ_N)]
+out["V_park_rjab"], out["S_park_rjab"] = (np.stack(x) for x in zip(*rj))
+_v = out["V_park_rjab"][4]
+print("rjab: twist", RJ_TW, "| fist reaches x", round(float(_v[:, 0].max()), 2), "at z", round(float(_v[_v[:, 0].argmax(), 2]), 2), "| top", round(float(_v[:, 2].max()), 2))
 np.savez_compressed(sys.argv[1], **out)
 print({k: v.shape for k, v in out.items()})
 '''

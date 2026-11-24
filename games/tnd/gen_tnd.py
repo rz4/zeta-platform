@@ -174,6 +174,8 @@ if L3:
     SEQS += ("run_gun_r", "run_gun_l", "run_gun_f")   # P36: the run, the gun out in one hand
 if LAYER in (10, 11, 12):
     SEQS += ("acro_leap", "acro_leap_l", "acro_land", "acro_roll", "acro_long")   # P50: the run's air (P51: either leg), its landing, its roll; P52 the long jump
+if LAYER == 12:
+    SEQS += ("park_rjab",)       # P66: the jab on the run -- his upper half's poses
 
 
 def to_zeta(V):
@@ -3547,6 +3549,8 @@ if LAB:
     PARK_FLIP_HALF, PARK_FLIP_LOW = int(0.13 * 1.24 * 0.5 * ONE), int(0.13 * 1.24 * 0.15 * ONE)   # the flip's pace by the pad
     PARK_KICKV = int(0.24 * ONE)                   # a wall kick's rise (the flip's is 0.20)
     PARK_UPKICK = int(0.16 * ONE)                  # P65: the kick straight up a face: 1.3 units
+    PARK_CATCH_V = int(0.05 * ONE)                 # P66: the ledge is caught only by a jump rising slower than this
+    PARK_RJ_N = NPOSE.get("park_rjab", 0)               # P66: the jab on the run: its arm's frames
     PARK_ROLL_BRAKE = int(0.80 * ONE)              # P63: Down held in the roll: its pace a frame
     PARK_INVTOP = int(ONE / (0.13 * 1.24) * ONE) >> 16
     LONG_G, LONG_V0 = int(0.0032 * ONE), 0.0595
@@ -5121,6 +5125,10 @@ if L2:
         p.load(RSHOT).emit(f"jz {lk3}_rs")
         p.addi(RSHOT, -1)
         p.mark(f"{lk3}_rs")
+        if PARK:
+            p.load(PARK_SPQ).emit(f"jz {lk3}_rj")
+            p.addi(PARK_SPQ, -1)
+            p.mark(f"{lk3}_rj")
         p.load(SJD).push(5).emit("eq", f"jz {lk3}_sm")
         p.load(TGX).load(PX).emit("sub", "dup", "mulq").load(TGZ).load(PZ).emit("sub", "dup", "mulq", "add")
         p.push32(int((SUPER_STOP / ONE) ** 2 * ONE)).emit("lt", f"jz {lk3}_sm")
@@ -5529,11 +5537,13 @@ if PARK:
     p.load(GTAP["special"]).emit(f"jz {rq_}_x")
     p.set(GTAP["special"], 0).set(PARK_SLQ, 1)
     p.mark(f"{rq_}_x")
-    p.load(GTAP["carve"]).emit(f"jz {rq_}")                       # (the jab, thrown in a low leap at a burst of pace)
-    p.load(F["py"]).emit(f"jz {rq_}_g", f"jmp {rq_}")
-    p.mark(f"{rq_}_g")
-    p.set(F["py"], 1).set(F["pvy"], PARK_SUPER_V).set(JV0, PARK_SUPER_V).set(F["spd"], PARK_SUPER_SPD)
-    p.set(GRISE, TAP_G).set(GFALL, TAP_G).set(LJMP, 0).set(PARK_SPQ, 1)
+    # P66 (the player: "the running jab should not make the player jump"): X on the run is the jab's ARM over the
+    # run's legs (the two halves' poses, below) -- on the ground or in the air; the run goes on under it. No leap.
+    p.load(GTAP["carve"]).emit(f"jz {rq_}")
+    p.set(GTAP["carve"], 0)
+    p.load(PARK_SPQ).emit(f"jz {rq_}_j", f"jmp {rq_}")
+    p.mark(f"{rq_}_j")
+    p.set(PARK_SPQ, PARK_RJ_N)
     p.mark(rq_)
 # the special: its own tap
 sp = p.label("g_sp")
@@ -6403,6 +6413,16 @@ if L3:
     # up through the air to land as he comes down; he stops short of the
     # item and no nearer. Thrown from too far, it falls short: the range is
     # his to find.
+    if PARK:
+        # P66 (the player: "the gun shot in running should not stop the running"): the park's run has no lock (R is
+        # its slowed time), so its shot was the standing one -- the whole body in the gun's clip, sliding along. It is
+        # the locked run's: the round leaves at once, the way he faces, and the run goes on under the gun's arm.
+        prs = p.label("pkrunshot")
+        p.load(F["sty"]).push(1).emit("eq", f"jz {prs}")
+        p.push(MOVE["gun"] - 1).load(F["bmv"]).emit("lt", f"jz {prs}")
+        p.load(F["bmv"]).store(F["mv"]).set(F["buf"], 0).set(RSHOT, RUN_ARM)
+        p.load(HEAD).store(W["head"]).emit(f"call {L_FIRE}", f"jmp {L['walk']}_q")
+        p.mark(prs)
     rs_ = p.label("runshot")
     p.load(LOCK).load(F["sty"]).push(1).emit("eq", "and", f"jz {rs_}")
     p.push(MOVE["gun"] - 1).load(F["bmv"]).emit("lt", f"jz {rs_}_p")
@@ -7083,6 +7103,13 @@ if LAB:
         p.set(PARK_STEPV, int(PLAT_STEP * ONE) + 1)
         p.load(F["sty"]).push(1).emit("eq", f"jz {sc_}")
         p.load(F["py"]).emit(f"jz {sc_}")
+        # P66 (the player: "the jump looks like the player snaps to the highest part of the arc to quick"; his tape
+        # of P65: 18 of 135 jumps were lifted 0.6 in one frame, three frames off the ground, still rising -- the catch
+        # taking a jump begun near a face, and the jump then going on from the top, 0.4 the higher): the catch is for
+        # a jump that has stopped rising. (Rising, not the ground's step either: that lifted him 0.2 the same way.
+        # A top is under him when his feet are over it.)
+        p.set(PARK_STEPV, 1)
+        p.load(F["pvy"]).push(PARK_CATCH_V).emit("lt", f"jz {sc_}")
         p.set(PARK_STEPV, PARK_CATCH)
         p.mark(sc_)
         park_unfold(p)
@@ -7806,6 +7833,30 @@ if CARTMESH:                                 # the pose is where its streams are
             p.load(LS0)
         p.push(SPAN).emit("mul").push(int(BANK)).emit("add", "dup").store(UPPER + 1).push(CM_LEN[0]).emit("add").store(UPPER + 3)
         p.mark(gr)
+        if PARK:
+            # P66: ON THE RUN his upper half is the jab's, thrown (X), or the gun's, fired (B) -- over the stride,
+            # the leap or the landing, whichever his legs are in
+            ru = p.label("pkupper")
+            p.load(F["sty"]).push(1).emit("eq").load(ANIM).push(5).emit("eq", "and", f"jz {ru}")
+            p.load(F["evf"]).emit(f"jz {ru}_e", f"jmp {ru}")
+            p.mark(f"{ru}_e")
+            p.load(PARK_SPQ).emit(f"jz {ru}_g")
+            p.push(base["park_rjab"] + PARK_RJ_N).load(PARK_SPQ).emit("sub").store(LS0).emit(f"jmp {ru}_set")
+            p.mark(f"{ru}_g")
+            p.load(RSHOT).emit(f"jz {ru}")
+            p.push(base["gun"] + 5 + RUN_ARM).load(RSHOT).emit("sub", f"mini {base['gun'] + NPOSE['gun'] - 1}").store(LS0)
+            p.mark(f"{ru}_set")
+            p.load(LS0).store(UPOSE)
+            if DEDUPE:
+                p.load(LS0).emit("shr 1").push(int(PSLOT)).emit("add", "loadi")
+                p.load(LS0).push(1).emit("and", f"jz {ru}_s")
+                p.emit("shr 16")
+                p.mark(f"{ru}_s")
+                p.push(0xFFFF).emit("and")
+            else:
+                p.load(LS0)
+            p.push(SPAN).emit("mul").push(int(BANK)).emit("add", "dup").store(UPPER + 1).push(CM_LEN[0]).emit("add").store(UPPER + 3)
+            p.mark(ru)
     if L3:                                   # the others' clock: two frames a pose, the idle's sixty
         rv_ = p.label("rival")
         p.addi(RIV_T, 1).load(RIV_T).push(2 * NPOSE["idle"]).emit("lt", f"jz {rv_}_w", f"jmp {rv_}")

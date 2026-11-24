@@ -399,3 +399,48 @@ def test_the_kick_up_a_face_is_once_an_air(cart):
             break
     assert kicks == 1, f"{kicks} kicks up the face in one air"
     assert top - y0 < 1.6, f"the save rose {top - y0:.2f}"
+
+
+def test_a_jump_begun_at_a_face_is_the_same_arc(cart):
+    """P66 ("the jump looks like the player snaps to the highest part of the arc to quick"; on his tape 18 jumps of
+    135 were lifted 0.6 in a frame, still rising, by the ledge's catch): rising, nothing puts him on a top -- a jump
+    begun against a face rises as one begun far from it, and he is on the box after it"""
+    import bot
+    tops = []
+    for lead in (1.4, 0.6):
+        g = bot.Park(cart)
+        _run(g)
+        entry = min(b["z0"] for b in g.rows() if b["role"] & 1)
+        for _ in range(200):
+            if g.u() > entry - lead:
+                break
+            g.step(L | U)
+        hs = [0.0]
+        for i in range(16):
+            g.step(L | U | (A if i < 10 else 0))
+            hs.append(g.py() + g.cell("lab_gh") / ONE)
+        assert max(np.diff(hs)) < 0.24, f"begun {lead} before the face, a frame lifted him {max(np.diff(hs)):.2f}"
+        assert g.u() > entry and g.cell("lab_gh") > 0, "he is not on the box"
+        tops.append(max(hs))
+    assert abs(tops[0] - tops[1]) < 0.02, f"the arcs differ: {tops}"
+
+
+def test_a_shot_and_a_jab_on_the_run_leave_the_run_going(cart):
+    """P66 ("the gun shot in running should not stop the running, the running jab should not make the player jump"):
+    B's round leaves and X's arm goes out with his legs in the stride, at the run's pace, his feet on the ground"""
+    import bot
+    for name, button in (("the shot", spec.PAD_B), ("the jab", spec.PAD_X)):
+        g = bot.Park(cart)
+        g.d[g.syms["px"]] = int(round((-64.0 + 8.0) * ONE)) & 0xFFFFFFFF      # (the open floor beside the course)
+        _run(g)
+        for _ in range(60):
+            g.step(L | U)
+        pace, u0, upper = g.cell("f_spd"), g.u(), set()
+        for i in range(30):
+            g.step(L | U | (button if i < 3 else 0))
+            assert 387 <= g.cell("pose") < 387 + 16, f"{name}: his legs left the stride (pose {g.cell('pose')}) at frame {i}"
+            assert g.py() == 0, f"{name}: he left the ground"
+            assert g.cell("f_spd") == pace, f"{name}: his pace changed"
+            upper.add(g.cell("aim_upose"))
+        assert g.u() - u0 > 30 * 0.19, f"{name}: he covered {g.u() - u0:.2f} in 30 frames"
+        assert any(not 387 <= u < 387 + 16 for u in upper), f"{name}: his upper half never left the stride"
