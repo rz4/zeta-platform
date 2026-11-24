@@ -2860,3 +2860,51 @@ draw-in is the reactor's too; it has no structures).
 - the law against the simulated silicon: the lab 333 frames, the reactor
   217, bit-equal; the frame 46% / 58% and 59% / 63%. On the card
   2026-11-23.
+
+## P57: the lab's worst frames, from a census of his whole session (2026-11-23)
+
+`experiments/isa/census.py` read every one of his 16,109 frames against the
+machine's stores. The two frames past the 90% gate were the pause opening
+and closing (each copied the whole 32,768-word page): the lab copies the
+incoming program's own length now (98% -> 64%, 91% -> 81%). The instruction
+worst (54,898) was the landing arc testing every structure's four bounds at
+every step: its tests give up at the first failed bound (worst 44,341, the
+marks identical). On ISA generation 2 (`experiments/isa/README.md`).
+
+## P58: the park -- the lab's moves on a course that is a field (2026-11-23)
+
+The player: "i think what we need is a platforming lab, to test out all the
+movement modes. you should be creative to push the zeta hypothesis"; "make
+the world insanely large and packed with activities to push the limits ...
+make it fun to platform, his running jump felt a bit low before"; "we want
+to be able to have strong platforming capability".
+
+TND_LAYER=12, "TND PARK" (`experiments/park/README.md`):
+
+- an endless corridor (16,000 units each way), three lanes of stations, each
+  lane its own course: a FUNCTION of the station's number -- one of fourteen
+  kinds (TAP, STEPS, LONG, FLIP, FLIP UP, PADS, SLIDE, LIFT, DROP, WALL, and
+  the combinations HIGH, CHAIN, RIDES, TOWER), its gaps the measured reach of
+  the move it tests times a tightness rising from 0.70 to 0.94. The middle
+  lane teaches: each kind once, in order. Unfolded a station a frame into a
+  ring of 56 rows; the 8 nearest are the window every test asks. The lab's
+  seven structures cost 3,115 program words; the park's course costs 4,541,
+  for any length.
+- ORBS over the gaps and above the hard tops; the HUD shows the streak
+  (stations cleared without the floor between entry and last box) and the
+  orbs. Tops coloured by what the station asks (green a jump, red a power
+  move, yellow a mover, black a wall).
+- strong platforming, in the park only: the tap 1.28 up and 3.71 far (0.81,
+  3.06); COYOTE (six frames off an edge, A is the ground's -- a press begun
+  at an edge was cancelled as he ran off it); a BUFFER (A in the air with the
+  flip spent is kept eight frames for the landing); six wall kicks an air,
+  for the WALL station's chimney.
+- in the park the P55 push-out runs on the ground only: run first, it put
+  him out of a structure before the arena could refuse the step, so a
+  structure in the air was never a wall touched (no kick off it).
+- `experiments/park/bot.py` plays it on the real controls: 31 stations in a
+  row, 38 orbs, 97 seconds. tests/test_tnd_park.py (6).
+- the bot's run on the simulated silicon: the frame median 60%, peak 83%,
+  none over; 600 frames bit-equal against the law. Instructions a frame
+  median 27,109, worst 50,474 of 65,536; data memory 248 words free.
+- every other layer and the full cart byte-identical.

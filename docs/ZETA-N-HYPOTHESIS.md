@@ -92,6 +92,17 @@ the tree; none is offered as proof of the general claim.
   not ~27,000 (the earlier figure sampled 2,340 frames; the census read
   all of them), and the frame clock's worst was a page swap at 98%, not
   game work. Both are fixed in the cart (`experiments/isa/README.md`).
+- **The window law, in a cart** (TND's park, P58, `experiments/park/`):
+  the same machine, its stores organized differently. The lab's structures
+  were code -- 445 program words each, every one tested at every step of the
+  landing arc -- so the binding store capped the world at about seven. The
+  park's course is a function unfolded into a ring of 56 rows with a window
+  of 8: 4,541 words for a course of any length (three lanes, fourteen kinds,
+  16,000 units each way), the frame's work bounded by the window. The price
+  moved to the other stores: instructions a frame doubled at the median
+  (12,010 -> 27,109; worst 50,474), data memory down to 248 words free; the
+  frame clocks peak 83%. A capability the old organization could not hold at
+  all, on A(n) -- the hypothesis's mechanism without a new instruction.
 
 ### The limits met so far (evidence against "always")
 
