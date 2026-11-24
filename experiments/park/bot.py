@@ -102,7 +102,7 @@ def play(cart_path, stations=12, say=print):
             g.step(0)
         for _ in range(3):
             g.step(L)
-        log, queue, frames, climbing, last_kick, was_air = [], [], 0, None, 0, False
+        log, queue, frames, climbing, last_kick, was_air, climb_mid, toward = [], [], 0, None, 0, False, 0.0, 0
         cleared_before = 0
         while frames < 60 * 60 * 4:
             frames += 1
@@ -120,14 +120,20 @@ def play(cart_path, stations=12, say=print):
                 vv_ = -64.0 - g.cell("px") / ONE
                 steer = spec.PAD_LEFT if tv_ > vv_ + 0.35 else spec.PAD_RIGHT if tv_ < vv_ - 0.35 else 0
             if not steer and not (on and nxt is not None and nxt["kind"] == 9 and on["role"] & 1) and climbing is None:
-                yaw_ = g.cell("yaw") & 1023                    # (keep to the lane: the heading toward its middle line)
-                yaw_ = yaw_ - 1024 if yaw_ > 512 else yaw_
-                want = max(-40, min(40, int((0.0 - vv0) * 30)))
-                steer = spec.PAD_LEFT if yaw_ < want - 12 else spec.PAD_RIGHT if yaw_ > want + 12 else 0
+                # (P59: keep to the lane -- the pad's ways are the course's: a diagonal back to its middle line, a moment)
+                steer = spec.PAD_LEFT if vv0 < -0.6 else spec.PAD_RIGHT if vv0 > 0.6 else 0
             pad |= steer
+            if py > 0 and nxt is not None and climbing is None and not queue and g.cell("land_on") and not g.cell("land_wall"):
+                mark = g.cell("land_z") / ONE                  # (in the air: let go to stick it, if the dot is past the
+                tgt = next((b for b in rows if b["z0"] <= mark <= b["z1"] + 2.0), None)   # top it falls toward)
+                if tgt is not None and tgt["z1"] - tgt["z0"] < 3.5 and mark > tgt["z1"] - 0.5:
+                    pad &= ~U
             if climbing is not None and py > 0 and not queue and g.cell("wall_t") and len(g.pads) - last_kick > 5 \
                     and py + g.cell("lab_gh") / ONE < climbing + 0.3:   # (WALL: kick from wall to wall until over the cap)
                 queue, last_kick = [0, 0, A, A], len(g.pads)
+                toward = spec.PAD_RIGHT if vv0 < climb_mid else spec.PAD_LEFT   # (P59: the pad toward the wall it kicks from)
+            if climbing is not None and py > 0 and toward:
+                pad = (pad & ~(spec.PAD_LEFT | spec.PAD_RIGHT)) | toward
             if py == 0 and was_air:                           # (landed: the climb is over)
                 climbing = None
             was_air = py > 0
@@ -139,12 +145,12 @@ def play(cart_path, stations=12, say=print):
                 tap = [A, A, A, 0, 0]
                 vv = (-64.0 - g.cell("px") / ONE)
                 if on and kind == 9 and on["role"] & 1:       # WALL: veer a little right; the tap; then the climb
-                    yaw = g.cell("yaw") & 1023
-                    yaw = yaw - 1024 if yaw > 512 else yaw
-                    pad = L | U | (spec.PAD_RIGHT if yaw > -16 else 0)
-                    if edge < 0.8:
+                    pad = L | U | (spec.PAD_RIGHT if edge < 1.0 else 0)   # (P59: near its end, 45 degrees into the wall)
+                    if edge < 0.45:
                         queue = [A, A, A, 0, 0]
                         climbing = max(b["top"] for b in rows if b["st"] == nxt["st"] and b["role"] & 2)
+                        cap_ = next(b for b in rows if b["st"] == nxt["st"] and b["role"] & 2)
+                        climb_mid, toward = -64.0 - (cap_["x0"] + cap_["x1"]) / 2, spec.PAD_RIGHT
                 elif on and on["motion"] == 1:                # riding the slider: still, until it is at its far end
                     pad = L if on["dz"] < on["amp"] - 0.15 or (nxt["motion"] == 2 and nxt["top"] > on["top"] + 0.25) else L | U
                 elif on and on["motion"] == 2:                # riding the lift: still, until it is at the top
@@ -155,13 +161,14 @@ def play(cart_path, stations=12, say=print):
                     pad = L                                   # (the lift is up: wait for it at the edge)
                 elif on and nxt["motion"] in (1, 2):
                     pass                                      # (it is here: walk on)
-                elif on and kind == 2 and on["role"] & 1 and nxt["z0"] - on["z1"] > 3.0:   # LONG: held, let go at the edge
-                    if 0.3 < edge < 3.0:
-                        pad |= A
+                elif on and kind == 2 and on["role"] & 1 and nxt["z0"] - on["z1"] > 3.0:   # LONG: B held, the dot run out
+                    mark = g.cell("land_z") / ONE if g.cell("land_on") else None          # past the gap: let go
+                    if edge < 4.5 and edge > 0.25 and (mark is None or mark < nxt["z0"] + 1.2):
+                        pad = L | U | spec.PAD_B
                 elif on and kind in (4, 13) and nxt["top"] > on["top"] + 1.0:   # FLIP UP: the tap at the face, the flip on top
-                    if edge < 0.8:
+                    if edge < 0.45:
                         queue = tap[:3] + [0] * 8 + [A, A, A]
-                elif on and nxt["z0"] - on["z1"] > 0.3 and edge < 0.8:    # a gap: the tap (it jumps on the release, three frames on)
+                elif on and nxt["z0"] - on["z1"] > 0.3 and edge < 0.45:   # a gap: the tap (P59: it jumps on the press)
                     queue = tap[:3] + ([0] * 9 + [A, A, A] if kind in (3, 8, 11) and nxt["z0"] - on["z1"] > 4.0 else [0, 0])
                 elif nxt["top"] > (on["top"] if on else 0) + 0.25 and nxt["z0"] - u < (1.6 if not on else 1.0):
                     queue = list(tap)                         # a step up (or the entry, from the floor)

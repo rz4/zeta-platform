@@ -57,15 +57,18 @@ def test_the_bot_clears_every_kind_of_station_in_a_row(cart):
     assert g.cell("park_orbs") >= 10, "it took hardly any orbs on the way"
 
 
-def test_the_reaches_the_stations_are_sized_from(cart):
-    """P58's jump: the tap 1.28 up and 3.71 far at his pace (it was 0.81 and 3.06), the flip on top of it, the long
-    jump unchanged; the stations' gaps are these reaches times a tightness"""
+def test_the_reaches(cart):
+    """P59's physics, against P58's obstacles ("the obstacle sizes are fine its the player physics and that need
+    calibration"): his pace 0.20 a frame, the tap 1.28 up and 3.8 far coming down hard (18 frames), the flip on top
+    of it; the long jump on B held, 3.6 units let go at once to 10.8 held 40 frames; no coasting"""
     out = subprocess.run([sys.executable, str(ROOT / "experiments" / "park" / "reach.py"), str(cart)],
                          capture_output=True, text=True, check=True, cwd=ROOT).stdout
     r = json.loads(out.strip().splitlines()[-1])
-    assert abs(r["tap"][0] - 3.71) < 0.15 and abs(r["tap"][1] - 1.28) < 0.05
-    assert abs(r["tap_flip_at_8"][0] - 7.69) < 0.25 and r["tap_flip_at_8"][1] > 3.0
-    assert abs(r["long"][0] - 5.96) < 0.15
+    assert abs(r["run_a_frame"] - 0.20) < 0.01
+    assert abs(r["tap"][0] - 3.8) < 0.15 and abs(r["tap"][1] - 1.28) < 0.05 and r["tap"][2] <= 19
+    assert abs(r["tap_flip_at_8"][0] - 8.46) < 0.3 and r["tap_flip_at_8"][1] > 3.0
+    assert abs(r["long_b_1"][0] - 3.6) < 0.2 and abs(r["long_b_40"][0] - 10.8) < 0.4
+    assert r["coast_after_20"] < 0.2
 
 
 def _on_the_first_entry(cart):
@@ -154,3 +157,60 @@ def test_the_window_is_bounded_and_the_course_is_not(cart):
     assert all(z > u for z in zs), f"a lane's course is behind him: {zs} at {u:.0f}"
     rows = g.rows()
     assert len(rows) <= bot.K and all(u - 90 < b["z0"] < u + 60 for b in rows), "a row far from him"
+
+
+def test_only_R_slows_time_and_the_park_is_always_the_run(cart):
+    """P59 ("be able to be run without the slow mo, slow mo is more of just for extra precision"): no shoulder
+    held, he is in the run; holding A, B, X or Y slows nothing; R held slows time"""
+    import bot
+    g = bot.Park(cart)
+    for _ in range(20):
+        g.step(U)
+    assert g.cell("f_sty") == 1
+    for b in (A, spec.PAD_B, spec.PAD_X, spec.PAD_Y, spec.PAD_R):
+        seen = 0
+        for _ in range(30):
+            g.step(U | b)
+            seen |= g.cell("slow_on")
+        for _ in range(30):
+            g.step(U)
+        assert bool(seen) == (b == spec.PAD_R), f"button {b}: slowed {bool(seen)}"
+
+
+def test_the_pads_ways_are_the_courses(cart):
+    """P59 ("the camera must compensate for the lack of analog control"): Up is exactly down the course, a diagonal
+    exactly 45 degrees, Left straight across -- and the lens holds the course's line throughout"""
+    import bot
+    g = bot.Park(cart)
+    g.d[g.syms["px"]] = int(round((-64.0 + 8.0) * ONE)) & 0xFFFFFFFF
+    for pad, want in ((U, 0), (U | spec.PAD_LEFT, 128), (U, 0), (spec.PAD_LEFT, 256), (U | spec.PAD_RIGHT, 896), (U, 0)):
+        for _ in range(14):
+            g.step(pad)
+        assert g.cell("yaw") & 1023 == want, f"pad {pad}: heading {g.cell('yaw') & 1023}"
+        assert g.cell("park_ref") == 0
+    for _ in range(20):
+        g.step(spec.PAD_DOWN)
+    for _ in range(20):
+        g.step(U)
+    assert g.cell("park_ref") == 512 and g.cell("yaw") & 1023 == 512, "turned round, Up did not carry on"
+
+
+def test_the_long_jumps_landing_runs_out_while_B_is_held(cart):
+    """P59 ("long jump should be down in running where you can see the dot extending to judge it correctly"): B
+    held in the run, the landing is shown and moves further each frame; let go, he lands there"""
+    import bot
+    g = bot.Park(cart)
+    g.d[g.syms["px"]] = int(round((-64.0 + 8.0) * ONE)) & 0xFFFFFFFF
+    for _ in range(40):
+        g.step(U)
+    ahead = []
+    for _ in range(30):
+        g.step(U | spec.PAD_B)
+        assert g.cell("land_on")
+        ahead.append(g.cell("land_z") / ONE - g.u())
+    assert all(b >= a for a, b in zip(ahead, ahead[1:])) and ahead[-1] - ahead[0] > 4.0, "the dot did not run out"
+    shown = g.cell("land_z") / ONE
+    g.step(U)
+    while g.py() > 0 or g.cell("f_pvy") > 0:
+        g.step(U)
+    assert abs(g.u() - shown) < 0.6, f"landed {g.u() - shown:+.2f} from the dot"

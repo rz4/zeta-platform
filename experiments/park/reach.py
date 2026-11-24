@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """reach.py -- how far and how high each of the run's moves goes in the park (layer 12), on the open floor.
 
-The park sizes its stations from these (gen_tnd.py PARK_TAP, PARK_LONG, PARK_FLIP). Run me after changing a jump.
+The park's stations were sized from P58's (gen_tnd.py PARK_TAP, PARK_LONG, PARK_FLIP); the moves must still clear
+them. Run me after changing a jump. (P59: the long jump is B held, let go; X is the superman punch.)
 """
 import json
 import sys
@@ -27,9 +28,11 @@ def runner():
     return g
 
 
-def fly(g, hold=3, flip_at=None):
+def fly(g, hold=3, flip_at=None, press=None):
     for _ in range(hold):
-        g.step(L | U | A)
+        g.step(L | U | (A if press is None else press))
+    if press == spec.PAD_B:
+        g.step(L | U)                            # (B let go: the long jump goes)
     u0, top, air = g.u(), 0.0, 0
     for i in range(140):
         g.step(L | U | (A if flip_at is not None and flip_at <= i < flip_at + 3 else 0))
@@ -52,7 +55,16 @@ def main():
         out["tap"] = fly(runner())
         for fa in (4, 8, 12):
             out[f"tap_flip_at_{fa}"] = fly(runner(), flip_at=fa)
-        out["long"] = fly(runner(), hold=20)
+        for n in (1, 20, 40):
+            out[f"long_b_{n}"] = fly(runner(), hold=n, press=spec.PAD_B)
+        out["superman"] = fly(runner(), hold=2, press=spec.PAD_X)
+        g = runner()
+        for _ in range(20):
+            g.step(L)                            # (let go of Up at full pace: how far he coasts)
+        u0 = g.u()
+        for _ in range(40):
+            g.step(L)
+        out["coast_after_20"] = round(g.u() - u0, 2)
     finally:
         gpu.render = keep
     print(json.dumps(out))

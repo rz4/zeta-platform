@@ -2908,3 +2908,34 @@ TND_LAYER=12, "TND PARK" (`experiments/park/README.md`):
   none over; 600 frames bit-equal against the law. Instructions a frame
   median 27,109, worst 50,474 of 65,536; data memory 248 words free.
 - every other layer and the full cart byte-identical.
+
+## P59: the park's controls and physics, recalibrated (2026-11-23)
+
+The player, after fourteen minutes of P58's park (`experiments/tnd/tnd-park-0001.json`): "i think its just to
+precise for a human to do. maybe long jump should be down in running where you can see the do extending to judge
+it correctly, and the jump be on press no release. the slide can be the special button, superman punch on jab
+during running too. it looks cool but its too slidy i should feel more snappy to the ground, also the wall jump get
+annoying at times when the goal is straight ahead"; "the obstacle sizes are fine its the player physics and that
+need calibration"; "it should just feel a bit more like controlled parkour and be able to be run without the slow
+mo, slow mo is more of just for extra precision. maybe we have to rethink the controls"; "the camera must
+compensate for the lack of analog control."
+
+His tape: 759 A presses held a median 11 frames -- on P58's rules a held A slowed time and became the long jump
+(79 of them); the run only 64% of the time (a shoulder had to be held); 94 attempts, 20 cleared.
+
+The park's own controls (layer 12 only; MY READING of "rethink", to be judged on glass):
+
+| | |
+|---|---|
+| the pad | the run, always; its eight ways are the COURSE'S, the lens holding the course's line (Up straight down it, a diagonal 45 degrees, Left straight across); Down turns him round, and let go Up carries on the new way |
+| A | the jump, on the press; in the air the flip; at a side wall, going into it or with the pad toward it, the kick |
+| B held | the long jump: its landing shown, running out from 3.6 to 10.8 units over 40 frames; let go, he goes ("down" read as held down: the pad's Down steers) |
+| Y | the slide |
+| X | the superman punch: the jab in a lunging leap (2.6 units) |
+| R held | slowed time -- and nothing else slows it |
+
+Physics, against the same obstacles: his pace 0.20 a frame (0.161); the tap 1.28 up, 3.8 far, coming down at 1.7
+times its pull going up (18 frames in the air, was 22); the grip on his heading 0.70 (0.34), coasting 0.62 (0.84),
+the pick-up 0.60 (0.30) -- let go, he stands within 20 frames; in the air, the pad let go brakes him (0.88 a frame)
+to stick a short top; no kick off a face across his way (it threw him back the way he came). The bot clears 41
+stations in a row; the law against the silicon 400 frames bit-equal; instructions median 26,774, worst 49,138.

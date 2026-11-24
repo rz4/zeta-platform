@@ -3515,6 +3515,20 @@ if LAB:
     # far at his pace where it was 3.1 -- under the same pull
     TAP_G, TAP_V0 = int(0.0198 * ONE), (0.235 if PARK else 0.189)
     PARK_COYOTE, PARK_BUFFER = 6, 8                # P58: frames off an edge a jump still counts; an early A remembered
+    # P59 (the player, of the park: "maybe long jump should be down in running where you can see the dot extending to
+    # judge it correctly, and the jump be on press no release ... too slidy i should feel more snappy to the ground"):
+    # B held down in the run charges the long jump (MY READING of "down": held down -- the pad's Down steers), its launch from LJ_LO to LJ_HI of the long jump's own over LJ_MAX
+    # frames -- about 3 to 9 units at his pace -- its landing shown all the while; let go, he goes
+    PARK_LJ_LO, PARK_LJ_HI, PARK_LJ_MAX = 0.5, 1.5, 40
+    PARK_GRIP, PARK_COAST, PARK_ACC = int(0.70 * ONE), int(0.62 * ONE), int(0.60 * ONE)   # (were 0.34, 0.84, 0.30)
+    PARK_FALL = int(0.0198 * 1.7 * ONE)            # the tap's pull coming down: 1.7 of its pull going up
+    PARK_KICK_INTO = int(2.5 * ONE)                # a kick off a wall only going into it: into x 2.5 > along (~22 deg)
+    PARK_SUPER_V, PARK_SUPER_SPD = int(0.20 * ONE), int(0.13 * 1.45 * ONE)   # the superman punch: a lunging leap
+    # (snappier is less time in the air; the obstacles stay as they are, so the reach comes back as pace: his top in
+    # the run a quarter more -- the tap 3.8 units again, coming down hard)
+    PARK_TOP = int(0.13 * 1.24 * ONE)
+    PARK_AIRBRAKE = int(0.88 * ONE)                # (the pad let go in the air: his pace a frame)
+    PARK_INVTOP = int(ONE / (0.13 * 1.24) * ONE) >> 16
     LONG_G, LONG_V0 = int(0.0032 * ONE), 0.0595
     TAP_K, LONG_K = int(TAP_V0 * ONE / (_JK / ONE)), int(LONG_V0 * ONE / (_JK / ONE))   # x the jump knob
     def _leapk(v0_):                               # the leap's shapes over the flight: twelve over 2 v0 of vertical speed
@@ -3737,6 +3751,15 @@ if LAB:
     GRISE, GFALL, JV0, LEAPK, LJMP, CHG, CHGN = (cart.var("jmp_" + k) for k in ("rise", "fall", "v0", "leapk", "long", "charge", "held"))
     if PARK:
         PARK_CYT, PARK_JBT = cart.var("park_coyote"), cart.var("park_buffer")
+        PARK_DN, PARK_LJC, PARK_SLQ, PARK_SPQ = (cart.var("park_" + k_) for k_ in ("down", "lj_charge", "slide_q", "super_q"))
+        PARK_REF = cart.var("park_ref")            # P59: the way "up" the pad is: the course's line, or back along it
+        PARK_TURN = 64                             # (his turn onto the pad's way, a frame: 22 degrees)
+
+        def park_ljv(g_):
+            """( -- v0 ) the long jump's launch for the charge so far"""
+            knob(g_, "jump").push(LONG_K).emit("mulq")
+            g_.load(PARK_LJC).push(int((PARK_LJ_HI - PARK_LJ_LO) * ONE / PARK_LJ_MAX)).emit("mul")
+            g_.push32(int(PARK_LJ_LO * ONE)).emit("add", "mulq")
     # P53: the long jump armed from a stand; the stance a frame ago; the arc's walk through the room (where, how high,
     # how fast it falls, the frames, the step at each pace, which way is blocked); where it lands and how high; the wall
     LJARM, PSTY = cart.var("jmp_from_stand"), cart.var("sty_was")
@@ -4071,7 +4094,7 @@ if BASE:
                 p.push32(lab_xz(-26.0 + 4.0 * l_, 0)[1]).store(int(PARK_GZL) + l_).set(int(PARK_GNL) + l_, 0)
             for c_ in (PARK_GN, PARK_HEAD, PARK_ORBS):
                 p.set(c_, 0)
-            p.set(PARK_CUR, -1).set(PARK_DONE, -1)
+            p.set(PARK_CUR, -1).set(PARK_DONE, -1).set(PARK_REF, LAB_YAW)
     p.set(WR, ONE)
 if SWARM_TEST:                                  # (the meter's hook: the fight in the
     p.set(PX, int(3 * ONE)).set(PZ, int(3 * ONE))               # first plaza, the
@@ -4567,6 +4590,8 @@ if BASE:
         knob(p, "hold").load(GT["special"]).emit("lt", "or")
         knob(p, "hold").load(GT["shoot"]).emit("lt", "or")
         knob(p, "hold").load(AHOLD).emit("lt", "or").store(SLOWON)
+        if PARK:                                  # (P59: in the park, slowed time is R held, and only that)
+            p.load(RHELD).store(SLOWON)           # (R is read into RHELD and taken off the pad, above)
     pk = p.label("pick")                          # (he bows to it -- the fold the
     p.push(0).load(PICK).emit("lt", f"jz {pk}_up")   # body already has, part way -- and
     p.addi(PICK, -1).set(LANDT, LAND_FOR // 2 + 1)   # comes back up; only ABOVE zero)
@@ -5380,6 +5405,19 @@ p.load(F["buf"]).emit(f"jz {L['nobuf']}_x", f"jmp {L['nobuf']}")   # P18: a blow
 p.mark(f"{L['nobuf']}_x")                         # expired unthrown takes the string
 p.set(F["c3"], 0)                                 # with it (or it would be skipped)
 p.mark(L["nobuf"])
+if PARK:
+    # P59: THE PARK'S OWN CONTROLS (the player: "it should just feel a bit more like controlled parkour and be able
+    # to be run without the slow mo, slow mo is more of just for extra precision. maybe we have to rethink the
+    # controls" -- MY READING, to be judged on glass): always the run, the pad steering it; A the jump (the flip in
+    # the air, the kick into a wall); B HELD the long jump, its landing running out while held, gone on letting go;
+    # Y the slide; X the superman punch; R held, slowed time -- and nothing else slows it. The shoulders and B are
+    # taken off the pad here, so the fight never sees them.
+    pd_ = p.label("pkpad")
+    p.set(PARK_DN, 0)
+    p.emit("load 1").push(spec.PAD_B).emit("and", f"jz {pd_}")
+    p.set(PARK_DN, 1)
+    p.mark(pd_)
+    p.emit("load 1").push(0xFFFF ^ (spec.PAD_B | spec.PAD_L | spec.PAD_R)).emit("and", "store 1")
 p.emit(f"call {GEST}", f"jmp {GEST}_end")
 p.mark(GEST)
 for b, bit in BTN:
@@ -5437,6 +5475,20 @@ def chord(a, b, move):
 
 
 # (P18: no chords -- the launchers come from the rhythm, and A is the dodge)
+if PARK:
+    # P59 (the player: "the slide can be the special button, superman punch on jab during running too"): in the run,
+    # Y asks for the slide and X for the superman punch -- not the string's blows
+    rq_ = p.label("pkreq")
+    p.load(F["sty"]).push(1).emit("eq", f"jz {rq_}")
+    p.load(GTAP["special"]).emit(f"jz {rq_}_x")
+    p.set(GTAP["special"], 0).set(PARK_SLQ, 1)
+    p.mark(f"{rq_}_x")
+    p.load(GTAP["carve"]).emit(f"jz {rq_}")                       # (the jab, thrown in a low leap at a burst of pace)
+    p.load(F["py"]).emit(f"jz {rq_}_g", f"jmp {rq_}")
+    p.mark(f"{rq_}_g")
+    p.set(F["py"], 1).set(F["pvy"], PARK_SUPER_V).set(JV0, PARK_SUPER_V).set(F["spd"], PARK_SUPER_SPD)
+    p.set(GRISE, TAP_G).set(GFALL, TAP_G).set(LJMP, 0).set(PARK_SPQ, 1)
+    p.mark(rq_)
 # the special: its own tap
 sp = p.label("g_sp")
 p.load(GTAP["special"]).emit(f"jz {sp}")          # (P30, layer 2: Y is the string's
@@ -5677,6 +5729,8 @@ if LAB:
         p.mark(f"{ch_}_x")
     p.set(CHG, 0).emit(f"jmp {ch_}")                              # (off an edge, or out of the run: no jump)
     p.mark(f"{ch_}_g")
+    if PARK:                                                      # (P59: "the jump be on press no release")
+        p.set(CHGN, 0).emit(f"jmp {ch_}_go")
     p.load(AHOLD).emit(f"jz {ch_}_go")
     p.load(AHOLD).store(CHGN).emit(f"jmp {ch_}")                  # (glass frames: held long, time slows, as for any button)
     p.mark(f"{ch_}_go")
@@ -5698,8 +5752,27 @@ if LAB:
     p.set(GRISE, LONG_G).set(GFALL, LONG_G).set(LJMP, 1).push32(_leapk(LONG_V0)).store(LEAPK).emit(f"jmp {ch_}")
     p.mark(f"{ch_}_tap")
     knob(p, "jump").push(TAP_K).emit("mulq", "dup").store(F["pvy"]).store(JV0)
-    p.set(GRISE, TAP_G).set(GFALL, TAP_G).set(LJMP, 0).push32(_leapk(TAP_V0)).store(LEAPK)
+    p.set(GRISE, TAP_G).set(GFALL, PARK_FALL if PARK else TAP_G).set(LJMP, 0).push32(_leapk(TAP_V0)).store(LEAPK)
     p.mark(ch_)
+    if PARK:
+        # P59: THE LONG JUMP ON DOWN. In the run, on the ground, Down held charges it (the landing shown, further each
+        # frame); let go, he goes -- low and flat, the long jump's own pull
+        lj_ = p.label("pklong")
+        p.load(F["sty"]).push(1).emit("eq", f"jz {lj_}_z")
+        p.load(F["py"]).emit(f"jz {lj_}_g")
+        p.mark(f"{lj_}_z")
+        p.set(PARK_LJC, 0).emit(f"jmp {lj_}")
+        p.mark(f"{lj_}_g")
+        p.load(PARK_DN).emit(f"jz {lj_}_up")
+        p.load(PARK_LJC).push(PARK_LJ_MAX).emit("lt", f"jz {lj_}")
+        p.addi(PARK_LJC, 1).emit(f"jmp {lj_}")
+        p.mark(f"{lj_}_up")
+        p.load(PARK_LJC).emit(f"jz {lj_}")
+        park_ljv(p)
+        p.emit("dup").store(F["pvy"]).store(JV0)
+        p.set(GRISE, LONG_G).set(GFALL, LONG_G).set(LJMP, 1).push32(_leapk(LONG_V0)).store(LEAPK)
+        p.set(F["py"], 1).set(PARK_LJC, 0).set(PARK_CYT, 0).set(CHG, 0)
+        p.mark(lj_)
 # THE JUMP: X's press, at once -- unless A is down (carve+jump launches)
 jp = p.label("jump")
 if L2:
@@ -5850,6 +5923,32 @@ if L1:
     wj_ = p.label("walljump")
     p.load(WALLT).emit(f"jz {wj_}")
     p.load(WJN).push(WJ_MAX).emit("lt", f"jz {wj_}")
+    if PARK:
+        # P59 (the player: "the wall jump get annoying at times when the goal is straight ahead"): a kick only going
+        # INTO the wall -- his way into it at least 0.4 of his way along it; running along one, A is the jump or flip.
+        # And only off a SIDE of the way the course runs (east): a face across his way would throw him back the way
+        # he came -- there, A is the flip, up it
+        p.load(WALLA).push(1).emit("and", f"jz {wj_}")
+        # (...or the pad held TOWARD the wall: in a chimney, the way to the wall he means to kick from)
+        pw_ = p.label("wjpad")
+        p.emit("load 1").push(15).emit("and", f"jz {pw_}_v")
+        p.push(int(OCTANT)).emit("load 1").push(15).emit("and", "add", "loadi").load(PARK_REF).emit("add").store(W["k"])
+        sin_of(p, cell=W["k"])
+        p.push(0).emit("swap", "sub").load(WSX).emit("mul").push32(int(0.3 * ONE)).emit("swap", "lt", f"jz {pw_}_v")
+        p.emit(f"jmp {pw_}")
+        p.mark(f"{pw_}_v")
+        for a_, (into_, along_) in ((1, (F["vx"], F["vz"])),):
+            ax_ = p.label("wjax")
+            p.load(WALLA).push(a_).emit("and", f"jz {ax_}")
+            p.load(along_)
+            p.emit("dup").push(0).emit("lt", f"jz {ax_}_a").push(0).emit("swap", "sub")
+            p.mark(f"{ax_}_a")
+            p.load(into_)
+            p.emit("dup").push(0).emit("lt", f"jz {ax_}_b").push(0).emit("swap", "sub")
+            p.mark(f"{ax_}_b")
+            p.push32(PARK_KICK_INTO).emit("mulq", "lt", f"jz {wj_}")    # (along < into x 2.5: the kick; else none)
+            p.mark(ax_)
+        p.mark(pw_)
     p.addi(WJN, 1).set(WALLT, 0)
     p.load(F["vx"]).store(F["evx"]).load(F["vz"]).store(F["evz"])
     p.load(WALLA).push(1).emit("and", f"jz {wj_}_z")
@@ -6070,6 +6169,8 @@ p.mark(f"{lk}_e")
 stn = p.label("stance")
 p.load(cmt).emit(f"jz {stn}_c", f"jmp {stn}")
 p.mark(f"{stn}_c")
+if PARK:                                         # (P59: the park is always the run)
+    p.push(1).emit(f"jmp {stn}_l")
 p.push(1).load(FRUN).emit(f"jz {stn}_f", f"jmp {stn}_l")   # P20: the free run
 p.mark(f"{stn}_f")
 p.emit("drop")
@@ -6508,7 +6609,7 @@ if L1:
     sd_ = p.label("slide")
     p.load(SLT).emit(f"jz {sd_}_no")
     p.addi(SLT, -1).addi(SLF, 1)                                   # sliding
-    held(spec.PAD_DOWN)
+    held(spec.PAD_Y if PARK else spec.PAD_DOWN)
     p.emit(f"jz {sd_}_rel", f"jmp {sd_}_on")
     p.mark(f"{sd_}_rel")                                           # Down let go: up, once
     p.push(SLIDE_LEAST).load(SLF).emit("lt", f"jz {sd_}_on")       # the least is done
@@ -6522,10 +6623,14 @@ if L1:
     p.load(SLV).emit("mulq").store(F["vz"])
     p.set(ANIM, 7).emit(f"jmp {L['motion']}")
     p.mark(f"{sd_}_no")
-    held(spec.PAD_DOWN)                                            # a fresh Down, running fast
-    p.emit(f"jz {sd_}")
-    p.load(PVE).push(spec.PAD_DOWN).emit("and", f"jz {sd_}_e", f"jmp {sd_}")
-    p.mark(f"{sd_}_e")
+    if PARK:                                                       # (P59: Y asks for it -- the slide is the special's)
+        p.load(PARK_SLQ).emit(f"jz {sd_}")
+        p.set(PARK_SLQ, 0)
+    else:
+        held(spec.PAD_DOWN)                                        # a fresh Down, running fast
+        p.emit(f"jz {sd_}")
+        p.load(PVE).push(spec.PAD_DOWN).emit("and", f"jz {sd_}_e", f"jmp {sd_}")
+        p.mark(f"{sd_}_e")
     p.push(SLIDE_MIN).load(F["spd"]).emit("lt", f"jz {sd_}")
     p.load(F["py"]).emit(f"jz {sd_}_g", f"jmp {sd_}")
     p.mark(f"{sd_}_g")
@@ -6533,6 +6638,28 @@ if L1:
     p.load(F["spd"]).push(SLIDE_BOOST).emit("mulq").store(SLV)
     p.emit(f"jmp {sd_}_on")
     p.mark(sd_)
+if PARK:
+    # P59 (the player: "the camera must compensate for the lack of analog control"): THE PAD'S EIGHT WAYS ARE THE
+    # COURSE'S. The run turned like the tank -- left and right a few degrees a frame -- with the lens trailing his
+    # heading, so a digital pad could never hold a straight line, and "straight" drifted with the lens. In the park
+    # the eight ways are taken from a REFERENCE that is the course's own line (east), and the lens holds that line:
+    # Up is straight down the course, a diagonal exactly 45 degrees, Left straight across; he swings onto the way
+    # quickly. Down turns him back toward the lens; let go of it, and if he is running back the reference (and the
+    # lens) come round to that way -- Up carries on.
+    rf_ = p.label("pkref")
+    p.emit("load 1").push(spec.PAD_DOWN).emit("and", f"jz {rf_}_n", f"jmp {rf_}")
+    p.mark(f"{rf_}_n")
+    p.load(YAW).load(PARK_REF).emit("sub").push(512).emit("add").push(1023).emit("and").push(512).emit("sub")
+    p.emit("dup").push(0).emit("lt", f"jz {rf_}_a").push(0).emit("swap", "sub")
+    p.mark(f"{rf_}_a")
+    p.push(340).emit("swap", "lt", f"jz {rf_}")                      # (more than 120 degrees off: he turned round)
+    p.load(YAW).push(128).emit("add").push(768).emit("and").store(PARK_REF)
+    p.mark(rf_)
+    p.emit("load 1").push(15).emit("and", "dup", f"jz {ev}_nd")
+    p.push(int(OCTANT)).emit("add", "loadi").load(PARK_REF).emit("add").push(1023).emit("and").store(W["head"])
+    p.push(PARK_TURN).store(W["dg"]).emit(f"call {L_STEER}")
+    p.load(YAW).push(1023).emit("and", "dup").store(YAW).store(F["cgr"])
+    p.push(1).emit(f"jmp {ev}_nd")
 if L1:
     p.if_pad(spec.PAD_LEFT, lambda q: knob(q.load(YAW), "runturn").emit("add").store(YAW))
     p.if_pad(spec.PAD_RIGHT, lambda q: knob(q.load(YAW), "runturn").emit("sub").store(YAW))
@@ -6585,10 +6712,10 @@ p.emit(f"jz {ev}_co")
 p.load(F["spd"]).push(PK_SEED).emit("lt", f"jz {ev}_sd")
 p.set(F["spd"], PK_SEED)
 p.mark(f"{ev}_sd")
-p.load(F["spd"]).emit("dup", "dup", "mulq").push(PK_INVTOP).emit("mulq", "sub")  # s(1-s/top)
-(knob(p, "runacc") if L1 else p.push(PK_GROWTH)).emit("mulq").load(F["spd"]).emit("add").store(F["spd"])
-p.push(PK_TOP).load(F["spd"]).emit("lt", f"jz {ev}_tp")
-p.set(F["spd"], PK_TOP)
+p.load(F["spd"]).emit("dup", "dup", "mulq").push(PARK_INVTOP if PARK else PK_INVTOP).emit("mulq", "sub")  # s(1-s/top)
+(p.push(PARK_ACC) if PARK else knob(p, "runacc") if L1 else p.push(PK_GROWTH)).emit("mulq").load(F["spd"]).emit("add").store(F["spd"])
+p.push(PARK_TOP if PARK else PK_TOP).load(F["spd"]).emit("lt", f"jz {ev}_tp")
+p.set(F["spd"], PARK_TOP if PARK else PK_TOP)
 p.mark(f"{ev}_tp")
 p.emit(f"jmp {ev}_tr")
 p.mark(f"{ev}_co")
@@ -6596,9 +6723,15 @@ if L1:
     # P33: IN THE AIR THE RUN KEEPS ITS SPEED. Letting go of Up mid-jump
     # coasted him down as it does on the ground: a jump went 4.8 units with
     # Up held and 1.6 without. The air takes nothing: the jump is the jump.
-    p.load(F["py"]).emit(f"jz {ev}_cg", f"jmp {ev}_tr")
+    if PARK:
+        # P59 ("it should just feel a bit more like controlled parkour"): in the park the air brakes when the pad is
+        # let go -- held, the jump keeps its pace; let go, he sticks the landing short
+        p.load(F["py"]).emit(f"jz {ev}_cg")
+        p.load(F["spd"]).push(PARK_AIRBRAKE).emit("mulq").store(F["spd"]).emit(f"jmp {ev}_tr")
+    else:
+        p.load(F["py"]).emit(f"jz {ev}_cg", f"jmp {ev}_tr")
     p.mark(f"{ev}_cg")
-p.load(F["spd"]).push(PK_FR).emit("mulq").store(F["spd"])     # coasting
+p.load(F["spd"]).push(PARK_COAST if PARK else PK_FR).emit("mulq").store(F["spd"])     # coasting
 p.mark(f"{ev}_tr")
 # (P18: METEOR and the prowler's turn are the run's steer, above)
 for vel, plus, neg in ((F["vx"], 0, True), (F["vz"], 256, False)):
@@ -6606,8 +6739,8 @@ for vel, plus, neg in ((F["vx"], 0, True), (F["vz"], 256, False)):
     p.load(F["spd"]).emit("mulq")
     if neg:
         p.push(0).emit("swap", "sub")             # want = forward * speed
-    (knob(p.load(vel).emit("sub"), "grip") if L1 else p.load(vel).emit("sub").push(PK_GRIP)).emit(
-        "mulq").load(vel).emit("add").store(vel)
+    (p.load(vel).emit("sub").push(PARK_GRIP) if PARK else knob(p.load(vel).emit("sub"), "grip") if L1
+     else p.load(vel).emit("sub").push(PK_GRIP)).emit("mulq").load(vel).emit("add").store(vel)
 # the scrub (align ~ (v . forward) / speed): speed = 0.3 speed + 0.7 (v . fwd)
 sin_of(p)
 p.load(F["vx"]).emit("mulq").push(0).emit("swap", "sub")
@@ -7118,9 +7251,13 @@ if LAB:
     p.load(F["acmb"]).emit(f"jz {lp}_o", f"jmp {lp}")
     # P55: ON THE FLOOR, A HELD FOR THE LONG JUMP: where it will land if he lets go now
     p.mark(f"{lp}_pv")
-    p.load(CHG).emit(f"jz {lp}")
+    if PARK:                                                 # (P59: the long jump's charge, on Down)
+        p.load(PARK_LJC).emit(f"jz {lp}")
+    else:
+        p.load(CHG).emit(f"jz {lp}")
     p.load(F["sty"]).push(1).emit("eq", f"jz {lp}")
-    p.push(LJ_HOLD - 1).load(AHOLD).emit("lt", f"jz {lp}")
+    if not PARK:
+        p.push(LJ_HOLD - 1).load(AHOLD).emit("lt", f"jz {lp}")
     p.set(PGR, LONG_G).set(PGF, LONG_G)
     p.mark(f"{lp}_o")
     # the step a frame: at the pace he has, and (a flip in the RUN) at the run's own once the flip is over
@@ -7141,7 +7278,11 @@ if LAB:
     pv_ = p.label("preview")
     p.load(F["py"]).emit(f"jz {pv_}", f"jmp {pv_}_e")
     p.mark(pv_)                                              # (the preview: the long jump's rise, from his feet)
-    knob(p, "jump").push(LONG_K).emit("mulq").store(PRVY)
+    if PARK:
+        park_ljv(p)
+        p.store(PRVY)
+    else:
+        knob(p, "jump").push(LONG_K).emit("mulq").store(PRVY)
     p.mark(f"{pv_}_e")
     p.mark(f"{lp}_l")
     p.addi(PRN, 1)
@@ -8109,6 +8250,8 @@ p.load(F["brg"]).push(THREAT_KEEP).emit("add")
 p.mark(f"{th_}_s")
 p.push(1023).emit("and").store(W["oy"])
 p.mark(th_)
+if PARK:                                          # (P59: the lens holds the course's line, not his heading)
+    p.load(PARK_REF).store(W["oy"])
 p.load(W["oy"]).load(CY).emit("sub").push(512).emit("add")
 p.push(1023).emit("and").push(512).emit("sub").store(T)   # d in -512..511
 if L1:
