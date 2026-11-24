@@ -1,0 +1,493 @@
+{
+ "schema": "zeta-xp-1",
+ "id": "tnd-park-0004",
+ "machine": {
+  "tape": {
+   "file": "20261124-003903.ztp",
+   "sha256": "ce4f1525176f77efdcad25be0f0899330e2bc3ddf0c3364c5d11a8156983975b",
+   "format": "ZTP0",
+   "loader_build": 107,
+   "cart_sum": "0xf5700777",
+   "runs": 5512
+  },
+  "cart": {
+   "file": "20261124-003903.park.zbin",
+   "sum": "0xf5700777",
+   "built_at_commit": "c161829",
+   "recipe": "TND_SONG=1 TND_LAYER=12 python3 games/tnd/gen_tnd.py",
+   "symbols_sha256": "f08b9d61344c7f642515bdf1576857e9e0745a8681d6e30d8090414ab987aca5"
+  },
+  "card_at_start": "20261121-172911.card.bin",
+  "backend": "law (zeta.cabinet.VirtualMachine)",
+  "spec_loader_build": 107,
+  "ingested_at_commit": "c7d6cbf"
+ },
+ "evidence": {
+  "frames": 72075,
+  "seconds": 1201.2,
+  "end_state_sha256": "a24c3ffaa2c48c22f2664df9624afbc06c27c1a7dc1951a43ca5098f6178a818",
+  "reproduce": "python3 -m zeta.experience ingest 20261124-003903.ztp --game 20261124-003903.park.zbin --symbols ..."
+ },
+ "knobs": [
+  {
+   "axis": "tnd.lab.who",
+   "knob": "who",
+   "index": 0,
+   "default": 0,
+   "final": 0,
+   "signed_notches": 0,
+   "step": 1,
+   "unit": "index",
+   "dwell_frames": {
+    "0": 72075
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.weight",
+   "knob": "weight",
+   "index": 1,
+   "default": 58982,
+   "final": 58982,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "58982": 72075
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.knock",
+   "knob": "knock",
+   "index": 2,
+   "default": 58982,
+   "final": 58982,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "58982": 72075
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.lift",
+   "knob": "lift",
+   "index": 3,
+   "default": 65536,
+   "final": 65536,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "65536": 72075
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.stun",
+   "knob": "stun",
+   "index": 4,
+   "default": 65536,
+   "final": 65536,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "65536": 72075
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.hstop",
+   "knob": "hstop",
+   "index": 5,
+   "default": 65536,
+   "final": 65536,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "65536": 72075
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.slide",
+   "knob": "slide",
+   "index": 6,
+   "default": 57671,
+   "final": 57671,
+   "signed_notches": 0,
+   "step": 655,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "57671": 72075
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.egrav",
+   "knob": "egrav",
+   "index": 7,
+   "default": 786,
+   "final": 786,
+   "signed_notches": 0,
+   "step": 65,
+   "unit": "Q16.16 (65536 = 1.0) a frame squared",
+   "dwell_frames": {
+    "786": 72075
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.pivot",
+   "knob": "pivot",
+   "index": 8,
+   "default": 176,
+   "final": 176,
+   "signed_notches": 0,
+   "step": 16,
+   "unit": "of 1024 a frame",
+   "dwell_frames": {
+    "176": 72075
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.lunge",
+   "knob": "lunge",
+   "index": 9,
+   "default": 58983,
+   "final": 58983,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "58983": 72075
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.keep",
+   "knob": "keep",
+   "index": 10,
+   "default": 40,
+   "final": 40,
+   "signed_notches": 0,
+   "step": 4,
+   "unit": "frames",
+   "dwell_frames": {
+    "40": 72075
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.hold",
+   "knob": "hold",
+   "index": 11,
+   "default": 14,
+   "final": 14,
+   "signed_notches": 0,
+   "step": 2,
+   "unit": "frames",
+   "dwell_frames": {
+    "14": 72075
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.slow",
+   "knob": "slow",
+   "index": 12,
+   "default": 3,
+   "final": 3,
+   "signed_notches": 0,
+   "step": 1,
+   "unit": "frames",
+   "dwell_frames": {
+    "3": 72075
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.dodge",
+   "knob": "dodge",
+   "index": 13,
+   "default": 65536,
+   "final": 65536,
+   "signed_notches": 0,
+   "step": 16384,
+   "unit": "his widths (0.58), Q16.16",
+   "dwell_frames": {
+    "65536": 72075
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.jump",
+   "knob": "jump",
+   "index": 14,
+   "default": 12190,
+   "final": 12190,
+   "signed_notches": 0,
+   "step": 655,
+   "unit": "Q16.16 (65536 = 1.0) a frame",
+   "dwell_frames": {
+    "12190": 72075
+   },
+   "changes": [],
+   "changes_total": 0
+  }
+ ],
+ "observed": {
+  "minutes": 20.02,
+  "buttons": {
+   "a": {
+    "presses": 1172,
+    "held_share": 0.387
+   },
+   "b": {
+    "presses": 25,
+    "held_share": 0.003
+   },
+   "x": {
+    "presses": 30,
+    "held_share": 0.004
+   },
+   "y": {
+    "presses": 15,
+    "held_share": 0.006
+   },
+   "l": {
+    "presses": 136,
+    "held_share": 0.938
+   },
+   "r": {
+    "presses": 90,
+    "held_share": 0.562
+   },
+   "select": {
+    "presses": 0,
+    "held_share": 0.0
+   }
+  },
+  "held_together_share": {
+   "l+r": 0.558,
+   "b+r": 0.003,
+   "y+b": 0.0,
+   "x+a": 0.001,
+   "l+a": 0.383
+  },
+  "slowed_share": 0.551,
+  "stance_share": {
+   "tank": 0.061,
+   "run": 0.867,
+   "boxer": 0.072,
+   "targeting": 0.0
+  },
+  "blows": {
+   "thrown": 52,
+   "a_minute": 2.6,
+   "by_move": {
+    "jab": 26,
+    "cross": 4,
+    "lead_hook": 2,
+    "special": 1,
+    "gun": 18,
+    "gun_charged": 1
+   },
+   "begun_in_slowed_time_share": 0.5
+  },
+  "bodies": {
+   "blows_landed": 0,
+   "landed_a_minute": 0.0,
+   "put_down": 0,
+   "highest_thrown": 0.0,
+   "frames_one_was_above_half_a_unit": 0,
+   "above_three_units": {
+    "frames": 0,
+    "ranges": []
+   },
+   "struck_in_the_air": 0
+  },
+  "jab_strings": {
+   "that_began_with_a_hit": 0,
+   "mean_landed_in_a_row_by_length": {},
+   "five_or_more_in_a_row": {
+    "count": 0,
+    "frames": []
+   }
+  },
+  "passes": {
+   "y_with_b_held": {
+    "count": 0,
+    "frames": []
+   },
+   "b_with_y_held": {
+    "count": 0
+   },
+   "x_with_a_held": {
+    "count": 4
+   },
+   "thrown_as": {
+    "the_boxers_stun": 0,
+    "the_runs_tackle": 0
+   }
+  },
+  "special_chosen_under_a_held_jab": {
+   "steps": 0,
+   "thrown": 0,
+   "as": {
+    "lead_hook": 0,
+    "rear_uppercut": 0,
+    "haymaker": 0
+   }
+  },
+  "close_quarters_rounds_at_least": 3,
+  "jumps": 822,
+  "dodges_and_flips": 598,
+  "structures": {
+   "minutes_on_one": 9.77,
+   "frames_on_each": {
+    "0": 844,
+    "1": 834,
+    "2": 357,
+    "3": 60,
+    "4": 632,
+    "5": 615,
+    "6": 803,
+    "7": 1268,
+    "8": 651,
+    "9": 432,
+    "10": 376,
+    "11": 425,
+    "12": 787,
+    "13": 588,
+    "14": 797,
+    "15": 380,
+    "16": 312,
+    "17": 655,
+    "18": 447,
+    "19": 552,
+    "20": 464,
+    "21": 364,
+    "22": 285,
+    "23": 342,
+    "24": 521,
+    "25": 334,
+    "26": 651,
+    "27": 997,
+    "28": 1125,
+    "29": 1064,
+    "30": 666,
+    "31": 333,
+    "32": 289,
+    "33": 327,
+    "34": 520,
+    "35": 450,
+    "36": 374,
+    "37": 675,
+    "38": 884,
+    "39": 685,
+    "40": 979,
+    "41": 718,
+    "42": 1154,
+    "43": 445,
+    "44": 542,
+    "45": 791,
+    "46": 399,
+    "47": 695,
+    "48": 1187,
+    "49": 891,
+    "50": 1357,
+    "51": 737,
+    "52": 416,
+    "53": 610,
+    "54": 480,
+    "55": 618
+   },
+   "highest_stood": 5.69
+  },
+  "tuner_open_minutes": 0.0,
+  "b_held": {
+   "share": 0.003,
+   "of_which": {
+    "standing": 0.179,
+    "walking": 0.0,
+    "running": 0.409
+   }
+  }
+ },
+ "title": "the P61 park, twenty minutes: how he plays it, and what real time lacked",
+ "human": {
+  "said": [
+   "plugged, look at my game play improve this based on how i want to use it. it should still be human playable not in slow mo."
+  ],
+  "said_on": "2026-11-24",
+  "knobs_chosen": []
+ },
+ "agent": {
+  "observations": [
+   {
+    "what": "87% in the run; 62% of the run in slowed time (R held 56% of all frames); furthest east 4,128; best streak 7; 117 orbs; 65% of the time in the south lane",
+    "frames": []
+   },
+   {
+    "what": "154 attempts, 80 cleared: in real time 32 of 75, with slowed time 48 of 79. Real time by kind: WALL 0 of 9, PADS 2 of 11, CHAIN 0 of 3, RIDES 0 of 2, LIFT 2 of 5, SLIDE 2 of 5",
+    "frames": []
+   },
+   {
+    "what": "the 74 failures: 23 short of the box (many 0.4 short, at its face), 15 past it (a flip 5-7 units over a short top), 14 run off an edge with no jump, 10 under a top (7 the chimney's cap), 10 beside it",
+    "frames": []
+   },
+   {
+    "what": "1,069 A presses in the run, held a median 17 frames, none 3 or under; the pad in the flip: Up 65% of flip frames, Down 13%, Left 6%, Right 7%; 72 wall kicks",
+    "frames": []
+   },
+   {
+    "what": "on a box in real time he stands still 58% of the time",
+    "frames": []
+   }
+  ],
+  "readings": [
+   {
+    "supposes": "his way of playing is stop, line up, the full held jump, the flip, the flip steered -- and the game asked for timing at a run instead",
+    "or": [
+     "he stops because the lens does not show the next box in time"
+    ],
+    "confidence": "medium"
+   }
+  ],
+  "proposed": [
+   "P62: the ledge caught; the flip's carry by the pad (the same from a stand); the held jump the course's; more grace; the chimney's kicks without steering"
+  ]
+ },
+ "result": {
+  "commits": [
+   "c7d6cbf"
+  ],
+  "proved": [
+   "a bot with a human's timing error clears 43-48 stations in 150 s on P62 against 1-37 on P61"
+  ],
+  "cost": "",
+  "next_record": null,
+  "verdict": "revised",
+  "imprints": []
+ }
+}
