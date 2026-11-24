@@ -135,6 +135,7 @@ if LAYER in (10, 11, 12, 13):
     if LAYER == 13:                # (P73: the reactions -- tools/tnd_react.py: struck high, struck low, down, up)
         d = _Bake(np.load(ROOT / "assets" / "tnd" / "react.npz"), d)
 F, C = d["F"], d["C"]
+PLAYER_NF = len(F)               # (his own faces: of the 2,048 a frame's cart meshes may have)
 SEQS = ("idle", "walk", "air", "jab", "cross", "lead_hook", "rear_hook", "special",
         "lead_uppercut", "rear_uppercut", "gun", "gun_charged",
         "run", "kite_fwd", "kite_back", "kite_left", "kite_right",
@@ -501,15 +502,25 @@ if CARTMESH:
              filter(None, os.environ.get("TND_CROWD", "").split(","))] if L3 else []
     if L4:
         CROWD = [("elite", 1), ("common", 1), ("horde", 4)]
-    if LAB:                        # (P42: and his own body, whole, to fight)
+    if YARD:
+        # P73: THE DOUBLE IS A BODY OF THE ELITE'S SIZE. It was his own body, whole -- 737 faces, as he is -- and a
+        # frame's cart meshes may have 2,048: he, the double, the elite and the common are 2,095 before a box or a
+        # horde, bodies are admitted in the order they are listed, and the double was LAST. So with company in the
+        # shot it drew nothing, and struck him: on his tape of P72 it landed 35 of 73 blows and never went down. Here
+        # it is the elite's mesh (369) with every clip of the kit in a bank of its own, dark.
+        CROWD = CROWD + [("double", 1)]
+        TIER_FILE["double"] = TIER_FILE["elite"]
+    elif LAB:                      # (P42: and his own body, whole, to fight)
         CROWD = [("rival", 1)] + CROWD
     # (a size's pace a frame, how near it comes, what it takes)
-    TIER_IS = {"elite": (0.045, 2.4, 8), "common": (0.040, 2.1, 5), "horde": (0.030, 1.8, 3)}
+    TIER_IS = {"elite": (0.045, 2.4, 8), "common": (0.040, 2.1, 5), "horde": (0.030, 1.8, 3), "double": (0.045, 2.4, 12)}
     if L8:                         # (P41: they press him -- the patrol's own pace is the horde's)
         TIER_IS = {k_: (v_[0] * 1.6, v_[1], v_[2]) for k_, v_ in TIER_IS.items()}
     YARD_KIT = {"horde": ("guard2", "walk2", "special"),
                 "common": ("guard2", "walk2", "special", "jab", "cross"),
-                "elite": ("guard2", "walk2", "special", "jab", "cross", "lead_hook", "rear_hook", "lead_uppercut", "dodge_back")}
+                "elite": ("guard2", "walk2", "special", "jab", "cross", "lead_hook", "rear_hook", "lead_uppercut", "dodge_back"),
+                "double": ("guard2", "walk2", "special", "jab", "cross", "lead_hook", "rear_hook", "lead_uppercut", "rear_uppercut",
+                           "dodge_back")}
     YARD_KIT = {k_: v_ + REACTS for k_, v_ in YARD_KIT.items()}       # (P73: and every size is struck, goes down, gets up)
     TIER, ENEMY = {}, []
     for name_, count_ in CROWD:
@@ -555,14 +566,14 @@ if CARTMESH:
             ENEMY.append(e_)
             _slot += 1
     RIVAL = RIVAL and (not CROWD or any(k_ == "rival" for k_, _ in CROWD))
-    if LAB:
+    if LAB and not YARD:
         # P42: THE CLONE -- the player's own body through its own two
         # descriptors (the rival's), an enemy like the others: the last slot
         ENEMY.append(dict(T=dict(hp=12, stand=2.4, pace=0, rival=True), rival=True, phase=0, k=_slot, dx=0, dz=0, rx=0, rz=0,
                           desc=int(RDESC), pos=cart.var(f"e{_slot}_pos", 2), old=cart.var(f"e{_slot}_old", 2),
                           **{k_: cart.var(f"e{_slot}_{k_}") for k_ in ("yaw", "st", "hp", "stun", "fl", "ph", "clk", "walk", "t")}))
 NPOSE = {s: len(d["V_" + s]) for s in SEQS}
-if LAB:
+if LAB and not YARD:
     ENEMY[-1]["T"]["n"] = NPOSE["idle"]          # (the clone stands in the player's own idle)
 if DEDUPE:
     _sl = slot + [0] * (len(slot) & 1)
@@ -2168,6 +2179,8 @@ if LAB:
                 h.push(3).emit("and").push(ORB).emit("eq").load(LABT).push(12).emit("mul").push(1023).emit("and", "mul")
             g_.object(NOBJ, lambda h: h.load(PARK_RA).push(R_DESC).emit("add"), x_, y_, lambda h: h.load(PARK_T0),
                       ang_, spec.OBJ_CART | spec.OBJ_CULL)
+            if YARD:
+                g_.addi(YCF, PARK_NF)
             g_.mark(f"{dl_}_nx")
             g_.load(PARK_RA).push(PARK_RW).emit("add").store(PARK_RA)
             g_.addi(PARK_RI, 1)
@@ -4013,7 +4026,7 @@ if LAB:
             "common": (0.058, 26, 60, 0, 1.0, [["jab", "cross"], ["jab", "jab", "cross"], ["special"], ["cross"]]),
             "elite": (0.068, 18, 40, 100, 1.15, [["jab", "cross", "lead_hook"], ["jab", "jab", "rear_hook"], ["lead_uppercut", "cross"],
                                                  ["lead_hook", "special"]]),
-            "rival": (0.076, 12, 26, 170, 1.25, [["jab", "cross", "lead_hook", "special"], ["jab", "jab", "cross", "rear_uppercut"],
+            "double": (0.076, 12, 26, 170, 1.25, [["jab", "cross", "lead_hook", "special"], ["jab", "jab", "cross", "rear_uppercut"],
                                                  ["lead_hook", "rear_hook", "lead_uppercut"], ["cross", "lead_uppercut", "special"]])}
         # (P72, the player, the fight on glass: "remove gun, from them" -- the double's fourth string was the gun's,
         # drawn from four units to twelve; nobody shoots him now)
@@ -4037,18 +4050,19 @@ if LAB:
         YSCR = cart.data(Table(_scr), "yard_strings")
 
         def _ytier(e_):
-            return "rival" if e_.get("rival") else next(n_ for n_, T_ in TIER.items() if T_ is e_["T"])
+            return next(n_ for n_, T_ in TIER.items() if T_ is e_["T"])
 
         def _yclip(t_, m_):
             """where a move's clip begins in a size's bank (the double's is his own)"""
             m_ = "dodge_back" if m_ == "dodge" else m_
-            return base[m_] if t_ == "rival" else TIER[t_]["cb"].get(m_, 0)
+            return TIER[t_]["cb"].get(m_, 0)
         _ycl = list(PMN) + ["dodge"] + list(REACTS)        # (a size's row: where each clip begins in its bank)
         YCBW, Y_HI, Y_DN, Y_UP = len(_ycl), _ycl.index("hurt_hi"), _ycl.index("down"), _ycl.index("getup")
         YCB = cart.data(Table([_yclip(t_, m_) for t_ in Y_TIERS for m_ in _ycl]), "yard_clip")
         # P73: WHAT A BLOW OF THEIRS DOES TO HIM, by the move: 1 struck high, 2 struck low, 3 taken off his feet
         YPR = cart.data(Table([{"jab": 1, "cross": 1, "rear_hook": 1, "special": 3}.get(m_, 2) for m_ in PMN]), "yard_does")
         YRK, YR0 = cart.var("yard_struck", len(ENEMY)), cart.var("yard_held", len(ENEMY))      # a body struck: high 0 / low 1; held how long
+        YSEEN, YCF = cart.var("yard_seen", len(ENEMY)), cart.var("yard_faces")                   # drawn this frame; the frame's cart faces so far
         YPK, YPT, YCBP = cart.var("yard_his"), cart.var("yard_his_t"), cart.var("yard_row")
         L_YPOSE = p.label("yardpose")
         Y_HS, Y_DOWN_HS, Y_STOP_MOST = 16, 60, 14          # he reels sixteen frames; down and up, sixty; the hitstop's most
@@ -5524,17 +5538,11 @@ if L2:
             p.mark(f"{ya}_rdy")
             p.load(YNPREV).load(YNS).emit("add").push(Y_MAXATK).emit("lt", f"jz {ya}_nodo")
             p.load(YD2).push32(Y_REACH2).emit("lt", f"jz {ya}_far")
-            # P73 (his tape of P72: for 606 of 10,520 frames a standing body was within arm's length of the lens, where
-            # a body is not drawn -- and it told and struck from there): a string begins only BEFORE THE LENS -- over
-            # 1.6 from it and within a seventh of a turn of the way it looks
-            ef(0)
-            p.load(spec.CAM_X).emit("sub").store(W["qx"])
-            ef(1)
-            p.load(spec.CAM_Z).emit("sub").store(W["qz"])
-            p.push32(Y_LENS2).load(W["qx"]).emit("dup", "mulq").load(W["qz"]).emit("dup", "mulq", "add", "lt", f"jz {ya}_nodo")
-            p.emit(f"call {L_YAW}")
-            p.load(F["brg"]).load(spec.CAM_YAW).emit("sub").push(512).emit("add").push(1023).emit("and").push(512).emit("sub", "abs")
-            p.push(150).emit("lt", f"jz {ya}_nodo")
+            # P73: ONLY A BODY THAT IS DRAWN BEGINS A STRING (his tape of P72: for 606 of 10,520 frames a standing body
+            # was within arm's length of the lens, where a body is not drawn -- and told and struck from there; and the
+            # double, last in the frame's store, was not drawn at all). The drawing says who it drew, below.
+            af(YSEEN)
+            p.emit(f"jz {ya}_nodo")
             p.emit(f"load {spec.REG_FRAME}").push(13).emit("mul").load(YK).push(5).emit("mul", "add", "shr 2").push(3).emit("and")
             tp(5)
             p.emit("add", "loadi")
@@ -5646,7 +5654,10 @@ if L2:
             p.mark(f"{ya}_hh")
             p.push(int(0.9 * ONE)).load(F["py"]).emit("lt", f"jz {ya}_dn3", f"jmp {ya}_adv")
             p.mark(f"{ya}_dn3")
-            p.load(YPK).push(3).emit("eq", f"jz {ya}_land", f"jmp {ya}_adv")              # (down, and getting up: not struck)
+            p.load(YPK).push(3).emit("eq", f"jz {ya}_see", f"jmp {ya}_adv")               # (down, and getting up: not struck)
+            p.mark(f"{ya}_see")
+            af(YSEEN)                                              # (nor by what the frame did not draw)
+            p.emit(f"jz {ya}_adv")
             p.mark(f"{ya}_land")
             aset(YHIT, 1)
             p.push(int(YDM)).load(YMV).emit("add", "loadi")
@@ -10504,6 +10515,8 @@ p.store(VIS["rz"])
 
 # ---- the object list --------------------------------------------------------
 p.set(NOBJ, 0)
+if YARD:
+    p.set(YCF, 0)
 if LAB:
     for (tx_, tz_), m_, yaw_ in LAB_TILES:           # P42: the hall, a tile at a time, where it can be seen
         lt_ = p.label("labtile")
@@ -10839,9 +10852,14 @@ if CARTMESH and not L4:
 if LAB:
     # P42: THE LAB'S BODIES: at their own height, leaning back from the last
     # blow; the clone through its two descriptors.
-    for e_ in ENEMY:
+    # P73: IN THE YARD the frame's cart meshes are COUNTED as they are listed (the rows above, his own 737, then these)
+    # and a body is listed only where the lens can have it and the store has room for it -- the double first, then the
+    # others in their order. What is listed is SEEN; what is not neither begins a string nor lands one.
+    for e_ in (sorted(ENEMY, key=lambda e2_: e2_["k"] != len(ENEMY) - 1) if YARD else ENEMY):
         de_ = p.label("dlab")
         k_ = e_["k"]
+        if YARD:
+            p.set(int(YSEEN) + k_, 0)
         p.load(e_["st"]).emit(f"jz {de_}")
         p.load(e_["fl"]).emit(f"jz {de_}_f")
         p.addi(e_["fl"], -1)
@@ -10849,6 +10867,8 @@ if LAB:
         for c_, cam_ in ((int(e_["pos"]), spec.CAM_X), (int(e_["pos"]) + 1, spec.CAM_Z)):
             p.load(c_).load(cam_).emit("sub", "dup", "mulq")
         p.emit("add").push(int(1.3 ** 2 * ONE)).emit("swap", "lt", f"jz {de_}")
+        if YARD:
+            p.load(YCF).push(spec.CM_FMAX - PLAYER_NF - 24 - e_["T"]["nf"] + 1).emit("lt", f"jz {de_}")
 
         def ang(h, e_=e_, k_=k_):
             ta = h.label("etip")
@@ -10864,14 +10884,19 @@ if LAB:
         def flags(h, e_=e_):
             tf = h.label("efl")
             # (P73: THE DOUBLE IS HIS SHADOW -- his body, dark: in his own skin, before him, it could not be told from him)
-            h.push32(spec.OBJ_CART | spec.OBJ_CULL | ((spec.OBJ_OTINT | 13 << 27 | 13 << 22 | 17 << 17) if YARD and e_.get("rival") else 0))
+            h.push32(spec.OBJ_CART | spec.OBJ_CULL | ((spec.OBJ_OTINT | 13 << 27 | 13 << 22 | 17 << 17) if YARD and e_["k"] == len(ENEMY) - 1 else 0))
             h.load(e_["fl"]).emit(f"jz {tf}")
             h.emit("drop").push32(FLASH | spec.OBJ_CART)
             h.mark(tf)
             h.load(LOCK).load(TSEL).push(e_["k"]).emit("eq", "and", f"jz {tf}_e")
             h.push(spec.OBJ_EDGE).emit("or")
             h.mark(f"{tf}_e")
-        for m_ in ((e_["desc"], e_["desc"] + spec.CMESH_WORDS) if e_.get("rival") else (e_["desc"],)):
+        if YARD:
+            def listed(e_=e_, k_=k_, ang=ang, flags=flags):
+                p.object(NOBJ, e_["desc"], (f"load {int(e_['pos'])}",), (f"load {int(EY) + k_}",), (f"load {int(e_['pos']) + 1}",), ang, flags)
+                p.addi(YCF, e_["T"]["nf"]).set(int(YSEEN) + k_, 1)
+            if_visible((f"load {int(e_['pos'])}",), 1.0, (f"load {int(e_['pos']) + 1}",), 1.3, listed)
+        for m_ in (() if YARD else (e_["desc"], e_["desc"] + spec.CMESH_WORDS) if e_.get("rival") else (e_["desc"],)):
             p.object(NOBJ, m_, (f"load {int(e_['pos'])}",), (f"load {int(EY) + k_}",), (f"load {int(e_['pos']) + 1}",), ang, flags)
         p.mark(de_)
 if L4 and not LAB:

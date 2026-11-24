@@ -385,3 +385,122 @@ def test_nobody_shoots_him(cart):
         g.step(0)
         assert g.cell("p_hp") == hp, f"frame {i}: he lost {hp - g.cell('p_hp')} from eight units"
         assert not (y.arr("yard_act", 6) == BLOW and NAMES[y.arr("yard_sp", 6) & 15].startswith("gun"))
+
+
+# ---- P73: THE HIDDEN ATTACKERS, AND THE WEIGHT -------------------------------------------------------------------
+def _cart_faces(y):
+    """the faces of the cart meshes this frame lists, in order (the machine admits them while 2,048 are not passed)"""
+    g, out = y.g, []
+    for i in range(g.d[g.syms["nobj"]]):
+        at = spec.OL_BASE + 1 + i * spec.OL_STRIDE
+        if g.d[at + 5] & spec.OBJ_CART:
+            out.append((g.d[g.d[at]] >> 16) & 0xFFFF)
+    return out
+
+
+def test_nothing_that_fights_is_undrawn(cart):
+    """P73 ("there was like an invisible enemy that made it hard to play"; his tape of P72: the double, his own 737
+    faces and last in the frame's store, drew nothing with company in the shot -- and landed 35 of 73 blows): through
+    a minute among all of them, turning, the frame's cart meshes never pass the store; a body that begins a string
+    was listed that frame; and the double is a body of the elite's size"""
+    y = Yard(cart)
+    g = y.g
+    worst = 0
+    for i in range(1500):
+        g.d[g.syms["p_hp"]] = 140
+        g.step(U if i < 90 else (spec.PAD_LEFT if i % 200 < 60 else X if i % 23 < 3 else 0))
+        f = _cart_faces(y)
+        worst = max(worst, sum(f))
+        assert sum(f) <= spec.CM_FMAX, f"frame {i}: {sum(f)} faces listed: {f}"
+        for k in range(7):
+            if y.arr("yard_act", k) == TELL and y.arr("yard_t", k) == 0:
+                assert y.arr("yard_seen", k), f"frame {i}: body {k} began a string undrawn"
+    assert worst > 1500, f"the shot was never full ({worst})"
+    a = g.syms["yard_clip"]
+    assert [g.d[a + 14 * 3 + j] for j in range(14)] != [g.d[a + 14 * 2 + j] for j in range(14)], "the double has the elite's bank"
+
+
+def test_their_places_are_off_the_lenss_line(cart):
+    """P73: the double's place was dead ahead -- behind his own back from the lens. Standing among them, each that
+    has come to him is at least a fifth of a turn's tenth off the way he faces, either side"""
+    y = Yard(cart)
+    g = y.g
+    for _ in range(70):
+        g.step(U)
+    for _ in range(150):
+        g.d[g.syms["p_hp"]] = 140
+        g.step(0)
+    hd = g.cell("head") / 1024 * 2 * math.pi
+    u, v = y.uv()
+    near = [k for k in range(7) if y.far(k) < 2.2]
+    assert len(near) >= 2, near
+    for k in near:
+        bu, bv = y.body(k)
+        off = (math.atan2(bv - v, bu - u) - hd + math.pi) % (2 * math.pi) - math.pi
+        assert abs(off) > math.radians(18), f"body {k} stands {math.degrees(off):.0f} degrees off his facing"
+
+
+def test_a_blow_of_theirs_has_weight(cart):
+    """P73 ("make things feel epic and like damage is being done ... give weight to the hits and reactions"): a blow
+    landed stops the world, sends him, and puts him in a struck pose that is not his guard; the haymaker takes him
+    off his feet -- about a second, in which nothing more lands -- and he is up again"""
+    y = Yard(cart)
+    g = y.g
+    for _ in range(70):
+        g.step(U)
+    seen, guard_poses = {}, set(range(0, 60))
+    hp = g.cell("p_hp")
+    for i in range(1500):
+        if g.cell("p_hp") < 60:
+            g.d[g.syms["p_hp"]] = 140
+            hp = 140
+        was, at = g.cell("yard_his"), y.uv()
+        g.step(0)
+        if g.cell("p_hp") < hp:
+            kind = g.cell("yard_his")
+            assert kind in (1, 2, 3) and g.cell("f_hs") > 0 and g.cell("f_stop") >= 3, (kind, g.cell("f_hs"), g.cell("f_stop"))
+            assert was != 3, "struck while he was down"
+            seen.setdefault(kind, []).append((i, at))
+        hp = g.cell("p_hp")
+        if g.cell("yard_his") and g.cell("f_stop") == 0 and g.cell("f_hs") > 2:
+            assert g.cell("pose") not in guard_poses, f"frame {i}: struck, and in pose {g.cell('pose')}"
+        if len(seen) == 3:
+            break
+    assert set(seen) == {1, 2, 3}, f"the ways he was struck: {sorted(seen)}"
+    # the haymaker: on his back, then up
+    i0, at0 = seen[3][0]
+    for _ in range(75):
+        g.d[g.syms["p_hp"]] = 140
+        g.step(0)
+        if g.cell("yard_his") == 0:
+            break
+    assert g.cell("yard_his") == 0 and g.cell("f_dead") == 0, "he did not get up"
+
+
+def test_struck_they_show_it_and_go_down_in_the_falls_clip(cart):
+    """P73: a body his fist meets is in a struck clip of its own bank while it is held; taken to nothing it is in the
+    fall's, lies, and gets up in the getting-up's"""
+    y = Yard(cart)
+    g = y.g
+    y.who(3)
+    k = 2                                        # a horde body: three to take
+    bu, bv = y.body(k)
+    y.put(bu, bv - 1.15, 256)
+    a = g.syms["yard_clip"]
+    hi, dn, up = (g.d[a + j] for j in (10, 12, 13))                 # the horde's row: struck high, down, up
+    for _ in range(12):
+        g.step(0)
+    span, bank = None, None
+    poses = {"struck": 0, "down": 0, "up": 0}
+    d1 = g.syms[f"e{k}_st"]
+    for i in range(420):
+        g.step(X if i % 15 < 3 and g.cell(f"e{k}_st") == 1 else 0)
+        idx = y.g.cell("yard_k")                                     # (not the pose: read the routine's answer instead)
+        st, stun, t = g.cell(f"e{k}_st"), g.cell(f"e{k}_stun"), g.cell(f"e{k}_t")
+        if st == 1 and stun > 0:
+            poses["struck"] += 1
+        if st == 2:
+            poses["down" if t < 126 else "up"] += 1
+    assert poses["struck"] > 20 and poses["down"] > 60 and poses["up"] > 10, poses
+    assert g.cell(f"e{k}_st") == 1 and g.cell(f"e{k}_hp") == 3, "it did not get up whole"
+    assert hi > 0 and dn == hi + 16 and up == dn + 12, (hi, dn, up)

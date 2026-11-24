@@ -3280,3 +3280,46 @@ fist he has, and the dodge. (P71's table: strike "the gun" from the double's row
 
 Tests 12 (one new: eight units from the double, awake, for fifteen seconds -- nothing lands). The program is 28,697
 words; data memory has 113 free.
+
+## P73: the invisible enemy; and the weight of a blow (2026-11-24)
+
+The player, the fight on glass (P72, 2m55s): "make improvements its plugged in. remember we have to make things feel
+epic and like damage is being done, re work the poses as needed to give weight to the hits and reactions. also
+there was like an invisible enemy that made it hard to play".
+
+THE INVISIBLE ENEMY WAS THREE. His tape, replayed with every body and the lens beside him: 73 blows landed on him,
+35 of them the double's; he took 172 off the elite and put it down 14 times, 24 off the double and never put it
+down.
+1. THE FRAME'S STORE. A frame's cart meshes may have 2,048 faces, admitted in the order they are listed; one that
+   would not fit draws nothing. He is 737, the double (his own body, whole) 737, the elite 369, the common 252, a
+   horde body 150 -- 2,695 with everyone standing, before a box -- and the double was LAST. With company in the shot
+   it was not drawn, and it fought. (Found late: the double's pose and its flags were right, and it was missing from
+   every render with another body in it.) The double is a body of the ELITE's size now, with every clip of the kit
+   in a bank of its own, drawn dark; the cart COUNTS the faces it lists (the rows, his own, each body) and lists a
+   body only where the lens can have it and the store has room -- the double first; and what is not listed neither
+   begins a string nor lands one. The same tape's route on P73: 2,015 faces at the most; no string begun undrawn.
+2. ITS PLACE. The double's place in the fan was dead ahead of him: behind his own back from the lens, in his own
+   skin. Nobody's place is on that line: the double and the elite a tenth of a turn to either side, the others wider.
+3. THE LENS'S ARM. A body within 1.3 of the lens is not drawn (it would blot out the shot) -- for 606 of his 10,520
+   frames one was, and it told and struck from there (6 of the 73 blows). It is not SEEN, as above.
+
+THE WEIGHT. Until now a body struck kept its guard and leaned; he, struck, went red. tools/tnd_react.py bakes four
+clips on the archive's rig -- struck HIGH (the chin taken back, the chest opened, a foot gone back), struck LOW
+(folded over it), DOWN (back, into the air, flat), UP (sat, crouched, his guard) -- and carries them to the three
+smaller bodies: each of a body's corners follows the nearest corner of the full one, each face takes the nearest
+face's shade (half a centimetre off, measured on the walk both already had).
+- A BLOW OF THEIRS ON HIM: the move's own hitstop (fourteen frames at most) and the lens shaken by it; he is SENT
+  the way it faces by the move's own knock (a jab an eighth of a unit, the haymaker a unit and a half); the burst
+  and the blow's sound at his chest; by the move he is struck high or low -- sixteen frames in that clip -- or TAKEN
+  OFF HIS FEET: the haymaker puts him on his back, a second down and up, and nothing lands on him meanwhile. An
+  uppercut lifts him.
+- A BLOW OF HIS ON THEM: struck, a body is in its own bank's clip (high if his fist met its head, else low) for as
+  long as it is held; taken to nothing it falls in the fall's clip, lies, and gets up in the getting-up's (it was
+  tipped over, stiff); and the blow that takes the last of it stops the world six frames more.
+
+MEASURED, a minute of everything at random with the fight on: 42,205 instructions a frame at the worst (of 65,536);
+on the simulated silicon 50% of the frame at the median, 74% at the peak. The program is 29,045 words (about 220
+from its limit), data memory 58 free: the next thing in this room needs room made first.
+
+Tests 16 (tests/test_tnd_yard.py). Layers 0, 4, 8, 10, 11, 12 and the full cart byte-identical. (The lab and the
+reactor have the same store and the same single double; with one body standing they are inside it.)
