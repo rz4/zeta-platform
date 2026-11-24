@@ -1,0 +1,481 @@
+{
+ "schema": "zeta-xp-1",
+ "id": "tnd-park-0005",
+ "machine": {
+  "tape": {
+   "file": "20261124-085455.ztp",
+   "sha256": "365439d66568625710bb54022a5e2ab3241f07bce682ac0fade699105afbaad8",
+   "format": "ZTP0",
+   "loader_build": 107,
+   "cart_sum": "0xdf80e04b",
+   "runs": 1401
+  },
+  "cart": {
+   "file": "20261124-085455.park.zbin",
+   "sum": "0xdf80e04b",
+   "built_at_commit": "4c8f2ad",
+   "recipe": "TND_SONG=1 TND_LAYER=12 python3 games/tnd/gen_tnd.py",
+   "symbols_sha256": "40d382c740a637a30b5bdeb003a2628ce04f9848172fb96f88b6cfe26edea11d"
+  },
+  "card_at_start": "20261121-172911.card.bin",
+  "backend": "law (zeta.cabinet.VirtualMachine)",
+  "spec_loader_build": 107,
+  "ingested_at_commit": "6638484"
+ },
+ "evidence": {
+  "frames": 25415,
+  "seconds": 423.6,
+  "end_state_sha256": "71b895b6b5ab5e3ecf0f1cf2186ac67c7ac1f7c48f1a7401811a44b677c0a0eb",
+  "reproduce": "python3 -m zeta.experience ingest 20261124-085455.ztp --game 20261124-085455.park.zbin --symbols ..."
+ },
+ "knobs": [
+  {
+   "axis": "tnd.lab.who",
+   "knob": "who",
+   "index": 0,
+   "default": 0,
+   "final": 0,
+   "signed_notches": 0,
+   "step": 1,
+   "unit": "index",
+   "dwell_frames": {
+    "0": 25415
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.weight",
+   "knob": "weight",
+   "index": 1,
+   "default": 58982,
+   "final": 58982,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "58982": 25415
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.knock",
+   "knob": "knock",
+   "index": 2,
+   "default": 58982,
+   "final": 58982,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "58982": 25415
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.lift",
+   "knob": "lift",
+   "index": 3,
+   "default": 65536,
+   "final": 65536,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "65536": 25415
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.stun",
+   "knob": "stun",
+   "index": 4,
+   "default": 65536,
+   "final": 65536,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "65536": 25415
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.hstop",
+   "knob": "hstop",
+   "index": 5,
+   "default": 65536,
+   "final": 65536,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "65536": 25415
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.slide",
+   "knob": "slide",
+   "index": 6,
+   "default": 57671,
+   "final": 57671,
+   "signed_notches": 0,
+   "step": 655,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "57671": 25415
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.egrav",
+   "knob": "egrav",
+   "index": 7,
+   "default": 786,
+   "final": 786,
+   "signed_notches": 0,
+   "step": 65,
+   "unit": "Q16.16 (65536 = 1.0) a frame squared",
+   "dwell_frames": {
+    "786": 25415
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.pivot",
+   "knob": "pivot",
+   "index": 8,
+   "default": 176,
+   "final": 176,
+   "signed_notches": 0,
+   "step": 16,
+   "unit": "of 1024 a frame",
+   "dwell_frames": {
+    "176": 25415
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.lunge",
+   "knob": "lunge",
+   "index": 9,
+   "default": 58983,
+   "final": 58983,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "58983": 25415
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.keep",
+   "knob": "keep",
+   "index": 10,
+   "default": 40,
+   "final": 40,
+   "signed_notches": 0,
+   "step": 4,
+   "unit": "frames",
+   "dwell_frames": {
+    "40": 25415
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.hold",
+   "knob": "hold",
+   "index": 11,
+   "default": 14,
+   "final": 14,
+   "signed_notches": 0,
+   "step": 2,
+   "unit": "frames",
+   "dwell_frames": {
+    "14": 25415
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.slow",
+   "knob": "slow",
+   "index": 12,
+   "default": 3,
+   "final": 3,
+   "signed_notches": 0,
+   "step": 1,
+   "unit": "frames",
+   "dwell_frames": {
+    "3": 25415
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.dodge",
+   "knob": "dodge",
+   "index": 13,
+   "default": 65536,
+   "final": 65536,
+   "signed_notches": 0,
+   "step": 16384,
+   "unit": "his widths (0.58), Q16.16",
+   "dwell_frames": {
+    "65536": 25415
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.jump",
+   "knob": "jump",
+   "index": 14,
+   "default": 12190,
+   "final": 12190,
+   "signed_notches": 0,
+   "step": 655,
+   "unit": "Q16.16 (65536 = 1.0) a frame",
+   "dwell_frames": {
+    "12190": 25415
+   },
+   "changes": [],
+   "changes_total": 0
+  }
+ ],
+ "observed": {
+  "minutes": 7.06,
+  "buttons": {
+   "a": {
+    "presses": 281,
+    "held_share": 0.254
+   },
+   "b": {
+    "presses": 4,
+    "held_share": 0.04
+   },
+   "x": {
+    "presses": 9,
+    "held_share": 0.005
+   },
+   "y": {
+    "presses": 4,
+    "held_share": 0.003
+   },
+   "l": {
+    "presses": 59,
+    "held_share": 0.808
+   },
+   "r": {
+    "presses": 18,
+    "held_share": 0.363
+   },
+   "select": {
+    "presses": 0,
+    "held_share": 0.0
+   }
+  },
+  "held_together_share": {
+   "l+r": 0.354,
+   "b+r": 0.005,
+   "y+b": 0.0,
+   "x+a": 0.0,
+   "l+a": 0.236
+  },
+  "slowed_share": 0.407,
+  "stance_share": {
+   "tank": 0.192,
+   "run": 0.708,
+   "boxer": 0.1,
+   "targeting": 0.0
+  },
+  "blows": {
+   "thrown": 14,
+   "a_minute": 2.0,
+   "by_move": {
+    "jab": 8,
+    "special": 1,
+    "rear_uppercut": 1,
+    "gun_charged": 4
+   },
+   "begun_in_slowed_time_share": 0.0
+  },
+  "bodies": {
+   "blows_landed": 0,
+   "landed_a_minute": 0.0,
+   "put_down": 0,
+   "highest_thrown": 0.0,
+   "frames_one_was_above_half_a_unit": 0,
+   "above_three_units": {
+    "frames": 0,
+    "ranges": []
+   },
+   "struck_in_the_air": 0
+  },
+  "jab_strings": {
+   "that_began_with_a_hit": 0,
+   "mean_landed_in_a_row_by_length": {},
+   "five_or_more_in_a_row": {
+    "count": 0,
+    "frames": []
+   }
+  },
+  "passes": {
+   "y_with_b_held": {
+    "count": 0,
+    "frames": []
+   },
+   "b_with_y_held": {
+    "count": 1
+   },
+   "x_with_a_held": {
+    "count": 0
+   },
+   "thrown_as": {
+    "the_boxers_stun": 0,
+    "the_runs_tackle": 0
+   }
+  },
+  "special_chosen_under_a_held_jab": {
+   "steps": 0,
+   "thrown": 0,
+   "as": {
+    "lead_hook": 0,
+    "rear_uppercut": 0,
+    "haymaker": 0
+   }
+  },
+  "close_quarters_rounds_at_least": 2,
+  "jumps": 210,
+  "dodges_and_flips": 123,
+  "structures": {
+   "minutes_on_one": 4.88,
+   "frames_on_each": {
+    "0": 705,
+    "1": 198,
+    "2": 290,
+    "3": 147,
+    "4": 158,
+    "5": 257,
+    "6": 240,
+    "7": 415,
+    "8": 281,
+    "9": 184,
+    "10": 169,
+    "11": 187,
+    "12": 378,
+    "13": 436,
+    "14": 80,
+    "15": 40,
+    "16": 63,
+    "17": 237,
+    "18": 257,
+    "19": 439,
+    "20": 748,
+    "21": 85,
+    "22": 400,
+    "23": 750,
+    "24": 1805,
+    "25": 1075,
+    "27": 156,
+    "29": 246,
+    "30": 59,
+    "31": 120,
+    "32": 191,
+    "33": 226,
+    "34": 139,
+    "35": 307,
+    "36": 228,
+    "37": 95,
+    "38": 233,
+    "39": 172,
+    "40": 645,
+    "41": 255,
+    "42": 354,
+    "43": 196,
+    "44": 282,
+    "45": 76,
+    "46": 382,
+    "47": 546,
+    "48": 430,
+    "49": 522,
+    "50": 396,
+    "51": 72,
+    "52": 394,
+    "53": 242,
+    "54": 211,
+    "55": 352
+   },
+   "highest_stood": 7.5
+  },
+  "tuner_open_minutes": 0.0,
+  "b_held": {
+   "share": 0.04,
+   "of_which": {
+    "standing": 0.987,
+    "walking": 0.0,
+    "running": 0.0
+   }
+  }
+ },
+ "title": "the P63 park, seven minutes: three in four cleared; the lens jars",
+ "human": {
+  "said": [
+   "plugged, feels a lot better, maybe what we need is is just improving the cameras for running and slow mo running, it still feels to jaring. maybe making the running not move with the arc, since thats more with slow mo since its over the shoulder. i think we are close"
+  ],
+  "said_on": "2026-11-24",
+  "knobs_chosen": []
+ },
+ "agent": {
+  "observations": [
+   {
+    "what": "47 attempts, 35 cleared (74%; 52% on P61); best streak 9; furthest east 1,123; 71% in the run, 47% of it slowed (62% on P61)",
+    "frames": []
+   },
+   {
+    "what": "the lens, in the run in real time: its height moved more than 0.25 in a frame 505 times in 9,571 (102 at a takeoff, 61 at a landing; worst 2.47); its distance from him 233 times (steps of 0.43); its yaw past 24 of 1,024 102 times, 50 a frame after a wall kick; its pitch past 8 572 times",
+    "frames": []
+   },
+   {
+    "what": "replayed on P64 his motion is the same every frame; the same measures: 15 (worst 0.50), 78 (worst 0.29), 0 (worst 20), 0 (worst 7)",
+    "frames": []
+   }
+  ],
+  "readings": [
+   {
+    "supposes": "'jarring' was the lens's height snapping to the arc's top (P61), the stepped draw-in, the town's lens-out-of-walls rule shoving it over boxes, the landing shake and the focus lens's swings",
+    "or": [
+     "it is the turning itself he finds jarring"
+    ],
+    "confidence": "medium"
+   }
+  ],
+  "proposed": [
+   "P64: the run's lens level with where he will stand, eased and capped; a flip lifts it; slowed, with the arc"
+  ]
+ },
+ "result": {
+  "commits": [
+   "6638484"
+  ],
+  "proved": [
+   "the lens's jolts on his own session, before and after, with his motion unchanged"
+  ],
+  "cost": "",
+  "next_record": null,
+  "verdict": "pending",
+  "imprints": []
+ }
+}
