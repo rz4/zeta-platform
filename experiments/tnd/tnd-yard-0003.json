@@ -1,0 +1,511 @@
+{
+ "schema": "zeta-xp-1",
+ "id": "tnd-yard-0003",
+ "machine": {
+  "tape": {
+   "file": "20261124-150818.ztp",
+   "sha256": "66146dcde77c55900c8ed6cf41059ccae72be0ad64ff47025cc570ba3d9991b7",
+   "format": "ZTP0",
+   "loader_build": 107,
+   "cart_sum": "0x031bfa86",
+   "runs": 4604
+  },
+  "cart": {
+   "file": "20261124-150818.yard.zbin",
+   "sum": "0x031bfa86",
+   "built_at_commit": "d8891ae",
+   "recipe": "TND_SONG=1 TND_LAYER=13 python3 games/tnd/gen_tnd.py",
+   "symbols_sha256": "6b599ee39aa5cae42128b8ffd1b702d123f83e96ab7af309183ebf1b151b3b1f"
+  },
+  "card_at_start": "20261121-172911.card.bin",
+  "backend": "law (zeta.cabinet.VirtualMachine)",
+  "spec_loader_build": 107,
+  "ingested_at_commit": "fe282f5"
+ },
+ "evidence": {
+  "frames": 38442,
+  "seconds": 640.7,
+  "end_state_sha256": "9c0eeef32a5b3bd2e6ac5581615b35ebced74f0899bab1d5fedd9b6c7cc0bbe5",
+  "reproduce": "python3 -m zeta.experience ingest 20261124-150818.ztp --game 20261124-150818.yard.zbin --symbols ..."
+ },
+ "knobs": [
+  {
+   "axis": "tnd.lab.who",
+   "knob": "who",
+   "index": 0,
+   "default": 0,
+   "final": 0,
+   "signed_notches": 0,
+   "step": 1,
+   "unit": "index",
+   "dwell_frames": {
+    "0": 38442
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.weight",
+   "knob": "weight",
+   "index": 1,
+   "default": 58982,
+   "final": 58982,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "58982": 38442
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.knock",
+   "knob": "knock",
+   "index": 2,
+   "default": 58982,
+   "final": 58982,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "58982": 38442
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.lift",
+   "knob": "lift",
+   "index": 3,
+   "default": 65536,
+   "final": 65536,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "65536": 38442
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.stun",
+   "knob": "stun",
+   "index": 4,
+   "default": 65536,
+   "final": 65536,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "65536": 38442
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.hstop",
+   "knob": "hstop",
+   "index": 5,
+   "default": 65536,
+   "final": 65536,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "65536": 38442
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.slide",
+   "knob": "slide",
+   "index": 6,
+   "default": 57671,
+   "final": 57671,
+   "signed_notches": 0,
+   "step": 655,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "57671": 38442
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.egrav",
+   "knob": "egrav",
+   "index": 7,
+   "default": 786,
+   "final": 786,
+   "signed_notches": 0,
+   "step": 65,
+   "unit": "Q16.16 (65536 = 1.0) a frame squared",
+   "dwell_frames": {
+    "786": 38442
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.pivot",
+   "knob": "pivot",
+   "index": 8,
+   "default": 176,
+   "final": 176,
+   "signed_notches": 0,
+   "step": 16,
+   "unit": "of 1024 a frame",
+   "dwell_frames": {
+    "176": 38442
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.lunge",
+   "knob": "lunge",
+   "index": 9,
+   "default": 58983,
+   "final": 58983,
+   "signed_notches": 0,
+   "step": 6553,
+   "unit": "Q16.16 (65536 = 1.0)",
+   "dwell_frames": {
+    "58983": 38442
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.keep",
+   "knob": "keep",
+   "index": 10,
+   "default": 40,
+   "final": 40,
+   "signed_notches": 0,
+   "step": 4,
+   "unit": "frames",
+   "dwell_frames": {
+    "40": 38442
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.hold",
+   "knob": "hold",
+   "index": 11,
+   "default": 14,
+   "final": 14,
+   "signed_notches": 0,
+   "step": 2,
+   "unit": "frames",
+   "dwell_frames": {
+    "14": 38442
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.slow",
+   "knob": "slow",
+   "index": 12,
+   "default": 3,
+   "final": 3,
+   "signed_notches": 0,
+   "step": 1,
+   "unit": "frames",
+   "dwell_frames": {
+    "3": 38442
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.dodge",
+   "knob": "dodge",
+   "index": 13,
+   "default": 65536,
+   "final": 65536,
+   "signed_notches": 0,
+   "step": 16384,
+   "unit": "his widths (0.58), Q16.16",
+   "dwell_frames": {
+    "65536": 38442
+   },
+   "changes": [],
+   "changes_total": 0
+  },
+  {
+   "axis": "tnd.lab.jump",
+   "knob": "jump",
+   "index": 14,
+   "default": 12190,
+   "final": 12190,
+   "signed_notches": 0,
+   "step": 655,
+   "unit": "Q16.16 (65536 = 1.0) a frame",
+   "dwell_frames": {
+    "12190": 38442
+   },
+   "changes": [],
+   "changes_total": 0
+  }
+ ],
+ "observed": {
+  "minutes": 10.68,
+  "buttons": {
+   "a": {
+    "presses": 272,
+    "held_share": 0.07
+   },
+   "b": {
+    "presses": 588,
+    "held_share": 0.315
+   },
+   "x": {
+    "presses": 431,
+    "held_share": 0.077
+   },
+   "y": {
+    "presses": 185,
+    "held_share": 0.114
+   },
+   "l": {
+    "presses": 143,
+    "held_share": 0.609
+   },
+   "r": {
+    "presses": 152,
+    "held_share": 0.53
+   },
+   "select": {
+    "presses": 0,
+    "held_share": 0.0
+   }
+  },
+  "held_together_share": {
+   "l+r": 0.34,
+   "b+r": 0.265,
+   "y+b": 0.046,
+   "x+a": 0.0,
+   "l+a": 0.056
+  },
+  "slowed_share": 0.266,
+  "stance_share": {
+   "tank": 0.385,
+   "run": 0.124,
+   "boxer": 0.491,
+   "targeting": 0.0
+  },
+  "blows": {
+   "thrown": 851,
+   "a_minute": 79.7,
+   "by_move": {
+    "jab": 284,
+    "cross": 38,
+    "lead_hook": 41,
+    "special": 7,
+    "rear_uppercut": 9,
+    "gun": 404,
+    "gun_charged": 68
+   },
+   "begun_in_slowed_time_share": 0.074
+  },
+  "bodies": {
+   "blows_landed": 682,
+   "landed_a_minute": 63.9,
+   "put_down": 232,
+   "highest_thrown": 2.28,
+   "frames_one_was_above_half_a_unit": 209,
+   "above_three_units": {
+    "frames": 0,
+    "ranges": []
+   },
+   "struck_in_the_air": 0
+  },
+  "jab_strings": {
+   "that_began_with_a_hit": 52,
+   "mean_landed_in_a_row_by_length": {
+    "1": 1.0,
+    "2": 1.42,
+    "3": 2.33,
+    "4": 3.0,
+    "5": 4.0,
+    "6": 3.75,
+    "7": 4.0,
+    "8": 3.0
+   },
+   "five_or_more_in_a_row": {
+    "count": 10,
+    "frames": [
+     [
+      20577,
+      20685,
+      9
+     ],
+     [
+      16062,
+      16138,
+      7
+     ],
+     [
+      2181,
+      2245,
+      6
+     ],
+     [
+      21014,
+      21120,
+      6
+     ],
+     [
+      23789,
+      23858,
+      6
+     ],
+     [
+      6922,
+      6973,
+      5
+     ],
+     [
+      10583,
+      10643,
+      5
+     ],
+     [
+      17027,
+      17084,
+      5
+     ]
+    ]
+   }
+  },
+  "passes": {
+   "y_with_b_held": {
+    "count": 7,
+    "frames": [
+     28959,
+     29052,
+     30571,
+     31542,
+     33864,
+     33908,
+     35259
+    ],
+    "in_slowed_time": 6,
+    "stance": {
+     "tank": 2,
+     "run": 2,
+     "boxer": 3,
+     "targeting": 0
+    }
+   },
+   "b_with_y_held": {
+    "count": 52
+   },
+   "x_with_a_held": {
+    "count": 0
+   },
+   "thrown_as": {
+    "the_boxers_stun": 2,
+    "the_runs_tackle": 0
+   }
+  },
+  "special_chosen_under_a_held_jab": {
+   "steps": 0,
+   "thrown": 0,
+   "as": {
+    "lead_hook": 0,
+    "rear_uppercut": 0,
+    "haymaker": 0
+   }
+  },
+  "close_quarters_rounds_at_least": 184,
+  "jumps": 119,
+  "dodges_and_flips": 131,
+  "structures": {
+   "minutes_on_one": 0.04,
+   "frames_on_each": {
+    "0": 145
+   },
+   "highest_stood": 0.0
+  },
+  "tuner_open_minutes": 0.0,
+  "b_held": {
+   "share": 0.315,
+   "of_which": {
+    "standing": 0.498,
+    "walking": 0.024,
+    "running": 0.044
+   }
+  }
+ },
+ "title": "the yard's fight, ten minutes: it is starting to be fun; the lock and the spot are not his",
+ "human": {
+  "said": [
+   "plugged. its starting to be fun. the targeting needs work. one thing i noticed is that the up down targeting leaks into the other moves, it shouldnt. look at how i played and make as many improvements as you can"
+  ],
+  "said_on": "2026-11-24",
+  "knobs_chosen": []
+ },
+ "agent": {
+  "observations": [
+   {
+    "what": "38,442 frames: the tank 39%, the boxer 49%, the run 12%; R held 53%; he went down 10 times",
+    "frames": []
+   },
+   {
+    "what": "149 blows landed on him: the double 94, the elite 33, the common 15, the horde's four 7",
+    "frames": []
+   },
+   {
+    "what": "locked on a body 17,501 frames; the body not drawn 28% of them (one of the horde: 75%); a drawn body within 6 units in 713 of 996 such frames sampled",
+    "frames": []
+   },
+   {
+    "what": "the chosen target changed 287 times, 232 with neither Left nor Right down; his body swung over 53 degrees after 40",
+    "frames": []
+   },
+   {
+    "what": "the spot stepped 22 times, all in the tank with R held; 17 with a face button within 10 frames and Up/Down then held 10 to 95 frames; at high for 9,548 locked frames, middle 6,342, low 1,613",
+    "frames": []
+   },
+   {
+    "what": "he took 1,967 off them, 1,671 with the gun's move up; jabs 284 thrown, 178 landed; bodies down 232 times",
+    "frames": []
+   }
+  ],
+  "readings": [
+   {
+    "supposes": "'targeting needs work' is the lock choosing undrawn bodies and re-choosing for him; 'leaks' is the spot stepping under Up/Down held for other moves",
+    "or": [
+     "he means the pad's Up/Down doing a move while he means to set the spot"
+    ],
+    "confidence": "medium"
+   },
+   {
+    "supposes": "the horde is out of the fight because its places are out of the shot",
+    "or": [],
+    "confidence": "high"
+   }
+  ],
+  "proposed": [
+   "P74: the lock takes only drawn bodies; the spot steps on a tap of its own; the fight has turns (two sides, an arc, out wide)"
+  ]
+ },
+ "result": {
+  "commits": [
+   "fe282f5"
+  ],
+  "proved": [],
+  "cost": "",
+  "next_record": null,
+  "verdict": "pending",
+  "imprints": []
+ }
+}
