@@ -3895,5 +3895,18 @@ for the yard, five. Rebuilding SSS and X12: 13,093 instructions with the wordmar
 heaviest frames were its intro's captions (146 triangles of text, 52,558 instructions of the 65,536); those are
 now 39,918, and on the same seven minutes of presses the heaviest frame is 41,514.
 
+ON THE SILICON METER, the 25,544 frames of his P89 session's presses on this build (not the session he played: the
+yard has moved on since): median 58% of the frame, 99th 76%, peak 95% -- FOUR FRAMES OVER THE CEILING (777,600
+clocks), none dropped. It is not the rank's: the same hundred frames on P93 peak at 94.2% (three over), on this
+build at 94.8% -- the rank is 0.6% of a frame there, 0.7% at the median.
+What it is (found here, not mended here; it is the yard's): at frame 13,190 he is taken off his feet with his back
+to a wall, bodies round him, and for a second THE LENS IS DRAWN IN ONTO HIM -- 0.00 to 0.31 units from his own
+place -- so the screen is one near surface and whatever stands by him, each many times its usual size: the walk
+(457,000 clocks) is two and a half times what the same stretch of his real session cost on P89 (179,000; 67% at
+its peak). The lens on him is not rare, and it is in the sessions he played: within 0.3 of him 5 times in the 7.1
+minutes on P89 (the longest 77 frames, the last of them the session's last two seconds: a wall's grey over the
+whole glass), 15 times in the 12.7 on P84 (the longest 144). In the open it costs nothing (61% at the peak); in a
+crowd by a wall it is the heaviest thing the yard has drawn.
+
 Program 26,775 words; data memory 602 free (the song's build 676). Tests 46. Layers 0, 4, 8, 10, 11, 12 and the
 full cart byte-identical.
