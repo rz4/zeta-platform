@@ -985,6 +985,114 @@ def isa2(lines: list[str]) -> list[str]:
     return out
 
 
+def reach(lines: list[str]) -> list[str]:
+    """A program without the instructions no path from word 0 reaches. Exact:
+    every jump and call names its label (there is no computed one in either
+    instruction set), so what a walk from word 0 through every branch never
+    touches cannot run. Labels are kept; a program that names a label in any
+    other instruction is refused rather than guessed at.
+
+    A branch is followed one way only where its test is a constant the walk
+    can see WITHOUT LEAVING THE STRAIGHT LINE it stands on: a cell stored
+    from a constant and read back, with no label, call or indirect store
+    between (`push -1, store n, load n, push 0, jnlt on` goes on, never to
+    `on`). The branch's own instructions stay; only what it cannot reach
+    goes. Anything the walk does not model forgets everything."""
+    flow = ("jmp", "jz", "jnlt", "jne", "call")
+    ins, at, labelled = [], {}, set()
+    for ln in lines:
+        if ln.endswith(":"):
+            at[ln[:-1]] = len(ins)
+            labelled.add(len(ins))
+        elif ln.split():
+            ins.append(ln.split())
+    for t in ins:
+        if len(t) > 1 and t[1] in at and t[0] not in flow:
+            raise ValueError(f"'{' '.join(t)}' takes a label's address as a value")
+
+    def s32(v):
+        v &= 0xFFFFFFFF
+        return v - (1 << 32) if v & 0x80000000 else v
+    def num(tok):
+        try:
+            return int(tok, 0)
+        except ValueError:                       # (a named constant: not known here)
+            return None
+    two = {"add": lambda a, b: s32(a + b), "sub": lambda a, b: s32(a - b), "and": lambda a, b: s32(a & b),
+           "or": lambda a, b: s32(a | b), "xor": lambda a, b: s32(a ^ b),
+           "lt": lambda a, b: int(a < b), "eq": lambda a, b: int(a == b)}
+    seen, todo = bytearray(len(ins)), [0]
+    while todo:
+        i = todo.pop()
+        cells, st = {}, []                       # what this straight line knows: cells, and the stack's top
+
+        def pop():
+            return st.pop() if st else None
+        while i < len(ins) and not seen[i]:
+            if i in labelled:                    # others arrive here: nothing is known
+                cells, st = {}, []
+            seen[i] = 1
+            t = ins[i]
+            op = t[0]
+            if op == "jmp":
+                i = at[t[1]]
+                cells, st = {}, []
+                continue
+            if op in ("ret", "halt"):
+                break
+            if op == "call":
+                todo.append(at[t[1]])
+                cells, st = {}, []
+            elif op in ("jz", "jnlt", "jne"):
+                if op == "jz":
+                    v = pop()
+                    go = None if v is None else v == 0
+                else:
+                    b, a = pop(), pop()
+                    go = None if a is None or b is None else (not a < b if op == "jnlt" else a != b)
+                if go is None:
+                    todo.append(at[t[1]])
+                elif go:
+                    i = at[t[1]]
+                    cells, st = {}, []
+                    continue
+            elif op == "push":
+                st.append(None if num(t[1]) is None else s32(num(t[1])))
+            elif op == "load":
+                st.append(cells.get(num(t[1])))
+            elif op == "store":
+                v = pop()
+                if num(t[1]) is None:
+                    cells = {}
+                else:
+                    cells.pop(num(t[1]), None)
+                    if v is not None:
+                        cells[num(t[1])] = v
+            elif op in two:
+                b, a = pop(), pop()
+                st.append(None if a is None or b is None else two[op](a, b))
+            elif op == "dup":
+                v = pop()
+                st += [v, v]
+            elif op == "drop":
+                pop()
+            elif op == "swap":
+                b, a = pop(), pop()
+                st += [b, a]
+            else:                                # (not modelled: forget everything)
+                cells, st = {}, []
+            i += 1
+    out, k = [], 0
+    for ln in lines:
+        if ln.endswith(":") or not ln.split():
+            out.append(ln)
+        else:
+            if seen[k]:
+                out.append(ln)
+            k += 1
+    return out
+
+
 def sine_table(n=128, step=8, scale=1.0):
     """The table every cart that moves has rebuilt for itself."""
     return Table([int(round(math.sin(i * step * math.tau / 1024)

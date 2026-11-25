@@ -1241,7 +1241,18 @@ SIDES = [node_sides(n) for n in range(CS * CS)]
 KINDS = sorted({canon(s)[0] for s in SIDES})
 PIECE_M = []
 CITY_FACES = 0
+# P77: THE YARD'S CART SHOWS THE CITY ONLY AT ITS TITLE, from the first plaza (world 0, 0: the corner its nodes
+# share); in the hall he is off the map and nothing of it is listed. A piece is listed for his node, the nodes its
+# streets reach, and the nodes theirs reach (CTILE, CRING): so the kinds that can ever be drawn are those within
+# two streets of that plaza -- three are taken here, every gate open. The others are carried as nothing.
+_title = {v for v in range(CS * CS) if CITY.plaza[v] == 0}
+for _ in range(3):
+    _title |= {n + CSTEP[k] for n in _title for k in range(4) if SIDES[n][k]}
+YARD_KINDS = {canon(SIDES[n])[0] for n in _title}
 for kd in KINDS:
+    if LAYER == 13 and kd not in YARD_KINDS:
+        PIECE_M.append(int(cart.data(Mesh([0.0, 0.0, 0.0], []), "piece_" + "".join(map(str, kd)))))
+        continue
     _pb = piece_build(kd)
     CITY_FACES += len(_pb.f)
     if os.environ.get("TND_PIECES"):
@@ -2603,6 +2614,19 @@ CTLIST = cart.var("ct_list", CT_MAX)
 
 def city_node(g, xcell, zcell):
     """( -- ) CT n, CT w for the zeta point (xcell, zcell): -1 off the map"""
+    if YARD and xcell == PX and zcell == PZ:
+        # P77: THE HALL IS OFF THE MAP (asserted where the yard is laid out): for him, in the game, the answer is
+        # always -1 -- and forge.reach, seeing the constant, drops every "on the map" the yard carried
+        for g_ in (g.progs if hasattr(g, "progs") else (g,)):
+            if g_ is P_GAME:
+                g_.set(CT["n"], -1)
+            else:
+                _city_node(g_, xcell, zcell)
+        return
+    _city_node(g, xcell, zcell)
+
+
+def _city_node(g, xcell, zcell):
     off = g.label("cnoff")
     g.load(zcell).push32(int((OXA + HT) * ONE)).emit("add")        # u = ax
     g.emit("dup").push(0).emit("lt", f"jz {off}_a", "drop", f"jmp {off}")
@@ -3060,6 +3084,7 @@ cart.boot(spec.FOG_SHIFT, 10)                   # from 2, full at 2 + 32 = 34 (t
                                                 # crossroads' was 15 to 47)
 
 p = cart.program()
+P_GAME = p
 L_SINE, L_ROT, L_FK = p.label("sine"), p.label("rot"), p.label("fk")
 L_RSQRT = p.label("rsqrt")
 L_TELE = p.label("tele")
@@ -4973,6 +4998,7 @@ if BASE:
 # at all, the fight as it always was. In a street, down one of his node's
 # streets (each demon tries its own first), two nodes on: coming in.
 sp_ = p.label("spn")
+_yc = len(P_GAME._out)
 p.load(SPN).emit(f"jz {sp_}", )
 city_node(p, PX, PZ)
 p.load(CT["n"]).push(0).emit("lt", f"jz {sp_}_on")
@@ -5029,6 +5055,8 @@ for d in range(3):
     p.mark(sd)
 p.set(SPN, 0)
 p.mark(sp_)
+if YARD:                                         # P77: nothing the yard can reach stores SPN (checked where the program is
+    del P_GAME._out[_yc:]                        # assembled): it is 0, and this is never entered
 du_ = p.label("dusk")                            # P19: his district's dusk
 city_node(p, PX, PZ)
 p.load(CT["n"]).push(0).emit("lt", f"jz {du_}_on", f"jmp {du_}")
@@ -10149,6 +10177,7 @@ for d in range(3):
 # is wherever the fight needs it.
 city_node(p, PX, PZ)
 p.load(CT["n"]).store(CT["n1"]).load(CT["w"]).store(CT["w1"])
+_yc = len(P_GAME._out)
 for d in range(3):
     ls = p.label("leash")
     p.load(CT["n1"]).push(0).emit("lt", f"jz {ls}_p", f"jmp {ls}")     # he is off the map
@@ -10191,6 +10220,8 @@ for d in range(3):
     p.mark(f"{ls}_off")
     p.load(SPN).push(1 << d).emit("or").store(SPN)
     p.mark(ls)
+if YARD:                                         # P77: off the map (n1 is -1) every one of the three goes straight to its end
+    del P_GAME._out[_yc:]
 # ---- P20b: THE SWARM, each frame (its constants with the demons' slots) -----
 L_ISP = [p.label(f"isp{k}") for k in range(4)]   # place one two streets on
 ICX, ICZ, IWK, IKILL = (cart.var(k) for k in ("imp_cx", "imp_cz", "imp_wake", "imp_kill"))
@@ -13830,8 +13861,19 @@ def _imem(g, lens=None):
     from zeta import asm
     from zeta.forge import isa2
     head = [f".const PAGE_{k} {v}" for k, v in (lens or {}).items()]
+    body = isa2(g.lines()) if ISA >= 2 else g.lines()
+    if YARD and g is p_main:                     # P77: the yard does not carry what it cannot reach
+        from zeta.forge import reach
+        body = reach(body)
+        # what the cuts above rest on: the hall, walls and all, is off the city's map; and nothing left stores SPN
+        for u_ in np.arange(-34.0, 34.01, 0.5):
+            for v_ in np.arange(-18.0, 18.01, 0.5):
+                x_, z_ = lab_xz(u_, v_)
+                a_, b_ = int((z_ + OXA + HT) * ONE), int((OYA + HT - x_) * ONE)
+                assert not (0 <= a_ < int(CS * TILE * ONE) and 0 <= b_ < int((CS + XR) * TILE * ONE)), (u_, v_)
+        assert f"store {int(SPN)}" not in body and f"store {int(CT['n1'])}" in body
     with tempfile.NamedTemporaryFile("w", suffix=".zol", delete=False) as f:
-        f.write("\n".join(head + (isa2(g.lines()) if ISA >= 2 else g.lines())) + "\n")
+        f.write("\n".join(head + body) + "\n")
     words = asm.assemble(f.name)["imem"]
     os.unlink(f.name)
     assert len(words) <= PAGE, f"a program of {len(words)} words"

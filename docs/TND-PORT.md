@@ -3443,3 +3443,30 @@ MEASURED, a minute of everything at random on the simulated silicon: 52% of the 
 99th percentile, 88.0% AT THE PEAK (87.3% at P75) -- under the gate of 90% by two points, and no frame over.
 
 Tests 26. Layers 0, 4, 8, 10, 11, 12 and the full cart byte-identical.
+
+## P77: the yard does not carry what it cannot reach (2026-11-24)
+
+No change to play. From the probe in `experiments/streams/`: 35% of the yard's program never ran in the player's
+sixteen minutes, and by its labels most of that was the city's.
+
+- `forge.reach` (new): a program without the instructions no path from word 0 reaches. Every jump and call names
+  its label, so the walk is exact. It settles a branch one way only where the test is a constant it can see on the
+  straight line it stands on (a cell stored from a constant and read straight back).
+- THE HALL IS OFF THE CITY'S MAP (checked at the build over the hall and two units past its walls). For him, in the
+  yard's game, "which node" is -1: the generator says so in one store, and `reach` drops every "on the map" behind
+  it -- the city's walk and its pieces' listing, the dusk, the pointer, the hordes' "here".
+- Two cuts by hand, each with its reason at the place: the leash's three bodies (off the map each goes straight to
+  its end), and the placing of demons sent (nothing the yard can reach stores SPN; the build checks that).
+
+THE PROGRAM: 29,211 words -> 25,351; 3,915 from its limit where there were 55.
+
+DATA MEMORY: the yard's cart shows the city only at its title, from the first plaza; a piece is listed within two
+streets of where he stands. Of the city's nine kinds of piece, two (the crossing and the open square's, 1,520
+words) lie further than three streets from that plaza with every gate open: the yard carries them as nothing.
+11 words free -> 1,521 (without the song).
+
+PROVED THE SAME: the program's cuts, data memory identical every frame against P76 on a minute at random (3,860
+frames) and on the presses of his 16.5-minute session (59,381 frames; about 120 instructions a frame fewer). The
+pieces' cut moves data, so: the picture identical on the title's sixty frames and every twenty-fifth after (212
+pictures), and every named cell the same or moved by exactly the 1,510 words. Tests 26, and 8 for the pass.
+Layers 0, 4, 8, 10, 11, 12 and the full cart byte-identical.

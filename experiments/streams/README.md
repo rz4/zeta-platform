@@ -74,6 +74,21 @@ line by line.
 1,024 words in four frames and only into data memory. His pose changed
 on 55% of frames; 580 of the 766 were shown.
 
+## What was done with it (TND P77)
+
+`forge.reach` drops what no path from word 0 reaches, and the yard's game
+is told the hall is off the city's map. 29,211 words -> 25,351, data
+memory identical every frame over his session's presses. Two city
+pieces no title can list are carried as nothing: data memory 11 words
+free -> 1,521.
+
+`dcover.py` (which data-memory words a session reads): of 11,673 named
+words a minute's play never reads 4,795; the largest are four of the
+city's nine pieces (2,776 words) and most of its map. The other pieces
+can be listed at the title (two cannot: see above).
+
+    python3 experiments/streams/dcover.py CART.zol OUT.json TAPE.ztp [TAPE...]
+
 ## Supposed, not established
 
 - Streaming by style of play is the wrong cut; by scene is the right one.
