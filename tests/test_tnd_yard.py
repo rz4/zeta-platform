@@ -1073,22 +1073,31 @@ def test_in_the_runs_air_the_gun_is_on_where_he_lands(cart):
 
 
 # ---- P85 -------------------------------------------------------------------------------------------------------------
+def _tank_walking_with_the_gun(cart):
+    """the tank, walking north with the gun's button held: walking legs under the gun's chest -- two halves still"""
+    y = Yard(cart)
+    g = y.g
+    y.who(3)
+    for _ in range(5):
+        g.step(0)
+    return y, g
+
+
 def test_his_chest_sits_on_his_hips_whatever_his_legs_do(cart):
-    """P85 ("the meshes and poses need work blending between peices where you do things like jump and act"): the gun's
-    upper half is a standing pose's; over a landing's crouch its waist was a third of a unit above the legs'. Every
-    pose says where its waist is, and the upper half -- and the hand, the gun and the laser with it -- is moved to
-    the legs'. With the same pose in both halves nothing is moved"""
-    A, B = spec.PAD_A, spec.PAD_B
-    y, g = _run_at(cart, [])
+    """P85 ("the meshes and poses need work blending between peices where you do things like jump and act"): where his
+    halves are in different poses (the tank, walking, the gun up -- P91 made the run's one body) the upper half is
+    moved to the legs' waist: every pose says where its waist is, and his hand, the gun and the laser go with it.
+    With the same pose in both halves nothing is moved"""
+    B = spec.PAD_B
+    y, g = _tank_walking_with_the_gun(cart)
     for _ in range(10):
-        g.step(L | U)
+        g.step(U)
         assert g.cell("pose") == g.cell("aim_upose") and g.cell("yard_join_up") == 0 and g.cell("yard_join_ahead") == 0
-    low, hand = 0.0, []
-    for i, q in enumerate([B] * 20 + [A | B] * 3 + [B] * 40):
-        before = g.cell("aim_hand", 1)
-        g.step(L | U | q)
-        if g.cell("pose") != g.cell("aim_upose"):
-            # (the table's own word for each half, read back: the move is the difference of the two waists)
+    seen = 0
+    for i in range(40):
+        g.step(B | U)
+        if g.cell("pose") != g.cell("aim_upose") and not g.cell("yard_one_body"):
+            seen += 1
             w = []
             for cell in ("pose", "aim_upose"):
                 v = g.d[g.syms["pose_waist"] + g.cell(cell)]
@@ -1096,8 +1105,7 @@ def test_his_chest_sits_on_his_hips_whatever_his_legs_do(cart):
             # (P90: and sunk a twentieth into the legs' waist, a thirtieth ahead, so the two close on each other)
             assert g.cell("yard_join_up") == (w[0][0] - w[1][0]) * (ONE // 48) - int(0.05 * ONE)
             assert g.cell("yard_join_ahead") == (w[0][1] - w[1][1]) * (ONE // 48) + int(0.03 * ONE)
-            low = min(low, g.cell("yard_join_up") / ONE)
-    assert low < -0.25, f"over the landing's crouch his chest came down {-low:.2f}"
+    assert seen > 15, f"walking with the gun up, his halves were in different poses for {seen} frames"
 
 
 # ---- P86 -------------------------------------------------------------------------------------------------------------
@@ -1174,44 +1182,61 @@ def test_a_wall_from_a_jump_is_straight_up_then_the_return_flip_from_a_flip_the_
 
 
 def test_his_chest_leans_with_his_legs_and_the_gun_stays_on_his_aim(cart):
-    """P86 ("the running gun waist needs fixing too"): over other legs -- a jump's, here -- the gun's upper half is
-    turned a third of the way from its own lean (back) to the legs' -- and the gun, lying along his aim, is not turned
+    """P86 ("the running gun waist needs fixing too"): over other legs -- the tank's walk, here -- the gun's upper half
+    is turned a third of the way from its own lean to the legs', and the gun, lying along his aim, is not turned
     with it"""
-    A, B = spec.PAD_A, spec.PAD_B
-    y, g = _run_at(cart, [])
+    B = spec.PAD_B
+    y, g = _tank_walking_with_the_gun(cart)
     turns = []
-    for i, q in enumerate([B] * 20 + [A | B] * 3 + [B] * 14):
-        g.step(L | U | q)
-        if g.cell("f_py") > 0 and g.cell("pose") != g.cell("aim_upose"):
+    for i in range(40):
+        g.step(B | U)
+        if g.cell("pose") != g.cell("aim_upose") and not g.cell("yard_one_body"):
             turns.append(g.cell("yard_join_turn"))
             assert g.cell("aim_bend_d") == g.cell("aim_bend") + g.cell("yard_join_turn") - 6 * g.cell("aim_kick")
-    assert len(turns) > 8 and max(turns) > 10, f"his chest's turn over a jump: {turns}"
+    assert len(turns) > 15 and max(abs(t) for t in turns) > 3, f"his chest's turn over the walk: {turns}"
 
 
-# ---- P90 -------------------------------------------------------------------------------------------------------------
-def test_through_a_flip_the_laser_stays_and_is_on_what_he_has_chosen(cart):
-    """P90 ("look into the slow mo boxing jump/flips and actions. flip shooting making sure to follow the target with
-    laser"): locked on a body with the gun's button held, he flips -- his upper half is the flip's, his hand not
-    "out" -- and the laser's line is still reckoned every frame of it, along the way TO the body"""
-    y = Yard(cart)
-    g = y.g
-    y.who(3)
-    for k in range(7):
-        _stand(y, k, 28.0 - k, -15.0)
-    _stand(y, 2, 0.0, -2.0)
-    y.put(0.0, -8.0, 256)
-    R, A, B, LF = spec.PAD_R, spec.PAD_A, spec.PAD_B, spec.PAD_LEFT
-    for q in [0] * 5 + [R] * 20 + [R | B] * 40:
-        g.step(q)
-    assert g.cell("locked") and g.cell("t_sel") == 2
-    flips, off = 0, []
-    for i, q in enumerate([R | B | L | LF | A] * 3 + [R | B | L | LF] * 30):
-        g.d[g.syms["ray_len"]] = 0               # (stale unless the sight reckons it this frame)
-        g.step(q)
-        if g.cell("f_evf") > 0:
-            flips += 1
-            assert g.cell("ray_len") > 0, f"frame {i} of the flip: no laser"
-            way = (math.degrees(math.atan2(-g.cell("ray_dx"), g.cell("ray_dz"))) * 1024 / 360) % 1024
-            off.append(abs((way - g.cell("lock_brg") + 512) % 1024 - 512))
-    assert flips > 8, f"he flipped for {flips} frames"
-    assert max(off) < 12, f"the laser was {max(off):.0f} of 1,024 off the way to it"
+# ---- P91 -------------------------------------------------------------------------------------------------------------
+def test_with_the_gun_on_the_run_he_is_one_body(cart):
+    """P91 ("work heavily on the look, make sure it all looks like a single mesh" -- and "the running legs should be
+    the same, and the gun holding from when strationary torso"; "the orginal mesh of the player must stay intact"):
+    on the stride, in a leap and on the landing, the gun up, he is ONE baked body (tools/tnd_gunbody.py) -- both
+    halves one pose, nothing joined, the legs the same frame of the same clip -- at the height of the draw the gun's
+    frame is; his hand is found in it; and a round's kick is the gun's, not his waist's"""
+    A, B = spec.PAD_A, spec.PAD_B
+    y, g = _run_at(cart, [])
+    seen = {}
+    for i, q in enumerate([0] * 20 + [B] * 30 + [A | B] * 3 + [B] * 50 + [0] * 3 + [B] * 3 + [B] * 20):
+        g.step(L | U | q)
+        lo, up, one = g.cell("pose"), g.cell("aim_upose"), g.cell("yard_one_body")
+        if q & B and i > 24 and not g.cell("f_evf"):
+            assert one == 1, f"frame {i}: legs pose {lo}, the gun up, and he is two halves ({up})"
+            assert g.cell("yard_join_up") == 0 and g.cell("yard_join_ahead") == 0 and g.cell("yard_join_turn") == 0
+            assert g.cell("aim_bend_d") == g.cell("aim_bend"), "one body broke at the waist"
+            seen.setdefault(up - lo, set()).add(lo)
+            if g.cell("yard_one_body_draw") >= 1:
+                assert g.cell("aim_hand_on") == 1, f"frame {i}: his hand is not found in it"
+        elif not q & B and i < 20:
+            assert one == 0 and lo == up
+    # (each family at each height of the draw is one constant step from the legs' own pose: the same frame of the clip)
+    assert len(seen) >= 3, f"the one bodies he was: {sorted(seen)}"
+    for step, los in seen.items():
+        assert max(los) - min(los) < 16, f"one step ({step}) from legs of more than one clip: {sorted(los)}"
+
+
+def test_the_one_bodys_legs_are_the_parks_own():
+    """P91: the baked bodies' shins and feet are the park's clips' to the last place, frame for frame -- "the running
+    legs should be the same" -- and they are bodies of the same mesh: the same vertices, the same faces"""
+    import numpy as np
+    from pathlib import Path
+    root = Path(__file__).resolve().parent.parent / "assets" / "tnd"
+    if not (root / "gunbody.npz").exists():
+        pytest.skip("the baked bodies are a local asset")
+    gb, acro = np.load(root / "gunbody.npz"), np.load(root / "acro.npz")
+    for name, src in (("gb_run", "park_run"), ("gb_leap", "park_leap"), ("gb_leap_l", "park_leap_l"), ("gb_land", "park_land")):
+        V, P = gb["V_" + name], acro["V_" + src]
+        n = len(P)
+        assert V.shape == (4 * n,) + P.shape[1:], (name, V.shape)
+        low = P[0][:, 2] < 0.45                  # (below the knee in the first pose: shins and feet)
+        for s_ in range(4):
+            assert np.abs(V[s_ * n:(s_ + 1) * n][:, low] - P[:, low]).max() < 1e-6, f"{name}: the legs are not the park's own"

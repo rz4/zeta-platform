@@ -134,6 +134,9 @@ if LAYER in (10, 11, 12, 13):
     d = _Bake(np.load(ROOT / "assets" / "tnd" / "acro.npz"), d)
     if LAYER == 13:                # (P73: the reactions -- tools/tnd_react.py: struck high, struck low, down, up)
         d = _Bake(np.load(ROOT / "assets" / "tnd" / "react.npz"), d)
+        # P91: ONE BODY WITH THE GUN (tools/tnd_gunbody.py): the park's stride, leaps and landing with the two-handed
+        # hold on them, at four heights of the draw -- each one skinned body, baked on the archive's rig
+        d = _Bake(np.load(ROOT / "assets" / "tnd" / "gunbody.npz"), d)
 F, C = d["F"], d["C"]
 PLAYER_NF = len(F)               # (his own faces: of the 2,048 a frame's cart meshes may have)
 SEQS = ("idle", "walk", "air", "jab", "cross", "lead_hook", "rear_hook", "special",
@@ -182,6 +185,7 @@ if LAYER in (10, 11, 12, 13):
 REACTS = ("hurt_hi", "hurt_lo", "down", "getup")
 if LAYER == 13:
     SEQS += REACTS
+    SEQS += ("gb_run", "gb_leap", "gb_leap_l", "gb_land")      # P91: one body with the gun
 
 
 def to_zeta(V):
@@ -591,6 +595,9 @@ if CARTMESH:
                           desc=int(RDESC), pos=cart.var(f"e{_slot}_pos", 2), old=cart.var(f"e{_slot}_old", 2),
                           **{k_: cart.var(f"e{_slot}_{k_}") for k_ in ("yaw", "st", "hp", "stun", "fl", "ph", "clk", "walk", "t")}))
 NPOSE = {s: len(d["V_" + s]) for s in SEQS}
+if os.environ.get("TND_DUMP_POSES"):         # (for the tools that read a session's poses: every pose, in the cart's order)
+    np.savez_compressed(os.environ["TND_DUMP_POSES"], V=np.stack([to_zeta(V_) for s_ in SEQS for V_ in d["V_" + CLIP_OF.get(s_, s_)]]),
+                        upper=halves[0][1], lower=halves[1][1], names=np.array(SEQS), base=np.array([base[s_] for s_ in SEQS]))
 if LAYER == 13:
     # P85 (the player: "the meshes and poses need work blending between peices where you do things like jump and
     # act"): his body is two halves with a pose each, and the gun's upper half is a STANDING pose's -- over a stride,
@@ -2375,6 +2382,22 @@ if LAB:
     assert base["gun_charged"] == base["gun"] + NPOSE["gun"]
     _hid = np.argsort(to_zeta(d["V_gun"][4])[:, 2])[-12:]
     _hand = [to_zeta(V_)[_hid].mean(0) for V_ in list(d["V_gun"]) + list(d["V_gun_charged"])]
+    HAND_GUNS = len(_hand)
+    if LAYER == 13:
+        # P91: in the one-body poses the hold is taken at places before HIM, so his hand is in one place for each
+        # height of the draw (to a hundredth; three at the lock-out, over the stride): four entries more. And each of
+        # the gun's own eighteen frames is the height its hand is nearest.
+        GB_FAM = (("run", "gb_run"), ("acro_leap", "gb_leap"), ("acro_leap_l", "gb_leap_l"), ("acro_land", "gb_land"))
+        GB_N = len(d["RAISE"])
+        _gh = [np.mean([to_zeta(V_)[_hid].mean(0) for _, gb_ in GB_FAM
+                        for V_ in d["V_" + gb_][s_ * (len(d["V_" + gb_]) // GB_N):(s_ + 1) * (len(d["V_" + gb_]) // GB_N)]], axis=0) for s_ in range(GB_N)]
+        _hand += _gh
+        # the gun's own eighteen frames as heights of the draw: the draw's first four low (the clip's are still
+        # leaving the guard), HELD READY at the second (frame 4, where the button holds it: his hand at 1.09),
+        # LOCKED OUT through the shot (5 to 10), then down through the third to the ready again -- not to the
+        # holster and back up, as the clip's own tail goes
+        GB_STATE = [0, 0, 0, 0, 1, 3, 3, 3, 3, 3, 3, 2, 2, 1, 1, 1, 1, 1]
+        assert len(GB_STATE) == len(d["V_gun"]) and max(GB_STATE) < GB_N
     HAND_T = cart.data(Table([int(round(float(c_) * ONE)) for h_ in _hand for c_ in h_]), "lab_hand")
     HAND_N, HAND_UP, HAND_OUT = len(_hand), int(round(float(_hand[4][1]) * ONE)), int(0.36 * ONE)
     _gb = Build()                                  # the gun: a slide and a grip (archive axes: x ahead, y left, z up), about his hand
@@ -4157,6 +4180,9 @@ if LAB:
         JOIN_LEAN = int(os.environ.get("TND_JLEAN", "85"))            # of 256: how much of the legs' lean his chest takes
         JOIN_SINK = int(float(os.environ.get("TND_JSINK", "0.05")) * ONE)
         JOIN_FWD = int(float(os.environ.get("TND_JFWD", "0.03")) * ONE)
+        YGB, YGS, YGK = (cart.var("yard_one_body" + k_) for k_ in ("", "_draw", "_kick"))     # P91
+        GB_ST = cart.data(Table(GB_STATE), "yard_draw_of")
+        assert not DEDUPE
         YJ0, YJ1, YJU, YJF, YJP = (cart.var("yard_join" + k_) for k_ in ("0", "1", "_up", "_ahead", "_turn"))   # P85: the two waists; the chest's move
         YCON = cart.var("yard_struck_by")                  # P83: the bodies this blow has struck, a bit each
         YSLW = cart.var("yard_slow_was")                   # P82: time was slowed last frame
@@ -8908,6 +8934,9 @@ if CARTMESH:                                 # the pose is where its streams are
         # doing: standing, walking, the boxer's steps, the run, the air.
         # (The locked run has its own one-handed poses and keeps them.)
         gr = p.label("gunready")
+        if YARD:                                 # (P91: the dive is a whole body's -- its arms are the dive's)
+            p.load(LJMP).emit(f"jz {gr}_dv", f"jmp {gr}")
+            p.mark(f"{gr}_dv")
         p.load(DRAW).emit(f"jz {gr}")
         p.load(ANIM).push(2).emit("lt").load(ANIM).push(5).emit("eq", "or", f"jz {gr}")
         p.load(F["evf"]).emit(f"jz {gr}_e", f"jmp {gr}")
@@ -8933,6 +8962,9 @@ if CARTMESH:                                 # the pose is where its streams are
             # P66: ON THE RUN his upper half is the gun's, fired (B) -- over the stride, the leap or the landing,
             # whichever his legs are in
             ru = p.label("pkupper")
+            if YARD:
+                p.load(LJMP).emit(f"jz {ru}_dv", f"jmp {ru}")
+                p.mark(f"{ru}_dv")
             p.load(F["sty"]).push(1).emit("eq").load(ANIM).push(5).emit("eq", "and", f"jz {ru}")
             p.load(F["evf"]).emit(f"jz {ru}_e", f"jmp {ru}")
             p.mark(f"{ru}_e")
@@ -8949,6 +8981,42 @@ if CARTMESH:                                 # the pose is where its streams are
                 p.load(LS0)
             p.push(SPAN).emit("mul").push(int(BANK)).emit("add", "dup").store(UPPER + 1).push(CM_LEN[0]).emit("add").store(UPPER + 3)
             p.mark(ru)
+    if YARD:
+        # P91 (the player: "make sure it all looks like a single mesh ... the running legs should be the same, and the
+        # gun holding from when strationary torso"): where his upper half has just been made the gun's over the
+        # stride, a leap or the landing, he is instead the ONE BODY baked for it (tools/tnd_gunbody.py): the same
+        # legs, bone for bone, and the two-handed hold at the height of the draw that gun frame is. Both halves, one
+        # pose: there is no join. (Over any other legs -- standing, the boxer's steps, a dive -- two halves, joined.)
+        ob = p.label("onebody")
+        p.set(YGB, 0)
+        p.load(UPOSE).load(POSE).emit("eq", f"jz {ob}_d", f"jmp {ob}")
+        p.mark(f"{ob}_d")
+        p.load(UPOSE).push(base["gun"]).emit("sub").store(LS0)
+        p.push(-1).load(LS0).emit("lt").load(LS0).push(NPOSE["gun"]).emit("lt", "and", f"jz {ob}")
+        p.push(int(GB_ST)).load(LS0).emit("add", "loadi").store(YGS)
+        for k_, (legs_, gb_) in enumerate(GB_FAM):
+            n_ = NPOSE[legs_]
+            assert NPOSE[gb_] == GB_N * n_, (gb_, NPOSE[gb_], n_)
+            p.load(POSE).push(base[legs_]).emit("sub", "dup").push(0).emit("lt", f"jz {ob}_a{k_}", "drop", f"jmp {ob}_n{k_}")
+            p.mark(f"{ob}_a{k_}")
+            p.emit("dup").push(n_).emit("lt", f"jz {ob}_b{k_}")
+            # (the pose of BOTH halves this frame is kept in UPOSE; POSE stays the legs' own, so a frame of slowed
+            # time that does not pose him again still finds the legs it knows)
+            p.load(YGS).push(n_).emit("mul", "add").push(base[gb_]).emit("add").store(UPOSE)
+            p.emit(f"jmp {ob}_set")
+            p.mark(f"{ob}_b{k_}")
+            p.emit("drop")
+            p.mark(f"{ob}_n{k_}")
+        p.emit(f"jmp {ob}")
+        p.mark(f"{ob}_set")
+        p.set(YGB, 1)
+        p.load(UPOSE).push(SPAN).emit("mul").push(int(BANK)).emit("add")
+        for cell_, step_ in ((UPPER + 1, CM_LEN[0]), (UPPER + 3, CM_LEN[1]), (LOWER + 1, CM_LEN[2]), (LOWER + 3, 0)):
+            p.emit("dup").store(cell_)
+            if step_:
+                p.push(step_).emit("add")
+        p.emit("drop")
+        p.mark(ob)
     if L3:                                   # the others' clock: two frames a pose, the idle's sixty
         rv_ = p.label("rival")
         p.addi(RIV_T, 1).load(RIV_T).push(2 * NPOSE["idle"]).emit("lt", f"jz {rv_}_w", f"jmp {rv_}")
@@ -9233,9 +9301,19 @@ if LAB:
     p.mark(f"{ab}_k")
     p.load(WBEND).load(GUNK).push(6).emit("mul", "sub").store(WBD)
     if YARD:
+        # P91: one body does not break at the waist for a round's kick: there the kick is the GUN'S, in his hands
+        kk = p.label("kick")
+        p.set(YGK, 0)
+        p.load(YGB).emit(f"jz {kk}")
+        p.load(GUNK).push(6).emit("mul").store(YGK)
+        p.load(WBEND).store(WBD)
+        p.mark(kk)
+    if YARD:
         # P85, P86: THE TWO WAISTS -- the legs' and the chest's own: how far up, how far ahead, how turned
         jn = p.label("join")
         p.set(YJU, 0).set(YJF, 0).set(YJP, 0)
+        p.load(YGB).emit(f"jz {jn}_2", f"jmp {jn}")                # (P91: one body: nothing to join)
+        p.mark(f"{jn}_2")
         p.load(POSE).load(UPOSE).emit("eq", f"jz {jn}_d", f"jmp {jn}")
         p.mark(f"{jn}_d")
         p.load(POSE).push(int(JOIN_T)).emit("add", "loadi").store(YJ0)
@@ -9276,6 +9354,10 @@ if LAB:
     # HIS HAND, when his upper half is in the gun's clips and his arm is out: bent with him, in the world
     p.set(HNDON, 0)
     p.load(UPOSE).push(base["gun"]).emit("sub").store(LS0)
+    if YARD:                                                                          # (P91: or the one body's, by its draw)
+        p.load(YGB).emit(f"jz {ab}_ob")
+        p.load(YGS).push(HAND_GUNS).emit("add").store(LS0)
+        p.mark(f"{ab}_ob")
     p.push(-1).load(LS0).emit("lt").load(LS0).push(HAND_N).emit("lt", "and", f"jz {ab}_h")
     p.load(LS0).push(3).emit("mul").push(int(HAND_T)).emit("add").store(LS0)
     p.push(HAND_OUT).load(LS0).push(2).emit("add", "loadi", "lt", f"jz {ab}_h")
@@ -11341,7 +11423,7 @@ if LAB and "player" not in OMIT:
     p.load(HNDON).emit(f"jz {go}")
     # (P86: the gun lies along his AIM -- his chest's lean over his legs is not his aim)
     p.object(NOBJ, GUN_M, (f"load {int(HNDW)}",), (f"load {int(HNDW) + 1}",), (f"load {int(HNDW) + 2}",),
-             (f"load {int(HEAD)}", f"load {int(WBD)}") + ((f"load {int(YJP)}", "sub") if YARD else ()) + ("push 1023", "and", "shl 10", "or"), spec.OBJ_CULL)
+             (f"load {int(HEAD)}", f"load {int(WBD)}") + ((f"load {int(YJP)}", "sub", f"load {int(YGK)}", "sub") if YARD else ()) + ("push 1023", "and", "shl 10", "or"), spec.OBJ_CULL)
     p.load(MUZT).emit(f"jz {go}")
     p.addi(MUZT, -1)
     p.object(NOBJ, FLASH_M, (f"load {int(HNDW)}", f"load {int(F['ps'])}", f"push {int(0.30 * ONE)}", "mulq", "sub"),

@@ -3750,3 +3750,31 @@ THE RUN'S AIR AIMS AT THE LANDING, jump or flip, with no Down asked (P84 asked i
 air had it).
 
 Tests 41. Layers 0, 4, 8, 10, 11, 12 and the full cart byte-identical.
+
+## P91: with the gun on the run he is one body, baked (2026-11-25)
+
+The player: "work heavily on the look, make sure it all looks like a single mesh, with poses and transitions that
+all make sense and look tactical and stylish." (And before it: "the running legs should be the same, and the gun
+holding from when strationary torso"; "the orginal mesh of the player must stay intact".)
+
+WHY PUTTING A HALF COULD NOT DO IT (P85 to P90): his body was two halves in two poses -- the gun's standing chest set
+on the stride's hips -- and the two poses do not share a waist. So it is baked as what it is: ONE skinned body on the
+archive's own rig (`tools/tnd_gunbody.py` -> assets/tnd/gunbody.npz), as `tools/tnd_acro.py` bakes the run it
+stands on. No vertex of his mesh is moved by hand; these are poses the rig makes.
+- THE LEGS are the park's own clips bone for bone -- the stride, the leap on either leg, the landing: their shins
+  and feet are the park's to the last place (checked: 0.0000 off, every frame).
+- THE TRUNK is a shooter's over them: half the clip's own lean, the head level.
+- THE ARMS are the archive's own two-handed hold (its `_repose_aim` reach), at four heights of the draw: low
+  ready, coming up, nearly out, locked out. The hold is taken at places before HIM, not on his chest: the gun stays
+  where it is (a hundredth of a unit, stride to stride) while the legs run under it. Moving, the lock-out is a
+  hand's breadth short of the standing one: his shoulders cannot make the standing reach over a stride.
+In the cart 200 poses more (64, 52, 52, 32). Where his upper half would have been made the gun's over those legs he
+is that body instead, at the height the gun's frame is (held ready, the second; through a shot, locked out; then
+down through the third to the ready). Both halves one pose: nothing joined, his waist not broken for a round's kick
+(the kick is the gun's, in his hands). The dive is a whole body's: the gun's chest is not put over it.
+
+MEASURED, the presses of his seven minutes of P89 on this build: his halves in different poses on 43 frames of
+25,544 (0.2%; it was 3,370, 13.2%) -- the tank's walk, the boxer's landing and strafe jump, the air: joined as P85,
+P86, P90; one baked body on 8,153 frames (31.9%).
+
+Tests 42. Layers 0, 4, 8, 10, 11, 12 and the full cart byte-identical. Data memory 487 words free.
