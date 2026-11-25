@@ -3662,3 +3662,27 @@ for the park's chimneys); then the walls give nothing and he comes down to the f
 
 Tests 40. Layers 0, 4, 8, 10, 11, 12 and the full cart byte-identical. Data memory 720 words free without the song
 (the waists' table is a word a pose now).
+
+## P87: on the stride with the gun he is one body; the wall, straight up then the return flip (2026-11-25)
+
+The player, eight minutes of P86: "running gunning still needs mesh work, and the wall jump needs fixing, any of the
+directions of wall, jump onto wall is verticle with a second clickable being the returned back flip. flip onto wall
+is return flip."
+
+RUNNING WITH THE GUN. Drawn from behind, the front quarter and above (P85 and P86 looked from the side only): the
+gun's upper half is a BLADED stance's -- its shoulders and its waist's ring turned a ninth of a turn off the hips of
+a man running straight -- so from behind his chest stood narrow and to one side of his hips, and the ring flared
+out of them. Moving and leaning it cannot mend a turn; turning it would take the gun off his line. The cart already
+holds the cure: the run's OWN gun poses (P36's, for the locked run the yard has not) -- sixteen, one baked body, the
+gun out in one hand over its own stride. On the stride with the gun out he is THAT, both halves; his hand is found
+in it and the gun and the laser are there. In the air he is two halves still, joined (P85, P86).
+(MY CHOICE, his to judge: it is a one-handed sprint where the ready pose was two-handed.)
+
+THE WALL: any wall he has touched, whichever way it faces and however he came at it (P59's "only going into it",
+P61's "a face across his way" and P62's pad are the park's, not the yard's). From a JUMP, A is the kick STRAIGHT UP
+it, and the wall is his for forty frames more, where A again is the RETURN FLIP -- thrown back off it, his heading
+mirrored in it, the flip's rise and tuck. From a FLIP, A is the return flip at once. Two an air; the return flip is
+his flip, spent (P86 gave it back: withdrawn). (MINE: the return flip is the wall kick's own throw as it was; a
+true BACK flip, facing the wall still, is not baked for every way a wall can face.)
+
+Tests 41. Layers 0, 4, 8, 10, 11, 12 and the full cart byte-identical.

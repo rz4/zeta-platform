@@ -2375,6 +2375,13 @@ if LAB:
     assert base["gun_charged"] == base["gun"] + NPOSE["gun"]
     _hid = np.argsort(to_zeta(d["V_gun"][4])[:, 2])[-12:]
     _hand = [to_zeta(V_)[_hid].mean(0) for V_ in list(d["V_gun"]) + list(d["V_gun_charged"])]
+    HAND_GUNS = len(_hand)
+    if LAYER == 13:
+        # P87 (the player: "running gunning still needs mesh work"): the run's own gun poses -- one body, baked, the
+        # gun out in one hand over its own stride (P36's, for the locked run the yard has not) -- and his hand in them:
+        # the six vertices farthest forward in the first
+        _hid2 = np.argsort(to_zeta(d["V_run_gun_f"][0])[:, 2])[-6:]
+        _hand += [to_zeta(V_)[_hid2].mean(0) for V_ in d["V_run_gun_f"]]
     HAND_T = cart.data(Table([int(round(float(c_) * ONE)) for h_ in _hand for c_ in h_]), "lab_hand")
     HAND_N, HAND_UP, HAND_OUT = len(_hand), int(round(float(_hand[4][1]) * ONE)), int(0.36 * ONE)
     _gb = Build()                                  # the gun: a slide and a grip (archive axes: x ahead, y left, z up), about his hand
@@ -4152,6 +4159,8 @@ if LAB:
         # them began nothing; a round fired from the air took something off a body 12% of the time, from the ground 78%)
         YLN, YDV, YBX, YAD, YADH = (cart.var("yard_" + k_) for k_ in ("lance", "air_dive", "burst", "aim_down", "aim_down_way"))
         YHS, HSPRING_N = cart.var("yard_spring_t"), 14
+        YRG = cart.var("yard_run_gun")                     # P87: this frame he is the run's own gun pose, whole
+        assert NPOSE["run"] == NPOSE["run_gun_f"]
         LANCE_V, DIVE_DN, SPRING_V = int(0.32 * ONE), int(0.20 * ONE), int(0.215 * ONE)
         BURST_SPRING, BURST_SLAM, BURST_N = int((1.5 - 0.75) * ONE), int((2.2 - 0.75) * ONE), 6
         YJ0, YJ1, YJU, YJF, YJP = (cart.var("yard_join" + k_) for k_ in ("0", "1", "_up", "_ahead", "_turn"))   # P85: the two waists; the chest's move
@@ -6933,7 +6942,20 @@ if L1:
     wj_ = p.label("walljump")
     p.load(WALLT).emit(f"jz {wj_}")
     p.load(WJN).push(WJ_MAX).emit("lt", f"jz {wj_}")
-    if PARK:
+    if YARD:
+        # P87 (the player: "the wall jump needs fixing, any of the directions of wall, jump onto wall is verticle with
+        # a second clickable being the returned back flip. flip onto wall is return flip"): ANY wall he has touched,
+        # whichever way it faces and however he came at it. Come to it from a JUMP (the flip still his), A is the kick
+        # STRAIGHT UP it -- and the wall is his for forty frames more, where A again is the RETURN FLIP: thrown back
+        # off it, his heading mirrored in it, the flip's rise and tuck. Come to it from a FLIP, A is the return flip
+        # at once. Two an air, as P86; the return flip is his flip, spent.
+        wv_ = p.label("wallup")
+        p.load(WJN).load(F["flipu"]).emit("or", f"jz {wv_}", f"jmp {wv_}_r")
+        p.mark(wv_)
+        p.addi(WJN, 1).set(WALLT, 40).set(F["pvy"], PARK_UPKICK).set(PARK_VKD, 1).set(YDV, 0).set(YLN, 0)
+        p.emit(f"jmp {jp}")
+        p.mark(f"{wv_}_r")
+    elif PARK:
         # P59 (the player: "the wall jump get annoying at times when the goal is straight ahead"): a kick only going
         # INTO the wall -- his way into it at least 0.4 of his way along it; running along one, A is the jump or flip.
         # And only off a SIDE of the way the course runs (east): a face across his way would throw him back the way
@@ -6980,10 +7002,9 @@ if L1:
     p.addi(WJN, 1).set(WALLT, 0)
     if YARD:
         # P86 (the player: "The walls should be treated like floors, two jumps at max then gravity changes back to the
-        # floor. think of those as mirrors" -- and, asked which: a wall RE-ARMS his jumps): a kick off a wall is a
-        # landing on it -- the flip is his again, and the dive and the lance -- and the kick is the jump from it,
-        # mirrored. Twice an air (it was six); then the walls give nothing, and he comes down to the floor.
-        p.set(F["flipu"], 0).set(YDV, 0).set(YLN, 0)
+        # floor. think of those as mirrors"): a wall is a floor stood on end -- a jump from it and a flip from it, two,
+        # mirrored; then the walls give nothing, and he comes down to the floor. The dive and the lance are his again.
+        p.set(YDV, 0).set(YLN, 0)
     if PARK:
         p.set(PARK_FLP, 0)                                                # (a kick's throw is its own)
     p.load(F["vx"]).store(F["evx"]).load(F["vz"]).store(F["evz"])
@@ -6998,7 +7019,7 @@ if L1:
     p.load(F["evx"]).store(F["vx"]).load(F["evz"]).store(F["vz"])
     p.load(YAW).emit("dup").store(F["latch"]).store(F["cgr"])
     p.set(F["evk"], 0).set(F["evt"], WJ_FRAMES).set(F["evf"], WJ_FRAMES)   # (the throw lasts
-    p.set(F["pvy"], PARK_KICKV if PARK else FLIP_V).set(F["flipu"], 0 if YARD else 1)    # the long flip's 24 (P86: in the yard the flip is his again)
+    p.set(F["pvy"], PARK_KICKV if PARK else FLIP_V).set(F["flipu"], 1)    # the long flip's 24
     p.emit(f"jmp {jp}")                                                   # frames: 7.2 across)
     p.mark(wj_)
 if PARK:                                          # (P58: the flip spent, an A in the air is kept for the landing)
@@ -8867,6 +8888,21 @@ if LAB:                        # (P44: the tackle goes in low: the slide's poses
     p.mark(f"{tp}_c")
     p.push(base["slide"]).emit("add").store(POSE)
     p.mark(tp)
+    if YARD:
+        rgp = p.label("rungunpose")
+        p.set(YRG, 0)
+        p.load(F["sty"]).push(1).emit("eq", f"jz {rgp}")
+        p.load(DRAW).emit(f"jz {rgp}")
+        p.load(ANIM).push(5).emit("eq", f"jz {rgp}")
+        p.load(F["py"]).load(F["evf"]).emit("or", f"jz {rgp}_g", f"jmp {rgp}")
+        p.mark(f"{rgp}_g")
+        p.load(POSE).push(base["run"]).emit("sub", "dup").push(0).emit("lt", f"jz {rgp}_a", "drop", f"jmp {rgp}")
+        p.mark(f"{rgp}_a")
+        p.emit("dup").push(NPOSE["run"]).emit("lt", f"jz {rgp}_d")
+        p.push(base["run_gun_f"]).emit("add").store(POSE).set(YRG, 1).emit(f"jmp {rgp}")
+        p.mark(f"{rgp}_d")
+        p.emit("drop")
+        p.mark(rgp)
     p.load(POSE).store(UPOSE)
 if DEDUPE:                     # the pose's slot: two 16-bit slots a word
     _ps = p.label("pslot")
@@ -8893,6 +8929,9 @@ if CARTMESH:                                 # the pose is where its streams are
         # doing: standing, walking, the boxer's steps, the run, the air.
         # (The locked run has its own one-handed poses and keeps them.)
         gr = p.label("gunready")
+        if YARD:
+            p.load(YRG).emit(f"jz {gr}_y", f"jmp {gr}")
+            p.mark(f"{gr}_y")
         p.load(DRAW).emit(f"jz {gr}")
         p.load(ANIM).push(2).emit("lt").load(ANIM).push(5).emit("eq", "or", f"jz {gr}")
         p.load(F["evf"]).emit(f"jz {gr}_e", f"jmp {gr}")
@@ -8918,6 +8957,9 @@ if CARTMESH:                                 # the pose is where its streams are
             # P66: ON THE RUN his upper half is the gun's, fired (B) -- over the stride, the leap or the landing,
             # whichever his legs are in
             ru = p.label("pkupper")
+            if YARD:
+                p.load(YRG).emit(f"jz {ru}_y", f"jmp {ru}")
+                p.mark(f"{ru}_y")
             p.load(F["sty"]).push(1).emit("eq").load(ANIM).push(5).emit("eq", "and", f"jz {ru}")
             p.load(F["evf"]).emit(f"jz {ru}_e", f"jmp {ru}")
             p.mark(f"{ru}_e")
@@ -9257,6 +9299,14 @@ if LAB:
     # HIS HAND, when his upper half is in the gun's clips and his arm is out: bent with him, in the world
     p.set(HNDON, 0)
     p.load(UPOSE).push(base["gun"]).emit("sub").store(LS0)
+    if YARD:                                                                          # (P87: or the run's own gun poses)
+        p.load(UPOSE).push(base["run_gun_f"]).emit("sub", "dup").push(0).emit("lt", f"jz {ab}_rg", "drop", f"jmp {ab}_rn")
+        p.mark(f"{ab}_rg")
+        p.emit("dup").push(NPOSE["run_gun_f"]).emit("lt", f"jz {ab}_rd")
+        p.push(HAND_GUNS).emit("add").store(LS0).emit(f"jmp {ab}_rn")
+        p.mark(f"{ab}_rd")
+        p.emit("drop")
+        p.mark(f"{ab}_rn")
     p.push(-1).load(LS0).emit("lt").load(LS0).push(HAND_N).emit("lt", "and", f"jz {ab}_h")
     p.load(LS0).push(3).emit("mul").push(int(HAND_T)).emit("add").store(LS0)
     p.push(HAND_OUT).load(LS0).push(2).emit("add", "loadi", "lt", f"jz {ab}_h")

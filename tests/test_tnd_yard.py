@@ -1121,46 +1121,91 @@ def test_handsprings_string_together(cart):
     assert len(over) >= 5 and max(over) - min(over) < 10, f"coming over, his poses: {sorted(over)}"
 
 
-def test_a_wall_kick_gives_his_flip_back_twice_an_air(cart):
+def test_a_wall_from_a_jump_is_straight_up_then_the_return_flip_from_a_flip_the_return_flip(cart):
     """P86 ("The walls should be treated like floors, two jumps at max then gravity changes back to the floor. think
-    of those as mirrors" -- asked which, he chose: a wall re-arms his jumps): a kick off a wall is a landing on it --
-    the flip he had spent is his again -- and there are two of them an air (six in the park), not three"""
+    of those as mirrors") and P87 ("any of the directions of wall, jump onto wall is verticle with a second clickable
+    being the returned back flip. flip onto wall is return flip"): whichever way the wall faces -- come to it from a
+    jump, A kicks him straight up it and A again throws him back off it in the flip; come to it from a flip, A is
+    that return flip at once. Two an air"""
     A = spec.PAD_A
-    y, g = _run_at(cart, [])
-    for q in [A] * 3 + [0] * 6 + [A] * 3 + [0] * 4:
-        g.step(L | U | q)
-    assert g.cell("f_flipu") == 1 and g.cell("f_py") > 0
 
-    def wall():
-        g.d[g.syms["wall_t"]] = 6                # (a wall across the way he runs, just touched)
-        g.d[g.syms["wall_axes"]] = 1
+    def touch(axes):
+        g.d[g.syms["wall_t"]] = 6                # (a wall, just touched)
+        g.d[g.syms["wall_axes"]] = axes
         g.d[g.syms["wall_sx"]] = 0xFFFFFFFF if g.cell("f_vx") < 0 else 1
+        g.d[g.syms["wall_sz"]] = 1
         g.d[g.syms["f_py"]] = max(g.cell("f_py"), 2 * ONE)
+
+    def press():
         g.step(L | U)
-        g.d[g.syms["wall_t"]] = 6
         g.step(L | U | A)
         g.step(L | U | A)
-        for _ in range(8):
+    for axes in (1, 2):                          # (a wall across his way; a wall beside it)
+        # from a jump
+        y, g = _run_at(cart, [])
+        for q in [A] * 3 + [0] * 5:
+            g.step(L | U | q)
+        assert g.cell("f_flipu") == 0 and g.cell("f_py") > 0
+        touch(axes)
+        press()
+        assert g.cell("wall_n") == 1 and g.cell("f_evf") == 0 and g.cell("f_pvy") > int(0.1 * ONE) and g.cell("f_flipu") == 0, \
+            f"axes {axes}: from a jump, not straight up: {g.cell('wall_n')}, {g.cell('f_evf')}, {g.cell('f_pvy') / ONE:.2f}"
+        assert g.cell("wall_t") > 20, "the wall is not his for the second press"
+        for _ in range(10):
             g.step(L | U)
-    wall()
-    assert g.cell("wall_n") == 1 and g.cell("f_flipu") == 0, (g.cell("wall_n"), g.cell("f_flipu"))
-    g.d[g.syms["f_flipu"]] = 1
-    wall()
-    assert g.cell("wall_n") == 2 and g.cell("f_flipu") == 0, (g.cell("wall_n"), g.cell("f_flipu"))
-    g.d[g.syms["f_flipu"]] = 1
-    wall()
-    assert g.cell("wall_n") == 2 and g.cell("f_flipu") == 1, "a third wall in one air gave him something"
+        was = (g.cell("f_vx"), g.cell("f_vz"))
+        press()
+        assert g.cell("wall_n") == 2 and g.cell("f_evf") > 0 and g.cell("f_flipu") == 1, f"axes {axes}: the second press was not the return flip"
+        now = (g.cell("f_vx"), g.cell("f_vz"))
+        assert now[axes - 1] * (-1 if axes == 1 and was[0] < 0 else 1) != 0 and now != was, "he was not thrown off it"
+        for _ in range(30):
+            g.step(L | U)
+        if g.cell("f_py") > 0:
+            touch(axes)
+            press()
+            assert g.cell("wall_n") == 2, "a third wall in one air gave him something"
+        # from a flip
+        y, g = _run_at(cart, [])
+        for q in [A] * 3 + [0] * 6 + [A] * 3 + [0] * 26:
+            g.step(L | U | q)
+        assert g.cell("f_flipu") == 1 and g.cell("f_py") > 0 and g.cell("f_evf") == 0, (g.cell("f_flipu"), g.cell("f_py"), g.cell("f_evf"))
+        touch(axes)
+        press()
+        assert g.cell("wall_n") == 1 and g.cell("f_evf") > 0, f"axes {axes}: from a flip, A at the wall was not the return flip"
 
 
 def test_his_chest_leans_with_his_legs_and_the_gun_stays_on_his_aim(cart):
-    """P86 ("the running gun waist needs fixing too"): over the stride the gun's upper half is turned a third of the
-    way from its own lean (back) to the legs' (forward) -- and the gun, lying along his aim, is not turned with it"""
-    B = spec.PAD_B
+    """P86 ("the running gun waist needs fixing too"): over other legs -- a jump's, here -- the gun's upper half is
+    turned a third of the way from its own lean (back) to the legs' -- and the gun, lying along his aim, is not turned
+    with it"""
+    A, B = spec.PAD_A, spec.PAD_B
     y, g = _run_at(cart, [])
     turns = []
-    for i in range(40):
-        g.step(L | U | B)
-        if i > 20:
+    for i, q in enumerate([B] * 20 + [A | B] * 3 + [B] * 14):
+        g.step(L | U | q)
+        if g.cell("f_py") > 0 and g.cell("pose") != g.cell("aim_upose"):
             turns.append(g.cell("yard_join_turn"))
             assert g.cell("aim_bend_d") == g.cell("aim_bend") + g.cell("yard_join_turn") - 6 * g.cell("aim_kick")
-    assert 25 < min(turns) and max(turns) < 70, f"his chest's turn over the stride: {min(turns)}..{max(turns)} of 1,024"
+    assert len(turns) > 8 and max(turns) > 10, f"his chest's turn over a jump: {turns}"
+
+
+# ---- P87 -------------------------------------------------------------------------------------------------------------
+def test_on_the_stride_with_the_gun_out_he_is_one_body(cart):
+    """P87 ("running gunning still needs mesh work"): on the run's stride with the gun out he is the run's own gun
+    pose -- one baked body, both halves, the gun out in one hand -- not a standing chest set on running hips; his
+    hand is found in it, and the gun and the laser are there. In the air he is two halves again, joined (P85, P86)"""
+    A, B = spec.PAD_A, spec.PAD_B
+    y, g = _run_at(cart, [])
+    lo, hi = None, None
+    for i in range(30):
+        g.step(L | U | B)
+        if i > 12:
+            assert g.cell("yard_run_gun") == 1 and g.cell("pose") == g.cell("aim_upose"), i
+            assert g.cell("aim_hand_on") == 1, "his hand is not found in it"
+            assert g.cell("yard_join_up") == 0 and g.cell("yard_join_turn") == 0
+            lo = g.cell("pose") if lo is None else min(lo, g.cell("pose"))
+            hi = g.cell("pose") if hi is None else max(hi, g.cell("pose"))
+    assert hi - lo >= 6 and hi - lo < 16, f"his stride with the gun: poses {lo}..{hi}"
+    for q in [A | B] * 3 + [B] * 6:
+        g.step(L | U | q)
+    assert g.cell("yard_run_gun") == 0 and g.cell("pose") != g.cell("aim_upose"), "in the air he is two halves"
