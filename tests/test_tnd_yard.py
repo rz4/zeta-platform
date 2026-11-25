@@ -866,3 +866,31 @@ def test_with_far_bodies_more_of_them_are_in_the_shot(cart):
     faces = g.cell("yard_faces")
     assert faces <= spec.CM_FMAX - 737, faces
     assert sum(seen) >= 6, seen
+
+
+# ---- P82 -------------------------------------------------------------------------------------------------------------
+def test_out_of_slowed_time_the_spot_is_the_bodys_again_and_his_waist_comes_up(cart):
+    """P82 ("it should always return to the neutral position after slow mo is exited, i think that would also solve
+    the problem of the players torso being locked into the angle after your end firing"): the gun held, the spot put
+    low, he bends to it; the gun let go, time runs again, the spot is the body's and his waist is straight -- with R
+    still held"""
+    y = Yard(cart)
+    g = y.g
+    y.who(3)
+    for _ in range(110):
+        g.step(U)
+    R, D, B = spec.PAD_R, spec.PAD_DOWN, spec.PAD_B
+    for _ in range(30):
+        g.step(R)
+    for q in [R | B] * 40 + [R | B | D] * 3 + [R | B] * 30:
+        g.step(q)
+    assert g.cell("slow_on") and g.cell("t_spot") == 2
+    low = g.cell("aim_bend")
+    for _ in range(60):
+        g.step(R)
+    assert not g.cell("slow_on") and g.cell("t_spot") == 1, (g.cell("slow_on"), g.cell("t_spot"))
+    assert abs(g.cell("aim_bend")) <= 4 < abs(low) + 4, f"his waist: {low} with the gun low, {g.cell('aim_bend')} a second after"
+    # and chosen with R alone, in time as it runs, the spot stays where it is put
+    for q in [R | D] * 3 + [R] * 60:
+        g.step(q)
+    assert g.cell("t_spot") == 2

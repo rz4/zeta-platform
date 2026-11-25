@@ -3543,3 +3543,16 @@ not. The gun's button is not "another move": with it held, in its slowed time, U
 press and the laser goes there. A fist's or the dodge's button still keeps the pad for itself.
 
 Tests 29. Layers 0, 4, 8, 10, 11, 12 and the full cart byte-identical.
+
+## P82: out of slowed time, the spot is the body's again (2026-11-24)
+
+The player, three minutes of P81: "ok. i think is almost there. it should always return to the neutral position
+after slow mo is exited, i think that would also solve the problem of the players torso being locked into the angle
+after your end firing".
+
+The frame slowed time ends, the spot is the body's. His waist bends to the spot while he is locked (the gun's slope
+to it; his fists' own bend for it): the spot left low, the gun put away, he stayed bent -- that was the angle. It
+comes up with the spot. Chosen with R alone in time as it runs, the spot stays where it is put, as before.
+(Slowed time is any of the four held: a fist held and let go returns it too.)
+
+Tests 30. Layers 0, 4, 8, 10, 11, 12 and the full cart byte-identical.

@@ -4109,6 +4109,7 @@ if LAB:
         YRK, YR0 = cart.var("yard_struck", len(ENEMY)), cart.var("yard_held", len(ENEMY))      # a body struck: high 0 / low 1; held how long
         YSEEN, YCF = cart.var("yard_seen", len(ENEMY)), cart.var("yard_faces")                   # drawn this frame; the frame's cart faces so far
         YPK, YPT, YCBP = cart.var("yard_his"), cart.var("yard_his_t"), cart.var("yard_row")
+        YSLW = cart.var("yard_slow_was")                   # P82: time was slowed last frame
         YFAR = cart.var("yard_far", len(ENEMY))            # P78: drawn as its far body (set where it is listed)
         # (from HIM: past the first it goes far; inside the second, near again. Those at his sides, fighting him, are
         # at 1.35 and whole; those that wait their turn in the arc, at 3, are far bodies -- and so more of them fit)
@@ -5018,6 +5019,17 @@ if BASE:
             p.load(FRUN).emit(f"jz {sw_}")
             p.load(PARK_RH).store(SLOWON)
             p.mark(sw_)
+        if YARD:
+            # P82 (the player: "it should always return to the neutral position after slow mo is exited, i think that
+            # would also solve the problem of the players torso being locked into the angle after your end firing"):
+            # the frame slowed time ends, the spot is the body's again -- and his waist, bent to the spot, comes up
+            sx_ = p.label("slowout")
+            p.load(SLOWON).emit(f"jz {sx_}_off")
+            p.set(YSLW, 1).emit(f"jmp {sx_}")
+            p.mark(f"{sx_}_off")
+            p.load(YSLW).emit(f"jz {sx_}")
+            p.set(YSLW, 0).set(SPOT, 1)
+            p.mark(sx_)
     pk = p.label("pick")                          # (he bows to it -- the fold the
     p.push(0).load(PICK).emit("lt", f"jz {pk}_up")   # body already has, part way -- and
     p.addi(PICK, -1).set(LANDT, LAND_FOR // 2 + 1)   # comes back up; only ABOVE zero)
