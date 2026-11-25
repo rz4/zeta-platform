@@ -111,6 +111,55 @@ for name, src, n in (("gb_run", "park_run", 16), ("gb_leap", "park_leap", LEAP_N
     h_ = V[:, :, HID].mean(2)                     # (state, frame, 3)
     print(name, V.shape, "shins and feet off the park's own by at most %.4f" % d_,
           "| his hand, by height of the draw:", [(np.round(h_[s].mean(0), 2).tolist(), "+-%.3f" % np.abs(h_[s] - h_[s].mean(0)).max()) for s in range(len(RAISE))])
+# ---- THE STANDING GUN, AIMED (P93). In the tank and the boxer the gun's own clip is a whole body already -- and to
+# put the round on a head or on a leg the cart TURNED ITS UPPER HALF at the waist, by as much as fifty degrees: the
+# one place a whole pose still broke in two (a fifth of the tank's frames over ten degrees). A man aiming up or down
+# hinges at his HIPS. So each frame of the gun's clips is baked again leant there, the archive's own way (its
+# `_lean_forward`: posed points turned as one block about the pelvis, as its haymaker leans) -- with his arms in the
+# block, since at these angles they must go with his shoulders: everything that is not a leg, about the pelvis, and
+# the faces shaded again where they now face. Six leans: 15, 30 and 45 degrees up and down.
+LEANS = (-45.0, -30.0, -15.0, 15.0, 30.0, 45.0)   # (degrees; + is down, as the cart's bend is)
+skel = bm._load_skeleton()
+LEGS = np.zeros(nv, bool)
+for who in ("lead", "rear"):
+    LEGS |= np.asarray(anat.leg(who).thigh) | np.asarray(anat.leg(who).shin_foot)
+PIV = []
+
+def pelvis_at(move, t):
+    ts, angles, roots = bm._load_moves()[bm.MOVE_POSE[move][0]]
+    return np.asarray(anat.pose(angles[int(np.argmin(np.abs(ts - float(np.clip(t, 0.0, 1.0)))))]).landmark("pelvis"))
+
+def aimed(move, t, deg):
+    V = frozen(bm.move_mesh(move, t))[0].copy()
+    th = np.radians(deg)
+    c_, s_ = np.cos(th), np.sin(th)
+    R = np.array([[c_, 0.0, s_], [0.0, 1.0, 0.0], [-s_, 0.0, c_]])
+    piv = pelvis_at(move, t)
+    V[~LEGS] = piv + (V[~LEGS] - piv) @ R.T
+    faces = V[F]
+    return V, np.asarray(bm._shade(faces, skel["C"]))
+
+for mv_, n_ in (("gun", 18), ("gun_charged", 33)):
+    base_ = np.stack([frozen(bm.move_mesh(mv_, f_ / (n_ - 1)))[0] for f_ in range(n_)])
+    fr = [aimed(mv_, f_ / (n_ - 1), deg) for deg in LEANS for f_ in range(n_)]
+    gb["V_ga_" + mv_], gb["S_ga_" + mv_] = (np.stack(x) for x in zip(*fr))
+    V = gb["V_ga_" + mv_].reshape(len(LEANS), n_, -1, 3)
+    piv = np.mean([pelvis_at(mv_, f_ / (n_ - 1)) for f_ in range(n_)], axis=0)
+    PIV.append(piv)
+    # his hand where the cart will reckon it -- the clip's own hand turned about ONE place for the pelvis (the
+    # clips' own mean) by the lean: how far off the baked hand is that, with the gun out?
+    err = 0.0
+    for j_, deg in enumerate(LEANS):
+        th = np.radians(deg); h0 = base_[:, HID].mean(1); h1 = V[j_][:, HID].mean(1)
+        out_ = h0[:, 0] > 0.36
+        up, ah = h0[:, 2] - piv[2], h0[:, 0] - piv[0]
+        pred = np.stack([ah * np.cos(th) + up * np.sin(th) + piv[0], h0[:, 1], up * np.cos(th) - ah * np.sin(th) + piv[2]], axis=1)
+        err = max(err, float(np.abs(pred - h1)[out_].max()))
+    print("ga_" + mv_, V.shape, "| the legs off the clip's own by %.5f" % np.abs(V[:, :, LEGS] - base_[None][:, :, LEGS]).max(),
+          "| his hand, the gun out, off where the cart reckons it: %.3f" % err, "| the pelvis, the clip's mean:", np.round(piv, 3).tolist(),
+          "| legs %d of %d vertices" % (LEGS.sum(), nv))
+gb["PELVIS"] = np.mean(PIV, axis=0)
+gb["LEANS"] = np.array(LEANS)
 gb["RAISE"] = np.array([r_ for r_, _ in RAISE])
 np.savez_compressed(sys.argv[1], **gb)
 print({k: v.shape for k, v in gb.items()})
@@ -121,5 +170,5 @@ env = dict(os.environ, SDL_VIDEODRIVER="dummy", SDL_AUDIODRIVER="dummy")
 r = subprocess.run([sys.executable, "-c", _ACRO + MORE, str(OUT)], cwd=ARCHIVE, env=env, capture_output=True, text=True)
 if r.returncode:
     sys.exit(r.stderr[-3000:])
-print("\n".join(ln for ln in r.stdout.strip().split("\n") if ln.startswith(("gb_", "{"))))
+print("\n".join(ln for ln in r.stdout.strip().split("\n") if ln.startswith(("gb_", "ga_", "{"))))
 print(f"wrote {OUT}")

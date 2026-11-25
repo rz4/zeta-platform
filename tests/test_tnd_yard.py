@@ -796,7 +796,7 @@ def test_into_the_run_and_out_of_it_is_not_one_frame(cart):
         poses.append((g.cell("f_sty"), g.cell("pose")))
     # (P92: they begin as the STRIDE does and as it ends -- he changes style standing -- and the stride begins at
     # its own first pose)
-    first = next(i for i, (_, p) in enumerate(poses) if p > 900)
+    first = next(i for i, (_, p) in enumerate(poses) if p >= 766)
     start = [p for _, p in poses[first:first + 6]]
     assert start == list(range(start[0], start[0] + 6)), f"into the run: {start}"
     assert all(p < 60 for _, p in poses[:first]), "before it he stood"
@@ -1026,7 +1026,7 @@ def test_y_in_the_air_is_the_lance(cart):
         if g.cell("f_py") > 0 and g.cell("yard_lance"):
             lanced.add(g.cell("pose"))
     assert seen7 and g.cell("e2_hp") == hp - 2 and g.cell("e2_st") == 2, (seen7, g.cell("e2_hp"), g.cell("e2_st"))
-    assert len(lanced) >= 2 and max(lanced) - min(lanced) < 4 and min(lanced) > 900, f"in the air, the lance's own poses: {sorted(lanced)}"
+    assert len(lanced) >= 2 and max(lanced) - min(lanced) < 4 and min(lanced) >= 766, f"in the air, the lance's own poses: {sorted(lanced)}"
 
 
 def test_x_in_the_air_is_the_dive_down_a_handspring_from_a_jump_a_slam_from_a_flip(cart):
@@ -1131,7 +1131,7 @@ def test_handsprings_string_together(cart):
         assert not g.cell("f_flipu")
     assert springs == 2, f"{springs} handsprings from two presses in one air"
     # (P92: the handspring's own fourteen poses, a pose a frame)
-    assert len(over) >= 10 and max(over) - min(over) < 14 and min(over) > 900, f"coming over, his poses: {sorted(over)}"
+    assert len(over) >= 10 and max(over) - min(over) < 14 and min(over) >= 766, f"coming over, his poses: {sorted(over)}"
 
 
 def test_a_wall_from_a_jump_is_straight_up_then_the_return_flip_from_a_flip_the_return_flip(cart):
@@ -1246,3 +1246,35 @@ def test_the_one_bodys_legs_are_the_parks_own():
         low = P[0][:, 2] < 0.45                  # (below the knee in the first pose: shins and feet)
         for s_ in range(5):
             assert np.abs(V[s_ * n:(s_ + 1) * n][:, low] - P[:, low]).max() < 1e-6, f"{name}: the legs are not the park's own"
+
+
+# ---- P93 -------------------------------------------------------------------------------------------------------------
+def test_aiming_up_or_down_he_hinges_at_the_hips_one_body(cart):
+    """P93 ("make sure it all looks like a single mesh"): the gun's clip is a whole body, and to put the round on a
+    head or a leg its upper half was turned at the waist -- by fifty degrees at the most. The clip is in the cart six
+    times more, leant at the hips 15, 30 and 45 degrees up and down; he is the one nearest his bend, and only what is
+    left -- seven and a half degrees at the most -- is turned at the waist. His hand, the gun and the laser are where
+    that body's are"""
+    R, B, D = spec.PAD_R, spec.PAD_B, spec.PAD_DOWN
+
+    def aim(dist, spot):
+        y = Yard(cart)
+        g = y.g
+        y.who(3)
+        for k in range(7):
+            _stand(y, k, 28.0 - k, -15.0)
+        _stand(y, 2, 0.0, -8.0 + dist)
+        y.put(0.0, -8.0, 256)
+        for q in [0] * 5 + [R] * 20 + ([R | spot] * 3 if spot else []) + [R] * 5 + [R | B] * 45:
+            g.step(q)
+        assert g.cell("locked") and g.cell("aim_hand_on") == 1
+        return g
+    g = aim(6.0, None)                           # (level, far off: the clip's own body)
+    assert g.cell("yard_aimed") == 0 and g.cell("pose") == g.cell("aim_upose") and abs(g.cell("aim_bend")) < 21
+    for dist, spot, want in ((3.0, D, 1), (1.3, D, 3), (1.3, U, -1)):
+        g = aim(dist, spot)
+        bend, lean, left = g.cell("aim_bend"), g.cell("yard_aimed_lean"), g.cell("aim_bend_d")
+        assert g.cell("yard_aimed") == want, f"{dist} off, spot {spot}: his bend {bend}, baked {g.cell('yard_aimed')}"
+        assert g.cell("pose") in range(336, 354) and g.cell("aim_upose") > 1000, (g.cell("pose"), g.cell("aim_upose"))
+        assert left == bend - lean - 6 * g.cell("aim_kick") and (abs(left) <= 22 or want == 3), f"left at his waist: {left}"
+        assert g.cell("yard_join_up") == 0 and g.cell("yard_join_turn") == 0

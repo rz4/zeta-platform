@@ -187,8 +187,11 @@ if LAYER in (10, 11, 12, 13):
 REACTS = ("hurt_hi", "hurt_lo", "down", "getup")
 if LAYER == 13:
     SEQS += REACTS
-    SEQS += ("gb_run", "gb_leap", "gb_leap_l", "gb_land")      # P91: one body with the gun
     SEQS += ("mv_start", "mv_stop", "mv_stop_l", "mv_spring", "mv_lance")   # P92
+    # (the whole bodies come LAST: no half of them is ever set against another pose's, so the table of waists stops
+    # before them -- a word a pose, and there are 560 of them)
+    SEQS += ("gb_run", "gb_leap", "gb_leap_l", "gb_land")      # P91: one body with the gun
+    SEQS += ("ga_gun", "ga_gun_charged")                       # P93: the standing gun, aimed
 
 
 def to_zeta(V):
@@ -609,7 +612,8 @@ if LAYER == 13:
     # -- the middle of the ring of vertices the halves share: how high, how far ahead, in 48ths, a byte each -- and
     # an upper half over other legs is moved to theirs.
     _seam = np.intersect1d(halves[0][1], halves[1][1])
-    _jc = [to_zeta(V_)[_seam].mean(0) for s_ in SEQS for V_ in d["V_" + s_]]
+    JOIN_SEQS = SEQS[:SEQS.index("gb_run")]
+    _jc = [to_zeta(V_)[_seam].mean(0) for s_ in JOIN_SEQS for V_ in d["V_" + s_]]
     # P86 (the player: "the running gun waist needs fixing too"): ...and how its waist is TURNED -- the ring's pitch
     # from the first idle pose's, fitted in the plane he leans in: a stride's hips tip forward under a chest that
     # stood upright on them. A third byte, in 1,024ths of a turn.
@@ -627,7 +631,7 @@ if LAYER == 13:
         v_ = q_[_top].mean(0) - q_[_seam].mean(0)
         return float(np.arctan2(v_[2], v_[1])) * 1024 / (2 * np.pi)
     _t0 = _tip(d["V_idle"][0])
-    _jp = [_tip(V_) - _t0 for s_ in SEQS for V_ in d["V_" + s_]]
+    _jp = [_tip(V_) - _t0 for s_ in JOIN_SEQS for V_ in d["V_" + s_]]
     JOIN_Q = 48
     _jw = []
     for c_, a_ in zip(_jc, _jp):
@@ -4184,6 +4188,13 @@ if LAB:
         JOIN_LEAN = int(os.environ.get("TND_JLEAN", "85"))            # of 256: how much of the legs' lean his chest takes
         JOIN_SINK = int(float(os.environ.get("TND_JSINK", "0.05")) * ONE)
         JOIN_FWD = int(float(os.environ.get("TND_JFWD", "0.03")) * ONE)
+        # P93: THE STANDING GUN, AIMED. YAJ: which of the six leans his whole body is baked at this frame (-3..3, 0 none);
+        # YAI: that lean in the bend's own measure; its sine and cosine; and where the lean hinges (the pelvis)
+        YAJ, YAI, YAS, YAC = (cart.var("yard_aimed" + k_) for k_ in ("", "_lean", "_sin", "_cos"))
+        GA_LEANS = [float(x_) for x_ in d["LEANS"]]
+        assert GA_LEANS == [-45.0, -30.0, -15.0, 15.0, 30.0, 45.0]
+        YAT = cart.data(Table([int(round(f_(np.radians(15.0 * i_)) * ONE)) for i_ in range(-3, 4) for f_ in (np.sin, np.cos)]), "yard_lean_of")
+        PV_AH, PV_UP = int(round(float(d["PELVIS"][0]) * ONE)), int(round(float(d["PELVIS"][2]) * ONE))
         YGB, YGS, YGK, YGA = (cart.var("yard_one_body" + k_) for k_ in ("", "_draw", "_kick", "_away"))     # P91, P92
         GB_ST = cart.data(Table(GB_STATE), "yard_draw_of")
         assert not DEDUPE
@@ -9060,6 +9071,48 @@ if CARTMESH:                                 # the pose is where its streams are
                 p.push(step_).emit("add")
         p.emit("drop")
         p.mark(ob)
+    if YARD:
+        # P93 (the same asking: "make sure it all looks like a single mesh"): the gun's own clip is a whole body, and
+        # to put the round on a head or a leg his upper half was TURNED AT THE WAIST -- on a fifth of the tank's frames
+        # by over ten degrees, by fifty at the most: the one place a whole pose still broke in two. A man aiming up or
+        # down hinges at his hips: each frame of the gun's clips is in the cart six times more, leant there 15, 30 and
+        # 45 degrees up and down (tools/tnd_gunbody.py), and he is the one nearest his bend. What is left over -- seven
+        # and a half degrees at the most -- is still turned at the waist, as all of it was.
+        aa = p.label("aimed")
+        p.set(YAJ, 0).set(YAI, 0)
+        p.load(YGB).emit(f"jz {aa}_g", f"jmp {aa}")
+        p.mark(f"{aa}_g")
+        p.load(UPOSE).load(POSE).emit("eq", f"jz {aa}")                     # (a whole pose)
+        p.load(WBEND).push(3).emit("mul").push(64).emit("add", "shr 7", "maxi -3", "mini 3").store(LS0)
+        p.load(LS0).emit(f"jz {aa}")
+        p.push(0).load(LS0).emit("lt", f"jz {aa}_neg")                      # (0 < it: down)
+        p.load(LS0).push(2).emit("add", f"jmp {aa}_j")
+        p.mark(f"{aa}_neg")
+        p.load(LS0).push(3).emit("add")
+        p.mark(f"{aa}_j")
+        p.store(LS1)                                                       # (which of the six)
+        for k_, (clip_, ga_) in enumerate((("gun", "ga_gun"), ("gun_charged", "ga_gun_charged"))):
+            n_ = NPOSE[clip_]
+            assert NPOSE[ga_] == 6 * n_, (ga_, NPOSE[ga_])
+            p.load(POSE).push(base[clip_]).emit("sub", "dup").push(0).emit("lt", f"jz {aa}_in{k_}", "drop", f"jmp {aa}_nx{k_}")
+            p.mark(f"{aa}_in{k_}")
+            p.emit("dup").push(n_).emit("lt", f"jz {aa}_no{k_}")
+            p.load(LS1).push(n_).emit("mul", "add").push(base[ga_]).emit("add").store(UPOSE)
+            p.emit(f"jmp {aa}_set")
+            p.mark(f"{aa}_no{k_}")
+            p.emit("drop")
+            p.mark(f"{aa}_nx{k_}")
+        p.emit(f"jmp {aa}")
+        p.mark(f"{aa}_set")
+        p.load(LS0).store(YAJ)
+        p.load(LS0).push(683).emit("mul", "shr 4").store(YAI)               # (fifteen degrees: 42.67 of 1,024)
+        p.load(UPOSE).push(SPAN).emit("mul").push(int(BANK)).emit("add")
+        for cell_, step_ in ((UPPER + 1, CM_LEN[0]), (UPPER + 3, CM_LEN[1]), (LOWER + 1, CM_LEN[2]), (LOWER + 3, 0)):
+            p.emit("dup").store(cell_)
+            if step_:
+                p.push(step_).emit("add")
+        p.emit("drop")
+        p.mark(aa)
     if L3:                                   # the others' clock: two frames a pose, the idle's sixty
         rv_ = p.label("rival")
         p.addi(RIV_T, 1).load(RIV_T).push(2 * NPOSE["idle"]).emit("lt", f"jz {rv_}_w", f"jmp {rv_}")
@@ -9351,11 +9404,15 @@ if LAB:
         p.load(GUNK).push(6).emit("mul").store(YGK)
         p.load(WBEND).store(WBD)
         p.mark(kk)
+        ar = p.label("aimleft")                                  # P93: baked leant, only what is left is turned at the waist
+        p.load(YAJ).emit(f"jz {ar}")
+        p.load(WBD).load(YAI).emit("sub").store(WBD)
+        p.mark(ar)
     if YARD:
         # P85, P86: THE TWO WAISTS -- the legs' and the chest's own: how far up, how far ahead, how turned
         jn = p.label("join")
         p.set(YJU, 0).set(YJF, 0).set(YJP, 0)
-        p.load(YGB).emit(f"jz {jn}_2", f"jmp {jn}")                # (P91: one body: nothing to join)
+        p.load(YGB).load(YAJ).emit("or", f"jz {jn}_2", f"jmp {jn}")   # (P91, P93: one body: nothing to join)
         p.mark(f"{jn}_2")
         p.load(POSE).load(UPOSE).emit("eq", f"jz {jn}_d", f"jmp {jn}")
         p.mark(f"{jn}_d")
@@ -9398,6 +9455,11 @@ if LAB:
     p.set(HNDON, 0)
     p.load(UPOSE).push(base["gun"]).emit("sub").store(LS0)
     if YARD:
+        ah_ = p.label("aimedhand")                               # (P93: baked leant, the gun's frame is POSE's)
+        p.load(YAJ).emit(f"jz {ah_}")
+        p.load(POSE).push(base["gun"]).emit("sub").store(LS0)
+        p.mark(ah_)
+    if YARD:
         # (P91: or the one body's, by its draw -- its four entries stand after the gun's own, and ONLY the one body
         # reads them: the stride's first poses are numbered just past the gun's clips)
         p.load(YGB).emit(f"jz {ab}_ob")
@@ -9412,6 +9474,17 @@ if LAB:
     p.set(HNDON, 1)
     p.load(LS0).push(1).emit("add", "loadi").push(WAIST).emit("sub").store(LS1)       # how far above his waist
     p.load(LS0).push(2).emit("add", "loadi").store(LS2)                               # how far ahead
+    if YARD:
+        # P93: baked leant, his hand has gone with his body about his PELVIS by that lean; what is left of the bend
+        # then turns it about his waist, as before
+        hp_ = p.label("handlean")
+        p.load(YAJ).emit(f"jz {hp_}")
+        p.push(int(YAT) + 6).load(YAJ).emit("shl 1", "add", "dup", "loadi").store(YAS).push(1).emit("add", "loadi").store(YAC)
+        p.load(LS1).push(WAIST - PV_UP).emit("add").store(YJ0)                         # (above the pelvis)
+        p.load(LS2).push(-PV_AH).emit("add").store(YJ1)                                # (ahead of it)
+        p.load(YJ1).load(YAC).emit("mulq").load(YJ0).load(YAS).emit("mulq", "add").push(PV_AH).emit("add").store(LS2)
+        p.load(YJ0).load(YAC).emit("mulq").load(YJ1).load(YAS).emit("mulq", "sub").push(PV_UP - WAIST).emit("add").store(LS1)
+        p.mark(hp_)
     p.load(LS2).load(int(AT4) + 1).emit("mulq").load(LS1).load(int(AT4)).emit("mulq", "add").store(int(AT4) + 2)
     p.load(LS1).load(int(AT4) + 1).emit("mulq").load(LS2).load(int(AT4)).emit("mulq", "sub").push(WAIST).emit("add")
     if YARD:
@@ -11471,7 +11544,7 @@ if LAB and "player" not in OMIT:
     p.load(HNDON).emit(f"jz {go}")
     # (P86: the gun lies along his AIM -- his chest's lean over his legs is not his aim)
     p.object(NOBJ, GUN_M, (f"load {int(HNDW)}",), (f"load {int(HNDW) + 1}",), (f"load {int(HNDW) + 2}",),
-             (f"load {int(HEAD)}", f"load {int(WBD)}") + ((f"load {int(YJP)}", "sub", f"load {int(YGK)}", "sub") if YARD else ()) + ("push 1023", "and", "shl 10", "or"), spec.OBJ_CULL)
+             (f"load {int(HEAD)}", f"load {int(WBD)}") + ((f"load {int(YJP)}", "sub", f"load {int(YGK)}", "sub", f"load {int(YAI)}", "add") if YARD else ()) + ("push 1023", "and", "shl 10", "or"), spec.OBJ_CULL)
     p.load(MUZT).emit(f"jz {go}")
     p.addi(MUZT, -1)
     p.object(NOBJ, FLASH_M, (f"load {int(HNDW)}", f"load {int(F['ps'])}", f"push {int(0.30 * ONE)}", "mulq", "sub"),

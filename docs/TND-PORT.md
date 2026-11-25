@@ -3815,3 +3815,25 @@ TWO FAULTS OF MINE ON THE WAY, both found by a test that was not about them:
   program of every layer (none had one).
 
 Tests 42. Layers 0, 4, 8, 10, 11, 12 and the full cart byte-identical. Data memory 393 words free.
+
+## P93: aiming up or down he hinges at the hips, one body (2026-11-25)
+
+The same asking ("make sure it all looks like a single mesh"). MEASURED, the presses of two of his sessions on P92
+(53,687 frames): his upper half turned at the waist on 45% of the tank's frames and 31% of the boxer's -- the gun's
+bend to the spot he has chosen -- by over ten degrees on 23% of the tank's, by 53 degrees at the most. The gun's
+clip is a whole body; that turn was the one place a whole pose still broke in two.
+
+A man aiming up or down hinges at his HIPS. Each frame of the gun's two clips is baked six times more
+(`tools/tnd_gunbody.py`), leant there the archive's own way -- its `_lean_forward`: posed points turned as one
+block about the pelvis, as its haymaker leans -- with his arms in the block (at these angles they go with his
+shoulders): everything that is not a leg, 15, 30 and 45 degrees up and down, the faces shaded again where they now
+face. The legs are the clip's own to the last place. 306 poses.
+In the cart he is the one nearest his bend; what is left over (seven and a half degrees at the most, inside 45) is
+still turned at the waist. His hand is reckoned as that body's is -- the clip's own hand, turned about the pelvis
+by the lean, then about the waist by what is left: to a thousandth of a unit of the baked hand -- and the gun lies
+along the whole aim.
+
+The table of waists stops before the whole bodies (no half of theirs is ever set against another pose's): data
+memory 625 words free without the song. The cart's poses: 1,362.
+
+Tests 43. Layers 0, 4, 8, 10, 11, 12 and the full cart byte-identical.
