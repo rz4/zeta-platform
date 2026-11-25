@@ -3926,3 +3926,43 @@ frame more than layer 13. Program 27,368 words (the limit 29,266); data memory 5
 
 Tests: the yard's 44 as they were; layer 14's own 3 (`tests/test_tnd_style.py`). Layers 0, 4, 8, 10, 11, 12, 13 and
 the full cart byte-identical.
+
+## P98: layer 14 -- on a body that is down; a round's own jolt; bodies into bodies (2026-11-25)
+
+The player, P97 on glass (he played 4.7 minutes of it), of the three things I had named as next: "do all the nexxt
+candidates".
+
+OBSERVED on that session (TND STYLE, its own build): bodies down -- thrown 63, dropped 51, folded 57, cut down 14;
+hooks that turned a body 11; and 420 fresh presses of a strike or the gun within 1.6 of a body that lay, of which
+5 rounds and no fist landed on it -- a fist could not meet a body that was down at all, and a round met one only
+by having been fired at it standing.
+
+- **HIS HEEL.** A jab or a cross thrown over a body that lies before him is the STOMP: the knee snatched up, the
+  heel driven down on the move's own first live frame (two clips of his own -- `tools/tnd_falls.py`, gs_stomp on
+  the jab's sixteen frames, gs_stomp_r on the cross's nineteen with the other leg -- after every pose the yard has:
+  his bank is otherwise as it was). No step in. Two off the body; it BUCKS where it lies (below); the world stops
+  five frames. It does not look for a body: it is thrown where he throws it, and it is the stomp only if a body
+  that is down is within nine tenths of a unit of where the heel lands.
+- **THE GUN GOES DOWN TO IT.** With the gun up and nothing chosen, a body that lies within a unit of the place a
+  unit ahead of him is what the gun is on: he hinges over it (41 degrees: P93's bodies) and the round is fired
+  down into it -- one off it (a charged round four), struck where it lies, and no round goes on down the room.
+  Choosing with R is as it was: it takes a body that stands. (So what he has chosen and put down is not shot
+  where it lies by the lock; he walks to it.)
+- **NEITHER, WITH ONE STANDING THERE.** A body standing within reach of the blow, or before him within five units
+  of the gun, keeps the jab a jab and the gun level: a body at his feet does not take what was meant for the one
+  over it.
+- **STRUCK WHERE IT LIES, IT BUCKS** -- six poses, by how it lies (on its back; on its face): his heel, a round
+  fired down into it, a round that was in the air when it fell. A body that was only off its feet and is finished
+  there lies the whole count again.
+- **A ROUND'S JOLT IS ITS OWN.** Not the fist's chin-back: the side it went in punched back, high or low -- and a
+  side each, so rounds landing one after another throw a body one way and then the other.
+- **A BODY THROWN INTO ANOTHER TAKES IT OFF ITS FEET.** One sent along the floor (a sixth of a unit still to go:
+  never a jab's) that comes within six tenths of a unit of one that stands: that one takes one, has half the
+  throw, and is cut down -- up again as a tripped body is, or down for the count with nothing left.
+
+Readings, all: he named the candidates in my words, not his.
+THE PROGRAM IS FULL. The game's program is 27,759 words and the cart loads with about a hundred to spare (the first
+cut was 153 over: the per-body code went into routines). The yard still carries some 6,000 words that never run
+(P77 cut what it could prove); the next thing built on layer 14 has to free some first.
+Tests: layer 14's own 8; the yard's 44 as they were. Layers 0, 4, 8, 10, 11, 12, 13 and the full cart
+byte-identical. Data memory 501 words free; the cart 13.5 MB of 16.

@@ -17,6 +17,16 @@
 #   hurt_hook    8   a HOOK landed: the head and shoulders turned hard away from it, a foot thrown out to hold it
 #   hurt_hook_l  8   the same, turned the other way (the other hand's)
 #
+# P98, the rest of it:
+#   shot_hi / _l  8  a ROUND in the head or the shoulder: that side punched back, the head thrown, a foot gone back
+#   shot_lo / _l  8  a round in the body: the hip taken back on that side, curled round it
+#                    (a side each: rounds landing one after another throw it one way, then the other)
+#   jolt_back     6  struck while it lies on its back: the chest bucks off the floor, the limbs jump
+#   jolt_prone    6  struck while it lies on its face: the hips kick up, the head comes off the floor
+# and two of HIS, for a body on the floor before him (his own bank; layer 14 only):
+#   gs_stomp      16 the jab's frames: the lead knee snatched up, the heel driven down into it on the jab's fourth
+#   gs_stomp_r    19 the cross's frames: the rear leg's, on the cross's fifth
+#
 #   python3 tools/tnd_falls.py [path/to/archive/TND]
 
 import os
@@ -100,8 +110,56 @@ SPIN = dict(G, **arms(-40, 30, 10, 70, out=44), **{
 
 GV = grounded(G)[0]
 FEET = np.flatnonzero(GV[:, 2] < 0.10)
+# ---- a round, standing: one side punched back
+SHOT_HI = dict(G, **arms(-30, 40, 6, 70, out=26), **{
+    "Hips": [-6, 14, 0], "Spine": [-12, 20, 0], "Spine1": [-10, 14, 0], "Neck": [-22, -10, 0], "Head": [-14, -8, 0],
+    "RightUpLeg": [14, 0, -8], "RightLeg": [30, 0, 0], "RightFoot": [-8, 0, 0]})
+SHOT_LO = dict(G, **arms(24, 110, 8, 90), **{
+    "Hips": [14, -16, 0], "Spine": [26, -14, 0], "Spine1": [14, -8, 0], "Neck": [12, 0, 0], "Head": [8, 0, 0],
+    "LeftUpLeg": [-34, 0, 8], "LeftLeg": [50, 0, 0], "RightUpLeg": [8, 0, -8], "RightLeg": [36, 0, 0]})
+# ---- struck on the floor
+BUCK_BACK = dict(FLAT, **arms(-30, 40, -30, 40, out=70), **{
+    "Spine": [-22, 0, 0], "Spine1": [-14, 0, 0], "Neck": [-20, 0, 0], "Head": [-10, 0, 0],
+    "LeftUpLeg": [-38, 0, 18], "LeftLeg": [50, 0, 0], "RightUpLeg": [-30, 0, -18], "RightLeg": [40, 0, 0]})
+BUCK_PRONE = dict(PRONE, **{
+    "Hips": [80, 0, 0], "Spine": [-18, 0, 0], "Spine1": [-12, 0, 0], "Neck": [-30, 34, 0], "Head": [-16, 20, 0],
+    "LeftUpLeg": [-14, 0, 12], "LeftLeg": [50, 0, 0], "RightUpLeg": [-20, 0, -16], "RightLeg": [60, 0, 0]})
+# ---- his: the heel driven down into what lies before him
+LIFT_L = dict(G, **arms(-20, 60, 30, 80, out=24), **{
+    "Hips": [-10, 0, 0], "Spine": [6, 0, 0], "Spine1": [4, 0, 0], "Neck": [14, 0, 0], "Head": [10, 0, 0],
+    "LeftUpLeg": [-96, 0, 6], "LeftLeg": [118, 0, 0], "LeftFoot": [-10, 0, 0],
+    "RightUpLeg": [-6, 0, -8], "RightLeg": [14, 0, 0], "RightFoot": [0, 0, 0]})
+DRIVE_L = dict(G, **arms(40, 50, -30, 70, out=30), **{
+    "Hips": [16, 0, 0], "Spine": [14, 0, 0], "Spine1": [8, 0, 0], "Neck": [18, 0, 0], "Head": [12, 0, 0],
+    "LeftUpLeg": [-42, 0, 6], "LeftLeg": [10, 0, 0], "LeftFoot": [-24, 0, 0],
+    "RightUpLeg": [-30, 0, -8], "RightLeg": [60, 0, 0], "RightFoot": [14, 0, 0]})
+LIFT_R = dict(G, **arms(30, 80, -20, 60, out=24), **{
+    "Hips": [-10, 0, 0], "Spine": [6, 0, 0], "Spine1": [4, 0, 0], "Neck": [14, 0, 0], "Head": [10, 0, 0],
+    "RightUpLeg": [-96, 0, -6], "RightLeg": [118, 0, 0], "RightFoot": [-10, 0, 0],
+    "LeftUpLeg": [-6, 0, 8], "LeftLeg": [14, 0, 0], "LeftFoot": [0, 0, 0]})
+DRIVE_R = dict(G, **arms(-30, 70, 40, 50, out=30), **{
+    "Hips": [16, 0, 0], "Spine": [14, 0, 0], "Spine1": [8, 0, 0], "Neck": [18, 0, 0], "Head": [12, 0, 0],
+    "RightUpLeg": [-42, 0, -6], "RightLeg": [10, 0, 0], "RightFoot": [-24, 0, 0],
+    "LeftUpLeg": [-30, 0, 8], "LeftLeg": [60, 0, 0], "LeftFoot": [14, 0, 0]})
+
+def hit_at(pre, peak, hold, n, at):
+    """n poses of a blow whose worst is ON pose `at` (the move's own first live frame), held two more, and back"""
+    u = at / (n - 1)
+    return [(0.0, G), (0.55 * u, pre), (u, peak), (u + 2.0 / (n - 1), hold), (1.0, G)]
+
+PLANTED = ("fall_drop", "fall_fold", "fall_cut", "getup_prone", "jolt_prone")
+GV = grounded(G)[0]
+FEET = np.flatnonzero(GV[:, 2] < 0.10)
 out = {}
 for name, keys, n in (
+        ("shot_hi", [(0.0, G), (0.2, SHOT_HI), (0.5, blend(SHOT_HI, G, 0.15)), (1.0, G)], 8),
+        ("shot_hi_l", [(0.0, G), (0.2, mirror(SHOT_HI)), (0.5, blend(mirror(SHOT_HI), G, 0.15)), (1.0, G)], 8),
+        ("shot_lo", [(0.0, G), (0.2, SHOT_LO), (0.5, blend(SHOT_LO, G, 0.15)), (1.0, G)], 8),
+        ("shot_lo_l", [(0.0, G), (0.2, mirror(SHOT_LO)), (0.5, blend(mirror(SHOT_LO), G, 0.15)), (1.0, G)], 8),
+        ("jolt_back", [(0.0, FLAT), (0.3, BUCK_BACK), (1.0, FLAT)], 6),
+        ("jolt_prone", [(0.0, PRONE), (0.3, BUCK_PRONE), (1.0, PRONE)], 6),
+        ("gs_stomp", hit_at(LIFT_L, DRIVE_L, DRIVE_L, 16, 4), 16),
+        ("gs_stomp_r", hit_at(LIFT_R, DRIVE_R, DRIVE_R, 19, 5), 19),
         ("fall_drop", [(0.0, G), (0.10, SNAP), (0.46, BUCKLE), (0.72, SEATBACK), (0.92, FLATK), (1.0, blend(FLATK, FLAT, 0.45))], 12),
         ("fall_fold", [(0.0, G), (0.14, LO), (0.42, KNEEL), (0.70, PITCH), (0.90, PRONE), (1.0, PRONE)], 12),
         ("fall_cut", [(0.0, G), (0.16, TILT), (0.48, KNEE1), (0.78, blend(KNEE1, PRONE, 0.6)), (1.0, PRONE)], 12),
@@ -113,7 +171,8 @@ for name, keys, n in (
     # ITS FEET STAY WHERE IT STOOD, by half: the rig turns a body about its hips, so one pitched onto its face threw
     # its legs a unit out behind it -- it seemed to slide away from the blow. Each frame is moved by half of how far
     # its feet have gone from where the guard has them (all of it would lay its head at his feet).
-    v[:, :, 0] -= 0.5 * (v[:, FEET, 0].mean(1) - GV[FEET, 0].mean())[:, None]
+    if name in PLANTED:
+        v[:, :, 0] -= 0.5 * (v[:, FEET, 0].mean(1) - GV[FEET, 0].mean())[:, None]
     print(name, v.shape, "its last: top %.2f, back %.2f, fwd %.2f, left %.2f..%.2f" % (v[-1, :, 2].max(), v[-1, :, 0].min(), v[-1, :, 0].max(), v[-1, :, 1].min(), v[-1, :, 1].max()))
 np.savez_compressed(sys.argv[1], **out)
 '''
