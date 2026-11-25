@@ -1611,6 +1611,13 @@ if LAB:
     # u runs across it (east), v into it (north); he begins at its south.
     HALL_X, HALL_Z = -(17 * TILE + HT - OYA), 8 * TILE - HT - OXA      # its middle, in zeta's x and z
     HALL_U, HALL_V, HALL_H = 2 * TILE, TILE, 12.0                      # half its width, half its depth, its walls
+    if PALACE:
+        # P102 (the player: "get the first plaza maybe slightly bigger"). THE PALACE IS THE TOWN'S FIRST PLAZA: its
+        # middle (world 0, 0: the corner its four nodes share) is the room's; the bound is the plaza's own four nodes,
+        # 32 by 32 -- the square, and its streets' mouths a few paces in before the haze closes them. Inside it the
+        # town's own fronts are its walls (the arena asks the city: below).
+        HALL_X, HALL_Z = 0.0, 0.0
+        HALL_U = HALL_V = HT * 2 + 6.0                                 # ("slightly bigger": six paces down each street)
     LAB_EDGE = 0.6                                                     # how near a wall a body's middle comes
     _GRN, _WHT, _GRY = (60, 190, 110), (232, 232, 226), (150, 150, 154)
     if PALACE:
@@ -1717,6 +1724,17 @@ if LAB:
         PLATS = []
     if YARD:
         PLATS = []                          # (the hall, whole; its structures are the park's rows, below)
+        if PALACE:
+            # (P102: what is drawn is the town's own pieces, as its streets list them -- the plaza's four nodes and the
+            # twelve round them, each where the town has it, turned as the town turns it, lit as the town is lit)
+            LAB_TILES = []
+            for n_ in range(CS * CS):
+                nx_, ny_ = n_ % CS, n_ // CS
+                cx_, cz_ = OYA - ny_ * TILE, nx_ * TILE - OXA
+                if max(abs(cx_), abs(cz_)) < 2 * TILE:
+                    w_ = CMAP_W[n_]
+                    LAB_TILES.append(((int(round(cx_ * ONE)), int(round(cz_ * ONE))), PIECE_M[(w_ >> 18) & 31], (w_ >> 8) & 1023,
+                                      spec.OBJ_CULL | spec.OBJ_LIT))
     elif PARK:
         # P58: THE PARK (the player, 2026-11-23: "i think what we need is a
         # platforming lab, to test out all the movement modes. you should be
@@ -1881,6 +1899,8 @@ if LAB:
                            _yo(-29.0, _N0 - 2 * _SG - 7.0 - 5.5, 3.0 + 0.70 * 3.0 + 1.2)]
             assert _N0 - 2 * _SG - 7.0 - 1.5 - 8.0 > _S1 + 1.0
             assert len(YARD_BOXES) <= PARK_K, len(YARD_BOXES)
+            if PALACE:                                      # (P102: the plaza is the town's: none of the yard's structures --
+                YARD_BOXES = [dict(YARD_BOXES[0], u0=90.0, u1=91.0, v0=90.0, v1=91.0)]     # one, far out of it, for the tables)
         PARK_TUTOR = tuple(range(14))                       # the middle lane's first fourteen: each kind once, in order
         PARK_KINDS = len(PARK_STATIONS)
         PARK_SHIFT = 8                                      # (a box's corner, 16 bits << 8: to 127 units)
@@ -11894,12 +11914,12 @@ p.set(NOBJ, 0)
 if YARD:
     p.set(YCF, 0)
 if LAB:
-    for (tx_, tz_), m_, yaw_ in LAB_TILES:           # P42: the hall, a tile at a time, where it can be seen
+    for (tx_, tz_), m_, yaw_, *fl_ in LAB_TILES:     # P42: the hall, a tile at a time, where it can be seen
         lt_ = p.label("labtile")
         p.push32(tx_).store(VIS["cx"]).push32(tz_).store(VIS["cz"])
         p.push(int(round((PIECE_CY - 2.15) * ONE))).store(VIS["cy"]).push(int(round(PIECE_R * ONE))).store(VIS["r"])
         p.emit(f"call {L_VIS}", f"jz {lt_}")
-        p.object(NOBJ, m_, lambda h, v_=tx_: h.push32(v_), 0, lambda h, v_=tz_: h.push32(v_), yaw_, spec.OBJ_CULL)
+        p.object(NOBJ, m_, lambda h, v_=tx_: h.push32(v_), 0, lambda h, v_=tz_: h.push32(v_), yaw_, fl_[0] if fl_ else spec.OBJ_CULL)
         p.mark(lt_)
     if PARK:
         park_draw(p)
@@ -11916,10 +11936,10 @@ if L7:
     _ng = p.label("noground")
     p.load(INSIDE).emit(f"jz {_ng}_o", f"jmp {_ng}")
     p.mark(f"{_ng}_o")
-if not LAB:                                       # (P42: the lab has its own floor, and a ceiling)
+if not LAB or PALACE:                             # (P42: the lab has its own floor, and a ceiling; P102: the plaza is the town's)
     p.object(NOBJ, GROUND_M, (f"load {spec.CAM_X}",), 0, (f"load {spec.CAM_Z}",),
              (f"load {spec.CAM_YAW}",), spec.OBJ_CULL | (spec.OBJ_LIT if BASE else 0))
-if BASE and not LAB:
+if BASE and (not LAB or PALACE):
     p.object(NOBJ, SKY_M, (f"load {spec.CAM_X}",), 0, (f"load {spec.CAM_Z}",),
              (f"load {spec.CAM_YAW}",), spec.OBJ_CULL)
 if L7:
@@ -12447,6 +12467,8 @@ if BASE:
         p.mark(f"{kd_}_s")
         p.load(BESTK).push32(int(60 * ONE)).emit("lt", f"jz {kd_}")
     else:
+        if PALACE:                                   # (P102: no key in the palace's plaza)
+            p.emit(f"jmp {kd_}")
         p.load(KEY).emit(f"jz {kd_}_s", f"jmp {kd_}")
         p.mark(f"{kd_}_s")
         p.load(LVL).push(len(GATES)).emit("lt", f"jz {kd_}")
@@ -13793,7 +13815,7 @@ if LAB:
         p.mark(f"{la}_n{k_}")
     if PARK:
         p.load(PARK_CAMQ).emit(f"jz {la}_bx")      # (P64: the lens asks about the walls only)
-        p.push(1).emit("ret")
+        p.emit(f"jmp {la}_city") if PALACE else p.push(1).emit("ret")
         p.mark(f"{la}_bx")
         for s_ in range(PARK_NS):
             n_ = f"{la}_s{s_}"
@@ -13802,9 +13824,11 @@ if LAB:
             p.load(ARP).emit(f"jz {la}_out")
             p.load(SLC(s_, S_TOP)).load(PARK_STEPV).emit("sub").load(F["py"]).load(PGH).emit("add", "lt", f"jz {la}_out")
             p.mark(n_)
-    p.push(1).emit("ret")
+    p.emit(f"jmp {la}_city") if PALACE else p.push(1).emit("ret")
     p.mark(f"{la}_out")
     p.push(0).emit("ret")
+    if PALACE:                                   # (P102: inside the bound, the town's own test: its fronts are walls)
+        p.mark(f"{la}_city")
 # P19: THE CITY IS THE ARENA. The point's node and its place in the tile:
 # inside the junction (|u|, |v| < AR_W) is street; past it on one axis,
 # street if that side is not closed; past it on both (a corner), street
@@ -15225,7 +15249,7 @@ def _imem(g, lens=None):
         from zeta.forge import reach
         body = reach(body)
         # what the cuts above rest on: the hall, walls and all, is off the city's map; and nothing left stores SPN
-        for u_ in np.arange(-34.0, 34.01, 0.5):
+        for u_ in (() if PALACE else np.arange(-34.0, 34.01, 0.5)):
             for v_ in np.arange(-18.0, 18.01, 0.5):
                 x_, z_ = lab_xz(u_, v_)
                 a_, b_ = int((z_ + OXA + HT) * ONE), int((OYA + HT - x_) * ONE)

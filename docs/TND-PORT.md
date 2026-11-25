@@ -4055,3 +4055,25 @@ dressed. Moving the fight into the town's arena is the next large piece.
 
 Tests: layer 15's 4; layer 14's 10; the yard's 44. Layers 0, 4, 8, 10, 11, 12, 13, 14 and the full cart
 byte-identical. Program 26,891 words (the song's build 26,801); data memory 468 free.
+
+## P102: layer 15 -- the palace is the town's first plaza (2026-11-25)
+
+The player: "get the first plaza maybe slightly bigger".
+
+- **THE PLACE.** The room's middle is the first plaza's (world 0, 0: the corner its four nodes share), and what is
+  drawn there is the town's own: its sixteen nodes round the plaza listed as the town lists its pieces (where the
+  town has them, turned and lit as it is), the town's ground and its sky -- under the palace's dense dusk. No key.
+- **ITS WALLS ARE THE TOWN'S.** The arena asks the bound -- the plaza's four nodes and six paces more, 44 by 44 --
+  and then the town's own test, so its fronts are walls and its streets are streets. From the plaza's middle he
+  meets a front twelve units out every way; three streets leave it, and each can be walked six paces past the
+  square's nodes (to 21.4 units) before the bound, where the haze has closed it. That is the "slightly bigger".
+- None of the yard's structures (one is carried, far outside, for its tables). The bodies' marks are the same arc
+  before him, inside the square.
+
+Not yet: the sidewalks' height (he walks at the street's level over a raised curb); the streets end in the haze,
+not at anything. The frame's cost on the silicon is not measured: in a scripted fight the program runs 16,700
+instructions a frame at the median, 22,300 at most.
+
+Tests: the palace's 4, layer 14's 10, the yard's 44. Layers 0, 4, 8, 10, 11, 12, 13, 14 and the full cart
+byte-identical -- after a slip in this change that would have run the park's lay-out in the yard (my palace block
+landed between an `if` and its `elif`), caught by that comparison.
