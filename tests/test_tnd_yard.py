@@ -1072,3 +1072,30 @@ def test_down_held_in_the_air_the_gun_is_on_where_he_lands(cart):
                 assert g.cell("yard_aim_down"), i
         return hp - g.cell("e2_hp")
     assert took(False) == 0 and took(True) > 0, (took(False), took(True))
+
+
+# ---- P85 -------------------------------------------------------------------------------------------------------------
+def test_his_chest_sits_on_his_hips_whatever_his_legs_do(cart):
+    """P85 ("the meshes and poses need work blending between peices where you do things like jump and act"): the gun's
+    upper half is a standing pose's; over a landing's crouch its waist was a third of a unit above the legs'. Every
+    pose says where its waist is, and the upper half -- and the hand, the gun and the laser with it -- is moved to
+    the legs'. With the same pose in both halves nothing is moved"""
+    A, B = spec.PAD_A, spec.PAD_B
+    y, g = _run_at(cart, [])
+    for _ in range(10):
+        g.step(L | U)
+        assert g.cell("pose") == g.cell("aim_upose") and g.cell("yard_join_up") == 0 and g.cell("yard_join_ahead") == 0
+    low, hand = 0.0, []
+    for i, q in enumerate([B] * 20 + [A | B] * 3 + [B] * 40):
+        before = g.cell("aim_hand", 1)
+        g.step(L | U | q)
+        if g.cell("pose") != g.cell("aim_upose"):
+            # (the table's own word for each half, read back: the move is the difference of the two waists)
+            w = []
+            for cell in ("pose", "aim_upose"):
+                v = g.d[g.syms["pose_waist"] + (g.cell(cell) >> 1)] >> (16 * (g.cell(cell) & 1)) & 0xFFFF
+                w.append((((v & 255) ^ 128) - 128, ((v >> 8 & 255) ^ 128) - 128))
+            assert g.cell("yard_join_up") == (w[0][0] - w[1][0]) * (ONE // 48)
+            assert g.cell("yard_join_ahead") == (w[0][1] - w[1][1]) * (ONE // 48)
+            low = min(low, g.cell("yard_join_up") / ONE)
+    assert low < -0.25, f"over the landing's crouch his chest came down {-low:.2f}"

@@ -3613,3 +3613,25 @@ slowed time; Y while already sliding.
 
 Tests 36 (and the park's 23 unchanged). Layers 0, 4, 8, 10, 11, 12 and the full cart byte-identical. Not profiled on
 the silicon since P78.
+
+## P85: his chest sits on his hips (2026-11-25)
+
+The player: "the meshes and poses need work blending between peices where you do things like jump and act" -- and,
+P84 on the card, "then do the pose joins."
+
+SEEN, drawn from the side (the game's own lens looks steeply down in the air and cuts his upper half off): his body
+is two halves with a pose each, and with the gun out his upper half is a STANDING pose's over whatever his legs do.
+Its waist is where a standing man's is (1.02 up, 0.13 ahead); a stride's is 0.16 behind that, a landing's crouch
+0.30 below it, the dive's 0.42. His chest floated off his hips -- over a landing by a third of a unit -- and the
+gun and the laser with it.
+
+SO: every pose says where ITS waist is -- the middle of the 38 vertices the halves share: how high, how far ahead,
+a byte each in 48ths (383 words) -- and an upper half over other legs is moved to theirs; his hand, the gun and
+the laser go with it. With one pose in both halves nothing moves.
+
+NOT DONE: the upper half stays UPRIGHT (the gun level) over legs that lean -- moved, not turned. In the fired
+poses (the gun's clip, five frames on) the gun sits a fifth of a unit over his hands: there before this, seen now.
+A blow thrown in the air still brings its own standing legs.
+
+Tests 37. Layers 0, 4, 8, 10, 11, 12 and the full cart byte-identical. The program 26,060 words (3,206 from its
+limit); data memory 1,107 free.

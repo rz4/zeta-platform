@@ -591,6 +591,28 @@ if CARTMESH:
                           desc=int(RDESC), pos=cart.var(f"e{_slot}_pos", 2), old=cart.var(f"e{_slot}_old", 2),
                           **{k_: cart.var(f"e{_slot}_{k_}") for k_ in ("yaw", "st", "hp", "stun", "fl", "ph", "clk", "walk", "t")}))
 NPOSE = {s: len(d["V_" + s]) for s in SEQS}
+if LAYER == 13:
+    # P85 (the player: "the meshes and poses need work blending between peices where you do things like jump and
+    # act"): his body is two halves with a pose each, and the gun's upper half is a STANDING pose's -- over a stride,
+    # a crouch or a landing its waist is where a standing man's is, and the legs' is not: seen from the side his
+    # chest floats off his hips (a third of a unit over a landing's crouch). So every pose says where ITS waist is
+    # -- the middle of the ring of vertices the halves share: how high, how far ahead, in 48ths, a byte each -- and
+    # an upper half over other legs is moved to theirs.
+    _seam = np.intersect1d(halves[0][1], halves[1][1])
+    _jc = [to_zeta(V_)[_seam].mean(0) for s_ in SEQS for V_ in d["V_" + s_]]
+    JOIN_Q = 48
+    _jw = []
+    for c_ in _jc:
+        y_, z_ = int(round(float(c_[1]) * JOIN_Q)), int(round(float(c_[2]) * JOIN_Q))
+        assert -128 <= y_ < 128 and -128 <= z_ < 128, (y_, z_)
+        _jw.append((y_ & 255) | (z_ & 255) << 8)
+    _jw += [0] * (len(_jw) & 1)
+    JOIN_T = cart.data(Table([_jw[i] | _jw[i + 1] << 16 for i in range(0, len(_jw), 2)]), "pose_waist")
+    if os.environ.get("TND_JOIN"):
+        _A = np.array(_jc)
+        print("waists: %d seam vertices, %d poses; up %.2f..%.2f, ahead %.2f..%.2f" % (len(_seam), len(_A), _A[:, 1].min(), _A[:, 1].max(), _A[:, 2].min(), _A[:, 2].max()))
+        for p_ in (0, 340, 388, 391, 676, 685, 689, 692, 695, 724):
+            print("   pose", p_, np.round(_A[p_], 3))
 if LAB and not YARD:
     ENEMY[-1]["T"]["n"] = NPOSE["idle"]          # (the clone stands in the player's own idle)
 if DEDUPE:
@@ -4114,6 +4136,7 @@ if LAB:
         YLN, YDV, YBX, YAD, YADH = (cart.var("yard_" + k_) for k_ in ("lance", "air_dive", "burst", "aim_down", "aim_down_way"))
         LANCE_V, DIVE_DN, SPRING_V = int(0.32 * ONE), int(0.20 * ONE), int(0.215 * ONE)
         BURST_SPRING, BURST_SLAM, BURST_N = int((1.5 - 0.75) * ONE), int((2.2 - 0.75) * ONE), 6
+        YJ0, YJ1, YJU, YJF = (cart.var("yard_join" + k_) for k_ in ("0", "1", "_up", "_ahead"))   # P85: the two waists; the chest's move
         YCON = cart.var("yard_struck_by")                  # P83: the bodies this blow has struck, a bit each
         YSLW = cart.var("yard_slow_was")                   # P82: time was slowed last frame
         YFAR = cart.var("yard_far", len(ENEMY))            # P78: drawn as its far body (set where it is listed)
@@ -9163,6 +9186,29 @@ if LAB:
     p.load(F["ps"]).load(LS0).emit("mulq").store(int(UXS))
     p.push(WAIST).load(int(AT4) + 1).push(WAIST).emit("mulq", "sub").store(int(UXS) + 1)
     p.push(0).load(F["pc"]).load(LS0).emit("mulq", "sub").store(int(UXS) + 2)
+    if YARD:
+        # P85: ...and to the waist of the legs it is over (above)
+        jn = p.label("join")
+        p.set(YJU, 0).set(YJF, 0)
+        p.load(POSE).load(UPOSE).emit("eq", f"jz {jn}_d", f"jmp {jn}")
+        p.mark(f"{jn}_d")
+        for k_, cell_ in enumerate((POSE, UPOSE)):
+            p.load(cell_).emit("shr 1").push(int(JOIN_T)).emit("add", "loadi")
+            p.load(cell_).push(1).emit("and", f"jz {jn}_h{k_}")
+            p.emit("shr 16")
+            p.mark(f"{jn}_h{k_}")
+            p.push(0xFFFF).emit("and").store(YJ0 if k_ == 0 else YJ1)
+        for sh_, out_ in ((0, YJU), (8, YJF)):                   # how far up, how far ahead: ( legs' - chest's )
+            for c_ in (YJ0, YJ1):
+                p.load(c_)
+                if sh_:
+                    p.emit(f"shr {sh_}")
+                p.push(255).emit("and").push(128).emit("xor").push(128).emit("sub")
+            p.emit("sub").push(ONE // JOIN_Q).emit("mul").store(out_)
+        p.load(int(UXS) + 1).load(YJU).emit("add").store(int(UXS) + 1)
+        p.load(int(UXS)).load(F["ps"]).load(YJF).emit("mulq", "sub").store(int(UXS))
+        p.load(int(UXS) + 2).load(F["pc"]).load(YJF).emit("mulq", "add").store(int(UXS) + 2)
+        p.mark(jn)
     # HIS HAND, when his upper half is in the gun's clips and his arm is out: bent with him, in the world
     p.set(HNDON, 0)
     p.load(UPOSE).push(base["gun"]).emit("sub").store(LS0)
@@ -9175,6 +9221,9 @@ if LAB:
     p.load(LS2).load(int(AT4) + 1).emit("mulq").load(LS1).load(int(AT4)).emit("mulq", "add").store(int(AT4) + 2)
     p.load(LS1).load(int(AT4) + 1).emit("mulq").load(LS2).load(int(AT4)).emit("mulq", "sub").push(WAIST).emit("add")
     p.load(F["py"]).emit("add").load(GYC).emit("add").store(int(HNDW) + 1)
+    if YARD:                                                                          # (P85: his hand goes with his chest)
+        p.load(int(HNDW) + 1).load(YJU).emit("add").store(int(HNDW) + 1)
+        p.load(int(AT4) + 2).load(YJF).emit("add").store(int(AT4) + 2)
     p.load(LS0).emit("loadi").store(LS1)                                              # how far to his right
     p.load(LS1).load(F["pc"]).emit("mulq").load(int(AT4) + 2).load(F["ps"]).emit("mulq", "sub").load(PX).emit("add").store(int(HNDW))
     p.load(LS1).load(F["ps"]).emit("mulq").load(int(AT4) + 2).load(F["pc"]).emit("mulq", "add").load(PZ).emit("add").store(int(HNDW) + 2)
