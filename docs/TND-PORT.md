@@ -3837,3 +3837,63 @@ The table of waists stops before the whole bodies (no half of theirs is ever set
 memory 625 words free without the song. The cart's poses: 1,362.
 
 Tests 43. Layers 0, 4, 8, 10, 11, 12 and the full cart byte-identical.
+
+## P94: the rank, in the yard -- a first reading, on its own branch (2026-11-25, `exp/rank`)
+
+The player: "the goal lf the game is to keep a high combat rank, and like DMC you have to be stylish and not stick
+with one way of dealing with enemies. think like in bJJ you are thinking ok, from here what is my next move" -- and
+of the tank, the boxer and the run: "they are supposed to feel like they can be interchangable in importance". He
+did not ask for a build. This is one, kept off the yard he plays (`exp/yard`, P93): its own branch and its own cart
+on the card's menu (TND RANK, beside TND YARD), for him to take or leave.
+
+OBSERVED FIRST: the game has that meter (P5, the archive's `combat.Style`: D to SSS; a blow pays its move's style x
+its variety in the last five x the combo; a blow taken keeps 45%; it cools when nothing lands) -- and in the yard
+nothing paid it. On his tapes it never moved, and with no "fight" there it was not drawn.
+
+WHAT IS BUILT (all of it a reading; only the goal is his words):
+- **Every blow that lands pays it, by its WAY.** What the meter remembers is not the move but the way he dealt
+  with a body: a fist's way is his style, the part it met (head, body, legs) and the move; the run's body blows
+  are five ways of their own (the dive 22, the slide 18, the handspring 34, the slam 46, the lance 40); a round's
+  is his style, the part, charged or not, from the air or not (12; charged 40).
+- **The same way again pays less, and then nothing.** 1, 0.6, 0.2 as it recurs in his last five -- and a way
+  already three times there is SPENT: it pays nothing and holds nothing up (no combo, the meter still cooling),
+  and is remembered, so it stays spent until he has done other things. (The archive's floor is a quarter; see
+  the measure below for why it is not kept here.)
+- **The link.** A blow from another STYLE than the last paid blow's pays half as much again. (Targeting is the
+  tank's own: R held is no change of style.)
+- **One blow, one way.** A blow that strikes three bodies (P83) pays for each as for the first and is remembered
+  once.
+- **A blow of theirs on him** keeps 45% of the meter and clears the combo and the memory, as a demon's does.
+- **On the glass**, always: the letter large at the top right, the meter toward the next rank under it, X and the
+  combo under that (in the full game's place it sat over his legs) -- in the opus's colours, which read on the
+  yard's walls: black, black, the green lion twice, yellow, red, red. No wordmark there. The card's "best" is
+  the full game's and is not written from the yard.
+- The cooling and the thresholds (0, 60, 150, 300, 520, 800, 1200) are P5's and P17's, untouched.
+
+HIS SESSIONS THROUGH IT (`experiments/rank/`): the meter put on each tape's OWN commit as an observer (it pays and
+draws nothing), the replay checked against the build kept with the tape -- his place, his health, every body's:
+the same, every frame, three sessions under two rules.
+- With the archive's variety (1, 0.6, 0.4, 0.25), his 47 minutes of P83 reach SSS -- 1,455 points -- on a climb
+  of 131 blows of which 116 are ONE way, the run's round into a body's middle; and again on 73 blows of which 52
+  are the tank's jab to a head. A quarter, doubled by the combo, is half a blow's worth for ever: volume reaches
+  the top. So the spent rule.
+- As built: his 46.8 minutes of P83 are D 78%, C 16%, B 5.5%, A 1.1% (377 points at the most); his 12.7 of
+  P84 -- the night the run got its handspring, slam and lance -- D 54%, C 18%, B 19%, A 8.5%, S 0.5%; his 7.1 of
+  P89, D 85%, C 8.5%, B 6.4%.
+- What he did, under either rule: nineteen times in twenty the next blow he lands is of the same kind (gun, fist,
+  the run's body) and the same style as the last; 44 to 68% of his blows land with their way three times in the
+  last five already; a change of STYLE inside three seconds happened 19 times in the 47 minutes, 4 in each of the
+  others; and half to two thirds of his frames are more than two seconds past a landed blow, where the meter cools
+  at 45 points a second.
+- For scale, a script on a standing body (not play): one way, again -- D, and the meter empties; two ways -- B
+  in 19 seconds; three ways in one style -- S in 24; six, tank then boxer -- SS in 25; eight, the style changed
+  at every blow -- SSS in 26.
+
+THE WORDS ARE CHEAPER. They are rebuilt whenever what they say changes -- now at every paid blow -- and the text
+routine's copy of a rectangle's two triangles was a table-driven loop, fifteen instructions a word. Written out
+for the yard, five. Rebuilding SSS and X12: 13,093 instructions with the wordmark, 4,464 as built. The yard's
+heaviest frames were its intro's captions (146 triangles of text, 52,558 instructions of the 65,536); those are
+now 39,918, and on the same seven minutes of presses the heaviest frame is 41,514.
+
+Program 26,775 words; data memory 602 free (the song's build 676). Tests 46. Layers 0, 4, 8, 10, 11, 12 and the
+full cart byte-identical.
