@@ -4128,3 +4128,18 @@ the verse, as loud as the drive, is the one left out -- my choice.)
 
 The player: "make A the verse". D the intro, C the breakdown, B the lift, A the verse, S the surge, SS the chorus,
 SSS the climax. The drive is the section left out now.
+
+## P107: layer 15 -- the health bar; a breath between floors (2026-11-25)
+
+The player: "make improvements, improve polish, and fix the health bar".
+
+- **THE HEALTH BAR.** It was shown only once the full game's fight had begun, which the palace never sets: he had
+  no gauge at all -- and the thin red line where it would be was the full game's horde count, which never moved.
+  Now it is always on and reads on the dusk: a dark well at the top left, his health in bone across it, in blood
+  under forty and beating. The horde count is not drawn in the palace.
+- **A BREATH BETWEEN FLOORS.** A floor cleared gives back a quarter of him (35 of 140). (My choice; it is how the
+  arena modes this is modelled on pace a run.)
+- **THE FLOOR SAYS ITSELF.** The white light is white for 16 frames and fades over 32, and FLOOR and its number come
+  up through it and stand alone for almost a second more (the death screen's own words, drawn the same way).
+
+Tests: the palace's 4. Layers 0 to 14 and the full cart byte-identical.

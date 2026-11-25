@@ -4336,7 +4336,7 @@ if LAB:
                 _pal = [e_["k"] for n_ in ("horde", "common", "elite", "double") for e_ in ENEMY if _ytier(e_) == n_]
                 YORD = cart.data(Table(_pal), "palace_order")
                 L_YSPAWN = p.label("palacespawn")
-                PAL_LIGHT = 48
+                PAL_LIGHT = 100             # (P107: white 16 frames, fading 32, then FLOOR n alone 52)
                 # P101: THE FLOORS GET HARDER past the sixth (the player: "a combo of both" -- tougher and faster): each
                 # floor on, every size's row a sixteenth quicker and heavier-handed, its tell two frames shorter, its
                 # wait after a string six, its dodges more -- to a ceiling -- and every body a quarter of its whole
@@ -6626,6 +6626,12 @@ if L2:
             p.addi(YBJ, 1).load(YBJ).push(len(ENEMY)).emit("lt", f"jz {pf_}_go", f"jmp {pf_}_q")
             p.mark(f"{pf_}_go")
             p.addi(YFLR, 1).set(YFL, PAL_LIGHT).set(YFIGHT, 1)
+            # (P107: the floor cleared, he gets a quarter of himself back -- the light is a breath)
+            p.load(PHP).push(35).emit("add").push(140).emit("swap", "lt", f"jz {pf_}_hk")         # (140 < hp + 35)
+            p.set(PHP, 140).emit(f"jmp {pf_}_hd")
+            p.mark(f"{pf_}_hk")
+            p.load(PHP).push(35).emit("add").store(PHP)
+            p.mark(f"{pf_}_hd")
             p.load(YFLR).push(1).emit("eq", f"jz {pf_}_nr")                  # (a run's first: the rows as they were)
             p.push(int(YTP0)).store(CP["src"]).push(int(YTP)).store(CP["dst"]).push(len(YTP_WORDS)).store(CP["n"])
             p.emit(f"call {L_COPY}").set(YBRK, 0)
@@ -12807,6 +12813,11 @@ p.set(SY["g"], 0)                                     # (the key, building)
 p.push(DEATH_BEAT - 1).load(F["dead"]).emit("lt", f"jz {hk}_f")
 p.set(SY["g"], 1).emit(f"jmp {hk}_c")
 p.mark(f"{hk}_f")
+if PALACE:
+    # (P107: a new floor says so -- FLOOR and its number, as death does, from the light until it has gone)
+    p.load(YFL).emit(f"jz {hk}_nf")
+    p.set(SY["g"], 1).emit(f"jmp {hk}_c")
+    p.mark(f"{hk}_nf")
 if not PALACE:                                        # (P94: the palace's meter is always shown)
     p.load(F["fight"]).emit(f"jz {hk}_c")
 p.load(SY["rank"]).push(1).emit("add").push(1 << 8).emit("mul").store(SY["g"])  # (rank+1)<<8
@@ -13192,13 +13203,29 @@ HB = spec.CO_BASE + 1
 hud = p.label("hud")
 p.set(spec.CO_BASE, 4)
 p.push(0).store(HB + 2).push(0).store(HB + 5).push(0).store(HB + 8).push(0).store(HB + 11)
-p.load(F["fight"]).emit(f"jz {hud}")
-p.rect(0, 8, 8, 110, 14, 0x100808, 12)
-p.push(9).load(PHP).push(183).emit("mul", "shr 8").push(9).emit("add")
-p.emit("shl 10", "or").store(HB + 3)               # x1 = 9 + hp * 100/140
-p.set(HB + 4, 9 | (13 << 10))
-p.push(0).load(PHP).emit("lt", f"jz {hud}")
-p.push(16).emit("shl 24").push32(0xB02018).emit("or").store(HB + 5)
+if PALACE:
+    # P107 (the player: "fix the health bar"). It was shown only once the full game's fight had begun -- which the
+    # palace never sets: he had no gauge at all, and the thin red line under where it would be was the full game's
+    # horde count, which never moved. Here it is always on, and reads on the dusk: a dark well, his health in bone
+    # across it -- in blood under forty, beating -- and the gauge is the full width of the well at full health.
+    p.rect(0, 7, 7, 114, 16, 0x0C0608, 14)
+    p.push(10).load(PHP).emit("maxi 0").push(190).emit("mul", "shr 8").push(10).emit("add")
+    p.emit("shl 10", "or").store(HB + 3)           # x1 = 10 + hp * 103/140
+    p.set(HB + 4, 10 | (13 << 10))
+    p.push(0).load(PHP).emit("lt", f"jz {hud}")
+    p.push32(16 << 24 | 0xE8D8C0).load(PHP).push(40).emit("lt", f"jz {hud}_c")
+    p.emit("drop").load(spec.REG_FRAME).emit("shr 3").push(1).emit("and").push(5).emit("mul").push(11).emit("add", "shl 24")
+    p.push32(0xE03030).emit("or")
+    p.mark(f"{hud}_c")
+    p.store(HB + 5)
+else:
+    p.load(F["fight"]).emit(f"jz {hud}")
+    p.rect(0, 8, 8, 110, 14, 0x100808, 12)
+    p.push(9).load(PHP).push(183).emit("mul", "shr 8").push(9).emit("add")
+    p.emit("shl 10", "or").store(HB + 3)               # x1 = 9 + hp * 100/140
+    p.set(HB + 4, 9 | (13 << 10))
+    p.push(0).load(PHP).emit("lt", f"jz {hud}")
+    p.push(16).emit("shl 24").push32(0xB02018).emit("or").store(HB + 5)
 p.mark(hud)
 # the meter toward the next rank, in the rank's colour (bottom right)
 mh = p.label("meter")
@@ -13225,7 +13252,7 @@ if PALACE:
     p.load(YFL).emit(f"jz {wl_}")
     p.addi(YFL, -1)
     p.set(HB + 9, 0 | (spec.W - 1) << 10).set(HB + 10, 0 | (spec.H - 1) << 10)
-    p.load(YFL).emit("shr 1", "mini 16", "shl 24").push32(0xFFFFFF).emit("or").store(HB + 11)
+    p.load(YFL).push(PAL_LIGHT - 48).emit("sub", "maxi 0", "shr 1", "mini 16", "shl 24").push32(0xFFFFFF).emit("or").store(HB + 11)
     p.mark(wl_)
 dk = p.label("dark")
 p.load(F["dead"]).emit(f"jz {dk}")
@@ -13241,6 +13268,8 @@ p.mark(dk)
 # in the district (to 150). On the darken rectangle -- alive and unstruck
 # it is free; the fall and the hit flash, below, take it back.
 hbr = p.label("hbar")
+if PALACE:                                        # (P107: the palace has no horde to count)
+    p.emit(f"jmp {hbr}")
 p.load(F["dead"]).emit(f"jz {hbr}_a", f"jmp {hbr}")
 p.mark(f"{hbr}_a")
 p.load(RES).emit("dup").push(150).emit("lt", f"jz {hbr}_c", f"jmp {hbr}_k")
