@@ -1056,22 +1056,20 @@ def test_x_in_the_air_is_the_dive_down_a_handspring_from_a_jump_a_slam_from_a_fl
     assert g.cell("e3_st") == 1, "a handspring reached a body 1.9 off"
 
 
-def test_down_held_in_the_air_the_gun_is_on_where_he_lands(cart):
-    """P84 ("i think down in running should for shooting from high up ... jumping and firing could be linked to where
-    you'll be landing. that way you can jump and hit some one from above"; his tape: from the air a round took
-    something off a body 12% of the time, from the ground 78%): a body before him, a jump and a flip over it, a round
-    at the top -- level, it goes over its head; with Down held it is on it"""
-    A, B, D, R = spec.PAD_A, spec.PAD_B, spec.PAD_DOWN, spec.PAD_R
-
-    def took(down):
-        y, g = _run_at(cart, [(2, 0.0, 9.0)])
-        hp = g.cell("e2_hp")
-        for i, q in enumerate([A] * 3 + [0] * 6 + [A] * 3 + [0] * 40):
-            g.step(L | U | R | q | (B if 14 <= i < 18 else 0) | (D if down and i >= 8 else 0))
-            if down and 12 < i < 30:
-                assert g.cell("yard_aim_down"), i
-        return hp - g.cell("e2_hp")
-    assert took(False) == 0 and took(True) > 0, (took(False), took(True))
+def test_in_the_runs_air_the_gun_is_on_where_he_lands(cart):
+    """P84 ("jumping and firing could be linked to where you'll be landing. that way you can jump and hit some one
+    from above"; his tape: from the air a round took something off a body 12% of the time, from the ground 78%) and
+    P90 ("on running the jump flip shooting lazer should be on the jump landing": no Down asked): a body before him,
+    a jump and a flip over it, a round at the top -- it is on it"""
+    A, B, R = spec.PAD_A, spec.PAD_B, spec.PAD_R
+    y, g = _run_at(cart, [(2, 0.0, 9.0)])
+    hp = g.cell("e2_hp")
+    aimed = 0
+    for i, q in enumerate([A] * 3 + [0] * 6 + [A] * 3 + [0] * 40):
+        g.step(L | U | R | q | (B if 14 <= i < 18 else 0))
+        aimed += g.cell("yard_aim_down")
+    assert aimed > 20, f"the gun was on his landing for {aimed} frames of the air"
+    assert g.cell("e2_hp") < hp, "a round from the top of a flip over it took nothing off it"
 
 
 # ---- P85 -------------------------------------------------------------------------------------------------------------
@@ -1095,8 +1093,9 @@ def test_his_chest_sits_on_his_hips_whatever_his_legs_do(cart):
             for cell in ("pose", "aim_upose"):
                 v = g.d[g.syms["pose_waist"] + g.cell(cell)]
                 w.append((((v & 255) ^ 128) - 128, ((v >> 8 & 255) ^ 128) - 128))
-            assert g.cell("yard_join_up") == (w[0][0] - w[1][0]) * (ONE // 48)
-            assert g.cell("yard_join_ahead") == (w[0][1] - w[1][1]) * (ONE // 48)
+            # (P90: and sunk a twentieth into the legs' waist, a thirtieth ahead, so the two close on each other)
+            assert g.cell("yard_join_up") == (w[0][0] - w[1][0]) * (ONE // 48) - int(0.05 * ONE)
+            assert g.cell("yard_join_ahead") == (w[0][1] - w[1][1]) * (ONE // 48) + int(0.03 * ONE)
             low = min(low, g.cell("yard_join_up") / ONE)
     assert low < -0.25, f"over the landing's crouch his chest came down {-low:.2f}"
 
@@ -1187,3 +1186,32 @@ def test_his_chest_leans_with_his_legs_and_the_gun_stays_on_his_aim(cart):
             turns.append(g.cell("yard_join_turn"))
             assert g.cell("aim_bend_d") == g.cell("aim_bend") + g.cell("yard_join_turn") - 6 * g.cell("aim_kick")
     assert len(turns) > 8 and max(turns) > 10, f"his chest's turn over a jump: {turns}"
+
+
+# ---- P90 -------------------------------------------------------------------------------------------------------------
+def test_through_a_flip_the_laser_stays_and_is_on_what_he_has_chosen(cart):
+    """P90 ("look into the slow mo boxing jump/flips and actions. flip shooting making sure to follow the target with
+    laser"): locked on a body with the gun's button held, he flips -- his upper half is the flip's, his hand not
+    "out" -- and the laser's line is still reckoned every frame of it, along the way TO the body"""
+    y = Yard(cart)
+    g = y.g
+    y.who(3)
+    for k in range(7):
+        _stand(y, k, 28.0 - k, -15.0)
+    _stand(y, 2, 0.0, -2.0)
+    y.put(0.0, -8.0, 256)
+    R, A, B, LF = spec.PAD_R, spec.PAD_A, spec.PAD_B, spec.PAD_LEFT
+    for q in [0] * 5 + [R] * 20 + [R | B] * 40:
+        g.step(q)
+    assert g.cell("locked") and g.cell("t_sel") == 2
+    flips, off = 0, []
+    for i, q in enumerate([R | B | L | LF | A] * 3 + [R | B | L | LF] * 30):
+        g.d[g.syms["ray_len"]] = 0               # (stale unless the sight reckons it this frame)
+        g.step(q)
+        if g.cell("f_evf") > 0:
+            flips += 1
+            assert g.cell("ray_len") > 0, f"frame {i} of the flip: no laser"
+            way = (math.degrees(math.atan2(-g.cell("ray_dx"), g.cell("ray_dz"))) * 1024 / 360) % 1024
+            off.append(abs((way - g.cell("lock_brg") + 512) % 1024 - 512))
+    assert flips > 8, f"he flipped for {flips} frames"
+    assert max(off) < 12, f"the laser was {max(off):.0f} of 1,024 off the way to it"

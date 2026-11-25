@@ -4154,6 +4154,9 @@ if LAB:
         YHS, HSPRING_N = cart.var("yard_spring_t"), 14
         LANCE_V, DIVE_DN, SPRING_V = int(0.32 * ONE), int(0.20 * ONE), int(0.215 * ONE)
         BURST_SPRING, BURST_SLAM, BURST_N = int((1.5 - 0.75) * ONE), int((2.2 - 0.75) * ONE), 6
+        JOIN_LEAN = int(os.environ.get("TND_JLEAN", "85"))            # of 256: how much of the legs' lean his chest takes
+        JOIN_SINK = int(float(os.environ.get("TND_JSINK", "0.05")) * ONE)
+        JOIN_FWD = int(float(os.environ.get("TND_JFWD", "0.03")) * ONE)
         YJ0, YJ1, YJU, YJF, YJP = (cart.var("yard_join" + k_) for k_ in ("0", "1", "_up", "_ahead", "_turn"))   # P85: the two waists; the chest's move
         YCON = cart.var("yard_struck_by")                  # P83: the bodies this blow has struck, a bit each
         YSLW = cart.var("yard_slow_was")                   # P82: time was slowed last frame
@@ -9247,10 +9250,14 @@ if LAB:
             if out_ is None:
                 # (a third of it: the gun's own pose leans back a twentieth of a turn and a stride leans forward a
                 # twelfth -- the whole difference would put the gun on the floor)
-                p.push(85).emit("mul", "shr 8").store(YJP)
+                p.push(JOIN_LEAN).emit("mul", "shr 8").store(YJP)
                 p.load(WBD).load(YJP).emit("add").store(WBD)
             else:
                 p.push(ONE // JOIN_Q).emit("mul").store(out_)
+        if JOIN_SINK:                                            # (P90: sunk a little into the legs' own waist)
+            p.load(YJU).push(JOIN_SINK).emit("sub").store(YJU)
+        if JOIN_FWD:
+            p.load(YJF).push(JOIN_FWD).emit("add").store(YJF)
         p.mark(jn)
     sin_of(p, cell=WBD)
     p.store(int(AT4))                                                     # its sine...
@@ -11611,7 +11618,8 @@ if L2:
         p.load(F["sty"]).push(1).emit("eq", f"jz {ad_}")
         p.load(F["py"]).emit(f"jz {ad_}")
         p.load(LNDON).emit(f"jz {ad_}")
-        p.emit("load 1").push(spec.PAD_DOWN).emit("and", f"jz {ad_}")
+        # (P90, the player: "on running the jump flip shooting lazer should be on the jump landing" -- P84 asked
+        # Down for it, and in his next thirteen minutes 7 of 47 rounds from the air had it: no Down)
         p.load(LNDX).load(PX).emit("sub").store(W["qx"]).load(LNDZ).load(PZ).emit("sub").store(W["qz"])
         p.load(W["qx"]).emit("dup", "mulq").load(W["qz"]).emit("dup", "mulq", "add").push(int(0.25 * ONE)).emit("lt", f"jz {ad_}_f", f"jmp {ad_}")
         p.mark(f"{ad_}_f")
@@ -11638,7 +11646,13 @@ if L2:
             p.load(LNDY).push(int(1.0 * ONE)).emit("add").store(W["oy"])
             p.mark(f"{sg_}_ad")
     p.load(GT["shoot"]).emit(f"jz {sg_}")
-    p.load(HNDON if LAB else SLOWON).emit(f"jz {sg_}")   # (P47, the lab: a laser is on while the gun is out)
+    if YARD:
+        # P90 (the player: "flip shooting making sure to follow the target with laser"): in a flip his upper half is
+        # the flip's and his hand is not "out" -- and the laser went off for the whole of it. With the gun's button
+        # held it stays, from his hand's height
+        p.load(HNDON).load(F["evf"]).emit("or", f"jz {sg_}")
+    else:
+        p.load(HNDON if LAB else SLOWON).emit(f"jz {sg_}")   # (P47, the lab: a laser is on while the gun is out)
     #                                               (P35, the player: "the targeting should
     p.load(GC["shoot"]).load(RLD).emit("or", f"jz {sg_}_c", f"jmp {sg_}")   # really only show in slow motion")
     p.mark(f"{sg_}_c")
@@ -11646,7 +11660,11 @@ if L2:
     p.load(AIMED)
     if L3:
         p.load(LOCK).emit("or")
-    p.emit(f"jz {sg_}_a", f"jmp {sg_}_h")
+    p.emit(f"jz {sg_}_a")
+    if YARD and L3:                               # (P90: locked, the laser's way is the way TO it, not his body's)
+        p.load(LOCK).emit(f"jz {sg_}_h")
+        p.load(LBRG).store(W["head"])
+    p.emit(f"jmp {sg_}_h")
     p.mark(f"{sg_}_a")
     if YARD:
         # P83 (the player: "making aure the laser is fixed when slow mo shooting in running"; scripted: Left held in

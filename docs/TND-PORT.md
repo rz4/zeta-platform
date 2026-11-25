@@ -3723,3 +3723,30 @@ A RULE, his: the player's mesh is not altered. What may be done to it is what th
 where it is put and how it is turned -- and what is baked on the archive's own rig.
 
 Tests 40. Layers 0, 4, 8, 10, 11, 12 and the full cart byte-identical.
+
+## P90: the chest closes on the hips; the laser through a flip; the run's air aims at the landing (2026-11-25)
+
+The player, seven minutes of P89: "all we need is to blend them a bit better, the running legs should be the same,
+and the gun holding from when strationary torso (no legs), maybe with a slighty boundce to match tehh runnig. and
+also look into the slow mo boxing jump/flips and actions. flip shooting making sure to follow the target with laser
+and on running the jump flip shooting lazer should be on the jump landing."
+
+THE BLEND (no vertex changed: his rule). The gun's standing torso over the run's legs, as it is. Four settings of how
+that half is PUT, drawn close from behind, the side and the front quarter: as P86; sunk; sunk with half the legs'
+lean; two thirds of it (the gun at his hip). Kept: P86's third of the lean, the half SUNK a twentieth of a unit into
+the legs' waist and a thirtieth ahead -- the two bands overlap where they stood apart, and most of the floating
+triangles are inside his chest. (His torso already rises and falls with the stride: it rides the legs' own waist,
+three hundredths either way. A bounce of its own is not added.) Not all gone: one of the legs' belly band still
+shows at his side from the front quarter.
+
+HIS TAPE (25,544 frames), the gun by where he was:
+  the boxer, on the ground 87 rounds, a body lost something after 93%; in a flip 48 rounds, 96% (locked: the round
+  goes at what he has chosen); the run, on the ground 101 and 69%; in a jump 7 and 29%; in a flip 15 and 13%.
+  The gun's button held in a flip: the boxer 661 frames, the run 189 -- THE LASER ON IN NONE OF THEM.
+THE LASER THROUGH A FLIP: in a flip his upper half is the flip's and his hand is not "out", which is what switched
+the laser on. With the gun's button held it stays, from his hand's height; and locked, its way is the way TO what he
+has chosen (his body's own heading, mid-flip, is anywhere).
+THE RUN'S AIR AIMS AT THE LANDING, jump or flip, with no Down asked (P84 asked it; 7 of his next 47 rounds from the
+air had it).
+
+Tests 41. Layers 0, 4, 8, 10, 11, 12 and the full cart byte-identical.
