@@ -4887,28 +4887,31 @@ if BASE:
             # Both, then (MY READING): Up or Down HELD walks him, as P75 had it; Up or Down TAPPED -- let go inside
             # 22 frames -- steps the spot as it is let go, and the gun's laser goes there. The gun's button does not
             # stand in the way; a fist's or the dodge's does (inside ten frames before, or while it is down).
+            # P80 (the player, of P79: "ohhhh now I remember yes it needs to be planted because that mode is essentially
+            # the smart targeting system. picking which enemy and which location to hit" -- and "should be immediate
+            # because the player will do quick choices"): R HELD ALONE IS THE TARGETING. He is planted; Left and Right
+            # pick the enemy; Up and Down pick the spot ON THE PRESS. With any button down it is not the targeting:
+            # the pad is that button's (and a fist's or the dodge's button inside six frames of a step, the pad still
+            # held, takes the step back: the two were one press).
             st_ = p.label("spotstep")
-            p.emit("load 1").push(spec.PAD_A | spec.PAD_X | spec.PAD_Y).emit("and", f"jz {st_}_nf")
-            p.set(YFB, 0).set(YSPD, 0).emit(f"jmp {st_}")
+            p.emit("load 1").push(spec.PAD_A | spec.PAD_B | spec.PAD_X | spec.PAD_Y).emit("and", f"jz {st_}_nf")
+            p.load(YSPD).emit(f"jz {st_}")
+            p.emit("load 1").push(spec.PAD_A | spec.PAD_X | spec.PAD_Y).emit("and", f"jz {st_}_k")
+            p.emit("load 1").push(spec.PAD_UP | spec.PAD_DOWN).emit("and", f"jz {st_}_k")
+            p.load(YSPN).store(SPOT)
+            p.mark(f"{st_}_k")
+            p.set(YSPD, 0).emit(f"jmp {st_}")
             p.mark(f"{st_}_nf")
-            p.load(YFB).emit("mini 60").push(1).emit("add").store(YFB)
-            p.emit("load 1").push(spec.PAD_UP | spec.PAD_DOWN).emit("and", f"jz {st_}_up")
             p.load(YSPD).emit(f"jz {st_}_new")
-            p.load(YSPD).emit("mini 100").push(1).emit("add").store(YSPD).emit(f"jmp {st_}")   # (held: how long)
+            p.addi(YSPD, -1)
             p.mark(f"{st_}_new")
-            p.push(10).load(YFB).emit("lt", f"jz {st_}")                   # (10 < since a fist's button)
             fresh(spec.PAD_DOWN)
             fresh(spec.PAD_UP)
             p.emit("sub", "dup", f"jz {st_}_no")                           # ( +1 down, -1 up )
-            p.store(YSPN).set(YSPD, 1).emit(f"jmp {st_}")
+            p.load(SPOT).store(YSPN)
+            p.load(SPOT).emit("add", "maxi 0", "mini 2").store(SPOT).set(YSPD, 6).emit(f"jmp {st_}")
             p.mark(f"{st_}_no")
-            p.emit("drop", f"jmp {st_}")
-            p.mark(f"{st_}_up")                                            # let go: a tap?
-            p.load(YSPD).emit(f"jz {st_}")
-            p.push(22).load(YSPD).emit("lt", f"jz {st_}_tap")              # (22 < held: that was a walk)
-            p.set(YSPD, 0).emit(f"jmp {st_}")
-            p.mark(f"{st_}_tap")
-            p.load(SPOT).load(YSPN).emit("add", "maxi 0", "mini 2").store(SPOT).set(YSPD, 0)
+            p.emit("drop")
             p.mark(st_)
         for bit_, d_ in (() if YARD else ((spec.PAD_UP, -1), (spec.PAD_DOWN, 1))):      # the spot: it steps, and stays
             sp_ = p.label("spot")
@@ -7802,10 +7805,15 @@ if BASE:
     # SPOT, which P74 had stopped answering: he is planted, as he made it.)
     # P79 (the player: "I liked the walking back and forward when gun aiming in tank instead of planted"): in the yard,
     # locked, Up and Down held walk him, as P75 had it.
-    if L3 and not YARD:                           # (P35: locked, he is planted)
+    # P80 ("it needs to be planted because that mode is essentially the smart targeting system"): planted, as he made
+    # it (P37). MY READING of what he liked in P79 ("the walking back and forward when gun aiming"): with the GUN'S
+    # button held the pad is not the targeting's, and Up and Down walk him.
+    if L3:                                        # (P35: locked, he is planted)
         p.load(LOCK)
         if L4:
             p.load(PLANT).emit("or")
+        if YARD:
+            p.emit("load 1").push(spec.PAD_B).emit("and").push(0).emit("eq", "and")
         p.emit(f"jz {wb}_lk", f"jmp {wb}_e")
         p.mark(f"{wb}_lk")
     if L2:                                        # (P30: between a string's blows he stands)

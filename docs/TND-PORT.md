@@ -3516,3 +3516,19 @@ not stand in the way; a fist's or the dodge's does. The laser already goes at th
 spot does. (A tap also walks him its few frames. P76's planting was mine to take back, and is.)
 
 Tests 29. Layers 0, 4, 8, 10, 11, 12 and the full cart byte-identical.
+
+## P80: R alone is the targeting -- planted, and on the press (2026-11-24)
+
+The player, half a minute of P79: "ohhhh now I remember yes it needs to be planted because that mode is essentially
+the smart targeting system. picking which enemy and which location to hit" -- and "should be immediate because the
+player will do quick choices."
+
+R HELD ALONE IS THE TARGETING (P37, his): he is planted; Left and Right pick the enemy; Up and Down pick the spot ON
+THE PRESS, tapped or held, as fast as he presses. With any button down the pad is that button's; a fist's or the
+dodge's button inside six frames of a step, the pad still held, takes the step back (P74's leak). P79's tap-and-walk
+is withdrawn.
+
+MY READING, of what he liked in P79 ("the walking back and forward when gun aiming"): with the GUN'S button held the
+pad is not the targeting's -- Up and Down walk him to it and from it, and the spot stays. To be judged on glass.
+
+Tests 29. Layers 0, 4, 8, 10, 11, 12 and the full cart byte-identical.
