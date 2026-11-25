@@ -380,19 +380,22 @@ def glass_check(cart: dict) -> int:
     # the cabinet is the lawful reference: it runs the mover and hands
     # the CRAM segment to render -- raw vm+render here silently dropped
     # the backdrop and failed every blit cart against a bare clear
+    # A cart whose every frame paints past TWO vblanks (carts/witness/
+    # cartmesh: 177-203% of a frame on the silicon meter) holds both swaps,
+    # and the scan after vsync 3 shows VM frame 1 -- still a complete
+    # frame, still bit-equal; still the contract.
     m = cabinet.VirtualMachine(cart)
     goldens = {}
     for n in (1, 2, 3):
         m.frame(0)
-        if n >= 2:
-            # PANEL, not framebuffer: the scanout compositor blends on the
-            # way out and never touches CRAM, so this gate -- the one that
-            # models scanout -- is the one that sees it. cross compares
-            # framebuffers and is correctly blind (spec.CO_BASE).
-            goldens[n] = m.panel()
-    for n, golden in goldens.items():
+        # PANEL, not framebuffer: the scanout compositor blends on the
+        # way out and never touches CRAM, so this gate -- the one that
+        # models scanout -- is the one that sees it. cross compares
+        # framebuffers and is correctly blind (spec.CO_BASE).
+        goldens[n] = m.panel()
+    for n, golden in sorted(goldens.items(), reverse=True):     # (the latest it could be, first)
         if np.array_equal(scanned, golden):
-            lag = "in vblank" if n == 3 else "held one frame (long paint)"
+            lag = {3: "in vblank", 2: "held one frame (long paint)", 1: "held two frames (long paint, twice)"}[n]
             print(f"GLASS PASS: scanned frame bit-equal to VM frame {n} "
                   f"-- swap {lag} (60 Hz, 400x360 total, 320x288 active)")
             return 0

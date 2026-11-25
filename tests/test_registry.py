@@ -84,7 +84,10 @@ def test_the_free_bits_are_written_down():
     # bit 13 went to OBJ_LIT in build 98: a vertex word read as a
     # NORMAL rather than a colour, so light can vary across a surface.
     # THREE left.
-    assert free == list(range(14, 17)), (
+    # bit 14 went to OBJ_CART (frontier 20, exp/cart-mesh): a mesh drawn
+    # from the cart's own segment through a five-word descriptor rather
+    # than from DMEM. TWO left.
+    assert free == list(range(15, 17)), (
         f"the free object-flag bits moved to {free}. If a feature "
         f"claimed one, say so here; if one was released, say that.")
-    assert len(free) == 3
+    assert len(free) == 2

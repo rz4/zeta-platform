@@ -38,7 +38,11 @@ def snapshots(cart: dict, pads, window: int = WINDOW):
     m = cabinet.VirtualMachine(cart)
     due = 0
     for f, p in enumerate(pads):
-        if f >= due:
+        # (a window after the first is taken ONE FRAME EARLY: that frame is
+        # run only to warm the silicon's IMEM cache, which the resumed
+        # machine starts cold -- a cache is not machine state, and a cold
+        # one cost the window's first frame ~5,000 clocks -- and dropped)
+        if f >= due - (1 if due else 0):
             try:
                 yield f, m.pack(), {k: list(v) for k, v in m.vm.sd.items()}
                 due = f + window
@@ -54,7 +58,7 @@ def _spans(cart, pads, window):
     held = None
     for f, st, sd in snapshots(cart, pads, window):
         if held:
-            yield held[0], f, held[1], held[2]
+            yield held[0], f + 1, held[1], held[2]     # (to the frame after the next lead)
         held = (f, st, sd)
     if held:
         yield held[0], len(pads), held[1], held[2]
@@ -90,7 +94,8 @@ _JOB = {}                       # the cart and the pads, shared with the workers
 def _window(args):
     first, last, state, sd = args
     cart = dict(_JOB["cart"], sd=sd)
-    return cost(cart, _JOB["pads"][first:last], state if first else None, first)
+    rows = cost(cart, _JOB["pads"][first:last], state if first else None, first)
+    return rows[1:] if first else rows      # (a later window's lead frame: the cache's, not the session's)
 
 
 def profile(cart: dict, pads, window: int = WINDOW, jobs: int | None = None,
