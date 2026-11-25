@@ -600,9 +600,14 @@ def test_r_alone_is_the_targeting_the_spot_steps_on_the_press(cart):
     assert g.cell("t_spot") == 1, "four quick presses: up, down, down, up"
     assert spot([D] * 3 + [D | X] * 3 + [D] * 3)[1] == 0, "Down with a fist's button after it: taken back"
     assert spot([X, X, X | D, X | D, D, D])[1] == 0, "Down with a fist's button already down"
-    # the gun's button held: he walks, and the spot stays (MY READING of "the walking ... when gun aiming")
-    at_once, stepped, moved = spot([D] * 45, also=B)
-    assert stepped == 0 and moved > 0.4, f"with the gun's button held: the spot stepped {stepped}, he moved {moved:.2f}"
+    # P81 ("the up and down is only if the gun is pulled out in slow mo, and slowmo it should be planted too"): with
+    # the gun's button held -- its slowed time -- the same: on the press, and he stands
+    for _ in range(40):
+        g.step(R | B)
+    assert g.cell("slow_on"), "the gun held did not slow time"
+    for keys, want in (([D] * 4, 1), ([U] * 4, -1), ([D] * 45, 1), ([U] * 45, -1)):
+        at_once, stepped, moved = spot(keys, also=B)
+        assert (at_once, stepped) == (want, want) and moved < 0.05, f"the gun out: {at_once}, {stepped}; he moved {moved:.2f}"
     assert g.cell("t_spot") == 1
 
 

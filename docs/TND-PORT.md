@@ -3532,3 +3532,14 @@ MY READING, of what he liked in P79 ("the walking back and forward when gun aimi
 pad is not the targeting's -- Up and Down walk him to it and from it, and the spot stays. To be judged on glass.
 
 Tests 29. Layers 0, 4, 8, 10, 11, 12 and the full cart byte-identical.
+
+## P81: the gun's slowed time is the targeting too (2026-11-24)
+
+The player, of P80: "ah i understand what you did. the up and down is only if the gun is pulled out in slow mo, and
+slowmo it should be planted too." (And P37, his: "same in slow motion".)
+
+P80's walk with the gun's button held was MY READING and is withdrawn: with R held he is planted, the gun out or
+not. The gun's button is not "another move": with it held, in its slowed time, Up and Down step the spot on the
+press and the laser goes there. A fist's or the dodge's button still keeps the pad for itself.
+
+Tests 29. Layers 0, 4, 8, 10, 11, 12 and the full cart byte-identical.
