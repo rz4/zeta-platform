@@ -81,6 +81,15 @@ SWARM_TEST = os.environ.get("TND_SWARM") == "1"
 #                 held slows time, keeps the string, and the lens goes to
 #                 where the blow lands.
 LAYER = int(os.environ.get("TND_LAYER", "9"))
+# TND_LAYER=14  THE YARD, STYLED (P97, the player: the yard is "the complete base kit ... what we can do from here is
+#               first a layer of polish, the controls feel good no changing that, just making the action more stylized
+#               to feel tactical, mature, and hyperviolent ... hyperviolent is not just gore, its about making the
+#               fighting correagraphy be hyperviolent"). It is the yard, and everything said of layer 13 is said of
+#               it; what is its own is under STYLE. Layer 13 is built as it was.
+STYLE = LAYER == 14
+LAYER_DIR = LAYER
+if STYLE:
+    LAYER = 13
 # (9 is NOT a layer: it is the default, the whole game. The lab is 10.)
 BASE = LAYER in (0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13)  # the base's own rules (the layers stand on them)
 L1 = LAYER in (1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13)  # the left shoulder
@@ -100,7 +109,7 @@ L7 = LAYER in (7, 8)             # the bunker is a door and rooms: the prep tabl
 L8 = LAYER == 8                  # the world persists (P41): a clock, packs on patrol that strike, health, medicine, an end
 SONG_CH = range(4, 11)          # the record's voices (the synth theme's, freed)
 SONG_VOL = 15                   # each voice's level at full bus (x bus / 256)
-OUT = Path(os.environ.get("TND_OUT", ROOT / "build" / f"layer{LAYER}" / "tnd.zol"
+OUT = Path(os.environ.get("TND_OUT", ROOT / "build" / f"layer{LAYER_DIR}" / "tnd.zol"
                           if "TND_LAYER" in os.environ else
                           ROOT / "build" / "song" / "tnd.zol" if SONG else HERE / "tnd.zol"))
 OUT.parent.mkdir(parents=True, exist_ok=True)
@@ -185,6 +194,9 @@ if L3:
 if LAYER in (10, 11, 12, 13):
     SEQS += ("acro_leap", "acro_leap_l", "acro_land", "acro_roll", "acro_long")   # P50: the run's air (P51: either leg), its landing, its roll; P52 the long jump
 REACTS = ("hurt_hi", "hurt_lo", "down", "getup")
+# P97: HOW A BODY TAKES IT (tools/tnd_falls.py): a hook's turn, either way; down by a light blow to the head, to the
+# body, to the legs; and up off its face. The bodies' banks only: his own bank is as it was.
+FALLS = ("hurt_hook", "hurt_hook_l", "fall_drop", "fall_fold", "fall_cut", "getup_prone") if STYLE else ()
 if LAYER == 13:
     SEQS += REACTS
     SEQS += ("mv_start", "mv_stop", "mv_stop_l", "mv_spring", "mv_lance")   # P92
@@ -546,6 +558,11 @@ if CARTMESH:
             # tier can essentially use my full kit. lower less of the kit"): a size's bank holds the clips of ITS kit
             clips_ = YARD_KIT[name_]
             t_ = dict(t_, **np.load(ROOT / "build" / "tiers" / f"react_{TIER_FILE[name_]}.npz"))
+            if STYLE:
+                # (after the kit: `natk` below is the last clip's length, and getup_prone is as long as getup)
+                clips_ = clips_ + FALLS
+                t_ = dict(t_, **np.load(ROOT / "build" / "tiers" / f"falls_{TIER_FILE[name_]}.npz"))
+                assert len(t_["V_getup_prone"]) == len(t_["V_getup"])
         ps_ = [half_streams(V_, S_, h_) for c_ in clips_ for V_, S_ in zip(t_["V_" + c_], t_["S_" + c_])]
         TIER[name_] = dict(nv=len(h_[1]), nf=len(tri_), faces=int(fs_), lv=len(ps_[0][0]), span=len(ps_[0][0]) + len(ps_[0][1]),
                            bank=int(cart.cram(Table([x for st in ps_ for part in st for x in part]), f"{name_}_poses")),
@@ -559,6 +576,8 @@ if CARTMESH:
             # store of 2,048 faces is what keeps bodies out of the fight. So each larger size has a second bank: its
             # whole kit, pose for pose, on the 150-face body.
             f_ = dict(np.load(ROOT / "build" / "tiers" / "clips_190.npz"), **np.load(ROOT / "build" / "tiers" / "react_190.npz"))
+            if STYLE:
+                f_ = dict(f_, **np.load(ROOT / "build" / "tiers" / "falls_190.npz"))
             assert all(len(f_["V_" + c_]) == len(t_["V_" + c_]) for c_ in clips_)
             trf_ = [(int(a), int(c), int(b)) if FLIP else (int(a), int(b), int(c)) for a, b, c in f_["F"]]
             hf_ = (np.ones(len(trf_), bool), np.arange(int(f_["F"].max()) + 1), trf_)
@@ -4190,9 +4209,40 @@ if LAB:
             """where a move's clip begins in a size's bank (the double's is his own)"""
             m_ = "dodge_back" if m_ == "dodge" else m_
             return TIER[t_]["cb"].get(m_, 0)
-        _ycl = list(PMN) + ["dodge"] + list(REACTS)        # (a size's row: where each clip begins in its bank)
+        _ycl = list(PMN) + ["dodge"] + list(REACTS) + list(FALLS)        # (a size's row: where each clip begins in its bank)
         YCBW, Y_HI, Y_DN, Y_UP = len(_ycl), _ycl.index("hurt_hi"), _ycl.index("down"), _ycl.index("getup")
         YCB = cart.data(Table([_yclip(t_, m_) for t_ in Y_TIERS for m_ in _ycl]), "yard_clip")
+        if STYLE:
+            # P97: HOW IT WENT DOWN (0 thrown, as every fall was; 1 dropped; 2 folded; 3 cut down) and the frame of
+            # its fall that was the first; the columns of a size's row for each fall, for what it rises by (the two
+            # that end on its face rise off it), and for how it is struck (0 high, 1 low, 2 and 3 a hook's turn)
+            YFALL, YF0 = cart.var("yard_fall", len(ENEMY)), cart.var("yard_fall_from", len(ENEMY))
+            YFALLC = cart.data(Table([_ycl.index(c_) for c_ in ("down", "fall_drop", "fall_fold", "fall_cut")]), "yard_fall_clip")
+            YRISEC = cart.data(Table([_ycl.index(c_) for c_ in ("getup", "getup", "getup_prone", "getup_prone")]), "yard_rise_clip")
+            # (his lead hand is his left: its hook goes from his left to his right, and takes a head that faces him to
+            # ITS left -- hurt_hook_l; the rear hand's, the other way)
+            YHURTC = cart.data(Table([_ycl.index(c_) for c_ in ("hurt_hi", "hurt_lo", "hurt_hook_l", "hurt_hook")]), "yard_hurt_clip")
+            # (a move that THROWS a body, whatever it met: the hooks, the haymaker, the uppercuts, the charged round)
+            YHEAVY = cart.data(Table([0 if m_ in ("jab", "cross", "gun") else 1 for m_ in PMN]), "yard_heavy")
+            L_YHV, L_SLAM = p.label("yardheavy"), p.label("yardslam")
+            YREC = cart.data(Table([int(e_["pos"]) for e_ in ENEMY]), "yard_record")     # (where each body's record is)
+            SLAM_V, SLAM_STUN = int(0.03 * ONE), 22       # (0.03 a frame: a quarter of a unit still to go)
+
+            def fall_kind(e_, heavy_ops):
+                """a blow has landed on e_ (HITZ where): how it will go down if this, or what follows from it, puts
+                it down -- thrown by a heavy blow; else dropped, folded, cut down by where it was met. (Not a body
+                already down: it lies as it fell.)"""
+                fk_ = p.label("fallk")
+                p.load(e_["st"]).push(2).emit("eq", f"jz {fk_}_up", f"jmp {fk_}_x")
+                p.mark(f"{fk_}_up")
+                heavy_ops()
+                p.emit(f"jz {fk_}_l")
+                p.push(0).emit(f"jmp {fk_}")
+                p.mark(f"{fk_}_l")
+                p.load(HITZ).push(1).emit("add")
+                p.mark(fk_)
+                p.store(int(YFALL) + e_["k"]).set(int(YF0) + e_["k"], 0)
+                p.mark(f"{fk_}_x")
         # P73: WHAT A BLOW OF THEIRS DOES TO HIM, by the move: 1 struck high, 2 struck low, 3 taken off his feet
         YPR = cart.data(Table([{"jab": 1, "cross": 1, "rear_hook": 1, "special": 3}.get(m_, 2) for m_ in PMN]), "yard_does")
         YRK, YR0 = cart.var("yard_struck", len(ENEMY)), cart.var("yard_held", len(ENEMY))      # a body struck: high 0 / low 1; held how long
@@ -6096,13 +6146,23 @@ if L2:
             p.mark(yp)
             p.load(YAB).push(5).emit("add", "loadi").push(2).emit("eq", f"jz {yp}_up")
             p.load(YAB).push(12).emit("add", "loadi").store(YTT)                           # (how long it has been down)
+            def cbk(cols_, of_):
+                """push where the clip named by this body's `of_` begins in its size's bank"""
+                p.load(YCBP).push(int(cols_)).push(int(of_)).load(YK).emit("add", "loadi", "add", "loadi", "add", "loadi")
             p.load(YTT).push(DOWN_FOR - 24).emit("lt", f"jz {yp}_get")
-            p.load(YTT).emit(f"mini {NPOSE['down'] - 1}")
-            cb(Y_DN)
+            if STYLE:                                    # (P97: the fall the blow gave it, from the frame it began)
+                p.load(YTT).push(int(YF0)).load(YK).emit("add", "loadi", "sub", "maxi 0", f"mini {NPOSE['down'] - 1}")
+                cbk(YFALLC, YFALL)
+            else:
+                p.load(YTT).emit(f"mini {NPOSE['down'] - 1}")
+                cb(Y_DN)
             p.emit("add", "ret")
             p.mark(f"{yp}_get")
             p.load(YTT).push(DOWN_FOR - 24).emit("sub", "shr 1", f"mini {NPOSE['getup'] - 1}")
-            cb(Y_UP)
+            if STYLE:
+                cbk(YRISEC, YFALL)
+            else:
+                cb(Y_UP)
             p.emit("add", "ret")
             p.mark(f"{yp}_up")
             p.load(YAB).push(7).emit("add", "loadi", "dup").store(YTT).emit(f"jz {yp}_free")      # (held)
@@ -6111,8 +6171,11 @@ if L2:
             p.mark(f"{yp}_out")
             p.push(8).load(YTT).emit("sub")
             p.mark(f"{yp}_k")
-            p.push(int(YRK)).load(YK).emit("add", "loadi").push(NPOSE["hurt_hi"]).emit("mul", "add")
-            cb(Y_HI)
+            if STYLE:
+                cbk(YHURTC, YRK)
+            else:
+                p.push(int(YRK)).load(YK).emit("add", "loadi").push(NPOSE["hurt_hi"]).emit("mul", "add")
+                cb(Y_HI)
             p.emit("add", "ret")
             p.mark(f"{yp}_free")
             p.push(int(YACT)).load(YK).emit("add", "loadi").store(YTT)
@@ -6140,6 +6203,36 @@ if L2:
             assert NPOSE["hurt_hi"] == NPOSE["hurt_lo"] == 8 and base["hurt_lo"] == base["hurt_hi"] + 8
             yard_ai_emit()
             yard_pose_emit()
+        if STYLE:
+            ys_ = "yslam_rt"
+            p.emit(f"jmp {ys_}_over")
+            # ( -- 1 if his blow THROWS: a body blow of the run's that is not its slide, a flip's kick, a heavy move )
+            p.mark(L_YHV)
+            p.load(PARK_SPQ).push(0).emit("eq", "push 1", "xor").load(ANIM).push(7).emit("eq", "push 1", "xor", "and")
+            p.load(YFKA).emit("or").push(int(YHEAVY)).load(F["mv"]).emit("add", "loadi", "or", "ret")
+            # P97: THE WALL HITS IT. A body sent along the floor that a wall stops (YAB its record, YK which) at more
+            # than SLAM_V a frame (a quarter of a unit still to go: a hook from under a unit, never a jab) is STRUCK by it: one off what it can take, its chin taken back and held there, the
+            # world stopped three frames and the lens shaken, the blow's own sound. If that is the last of it, it
+            # folds off the wall onto its face.
+            p.mark(L_SLAM)
+            p.load(YAB).push(6).emit("add", "loadi").push(1).emit("sub").load(YAB).push(6).emit("add", "storei")
+            p.push(8).load(YAB).push(8).emit("add", "storei")
+            p.set(F["shake"], 10)
+            p.load(F["stop"]).emit("maxi 3").store(F["stop"])
+            p.set(SFX_T, 0).set(SFX_H, 1)
+            p.load(YAB).push(5).emit("add", "loadi").push(2).emit("eq", f"jz {ys_}_up", "ret")     # (down already: it lies as it fell)
+            p.mark(f"{ys_}_up")
+            p.push(SLAM_STUN).load(YAB).push(7).emit("add", "storei")
+            p.push(0).push(int(YRK)).load(YK).emit("add", "storei")
+            p.push(SLAM_STUN).push(int(YR0)).load(YK).emit("add", "storei")
+            p.load(YAB).push(6).emit("add", "loadi").push(1).emit("lt", f"jz {ys_}_r")
+            p.push(2).load(YAB).push(5).emit("add", "storei")
+            p.push(0).load(YAB).push(12).emit("add", "storei")
+            p.push(2).push(int(YFALL)).load(YK).emit("add", "storei")
+            p.push(0).push(int(YF0)).load(YK).emit("add", "storei")
+            p.mark(f"{ys_}_r")
+            p.emit("ret")
+            p.mark(f"{ys_}_over")
 
         wh = p.label("who")
         (p.push(0) if REACTOR else knob(p, "who")).emit("dup").load(WHOP).emit("eq", f"jz {wh}_set", "drop", f"jmp {wh}")
@@ -6175,6 +6268,11 @@ if L2:
             keep_in_arena(e_["pos"], int(e_["pos"]) + 1, e_["old"], int(e_["old"]) + 1)
             for c_, o_, v_ in ((ex_, int(e_["old"]), vx_), (ez_, int(e_["old"]) + 1, vz_)):
                 p.load(c_).load(o_).emit("eq", f"jz {ea}_m{v_}")              # (a wall has that way: it stops)
+                if STYLE:                                                     # (P97: ...and at speed, the wall hits it)
+                    p.load(v_).emit("abs").push(SLAM_V).emit("lt", f"jz {ea}_s{v_}", f"jmp {ea}_q{v_}")
+                    p.mark(f"{ea}_s{v_}")
+                    p.set(YK, e_["k"]).push(int(e_["pos"])).store(YAB).emit(f"call {L_SLAM}")
+                    p.mark(f"{ea}_q{v_}")
                 p.set(v_, 0)
                 p.mark(f"{ea}_m{v_}")
                 p.load(v_)
@@ -9729,11 +9827,22 @@ if L4:
                 p.load(F[c2_]).store(int(SPK) + k2_)
             p.set(int(SPK) + 3, SPARK_FOR)
             p.push(int(ZMESH_T)).load(HITZ).emit("add", "loadi").store(SPKM)
+            if STYLE:
+                fall_kind(e_, lambda: p.emit(f"call {L_YHV}"))
             enemy_hurt(p, e_)
             if YARD:
                 # P73: STRUCK, IT SHOWS IT -- high (his fist met its head) or low, in its own bank's clip, for as long
                 # as it is held; and the blow that takes the last of it stops the world six frames more
                 p.load(HITZ).push(0).emit("eq", "push 1", "xor").store(int(YRK) + e_["k"])
+                if STYLE:
+                    # P97: A HOOK TURNS IT -- the head and shoulders hard away from the hand that threw it (not the
+                    # run's body blows nor a flip's kick, which borrow a move's worth)
+                    hk_ = p.label("hooked")
+                    p.load(PARK_SPQ).load(YFKA).emit("or", f"jz {hk_}_f", f"jmp {hk_}")
+                    p.mark(f"{hk_}_f")
+                    p.load(F["mv"]).push(MOVE["lead_hook"]).emit("eq").load(F["mv"]).push(MOVE["rear_hook"]).emit("eq", "or", f"jz {hk_}")
+                    p.load(F["mv"]).store(int(YRK) + e_["k"])
+                    p.mark(hk_)
                 p.load(e_["stun"]).store(int(YR0) + e_["k"]).set(int(YZP) + e_["k"], 1)
                 p.push(0).load(e_["hp"]).emit("lt", f"jz {fn_}_kd", f"jmp {fn_}_nk")
                 p.mark(f"{fn_}_kd")
@@ -14255,7 +14364,17 @@ if L2:
                     p.set(int(YZP) + e_["k"], 1)
                 # (P44: a round into a body already DOWN does not stand it up to fall again)
                 p.load(e_["st"]).push(2).emit("eq").store(LS0).load(e_["t"]).store(LS1)
+            if STYLE:
+                # P97: a round's own: thrown by a charged one; else dropped, folded, cut down by where it went in --
+                # and the flinch is where it went in too (it was the last fist's)
+                def _charged():
+                    bf("hit")
+                    p.emit("shr 4").push(1).emit("and")
+                fall_kind(e_, _charged)
+                p.load(HITZ).push(0).emit("eq", "push 1", "xor").store(int(YRK) + e_["k"])
             enemy_hurt(p, e_)
+            if STYLE:
+                p.load(e_["stun"]).store(int(YR0) + e_["k"])
             if LAB:
                 p.load(LS0).emit(f"jz {le}_wu")
                 p.load(LS1).store(e_["t"])
@@ -14264,6 +14383,8 @@ if L2:
                 bf("hit")
                 p.push(256 + 16).emit("and", f"jz {le}_nt")
                 p.set(e_["st"], 2).set(e_["t"], DOWN_FOR - TRIP)
+                if STYLE:                                # (its legs taken: cut down, the fall from this frame)
+                    p.set(int(YFALL) + e_["k"], 3).set(int(YF0) + e_["k"], DOWN_FOR - TRIP)
                 p.mark(f"{le}_nt")
             if LAB:                                  # (P42: a round sends it along the round's own way)
                 p.set(HK, e_["k"])
@@ -14299,6 +14420,14 @@ if L2:
         _over_weight()
         p.push(int(ZKNOCK_T)).load(HITZ).emit("add", "loadi", "mulq")      # (P46: the body is sent; the head less; the legs hardly)
         p.store(IMPV)
+        if STYLE:
+            # P97: A BODY DROPPED, FOLDED OR CUT DOWN GOES DOWN WHERE IT STOOD -- a quarter of the blow's send. (It
+            # slid a unit and a half along the floor on its knees. What is THROWN is sent as it was.)
+            sf_ = p.label("softsend")
+            p.push(int(YREC)).load(HK).emit("add", "loadi").push(5).emit("add", "loadi").push(2).emit("eq")
+            p.push(int(YFALL)).load(HK).emit("add", "loadi").push(0).emit("eq", "push 1", "xor", "and", f"jz {sf_}")
+            p.load(IMPV).emit("shr 2").store(IMPV)
+            p.mark(sf_)
         for arr_, d_ in ((EVX, HDX), (EVZ, HDZ)):
             p.push(int(arr_)).load(HK).emit("add").store(LS1)
             p.load(d_).load(IMPV).emit("mulq").load(LS1).emit("loadi", "add").load(LS1).emit("storei")

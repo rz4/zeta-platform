@@ -3885,3 +3885,44 @@ with jabs or specials, every pose of it shown.
 A reading: the kick has no clip of its own -- it is the flip's legs. He asked for "some sort of kick attacks".
 
 Tests 44. Layers 0, 4, 8, 10, 11, 12 and the full cart byte-identical.
+
+## P97: layer 14, the yard styled -- how a body takes it (2026-11-25)
+
+The player, P96 on glass: "i think this is the complete base kit. it feels insanely good to play now, of course what
+we can do from here is first a layer of polish, the controls feel good no changing that, just making the action more
+stylized to feel tactical, mature, and hyperviolent." And, when I began on blood: "hyperviolent is not just gore, its
+about making the fighting correagraphy be hyperviolent."
+
+So the base kit is FROZEN as layer 13, and the polish is a layer of its own: `TND_LAYER=14` is the yard, and what is
+its own is under `STYLE` in the generator. Layer 13 is built byte for byte as it was. No button does anything it did
+not; his own bank of poses is untouched. This first slice is the other half of every exchange -- the body.
+
+OBSERVED: every body that went down went down ONE way -- thrown back, into the air, flat (P73's `down`) -- whether
+a haymaker put it there or one round did (about 170 falls in his last five minutes); a hook landed as a jab does,
+the chin taken back; and a body sent into a wall stopped at it and nothing more.
+
+- **IT GOES DOWN BY WHAT PUT IT DOWN.** Baked on the archive's rig as the reactions are (`tools/tnd_falls.py`,
+  carried to the three smaller bodies the same way), into the bodies' banks only:
+  - a light blow or a round to the HEAD: **dropped** -- the chin snapped back, the knees gone under it, sat back
+    on its heels and over, where it stood;
+  - to the BODY: **folded** -- over the blow, onto its knees, pitched onto its face;
+  - to the LEGS: **cut down** -- the leg gone from under it, a knee and its hands, its face;
+  - a heavy blow (the hooks, the haymaker, the uppercuts, a charged round, the run's body blows, a flip's kick):
+    **thrown**, as it was.
+  What drops, folds or is cut down goes down where it stood: a quarter of the blow's send, and its feet kept (by
+  half) where they were -- the rig turns a body about its hips, and one pitched onto its face threw its legs a unit
+  out behind it. The two that end on its face rise by a clip of their own.
+- **A HOOK TURNS IT.** The head and shoulders hard away from the hand that threw it -- the lead hand's to the
+  body's left, the rear's to its right -- an arm thrown wide. (And a round's flinch is now where the round went
+  in: it was the last fist's.)
+- **THE WALL HITS IT.** A body a blow sends along the floor into a wall or a structure's side, with a quarter of a
+  unit still to go, is struck by it: one more off what it can take, its chin back and held 22 frames, the world
+  stopped three frames, the lens shaken, the blow's sound. If that is the last of it, it folds off the wall.
+  A jab sends nothing that far.
+
+All of it a reading of his three words: he has not seen it. On the presses of his last session it would have shown
+44 thrown, 47 dropped, 43 folded (he did not aim low). In one scripted scene layer 14 runs 1 to 63 instructions a
+frame more than layer 13. Program 27,368 words (the limit 29,266); data memory 562 free; the cart 12.9 MB of 16.
+
+Tests: the yard's 44 as they were; layer 14's own 3 (`tests/test_tnd_style.py`). Layers 0, 4, 8, 10, 11, 12, 13 and
+the full cart byte-identical.
