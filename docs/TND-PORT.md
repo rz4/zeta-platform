@@ -4117,3 +4117,9 @@ song, smooth tranistions up and down ranks, also make sure the combat noises are
   plays the music sits at 112 at the most.
 
 Tests: the palace's 4. Layers 0 to 12, the song builds of 13 and 14 and the full cart byte-identical.
+
+## P105: layer 15 -- the ranks' sections, his order (2026-11-25)
+
+The player: "no d should be the intro, c is fine, b is d, and then go up". D the intro, C the breakdown, B the lift,
+then up -- A the drive, S the surge, SS the chorus, SSS the climax. (Four ranks for five sections above the lift:
+the verse, as loud as the drive, is the one left out -- my choice.)

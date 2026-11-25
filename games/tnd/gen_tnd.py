@@ -13535,7 +13535,10 @@ else:
         # bar -- the record's own grid -- and the music dips under it and swells back after (the bus, below).
         for g_, n_ in zip(p.progs, _lad0):
             del g_._out[n_:]
-        RSEC = cart.data(Table([SECS.index(n_) for n_ in ("lift", "breakdown", "drive", "verse", "surge", "chorus", "climax")]),
+        # (P105, the player: "no d should be the intro, c is fine, b is d, and then go up": D the intro, C the breakdown,
+        # B the lift, then up -- A the drive, S the surge, SS the chorus, SSS the climax; the verse, as loud as the
+        # drive, is left out)
+        RSEC = cart.data(Table([SECS.index(n_) for n_ in ("intro", "breakdown", "lift", "drive", "surge", "chorus", "climax")]),
                          "palace_rank_sections")
         p.push(int(RSEC)).load(SY["rank"]).emit("add", "loadi").store(SM["t"]).set(SM["q"], 1)
     p.load(SY["rank"]).store(SM["last"]).load(F["hs"]).store(SM["hs"])
