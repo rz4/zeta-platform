@@ -4199,6 +4199,16 @@ if LAB:
         GB_ST = cart.data(Table(GB_STATE), "yard_draw_of")
         assert not DEDUPE
         YJ0, YJ1, YJU, YJF, YJP = (cart.var("yard_join" + k_) for k_ in ("0", "1", "_up", "_ahead", "_turn"))   # P85: the two waists; the chest's move
+        # P94: THE RANK, IN THE YARD (below, where it is paid)
+        YWAY, YSV, YLST, YLSL, YPV, YPS = (cart.var("yard_" + k_) for k_ in ("way", "way_worth", "way_stance", "lance_slide", "pay", "pay_stance"))
+        YSVT = cart.data(Table([22, 18, 34, 46, 40]), "yard_worth_of")     # the dive, the slide, the handspring, the slam, the lance
+        L_YPAY, L_YWF, L_YWR = p.label("yardpay"), p.label("yardwayfist"), p.label("yardwayround")
+        YCH, YPB = cart.var("yard_way_charged"), cart.var("yard_pay_blow")
+        # (on the glass, in the yard: the letter large at the top right, the meter toward the next under it, the combo
+        # under that -- one place to look, off his body; and in the opus's colours, which read on these walls: black,
+        # black, the green lion twice, yellow, red, red)
+        S_MULTY = cart.data(Table([20, 12, 4]), "s_mult_yard")
+        S_RGBY = cart.data(Table([0x202020, 0x202020, 0x20B040, 0x20B040, 0xE6C010, 0xC42020, 0xC42020]), "s_rgb_yard")
         YCON = cart.var("yard_struck_by")                  # P83: the bodies this blow has struck, a bit each
         YSLW = cart.var("yard_slow_was")                   # P82: time was slowed last frame
         YFAR = cart.var("yard_far", len(ENEMY))            # P78: drawn as its far body (set where it is listed)
@@ -5977,6 +5987,11 @@ if L2:
             tp(4)
             p.emit("mulq").store(W["dmg"])
             p.load(PHP).load(W["dmg"]).emit("sub").store(PHP)
+            # (P94: and it costs him the meter, as a demon's does: 45% kept, the combo and the last five gone)
+            p.load(SY["pts"]).push(int(round(0.45 * ONE))).emit("mulq").store(SY["pts"])
+            p.set(SY["combo"], 0).set(YLST, 0)
+            for i_ in range(5):
+                p.set(int(S_REC) + i_, 255)
             # P73 ("we have to make things feel epic and like damage is being done ... give weight to the hits and
             # reactions"): A BLOW OF THEIRS HAS THE MOVE'S WEIGHT ON HIM. The world stops for the move's own hitstop
             # (fourteen frames at most) and the lens shakes by it; he is SENT the way it faces by the move's own knock
@@ -6121,6 +6136,98 @@ if L2:
             assert NPOSE["hurt_hi"] == NPOSE["hurt_lo"] == 8 and base["hurt_lo"] == base["hurt_hi"] + 8
             yard_ai_emit()
             yard_pose_emit()
+            # P94 (the player: "the goal lf the game is to keep a high combat rank, and like DMC you have to be stylish
+            # and not stick with one way of dealing with enemies. think like in bJJ you are thinking ok, from here what
+            # is my next move" -- and of his three styles: "they are supposed to feel like they can be interchangable
+            # in importance"). THE GAME HAS THAT METER (P5: combat.Style -- a landed blow pays its move's style x the
+            # VARIETY of it, 1, 0.6, 0.4, 0.25 as it recurs in the last five, x the combo; a blow taken keeps 45%; it
+            # cools when nothing lands; D to SSS) AND IN THE YARD NOTHING PAID IT: on his tapes it never moved.
+            # Here it is paid, and what recurs is not the MOVE but the WAY:
+            #   a fist's      its style (tank, boxer), the part it met (head, body, legs), the move
+            #   the run's     the dive, the slide, the handspring, the slam, the lance -- each its own
+            #   the gun's     its style, the part, charged or not, fired from the air or not
+            # -- so the same hook is three ways by where it lands and two by where he stands, and a magazine into one
+            # body's middle is one. And THE LINK: a blow from another STYLE than the last paid one's pays half as much
+            # again -- "from here, what is my next move".
+            def yard_pay_emit(g_):
+                yp = "ypay_rt"
+                g_.emit(f"jmp {yp}_over")                  # (a routine: the frame goes round it)
+                g_.mark(L_YPAY)
+                g_.set(SY["cnt"], 0)
+                for i_ in range(5):
+                    g_.load(int(S_REC) + i_).load(YWAY).emit("eq").load(SY["cnt"]).emit("add").store(SY["cnt"])
+                # THE SAME WAY AGAIN PAYS LESS, AND THEN NOTHING: 1, 0.6, 0.2 -- and a way already three times in his
+                # last five pays nothing and holds nothing up: no points, no combo, and the meter goes on cooling as if
+                # nothing had landed (it is remembered, so it stays spent until he has done other things). The
+                # archive's floor was a quarter, with the combo a half: MEASURED on his 47 minutes of P83, one way --
+                # 116 rounds of the run's into a body's middle, of 131 blows -- took that meter to SSS.
+                g_.load(SY["cnt"]).push(3).emit("lt", f"jz {yp}_spent")
+                g_.push(int(S_MULTY)).load(SY["cnt"]).emit("add", "loadi")                     # (20, 12, 4 of 20)
+                g_.load(YSV).emit("mul")
+                g_.load(SY["combo"]).emit("mini 20").push(20).emit("add", "mul").push(int(round(ONE / 25))).emit("mulq")   # (x16/400)
+                g_.store(YPV)
+                # (the style a way is of: tank, run, boxer -- and TARGETING is the tank's own: R held is no change of style)
+                g_.load(YWAY).emit("shr 8").push(3).emit("and", "dup").push(SQ_TARGET).emit("eq").push(SQ_TARGET).emit("mul", "sub")
+                g_.push(1).emit("add").store(YPS)
+                g_.load(YPS).load(YLST).emit("eq", f"jz {yp}_lk", f"jmp {yp}_add")
+                g_.mark(f"{yp}_lk")
+                g_.load(YLST).emit(f"jz {yp}_set")                                             # (the first: nothing to link from)
+                g_.load(YPV).emit("dup", "shr 1", "add").store(YPV)
+                g_.mark(f"{yp}_set")
+                g_.load(YPS).store(YLST)
+                g_.mark(f"{yp}_add")
+                g_.load(SY["pts"]).load(YPV).emit("add").store(SY["pts"])
+                g_.addi(SY["combo"], 1).set(SY["idle"], 0)
+                g_.emit(f"jmp {yp}_rec")
+                g_.mark(f"{yp}_spent")
+                g_.set(YPV, 0)
+                g_.mark(f"{yp}_rec")
+                g_.load(YWAY).push(int(S_REC)).load(SY["rp"]).emit("add", "storei")
+                g_.addi(SY["rp"], 1)
+                g_.load(SY["rp"]).push(5).emit("eq", f"jz {yp}_r")
+                g_.set(SY["rp"], 0)
+                g_.mark(f"{yp}_r")
+                g_.emit("ret")
+                # THE WAY OF A FIST, or of the run's body, on a body (HITZ: the part it met): then paid
+                # -- ONE BLOW, ONE WAY: a blow that strikes three bodies (P83) is paid for each as it was for the first,
+                # and remembered once (it is one move he made, not three)
+                g_.mark(L_YWF)
+                g_.load(YCON).emit("dup").push(1).emit("sub", "and", f"jz {yp}_w1")
+                g_.load(YPB).emit(f"jz {yp}_w0")                                              # (a spent way's: nothing)
+                g_.load(SY["pts"]).load(YPB).emit("add").store(SY["pts"])
+                g_.addi(SY["combo"], 1).set(SY["idle"], 0)
+                g_.mark(f"{yp}_w0")
+                g_.emit("ret")
+                g_.mark(f"{yp}_w1")
+                g_.load(PARK_SPQ).emit(f"jz {yp}_wf")
+                g_.load(YBX).emit(f"jz {yp}_wb")
+                g_.load(YBX).push(BURST_SLAM).emit("eq").push(11).emit("add", f"jmp {yp}_wk")          # (11 the handspring, 12 the slam)
+                g_.mark(f"{yp}_wb")
+                g_.load(ANIM).push(7).emit("eq", f"jz {yp}_wd")
+                g_.load(YLSL).emit("mini 1").push(3).emit("mul").push(10).emit("add", f"jmp {yp}_wk")   # (10 the slide, 13 the lance's)
+                g_.mark(f"{yp}_wd")
+                g_.push(9)                                                                             # (the dive)
+                g_.mark(f"{yp}_wk")
+                g_.emit("dup").push(9).emit("sub").push(int(YSVT)).emit("add", "loadi").store(YSV)
+                g_.push(0x100).emit("or").store(YWAY).emit(f"jmp {yp}_wt")
+                g_.mark(f"{yp}_wf")
+                g_.load(F["sty"]).emit("shl 8").load(HITZ).emit("shl 4", "or").load(F["mv"]).emit("or").store(YWAY)
+                g_.push(int(PMT)).load(F["mv"]).push(NMR).emit("mul", "add").push(MR["style"]).emit("add", "loadi").store(YSV)
+                g_.mark(f"{yp}_wt")
+                g_.emit(f"call {L_YPAY}")
+                g_.load(YPV).store(YPB)
+                g_.emit("ret")
+                # THE WAY OF A ROUND on a body: his style, the part, charged or not (YCH), from the air or not; 12, charged 40
+                g_.mark(L_YWR)
+                g_.load(F["sty"]).emit("shl 8").load(HITZ).emit("shl 4", "or").load(YCH).emit("or")
+                g_.load(F["py"]).emit(f"jz {yp}_wg")
+                g_.push(2).emit("or")
+                g_.mark(f"{yp}_wg")
+                g_.push(0x1000).emit("or").store(YWAY)
+                g_.load(YCH).push(28).emit("mul").push(12).emit("add").store(YSV)
+                g_.emit(f"jmp {L_YPAY}")
+                g_.mark(f"{yp}_over")
+            yard_pay_emit(p)
 
         wh = p.label("who")
         (p.push(0) if REACTOR else knob(p, "who")).emit("dup").load(WHOP).emit("eq", f"jz {wh}_set", "drop", f"jmp {wh}")
@@ -8255,6 +8362,7 @@ if LAB:
         _lr = p.label("lanceland")
         p.load(YLN).emit(f"jz {_lr}")
         p.set(RFLIP, 0).set(F["evf"], 0).set(F["evt"], 0)   # (...and the flip he threw it from is over)
+        p.set(YLSL, 30)                                     # (P94: the slide that follows is the lance's)
         p.mark(_lr)
     p.set(GRISE, JUMP_RISE).set(GFALL, JUMP_FALL).set(JV0, LEAP_TOP).set(LJMP, 0).push32(LEAPK_D).store(LEAPK)
 p.set(F["py"], 0).set(F["pvy"], 0).set(F["flipu"], 0)   # (a landing re-arms the flip)
@@ -9518,6 +9626,9 @@ if PARK:
         p.mark(f"{rj}_bx")
         p.set(YBX, 0)
         p.mark(f"{rj}_bk")
+        p.load(YLSL).emit(f"jz {rj}_ls")
+        p.addi(YLSL, -1)
+        p.mark(f"{rj}_ls")
     p.load(F["sty"]).push(1).emit("eq", f"jz {rj}")
     p.load(ANIM).push(2).emit("eq", f"jz {rj}_a", f"jmp {rj}")
     p.mark(f"{rj}_a")
@@ -9684,6 +9795,7 @@ if L4:
                 p.mark(f"{fn_}_kd")
                 p.addi(F["stop"], 6).set(F["shake"], 12)
                 p.mark(f"{fn_}_nk")
+                p.emit(f"call {L_YWF}")                           # P94: ...and it pays the meter, by its WAY
             if PARK:                                     # (P68: the dive TACKLES: what it strikes is down)
                 p.load(PARK_SPQ).emit(f"jz {fn_}_tk")
                 p.set(e_["st"], 2).set(e_["t"], 0)
@@ -11198,6 +11310,9 @@ for k, word in enumerate(PAUSE_STRS):
     pz.mark(cs)
     pz.emit(f"call {L_TEXT}")
 pz.load(TX["n"]).store(spec.DL_BASE)
+if YARD:                             # (P94: the meter's pay is called from the shared frame too: a round's landing)
+    yard_pay_emit(q)
+    yard_pay_emit(pz)
 p = Tee(p_main, q, pz)               # ...and from here, the shared frame
 
 # ---- WHAT THE CAMERA CANNOT SEE IS NOT SENT -----------------------------------
@@ -12072,7 +12187,8 @@ p.set(SY["g"], 0)                                     # (the key, building)
 p.push(DEATH_BEAT - 1).load(F["dead"]).emit("lt", f"jz {hk}_f")
 p.set(SY["g"], 1).emit(f"jmp {hk}_c")
 p.mark(f"{hk}_f")
-p.load(F["fight"]).emit(f"jz {hk}_c")
+if not YARD:                                          # (P94: the yard's meter is always shown)
+    p.load(F["fight"]).emit(f"jz {hk}_c")
 p.load(SY["rank"]).push(1).emit("add").push(1 << 8).emit("mul").store(SY["g"])  # (rank+1)<<8
 p.load(SY["combo"]).push(1).emit("swap", "lt", f"jz {hk}_c")     # 1 < combo
 p.load(SY["combo"]).emit("dup").push(99).emit("lt", f"jz {hk}_99", f"jmp {hk}_k")
@@ -12122,16 +12238,21 @@ for k, v in (("str", int(STR_RETRY)), ("x", 141), ("y", 80), ("sc", 2), ("rgb", 
 p.emit(f"call {L_TEXT}", f"jmp {hk}_out")
 p.mark(f"{hk}_fight")
 p.load(SY["g"]).emit(f"jz {hk}_out")
-p.push(int(S_RGB)).load(SY["rank"]).emit("add", "loadi").store(TX["rgb"])
+p.push(int(S_RGBY if YARD else S_RGB)).load(SY["rank"]).emit("add", "loadi").store(TX["rgb"])
 # the rank's string: a small table of their addresses
 p.push(int(S_STRS)).load(SY["rank"]).emit("add", "loadi").store(TX["str"])
-p.push(310).push(GW).push(int(S_LEN)).load(SY["rank"]).emit("add", "loadi", "mul", "sub")
-p.store(TX["x"])
-p.set(TX["y"], 10).set(TX["sc"], 3)
+if YARD:                                              # (P94: x4, hard against the top right)
+    p.push(312).push(16).push(int(S_LEN)).load(SY["rank"]).emit("add", "loadi", "mul", "sub")
+    p.store(TX["x"])
+    p.set(TX["y"], 8).set(TX["sc"], 4)
+else:
+    p.push(310).push(GW).push(int(S_LEN)).load(SY["rank"]).emit("add", "loadi", "mul", "sub")
+    p.store(TX["x"])
+    p.set(TX["y"], 10).set(TX["sc"], 3)
 p.emit(f"call {L_TEXT}")
-for sym_, x_, col_ in WORDMARK:
-    for k, v in (("str", int(sym_)), ("x", x_), ("y", 18), ("sc", 2), ("rgb", col_)):
-        p.set(TX[k], v)
+for sym_, x_, col_ in ([] if YARD else WORDMARK):     # (P94: not in the yard -- its letters are the walls' own colour there,
+    for k, v in (("str", int(sym_)), ("x", x_), ("y", 18), ("sc", 2), ("rgb", col_)):   # and the words are rebuilt at every
+        p.set(TX[k], v)                                                              # paid blow: 5,000 instructions of it)
     p.emit(f"call {L_TEXT}")
 p.load(SY["g"]).push(255).emit("and", f"jz {hk}_out")       # the combo
 # X and the combo, as the archive writes it (X5, X12): the digits are
@@ -12150,7 +12271,11 @@ p.set(int(STR_COMBO), 2)
 p.load(TX["r"]).store(int(STR_COMBO) + 2)
 p.mark(cz)
 p.push(int(STR_COMBO)).store(TX["str"])
-p.set(TX["x"], 158).set(TX["y"], 218).set(TX["sc"], 3)
+if YARD:                                              # (P94: under the meter, to the same edge -- not over his legs)
+    p.push(312).load(int(STR_COMBO)).push(8).emit("mul", "sub").store(TX["x"])
+    p.set(TX["y"], 56).set(TX["sc"], 2).set(TX["rgb"], 0x202020)
+else:
+    p.set(TX["x"], 158).set(TX["y"], 218).set(TX["sc"], 3)
 p.emit(f"call {L_TEXT}")
 p.mark(f"{hk}_out")
 if LAB and PLATS:
@@ -12438,16 +12563,21 @@ p.push(16).emit("shl 24").push32(0xB02018).emit("or").store(HB + 5)
 p.mark(hud)
 # the meter toward the next rank, in the rank's colour (bottom right)
 mh = p.label("meter")
-p.load(F["fight"]).emit(f"jz {mh}")
+if not YARD:
+    p.load(F["fight"]).emit(f"jz {mh}")
 p.push(BAR_W).load(SY["rank"]).push(6).emit("eq", f"jz {mh}_p", f"jmp {mh}_w")
 p.mark(f"{mh}_p")
 p.emit("drop")
 p.load(SY["pts"]).push(int(S_AT)).load(SY["rank"]).emit("add", "loadi", "sub")
 p.push(int(S_FAC)).load(SY["rank"]).emit("add", "loadi", "mulq")
 p.mark(f"{mh}_w")
-p.push(208).emit("add", "shl 10").push(208).emit("or").store(HB + 9)
-p.set(HB + 10, 272 | (276 << 10))
-p.push(14).emit("shl 24").push(int(S_RGB)).load(SY["rank"]).emit("add", "loadi", "or")
+if YARD:                                              # (P94: under the letter)
+    p.push(212).emit("add", "shl 10").push(212).emit("or").store(HB + 9)
+    p.set(HB + 10, 44 | (49 << 10))
+else:
+    p.push(208).emit("add", "shl 10").push(208).emit("or").store(HB + 9)
+    p.set(HB + 10, 272 | (276 << 10))
+p.push(14).emit("shl 24").push(int(S_RGBY if YARD else S_RGB)).load(SY["rank"]).emit("add", "loadi", "or")
 p.store(HB + 11)
 p.mark(mh)
 dk = p.label("dark")
@@ -13663,13 +13793,22 @@ p.load(TX["sc"]).emit("mul").load(TX["y0"]).emit("add").store(TX["y1"])
 # two triangles, fourteen words: which cell each is comes from a table
 p.push(spec.DL_BASE + 1).load(TX["n"]).push(spec.DL_STRIDE).emit("mul", "add")
 p.store(TX["dl"])
-p.set(TX["j"], 0)
-p.mark(tw_)
-p.push(int(TRI_CELLS)).load(TX["j"]).emit("add", "loadi", "loadi")
-p.load(TX["dl"]).load(TX["j"]).emit("add", "storei")
-p.addi(TX["j"], 1)
-p.load(TX["j"]).push(2 * spec.DL_STRIDE).emit("lt", f"jz {tw_}_e", f"jmp {tw_}")
-p.mark(f"{tw_}_e")
+if YARD:
+    # (P94: in the yard the words are rebuilt at every paid blow -- several times a second with the gun -- and this
+    # loop was two thirds of it: fifteen instructions a word. Written out, it is five.)
+    for j_, c_ in enumerate(("x0", "y0", "x1", "y0", "x0", "y1", "rgb", "x1", "y0", "x1", "y1", "x0", "y1", "rgb")):
+        p.load(TX[c_]).load(TX["dl"])
+        if j_:
+            p.push(j_).emit("add")
+        p.emit("storei")
+else:
+    p.set(TX["j"], 0)
+    p.mark(tw_)
+    p.push(int(TRI_CELLS)).load(TX["j"]).emit("add", "loadi", "loadi")
+    p.load(TX["dl"]).load(TX["j"]).emit("add", "storei")
+    p.addi(TX["j"], 1)
+    p.load(TX["j"]).push(2 * spec.DL_STRIDE).emit("lt", f"jz {tw_}_e", f"jmp {tw_}")
+    p.mark(f"{tw_}_e")
 p.addi(TX["n"], 2)
 p.mark(nr)
 p.load(TX["w"]).emit("shr 10").store(TX["w"])
@@ -14148,6 +14287,9 @@ if L2:
                 p.mark(f"{le}_zz")
                 if YARD:
                     p.set(int(YZP) + e_["k"], 1)
+                    bf("hit")                                     # P94: ...and it pays the meter, by its WAY
+                    p.emit("shr 4").push(1).emit("and").store(YCH)
+                    p.emit(f"call {L_YWR}")
                 # (P44: a round into a body already DOWN does not stand it up to fall again)
                 p.load(e_["st"]).push(2).emit("eq").store(LS0).load(e_["t"]).store(LS1)
             enemy_hurt(p, e_)

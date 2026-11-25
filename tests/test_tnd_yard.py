@@ -1278,3 +1278,124 @@ def test_aiming_up_or_down_he_hinges_at_the_hips_one_body(cart):
         assert g.cell("pose") in range(336, 354) and g.cell("aim_upose") > 1000, (g.cell("pose"), g.cell("aim_upose"))
         assert left == bend - lean - 6 * g.cell("aim_kick") and (abs(left) <= 22 or want == 3), f"left at his waist: {left}"
         assert g.cell("yard_join_up") == 0 and g.cell("yard_join_turn") == 0
+
+
+# ---- P94 (exp/rank) ----------------------------------------------------------------------------------------------------
+def _rank_fight(cart):
+    y = Yard(cart)
+    g = y.g
+    y.who(3)
+    for k in range(7):
+        _stand(y, k, 28.0 - k, -15.0)
+    _stand(y, 0, 0.0, -6.9)                      # (the elite before him, in reach)
+    y.put(0.0, -8.0, 256)
+    for _ in range(5):
+        g.step(0)
+    return y, g
+
+
+def test_the_meter_is_paid_in_the_yard_by_the_way_and_the_link(cart):
+    """P94 ("the goal lf the game is to keep a high combat rank, and like DMC you have to be stylish and not stick with
+    one way of dealing with enemies. think like in bJJ ... from here what is my next move"): the game's own meter
+    (P5), which nothing in the yard paid. Every blow that lands pays its worth x its WAY's variety (20, 12, 4 of 20
+    as the way recurs in the last five) x the combo (+5% a hit, to twenty) -- and half as much again from another
+    STYLE than the last paid blow's. A way already THREE times in his last five is spent: it pays nothing and holds
+    nothing up (no combo, the meter still cooling), and is remembered. A way is the style, the part met and the move;
+    the run's body blows are each their own; a round's is the style, the part, charged or not, from the air or not"""
+    R, B, D = spec.PAD_R, spec.PAD_B, spec.PAD_DOWN
+    y, g = _rank_fight(cart)
+    blows = [[X] * 3 + [0] * 22] * 4 + [[spec.PAD_Y] * 3 + [0] * 40, [B] * 3 + [0] * 30, [R] * 12 + [R | D] * 3 + [R] * 4 + [R | B] * 3 + [R] * 30,
+                                         [L] * 6 + [L | X] * 3 + [L] * 25, [L | spec.PAD_Y] * 3 + [L] * 40, [L | B] * 3 + [L] * 30]
+    script = []
+    for keys in blows:
+        script += [None] + keys                  # (None: the elite stood before him again, whole)
+    paid, ways, linked, spent = 0, set(), 0, 0
+    for q in script:
+        if q is None:
+            u, v = y.uv()
+            _stand(y, 0, u, v + 1.1)
+            g.d[g.syms["e0_st"]], g.d[g.syms["e0_stun"]] = 1, 0
+            y.put(u, v, 256)
+            q = 0
+        g.d[g.syms["e0_hp"]] = 8
+        g.d[g.syms["p_hp"]] = 140
+        rec = [g.d[g.syms["s_recent"] + i] for i in range(5)]
+        was, combo, last, rp = g.cell("s_pts"), g.cell("s_combo"), g.cell("yard_way_stance"), g.cell("s_rp")
+        g.step(q)
+        assert not g.cell("save_f") & 2, "the yard's meter asked the card to be written"
+        if g.cell("s_rp") == rp:
+            continue
+        way, worth = g.cell("yard_way"), g.cell("yard_way_worth")
+        assert g.d[g.syms["s_recent"] + rp] == way
+        if rec.count(way) >= 3:
+            # SPENT: nothing, and nothing held up
+            assert abs(g.cell("s_pts") - was) <= 16 and g.cell("s_combo") == combo and g.cell("s_idle") > 1, \
+                f"a way three times in his last five paid {g.cell('s_pts') - was}, combo {combo} -> {g.cell('s_combo')}, idle {g.cell('s_idle')}"
+            spent += 1
+            continue
+        want = worth * (20, 12, 4)[rec.count(way)] * (20 + min(combo, 20)) * int(round(ONE / 25)) >> 16
+        stance = (way >> 8 & 3) % 3 + 1          # (targeting, 3, is the tank's own)
+        if last and last != stance:
+            want += want >> 1
+            linked += 1
+        got = g.cell("s_pts") - was
+        assert abs(got - want) <= 16, f"way {way:#x} worth {worth}, in the last five {rec.count(way)} times, combo {combo}: paid {got}, owed {want}"
+        assert g.cell("s_combo") == combo + 1 and g.cell("s_idle") <= 1
+        paid += 1
+        ways.add(way)
+    assert paid >= 8 and len(ways) >= 6, f"{paid} blows paid, by {len(ways)} ways: {sorted(hex(w) for w in ways)}"
+    assert linked >= 1, "no blow was linked from another style"
+    assert spent == 1, f"the fourth jab running was spent {spent} times"
+    assert any(w & 0x1000 for w in ways) and any(not w & 0x1000 for w in ways), "fists and rounds both pay"
+    assert g.cell("s_rank") >= 1, f"a dozen blows by {len(ways)} ways and he is still at D ({g.cell('s_pts') / 16:.0f} points)"
+
+
+def test_the_runs_body_blows_are_ways_of_their_own(cart):
+    """P94: the dive, the slide, the handspring, the slam and the lance each pay as their own way (they were all "a
+    lead hook" to the meter's memory)"""
+    A, Xb, Yb = spec.PAD_A, spec.PAD_X, spec.PAD_Y
+    seen = {}
+    for name, keys, bodies in (("dive", [0] * 10 + [Xb] * 3 + [0] * 40, [(2, 0.0, 3.4)]),
+                               ("handspring", [0] * 10 + [A] * 3 + [0] * 7 + [Xb] * 3 + [0] * 40, [(2, 0.0, 4.6), (3, 0.8, 5.2)]),
+                               ("slam", [0] * 4 + [A] * 3 + [0] * 6 + [A] * 3 + [0] * 8 + [Xb] * 3 + [0] * 40, [(2, 0.0, 4.8), (3, 1.9, 4.8)]),
+                               ("lance", [A] * 3 + [0] * 6 + [Yb] * 3 + [0] * 60, [(2, 0.0, 4.2)])):
+        y, g = _run_at(cart, bodies)
+        rp, paid = g.cell("s_rp"), []
+        for q in keys:
+            was, combo = g.cell("s_pts"), g.cell("s_combo")
+            g.step(L | U | q)
+            if g.cell("s_combo") > combo:
+                paid += [g.cell("s_pts") - was] * (g.cell("s_combo") - combo) if g.cell("s_combo") - combo == 1 else [(g.cell("s_pts") - was) / (g.cell("s_combo") - combo)] * (g.cell("s_combo") - combo)
+            if g.cell("s_rp") != rp:
+                seen.setdefault(name, []).append(g.cell("yard_way"))
+                rp = g.cell("s_rp")
+        if name == "slam":
+            # ONE BLOW, ONE WAY: it struck two; each was paid as the first was, and it is remembered once
+            assert len(paid) == 2 and abs(paid[0] - paid[1]) <= 1, f"the slam's two bodies paid {paid}"
+            assert len(seen["slam"]) == 1, f"the slam is in his last five {len(seen['slam'])} times"
+    assert seen.get("dive") == [0x109] and seen.get("handspring", [0])[0] == 0x10B and seen.get("slam") == [0x10C] and seen.get("lance") == [0x10D], \
+        {k: [hex(w) for w in v] for k, v in seen.items()}
+
+
+def test_a_blow_taken_costs_him_the_meter_and_the_rank_is_on_the_glass(cart):
+    """P94: a body's blow on him keeps 45% of the meter and breaks the combo and the memory of his last five; and the
+    rank and the meter are shown in the yard whether or not the full game's "fight" is on"""
+    y = Yard(cart)
+    g = y.g
+    for _ in range(20):
+        g.step(0)
+    assert g.cell("s_shown") >> 8 & 7 == 1, f"the rank is not on the glass: key {g.cell('s_shown'):#x}"
+    y.put(*y.body(6)[:1], y.body(6)[1] - 1.6, 256)
+    g.d[g.syms["s_pts"]] = 400 * 16
+    g.d[g.syms["s_combo"]] = 7
+    hp = g.cell("p_hp")
+    for i in range(600):
+        was = g.cell("s_pts")
+        g.step(0)
+        g.d[g.syms["s_idle"]] = 0                # (no cooling: only the blow)
+        if g.cell("p_hp") < hp:
+            break
+    else:
+        raise AssertionError("nobody struck him in ten seconds")
+    assert abs(g.cell("s_pts") - was * 0.45) < 32 and g.cell("s_combo") == 0, (was, g.cell("s_pts"), g.cell("s_combo"))
+    assert all(g.d[g.syms["s_recent"] + i] == 255 for i in range(5))
