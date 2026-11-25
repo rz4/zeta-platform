@@ -4879,27 +4879,36 @@ if BASE:
             # quarters of a second, and it answered NONE; P75 then made those holds a walk). THE SPOT STEPS ON THE
             # PRESS, as he made it (P37) -- unless a face button is down or was inside ten frames (that Up or Down
             # is the move's); and if a button comes inside ten frames with it still held, the step is taken back.
+            # P79 (the player, of P78: "I liked the walking back and forward when gun aiming in tank instead of planted.
+            # also the I try to select the target spot with up down but nothing happens then it gets locked in low. I
+            # should be able to see the laser move to the target"; his two minutes: 46 presses of Up or Down with R
+            # held, the spot answered 3 -- 27 of them had the GUN's button down or inside twelve frames, which P76
+            # counted as "a move's"; and in the tank his presses fall in two heaps, 8 to 22 frames and 29 to 159).
+            # Both, then (MY READING): Up or Down HELD walks him, as P75 had it; Up or Down TAPPED -- let go inside
+            # 22 frames -- steps the spot as it is let go, and the gun's laser goes there. The gun's button does not
+            # stand in the way; a fist's or the dodge's does (inside ten frames before, or while it is down).
             st_ = p.label("spotstep")
-            p.emit("load 1").push(spec.PAD_A | spec.PAD_B | spec.PAD_X | spec.PAD_Y).emit("and", f"jz {st_}_nf")
-            p.set(YFB, 0)
-            p.load(YSPD).emit(f"jz {st_}")                                 # (a step still his to take back?)
-            p.emit("load 1").push(spec.PAD_UP | spec.PAD_DOWN).emit("and", f"jz {st_}_k")
-            p.load(YSPN).store(SPOT)
-            p.mark(f"{st_}_k")
-            p.set(YSPD, 0).emit(f"jmp {st_}")
+            p.emit("load 1").push(spec.PAD_A | spec.PAD_X | spec.PAD_Y).emit("and", f"jz {st_}_nf")
+            p.set(YFB, 0).set(YSPD, 0).emit(f"jmp {st_}")
             p.mark(f"{st_}_nf")
             p.load(YFB).emit("mini 60").push(1).emit("add").store(YFB)
+            p.emit("load 1").push(spec.PAD_UP | spec.PAD_DOWN).emit("and", f"jz {st_}_up")
             p.load(YSPD).emit(f"jz {st_}_new")
-            p.addi(YSPD, -1)
+            p.load(YSPD).emit("mini 100").push(1).emit("add").store(YSPD).emit(f"jmp {st_}")   # (held: how long)
             p.mark(f"{st_}_new")
-            p.push(10).load(YFB).emit("lt", f"jz {st_}")                   # (10 < since a face button)
+            p.push(10).load(YFB).emit("lt", f"jz {st_}")                   # (10 < since a fist's button)
             fresh(spec.PAD_DOWN)
             fresh(spec.PAD_UP)
             p.emit("sub", "dup", f"jz {st_}_no")                           # ( +1 down, -1 up )
-            p.load(SPOT).store(YSPN)
-            p.load(SPOT).emit("add", "maxi 0", "mini 2").store(SPOT).set(YSPD, 10).emit(f"jmp {st_}")
+            p.store(YSPN).set(YSPD, 1).emit(f"jmp {st_}")
             p.mark(f"{st_}_no")
-            p.emit("drop")
+            p.emit("drop", f"jmp {st_}")
+            p.mark(f"{st_}_up")                                            # let go: a tap?
+            p.load(YSPD).emit(f"jz {st_}")
+            p.push(22).load(YSPD).emit("lt", f"jz {st_}_tap")              # (22 < held: that was a walk)
+            p.set(YSPD, 0).emit(f"jmp {st_}")
+            p.mark(f"{st_}_tap")
+            p.load(SPOT).load(YSPN).emit("add", "maxi 0", "mini 2").store(SPOT).set(YSPD, 0)
             p.mark(st_)
         for bit_, d_ in (() if YARD else ((spec.PAD_UP, -1), (spec.PAD_DOWN, 1))):      # the spot: it steps, and stays
             sp_ = p.label("spot")
@@ -7791,7 +7800,9 @@ if BASE:
     p.push(0)
     # (P75 read his holding Up and Down with R held as wanting to walk, and let him. P76: they were his CHOOSING THE
     # SPOT, which P74 had stopped answering: he is planted, as he made it.)
-    if L3:                                        # (P35: locked, he is planted)
+    # P79 (the player: "I liked the walking back and forward when gun aiming in tank instead of planted"): in the yard,
+    # locked, Up and Down held walk him, as P75 had it.
+    if L3 and not YARD:                           # (P35: locked, he is planted)
         p.load(LOCK)
         if L4:
             p.load(PLANT).emit("or")

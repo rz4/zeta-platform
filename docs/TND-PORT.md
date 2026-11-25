@@ -3497,3 +3497,22 @@ so the peak's fall is observed, not yet attributed.
 Cost: 292 words of the program (25,676; 3,590 from its limit), 22 of data memory, three banks in the cart.
 Tests 29. Layers 0, 4, 8, 10, 11, 12 and the full cart byte-identical. TO BE JUDGED ON GLASS: whether a body
 changing at 2.6-2.9 units is seen to change.
+
+## P79: a tap is the spot, a hold is the walk; the gun is not in the way (2026-11-24)
+
+The player, two minutes of P78: "I liked the walking back and forward when gun aiming in tank instead of planted.
+also the I try to select the target spot with up down but nothing happens then it gets locked in low. I should be
+able to see the laser move to the target."
+
+HIS TAPE (7,789 frames; locked 3,495; the gun out for 1,471 of them): 46 presses of Up or Down with R held; the spot
+answered 3. It went low at frame 1,896 and stayed there for the rest: 2,389 locked frames low, 46 high. 27 of the 46
+had the GUN's button down or inside twelve frames -- P76's "a face button inside ten frames is a move's" counted the
+gun as a move, and he aims with it held. In the tank his presses fall in two heaps: 8 to 22 frames, and 29 to 159.
+(In the boxer, L held, the pad was never the choosing: P37, "R alone".)
+
+SO (MY READING of the two wants together): with R held in the tank, Up or Down HELD walks him to it and from it, as
+P75 had it; Up or Down TAPPED -- let go inside 22 frames -- steps the spot as it is let go. The gun's button does
+not stand in the way; a fist's or the dodge's does. The laser already goes at the spot's height: it moves when the
+spot does. (A tap also walks him its few frames. P76's planting was mine to take back, and is.)
+
+Tests 29. Layers 0, 4, 8, 10, 11, 12 and the full cart byte-identical.

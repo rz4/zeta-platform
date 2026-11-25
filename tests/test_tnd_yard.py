@@ -562,39 +562,43 @@ def test_r_takes_only_what_is_drawn(cart):
     assert undrawn < locked * 0.02, f"{undrawn} of {locked} locked frames on an undrawn body"
 
 
-def test_the_spot_steps_on_the_press_and_not_for_another_move(cart):
-    """P74 ("the up down targeting leaks into the other moves, it shouldnt") and P76 ("tank targeting gives the head
-    shot body shot leg shot choice. thats important"; his tapes: where it stepped on the press it answered 17 of 25
-    choosings, where I made it a quick tap it answered none of 9, each held three quarters of a second): with R held,
-    Up or Down steps the spot AT ONCE, tapped or held; with a blow's button inside ten frames it is that move's --
-    not stepped, or taken back"""
+def test_a_tap_steps_the_spot_a_hold_walks_and_the_gun_is_not_in_the_way(cart):
+    """P74 ("the up down targeting leaks into the other moves, it shouldnt"), P76 ("tank targeting gives the head shot
+    body shot leg shot choice. thats important") and P79 ("I liked the walking back and forward when gun aiming in tank
+    instead of planted. also the I try to select the target spot with up down but nothing happens then it gets locked
+    in low"; his tape: 46 presses, 3 answered, 27 with the gun's button near): with R held, Up or Down let go inside
+    22 frames steps the spot as it is let go -- the gun's button down or not; held longer it is a walk and the spot
+    stays; with a fist's button inside ten frames it is that move's"""
     y = Yard(cart)
     g = y.g
     y.who(3)                                     # (everyone standing: the double before him)
     for _ in range(110):
         g.step(U)
-    R, D = spec.PAD_R, spec.PAD_DOWN
+    R, D, B = spec.PAD_R, spec.PAD_DOWN, spec.PAD_B
 
-    def spot(keys):
+    def spot(keys, also=0):
         for _ in range(30):
-            g.step(R)
-        was = g.cell("t_spot")
-        g.step(R | keys[0])
-        g.step(R | keys[1])
-        at_once = g.cell("t_spot") - was
-        for q in keys[2:]:
-            g.step(R | q)
-        for _ in range(20):
-            g.step(R)
-        return at_once, g.cell("t_spot") - was
+            g.step(R | also)
+        was, at = g.cell("t_spot"), y.uv()
+        for q in keys:
+            g.d[g.syms["p_hp"]] = 140
+            g.step(R | q | also)
+        held = g.cell("t_spot") - was
+        for _ in range(4):
+            g.step(R | also)
+        return held, g.cell("t_spot") - was, math.dist(at, y.uv())
     assert g.cell("t_spot") == 1
-    assert spot([D] * 4) == (1, 1), "a tap of Down"
-    assert spot([U] * 4) == (-1, -1), "a tap of Up"
-    assert spot([D] * 45) == (1, 1), "Down held"
-    assert spot([U] * 45) == (-1, -1), "Up held"
-    assert spot([D] * 3 + [D | X] * 3 + [D] * 3)[1] == 0, "Down with a blow: not taken back"
-    assert spot([X] * 3 + [0] * 3 + [D] * 4) == (0, 0), "Down just after a blow's button stepped it"
+    for n in (3, 9, 16, 21):
+        assert spot([D] * n)[:2] == (0, 1), f"a tap of Down, {n} frames"
+        assert spot([U] * n)[:2] == (0, -1), f"a tap of Up, {n} frames"
+    assert spot([D] * 14, also=B)[1] == 1 and spot([U] * 14, also=B)[1] == -1, "with the gun's button down"
+    for key in (D, U):
+        _, stepped, moved = spot([key] * 60)
+        assert stepped == 0 and moved > 0.5, f"held: the spot stepped {stepped}, he moved {moved:.2f}"
+    assert spot([X] * 3 + [0] * 3 + [D] * 6)[1] == 0, "Down just after a fist's button"
+    assert spot([D] * 3 + [D | X] * 3 + [D] * 3)[1] == 0, "a fist's button with Down still held"
     assert g.cell("t_spot") == 1
+    assert spot([U] * 8)[1] == -1 and spot([U] * 8)[1] == 0 and g.cell("t_spot") == 0, "it stops at the head"
 
 
 # ---- P75 -------------------------------------------------------------------------------------------------------------
@@ -654,10 +658,11 @@ def test_the_slide_is_a_blow(cart):
     assert g.cell("aim_zone") == 2 and g.cell("anim") == 7, "it was not the slide, at the legs"
 
 
-def test_locked_in_the_tank_he_is_planted_and_steps_to_the_side_pressed(cart):
+def test_locked_in_the_tank_he_walks_to_it_and_steps_to_the_side_pressed(cart):
     """P75 (his tape of P74: 6 of 11 steps with Left and Right went to the side pressed): locked, Left takes the next
-    body on his left and Right the next on his right -- and at the last on a side, it stays. P76: and he is PLANTED,
-    as he made it (P37): Up and Down held are the spot's, and do not walk him"""
+    body on his left and Right the next on his right -- and at the last on a side, it stays. And Up and Down HELD walk
+    him to it and from it (P75; P76 planted him again; P79, the player: "I liked the walking back and forward when gun
+    aiming in tank instead of planted")"""
     y = Yard(cart)
     g = y.g
     y.who(3)                                     # (everyone standing)
@@ -675,9 +680,13 @@ def test_locked_in_the_tank_he_is_planted_and_steps_to_the_side_pressed(cart):
         (u, v), (bu, bv) = y.uv(), y.body(k)
         return math.degrees(math.atan2(bv - v, bu - u))             # (counter-clockwise: a greater bearing is to his left)
     at = y.uv()
-    for q in [R | U] * 40 + [R | D] * 40:
+    for q in [R | U] * 40:
         g.step(q)
-    assert math.dist(at, y.uv()) < 0.05, f"locked, Up and Down moved him {math.dist(at, y.uv()):.2f}"
+    fwd = y.uv()
+    assert fwd[1] - at[1] > 0.5, f"locked, Up held took him {fwd[1] - at[1]:+.2f} north"
+    for q in [R | D] * 40:
+        g.step(q)
+    assert fwd[1] - y.uv()[1] > 0.3, f"locked, Down held took him {y.uv()[1] - fwd[1]:+.2f} north"
     steps = 0
     for key, sign in ((LEFT, 1), (LEFT, 1), (LEFT, 1), (LEFT, 1), (LEFT, 1), (RIGHT, -1), (RIGHT, -1), (RIGHT, -1), (RIGHT, -1), (RIGHT, -1), (RIGHT, -1)):
         was = chosen()
