@@ -3470,3 +3470,30 @@ frames) and on the presses of his 16.5-minute session (59,381 frames; about 120 
 pieces' cut moves data, so: the picture identical on the title's sixty frames and every twenty-fifth after (212
 pictures), and every named cell the same or moved by exactly the 1,510 words. Tests 26, and 8 for the pass.
 Layers 0, 4, 8, 10, 11, 12 and the full cart byte-identical.
+
+## P78: far off, a body is its far body (2026-11-24)
+
+The player: "see if it makes sense to have the more detailed fighters rendered when in the foreground, have the less
+detailed models in the distance. ivestigate first" -- and, the measurements read (`experiments/streams/`), "go ahead".
+
+WHAT WAS MEASURED: a body costs the frame by its FACES (about 73 clocks each), the same at twenty units as at two;
+and the frame's store of 2,048 faces, not the clock, is what kept bodies out of the fight (his session of P75: 2,018
+at the most, and a body with no room waits out wide, behind the shot).
+
+SO: the elite, the common and the double each have a second bank -- their whole kit, pose for pose, on the horde's
+150-face body. Past 2.9 units from HIM a body is listed as its far body; inside 2.6, as its own (369, 252). Those at
+his sides, fighting him, stand at 1.35 and are whole; those that wait their turn in the arc, at 3, are far bodies,
+and a waiting body asks the store for 150 faces, not its own. The double keeps its dark.
+(MY FIRST RULE was by the lens, seven units out: in a fight it changed nothing -- everyone in a fight is within
+seven of the lens. Kept as the rejection it is.)
+
+IN A FIGHT (a minute among all seven, from three places, he standing): bodies in the shot 3.8-4.2 -> 4.9-5.2 at
+the mean; the horde, drawn while awake, 25-43% of the time -> 53-59%.
+
+ON THE SIMULATED SILICON, a minute of everything at random: 51% at the median, 66% at the 99th percentile, 70.3% AT
+THE PEAK (P76: 52%, 81%, 88.0%). The two minutes are not the same play -- the same presses meet different fights --
+so the peak's fall is observed, not yet attributed.
+
+Cost: 292 words of the program (25,676; 3,590 from its limit), 22 of data memory, three banks in the cart.
+Tests 29. Layers 0, 4, 8, 10, 11, 12 and the full cart byte-identical. TO BE JUDGED ON GLASS: whether a body
+changing at 2.6-2.9 units is seen to change.

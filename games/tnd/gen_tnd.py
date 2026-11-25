@@ -543,6 +543,20 @@ if CARTMESH:
                            atk=sum(len(t_["V_" + c_]) for c_ in clips_[:2]), natk=len(t_["V_" + clips_[-1]]),
                            pace=int(TIER_IS[name_][0] * ONE), stand=TIER_IS[name_][1], hp=TIER_IS[name_][2])
         TIER[name_]["cb"] = {c_: sum(len(t_["V_" + c2_]) for c2_ in clips_[:i_]) for i_, c_ in enumerate(clips_)}
+        if YARD and TIER_FILE[name_] != "190":
+            # P78: FAR OFF, A BODY IS THE HORDE'S MESH IN ITS OWN CLIPS. Measured (experiments/streams): a body costs
+            # the frame by its FACES -- about 73 clocks each, the same at twenty units as at two -- and the frame's
+            # store of 2,048 faces is what keeps bodies out of the fight. So each larger size has a second bank: its
+            # whole kit, pose for pose, on the 150-face body.
+            f_ = dict(np.load(ROOT / "build" / "tiers" / "clips_190.npz"), **np.load(ROOT / "build" / "tiers" / "react_190.npz"))
+            assert all(len(f_["V_" + c_]) == len(t_["V_" + c_]) for c_ in clips_)
+            trf_ = [(int(a), int(c), int(b)) if FLIP else (int(a), int(b), int(c)) for a, b, c in f_["F"]]
+            hf_ = (np.ones(len(trf_), bool), np.arange(int(f_["F"].max()) + 1), trf_)
+            pf_ = [half_streams(V_, S_, hf_) for c_ in clips_ for V_, S_ in zip(f_["V_" + c_], f_["S_" + c_])]
+            TIER[name_]["far"] = dict(
+                nv=len(hf_[1]), nf=len(trf_), lv=len(pf_[0][0]), span=len(pf_[0][0]) + len(pf_[0][1]),
+                faces=int(cart.cram(Table([a | b << 10 | c << 20 for a, b, c in trf_]), f"{name_}_far_faces")),
+                bank=int(cart.cram(Table([x for st in pf_ for part in st for x in part]), f"{name_}_far_poses")))
     _slot = 0
     for name_, count_ in CROWD:
         for _ in range(0 if name_ == "rival" else count_):
@@ -551,6 +565,10 @@ if CARTMESH:
                       dx=int(((_slot % 4) - 1.5) * 1.5 * ONE), dz=-int((4.5 + 1.6 * (_slot // 4)) * ONE),
                       desc=int(cart.data(Table([T_["nv"] | T_["nf"] << 16, T_["bank"], T_["faces"],
                                                 T_["bank"] + T_["lv"], CM_SHIFT]), f"enemy{_slot}")))
+            if "far" in T_:
+                F_ = T_["far"]
+                e_["far"] = int(cart.data(Table([F_["nv"] | F_["nf"] << 16, F_["bank"], F_["faces"], F_["bank"] + F_["lv"], CM_SHIFT]),
+                                          f"enemy{_slot}_far"))
             if L4:
                 # where it is, where it was (the street's own slide wants both, x then z); its
                 # heading; 0 gone / 1 up / 2 down; what it can still take; frames it is held by
@@ -4091,6 +4109,10 @@ if LAB:
         YRK, YR0 = cart.var("yard_struck", len(ENEMY)), cart.var("yard_held", len(ENEMY))      # a body struck: high 0 / low 1; held how long
         YSEEN, YCF = cart.var("yard_seen", len(ENEMY)), cart.var("yard_faces")                   # drawn this frame; the frame's cart faces so far
         YPK, YPT, YCBP = cart.var("yard_his"), cart.var("yard_his_t"), cart.var("yard_row")
+        YFAR = cart.var("yard_far", len(ENEMY))            # P78: drawn as its far body (set where it is listed)
+        # (from HIM: past the first it goes far; inside the second, near again. Those at his sides, fighting him, are
+        # at 1.35 and whole; those that wait their turn in the arc, at 3, are far bodies -- and so more of them fit)
+        Y_FAR_OUT, Y_FAR_IN = 2.9, 2.6
         L_YPOSE = p.label("yardpose")
         Y_HS, Y_DOWN_HS, Y_STOP_MOST = 16, 60, 14          # he reels sixteen frames; down and up, sixty; the hitstop's most
         # a size's row: its pace, its tell, its wait, its dodges of 256, its blows' weight, its strings, its faces
@@ -5727,8 +5749,7 @@ if L2:
             p.mark(f"{ya}_wait")
             p.emit("drop")
             af(YSEEN)
-            p.load(YCF)
-            tp(6)
+            p.load(YCF).push(TIER["horde"]["nf"])              # (P78: where it would wait, it is a far body)
             p.emit("add").push(spec.CM_FMAX - PLAYER_NF - 24 + 1).emit("lt", "or", f"jz {ya}_wide")
             p.push(int(YOF)).load(YK).emit("add", "loadi").push(int(Y_ARC * ONE)).store(YRAD).emit(f"jmp {ya}_at")
             p.mark(f"{ya}_wide")
@@ -8839,8 +8860,17 @@ if CARTMESH:                                 # the pose is where its streams are
             p.mark(f"{en_}_w")
             p.push(e_["T"]["n"]).emit("sub")
         p.mark(en_)
+        if YARD and "far" in e_:                 # (P78: far off, the same pose of the far bank)
+            F_ = e_["T"]["far"]
+            p.load(int(YFAR) + e_["k"]).emit(f"jz {en_}_nr")
+            p.push(F_["span"]).emit("mul").push(F_["bank"]).emit("add")
+            p.emit("dup").store(e_["far"] + 1).push(F_["lv"]).emit("add").store(e_["far"] + 3)
+            p.emit(f"jmp {en_}_fr")
+            p.mark(f"{en_}_nr")
         p.push(e_["T"]["span"]).emit("mul").push(e_["T"]["bank"]).emit("add")
         p.emit("dup").store(e_["desc"] + 1).push(e_["T"]["lv"]).emit("add").store(e_["desc"] + 3)
+        if YARD and "far" in e_:
+            p.mark(f"{en_}_fr")
 else:
     pd_ = p.label("posedma")                     # (P13: not on a frame that pages a
     p.load(spec.OVL_GO).emit(f"jz {pd_}_go")     # scene in -- its handshake has the
@@ -11097,7 +11127,19 @@ if LAB:
         for c_, cam_ in ((int(e_["pos"]), spec.CAM_X), (int(e_["pos"]) + 1, spec.CAM_Z)):
             p.load(c_).load(cam_).emit("sub", "dup", "mulq")
         p.emit("add").push(int(1.3 ** 2 * ONE)).emit("swap", "lt", f"jz {de_}")
-        if YARD:
+        if YARD and "far" in e_:
+            # P78: how far from him: past Y_FAR_OUT it is listed as its far body from the NEXT frame (its pose is
+            # already written for this one), and near again inside Y_FAR_IN
+            for c_, cam_ in ((int(e_["pos"]), PX), (int(e_["pos"]) + 1, PZ)):
+                p.load(c_).load(cam_).emit("sub", "dup", "mulq")
+            p.emit("add").store(YD2)
+            p.load(int(YFAR) + k_).emit(f"jz {de_}_n")
+            p.load(YCF).push(spec.CM_FMAX - PLAYER_NF - 24 - e_["T"]["far"]["nf"] + 1).emit("lt", f"jz {de_}")
+            p.emit(f"jmp {de_}_r")
+            p.mark(f"{de_}_n")
+            p.load(YCF).push(spec.CM_FMAX - PLAYER_NF - 24 - e_["T"]["nf"] + 1).emit("lt", f"jz {de_}")
+            p.mark(f"{de_}_r")
+        elif YARD:
             p.load(YCF).push(spec.CM_FMAX - PLAYER_NF - 24 - e_["T"]["nf"] + 1).emit("lt", f"jz {de_}")
 
         def ang(h, e_=e_, k_=k_):
@@ -11122,9 +11164,23 @@ if LAB:
             h.push(spec.OBJ_EDGE).emit("or")
             h.mark(f"{tf}_e")
         if YARD:
-            def listed(e_=e_, k_=k_, ang=ang, flags=flags):
+            def listed(e_=e_, k_=k_, ang=ang, flags=flags, de_=de_):
+                if "far" not in e_:
+                    p.object(NOBJ, e_["desc"], (f"load {int(e_['pos'])}",), (f"load {int(EY) + k_}",), (f"load {int(e_['pos']) + 1}",), ang, flags)
+                    p.addi(YCF, e_["T"]["nf"]).set(int(YSEEN) + k_, 1)
+                    return
+                p.set(int(YSEEN) + k_, 1)
+                p.load(int(YFAR) + k_).emit(f"jz {de_}_ln")
+                p.object(NOBJ, e_["far"], (f"load {int(e_['pos'])}",), (f"load {int(EY) + k_}",), (f"load {int(e_['pos']) + 1}",), ang, flags)
+                p.addi(YCF, e_["T"]["far"]["nf"])
+                p.push(int(Y_FAR_IN ** 2 * ONE)).load(YD2).emit("lt", f"jz {de_}_l0", f"jmp {de_}")       # (still past the inner line)
+                p.mark(f"{de_}_l0")
+                p.set(int(YFAR) + k_, 0).emit(f"jmp {de_}")
+                p.mark(f"{de_}_ln")
                 p.object(NOBJ, e_["desc"], (f"load {int(e_['pos'])}",), (f"load {int(EY) + k_}",), (f"load {int(e_['pos']) + 1}",), ang, flags)
-                p.addi(YCF, e_["T"]["nf"]).set(int(YSEEN) + k_, 1)
+                p.addi(YCF, e_["T"]["nf"])
+                p.push(int(Y_FAR_OUT ** 2 * ONE)).load(YD2).emit("lt", f"jz {de_}")
+                p.set(int(YFAR) + k_, 1)
             if_visible((f"load {int(e_['pos'])}",), 1.0, (f"load {int(e_['pos']) + 1}",), 1.3, listed)
         for m_ in (() if YARD else (e_["desc"], e_["desc"] + spec.CMESH_WORDS) if e_.get("rival") else (e_["desc"],)):
             p.object(NOBJ, m_, (f"load {int(e_['pos'])}",), (f"load {int(EY) + k_}",), (f"load {int(e_['pos']) + 1}",), ang, flags)

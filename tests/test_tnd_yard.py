@@ -787,3 +787,68 @@ def test_into_the_run_and_out_of_it_is_not_one_frame(cart):
     brake = [p for _, p in poses[out:out + 8]]
     assert not any(p in stride for p in brake) and min(brake) == brake[4] and set(brake) <= set(range(min(start), max(start) + 1)), f"out of it: {brake}"
     assert poses[out + 8][1] < 60, f"then he stands: {poses[out + 8]}"
+
+
+# ---- P78 -------------------------------------------------------------------------------------------------------------
+def test_far_off_a_body_is_its_far_body_and_near_again_its_own(cart):
+    """P78 (measured, experiments/streams: a body costs by its faces, the same at twenty units as at two, and the
+    frame's store of 2,048 is what keeps bodies out): past 2.9 units from him the elite is listed as the 150 faces of
+    its far bank; inside 2.6, as its own 369 -- at his sides, fighting, it is whole; waiting in the arc, far"""
+    y = Yard(cart)
+    g = y.g
+    y.who(3)
+    bu, bv = y.body(0)
+
+    def listed(dist):
+        for _ in range(12):
+            y.put(bu, bv - dist, 256)
+            g.step(0)
+        d, out = g.d, []
+        for i in range(min(d[spec.OL_BASE], spec.OL_MAX)):
+            b = spec.OL_BASE + 1 + i * spec.OL_STRIDE
+            if d[b + 5] & spec.OBJ_CART and d[b] in (g.syms["enemy0"], g.syms["enemy0_far"]):
+                out.append(d[d[b]] >> 16)
+        assert len(out) == 1, f"the elite is listed {len(out)} times at {dist}"
+        return out[0], y.arr("yard_far", 0)
+    assert listed(1.5) == (369, 0)
+    assert listed(2.75) == (369, 0), "between the two lines it stays what it was"
+    assert listed(6.0) == (150, 1)
+    assert listed(2.75) == (150, 1), "between the two lines it stays what it was"
+    assert listed(1.5) == (369, 0)
+    assert y.arr("yard_far", 2) == 0 and "enemy2_far" not in g.syms, "the horde has no far body: it is one"
+
+
+def test_the_far_body_is_in_the_same_pose(cart):
+    """P78: the far bank holds the size's whole kit, pose for pose: what its descriptor points at is as many poses
+    into its bank as the near one's is into its own"""
+    y = Yard(cart)
+    g = y.g
+    y.who(1)                                     # (the ring's two, fighting)
+    bu, bv = y.body(0)
+    y.put(bu, bv - 5.0, 256)
+    seen = set()
+    for i in range(240):
+        g.d[g.syms["p_hp"]] = 140
+        g.step(0)
+        if y.arr("yard_far", 6):
+            seen.add(g.d[g.syms["enemy6_far"] + 1])
+    assert len(seen) > 20, f"the double, far, showed {len(seen)} poses in four seconds"
+    lo = min(seen)
+    span = 0
+    for v in seen:
+        span = math.gcd(span, v - lo)
+    assert span > 100, f"its poses are not whole poses of one bank: they share a step of {span} words"
+
+
+def test_with_far_bodies_more_of_them_are_in_the_shot(cart):
+    """P78: from the south wall with everyone standing, the frame's store has room for all seven"""
+    y = Yard(cart)
+    g = y.g
+    y.who(3)
+    for _ in range(30):
+        y.put(-6.0, -13.0, 256)
+        g.step(0)
+    seen = [y.arr("yard_seen", k) for k in range(7)]
+    faces = g.cell("yard_faces")
+    assert faces <= spec.CM_FMAX - 737, faces
+    assert sum(seen) >= 6, seen
