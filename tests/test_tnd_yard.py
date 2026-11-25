@@ -1189,23 +1189,18 @@ def test_his_chest_leans_with_his_legs_and_the_gun_stays_on_his_aim(cart):
     assert len(turns) > 8 and max(turns) > 10, f"his chest's turn over a jump: {turns}"
 
 
-# ---- P87 -------------------------------------------------------------------------------------------------------------
-def test_on_the_stride_with_the_gun_out_he_is_one_body(cart):
-    """P87 ("running gunning still needs mesh work"): on the run's stride with the gun out he is the run's own gun
-    pose -- one baked body, both halves, the gun out in one hand -- not a standing chest set on running hips; his
-    hand is found in it, and the gun and the laser are there. In the air he is two halves again, joined (P85, P86)"""
+# ---- P88 -------------------------------------------------------------------------------------------------------------
+def test_under_the_guns_chest_the_waist_closes(cart):
+    """P88 ("the running gunning, looked better before ... the only thing tha was wrong before was some floating
+    triangles around the waist"): they were the band of belly the LEGS' half carries up to the cut, posed with the
+    stride's own chest and standing in the air beside the gun's. Where the halves are in different poses the gun's
+    upper half is its let-down copy (its own belly, to the trousers) and the legs' vertices are their drawn-in copy;
+    whole poses are as they were. (P87's one-handed body is withdrawn: two halves, as before)"""
     A, B = spec.PAD_A, spec.PAD_B
     y, g = _run_at(cart, [])
-    lo, hi = None, None
     for i in range(30):
         g.step(L | U | B)
-        if i > 12:
-            assert g.cell("yard_run_gun") == 1 and g.cell("pose") == g.cell("aim_upose"), i
-            assert g.cell("aim_hand_on") == 1, "his hand is not found in it"
-            assert g.cell("yard_join_up") == 0 and g.cell("yard_join_turn") == 0
-            lo = g.cell("pose") if lo is None else min(lo, g.cell("pose"))
-            hi = g.cell("pose") if hi is None else max(hi, g.cell("pose"))
-    assert hi - lo >= 6 and hi - lo < 16, f"his stride with the gun: poses {lo}..{hi}"
-    for q in [A | B] * 3 + [B] * 6:
-        g.step(L | U | q)
-    assert g.cell("yard_run_gun") == 0 and g.cell("pose") != g.cell("aim_upose"), "in the air he is two halves"
+    assert g.cell("pose") != g.cell("aim_upose"), "two halves"
+    up = g.cell("aim_upose")
+    assert up >= 766, f"his upper half is pose {up}: not a let-down copy"
+    assert g.cell("aim_hand_on") == 1, "his hand is not found in it"

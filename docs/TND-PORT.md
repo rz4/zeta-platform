@@ -3686,3 +3686,25 @@ his flip, spent (P86 gave it back: withdrawn). (MINE: the return flip is the wal
 true BACK flip, facing the wall still, is not baked for every way a wall can face.)
 
 Tests 41. Layers 0, 4, 8, 10, 11, 12 and the full cart byte-identical.
+
+## P88: the gun's chest has its own belly; the one-handed sprint withdrawn (2026-11-25)
+
+The player, a minute and a half of P87: "the wall jumping is good now. the running gunning, looked better before, and
+now there's a floating gun, the only thing tha was wrong before was some floating triangles around the waist."
+
+P87's one-handed body on the stride is WITHDRAWN (my choice, turned down: recorded): he is two halves again, joined
+as in P85 and P86.
+
+THE FLOATING TRIANGLES, drawn close from behind, the side and the front quarter. The halves are cut at 1.0 -- over
+his BELLY, a fifth of a unit above his trousers -- and that band of belly is the LEGS' half's, posed with the
+stride's own leaning, turning chest. Under the gun's chest it reaches up for a chest that is not there and stands in
+the air beside the one that is, with air through the waist behind it. TRIED AND TURNED DOWN on the way: both rings
+tucked in (a hollow waist); a black band round the join (the join is at his chest's foot, not his belt: it covered
+his chest). WHAT IS BUILT, where the halves are in different poses:
+- the gun's upper half has its OWN belly: a second copy of the gun's poses with the ring of 38 let straight down a
+  fifth of a unit, to the trousers;
+- the legs' band is drawn IN under it: a second copy of every pose's lower vertices with the ring at a third of its
+  width and a sixth down, inside that belly.
+Whole poses are as they were. The cart: 51 poses and 766 lower halves more.
+
+Tests 41. Layers 0, 4, 8, 10, 11, 12 and the full cart byte-identical.
