@@ -1187,20 +1187,3 @@ def test_his_chest_leans_with_his_legs_and_the_gun_stays_on_his_aim(cart):
             turns.append(g.cell("yard_join_turn"))
             assert g.cell("aim_bend_d") == g.cell("aim_bend") + g.cell("yard_join_turn") - 6 * g.cell("aim_kick")
     assert len(turns) > 8 and max(turns) > 10, f"his chest's turn over a jump: {turns}"
-
-
-# ---- P88 -------------------------------------------------------------------------------------------------------------
-def test_under_the_guns_chest_the_waist_closes(cart):
-    """P88 ("the running gunning, looked better before ... the only thing tha was wrong before was some floating
-    triangles around the waist"): they were the band of belly the LEGS' half carries up to the cut, posed with the
-    stride's own chest and standing in the air beside the gun's. Where the halves are in different poses the gun's
-    upper half is its let-down copy (its own belly, to the trousers) and the legs' vertices are their drawn-in copy;
-    whole poses are as they were. (P87's one-handed body is withdrawn: two halves, as before)"""
-    A, B = spec.PAD_A, spec.PAD_B
-    y, g = _run_at(cart, [])
-    for i in range(30):
-        g.step(L | U | B)
-    assert g.cell("pose") != g.cell("aim_upose"), "two halves"
-    up = g.cell("aim_upose")
-    assert up >= 766, f"his upper half is pose {up}: not a let-down copy"
-    assert g.cell("aim_hand_on") == 1, "his hand is not found in it"

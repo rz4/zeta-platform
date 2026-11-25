@@ -3708,3 +3708,18 @@ his chest). WHAT IS BUILT, where the halves are in different poses:
 Whole poses are as they were. The cart: 51 poses and 766 lower halves more.
 
 Tests 41. Layers 0, 4, 8, 10, 11, 12 and the full cart byte-identical.
+
+## P89: his mesh is his own -- P88 withdrawn (2026-11-25)
+
+The player, of P88: "this has corrputed the shooting mesh and poses. the orginal mesh of the player must stay intact."
+
+P88's second copies -- the gun's poses with their ring let down, every pose's legs with their band drawn in -- are
+OUT of the cart, and with them everything that drew from them. His body is the baked one, every vertex where the
+archive put it, in every pose. What stands: P85 and P86 (an upper half over other legs is MOVED to their waist and
+turned a third of the way to their lean; his hand, the gun and the laser with it -- no vertex changed) and P87's
+wall. The floating triangles at his waist with the gun out on the run are as they were at P86: not mended.
+
+A RULE, his: the player's mesh is not altered. What may be done to it is what the machine does to a whole half --
+where it is put and how it is turned -- and what is baked on the archive's own rig.
+
+Tests 40. Layers 0, 4, 8, 10, 11, 12 and the full cart byte-identical.
