@@ -3837,3 +3837,30 @@ The table of waists stops before the whole bodies (no half of theirs is ever set
 memory 625 words free without the song. The cart's poses: 1,362.
 
 Tests 43. Layers 0, 4, 8, 10, 11, 12 and the full cart byte-identical.
+
+## P95: the lens does not go into him (2026-11-25)
+
+The player, of the lens on his own sessions (found while costing P94): "this is a bug with the camera going into
+the player as he gets close to walls".
+
+OBSERVED: the yard's lens is DRAWN IN (P56, P64) along the line from his head to where it would be, to the last
+eighth clear of every structure; with his back to a structure's side none is clear and it was put "over his own
+head" -- four tenths over the point that line starts from, which is inside his skull. The glass was the inside of
+his head, or one face of the wall. Within 0.3 of him 5 times in his 7.1 minutes on P89 and 15 times in his 12.7 on
+P84, for up to 144 frames. A low step behind him did it too (the first eighth is under a 0.8 step's clearance,
+and the search stopped there though the lens's own place was clear). And in the boxer, from over him, the look
+"at him" had no way to turn: it came out 513 of the turn's 1,024 whatever he faced.
+
+NOW (the yard only): nearer than a unit and four tenths to him the lens goes UP instead of in -- R - h^2/R over
+its line, 1.4 over his head at his own place -- and from there looks DOWN at him: the pitch whose line meets his
+chest, less 25 degrees, so he is low in the glass and what is before him is seen. The eighths are tried where the
+lens will then be, so it is not drawn in for what it can see over. Within half a unit of his place the boxer's
+lens keeps the way it last looked at him.
+
+On his 7.1 minutes of P89, the change put on that commit: the lens's nearest to his head 1.02 (it was 0.06);
+never under 1.0 (it was on 535 frames). Before the two sessions part the lens is as it was on 87% of frames.
+THEY DO PART, at frame 7,055: in the boxer his steps go by the lens's yaw, and that yaw was the 513. It is a
+change to how he moves in that one place, and it is the bug's.
+The going up and looking down is a reading: he named the fault, not the cure.
+
+Tests 43. Layers 0, 4, 8, 10, 11, 12 and the full cart byte-identical. Program 26,574 words.

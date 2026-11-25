@@ -4070,6 +4070,23 @@ if LAB:
         # P64: THE RUN'S LENS, STEADY (below): its eased height, the height he last stood at, how far it is drawn in
         PARK_CAMY, PARK_CG0, PARK_DRW, PARK_CT = (cart.var("park_" + k_) for k_ in ("cam_y", "cam_ground", "cam_draw", "cam_t"))
         PARK_CAMQ, PARK_YS = cart.var("park_cam_asks"), cart.var("park_cam_yaw")
+        # P95: THE LENS DOES NOT GO INTO HIM (below, at the draw-in): under LENS_RT of the way's 128 it goes UP instead,
+        # by (LENS_RT^2 - draw^2) x LENS_RK -- a unit and a half over his head when it is drawn all the way in
+        LENS_R, LENS_DOWN = 1.4, 71
+        if YARD:
+            YLKY, YLFT = cart.var("yard_look_yaw"), cart.var("yard_lens_lift")
+
+        def lens_lift(xc_, zc_):
+            """push how far UP a lens at (xc_, zc_) goes: nothing a unit and four tenths from him or more; nearer,
+            R - h^2 / R -- so it is never under about a unit and a fifth from his head, and R over it at his own place"""
+            ll_ = p.label("lenslift")
+            for c_, me_ in ((xc_, PX), (zc_, PZ)):
+                p.load(c_).load(me_).emit("sub", "dup", "mulq")
+            p.emit("add", "dup").push(int(LENS_R * LENS_R * ONE)).emit("lt", f"jz {ll_}_far")
+            p.push(int(ONE / LENS_R)).emit("mulq").push(int(LENS_R * ONE)).emit("swap", "sub", f"jmp {ll_}")
+            p.mark(f"{ll_}_far")
+            p.emit("drop").push(0)
+            p.mark(ll_)
         PARK_VKD = cart.var("park_upkick_done")    # P65: the straight-up kick, once an air
         PARK_VOFF, PARK_HPV, PARK_PYP = (cart.var("park_" + k_) for k_ in ("draw_dy", "room_y_was", "py_was"))   # P67
         PARK_RJS, PARK_DV = cart.var("park_dive_sound"), cart.var("park_diving")
@@ -10070,6 +10087,21 @@ if LAB and (PLATS or PARK):
     for k2_, (base_, d_) in enumerate(((PX, 0), (None, 2), (PZ, 1))):
         p.load(int(OUTD) + d_).load(OUTI).emit("mul", "shr 3")
         p.load(base_ if base_ is not None else int(OUTD) + 3).emit("add").store((PTX, PTY, PTZ)[k2_])
+    if YARD:
+        # P95 (the player, of the lens on his real sessions: "this is a bug with the camera going into the player as
+        # he gets close to walls"). THE DRAW-IN ENDED IN HIS HEAD. It comes in along the line from his head to where
+        # the lens would be and stops at the last eighth clear of every structure; with his back to a structure's
+        # side none is clear, and it was put "over his own head" -- four tenths over the point the line starts from,
+        # which is inside his skull: the glass was the inside of his own head, or one face of the wall behind him.
+        # On his tapes: within 0.3 of him 5 times in 7.1 minutes (P89), 15 times in 12.7 (P84), for up to 144 frames.
+        # And a STEP behind him did it too: the first eighth is 0.1 over his head-point, under a 0.8 step's clearance,
+        # and the search stopped there though the lens's own place was clear.
+        # NOW, NEARER THAN A UNIT AND FOUR TENTHS TO HIM, IT GOES UP INSTEAD OF IN: the lens keeps over a unit from
+        # his head all the way, ends a unit and four tenths OVER him, and looks DOWN at him (below, at the pitch).
+        # (By its distance, not its share of the way: the run's lens is 1.4 behind him to begin with.)
+        # The eighths are tried where the lens will then be, so what it can see over, it is not drawn in for.
+        lens_lift(PTX, PTZ)
+        p.load(PTY).emit("add").store(PTY)
     for k_, (u0_, u1_, v0_, v1_, top_, how_) in enumerate(PLATS):
         (bx0_, bz0_), (bx1_, bz1_) = lab_xz(u0_ - 0.25, v1_ + 0.25), lab_xz(u1_ + 0.25, v0_ - 0.25)
         nb_ = p.label("lensbox")
@@ -10110,11 +10142,17 @@ if LAB and (PLATS or PARK):
         p.load(PARK_DRW).emit(f"jz {cm_}_over")
         p.load(int(OUTD)).load(PARK_DRW).emit("mul", "shr 7").load(PX).emit("add").store(spec.CAM_X)
         p.load(int(OUTD) + 1).load(PARK_DRW).emit("mul", "shr 7").load(PZ).emit("add").store(spec.CAM_Z)
-        p.load(int(OUTD) + 2).load(PARK_DRW).emit("mul", "shr 7").load(int(OUTD) + 3).emit("add").store(spec.CAM_Y)
+        p.load(int(OUTD) + 2).load(PARK_DRW).emit("mul", "shr 7").load(int(OUTD) + 3).emit("add")
+        if YARD:                                                   # (P95: ...and up, as it comes near him)
+            lens_lift(spec.CAM_X, spec.CAM_Z)
+            p.emit("dup").store(YLFT).emit("add")
+        p.store(spec.CAM_Y)
         p.emit(f"jmp {cm_}")
         p.mark(f"{cm_}_over")
         p.load(PX).store(spec.CAM_X).load(PZ).store(spec.CAM_Z)
-        p.load(int(OUTD) + 3).push(int(0.4 * ONE)).emit("add").store(spec.CAM_Y).emit(f"jmp {cm_}")
+        if YARD:
+            p.set(YLFT, int(LENS_R * ONE))
+        p.load(int(OUTD) + 3).push(int((LENS_R if YARD else 0.4) * ONE)).emit("add").store(spec.CAM_Y).emit(f"jmp {cm_}")
         p.mark(f"{cm_}_dead")
     else:
         p.mark(f"{cm_}_hit")                                   # (the last eighth that was clear; none clear -- his back
@@ -10225,6 +10263,26 @@ if LAB:
     p.load(AIRP).emit("add").store(AIRP)
     p.load(AIRP).emit("add").push(1023).emit("and")
 p.store(spec.CAM_PITCH)
+if YARD:
+    # P95: UP THERE IT LOOKS DOWN AT HIM. From where the lens now is, the pitch whose line meets his chest (GAZE's,
+    # exact: it is 90 degrees when the lens is over him), less 25 degrees -- he is kept low in the glass, as the
+    # follow keeps him, and what is before him is seen; and never less than the pitch the lens had.
+    lp_ = p.label("lensdown")
+    p.load(YLFT).emit(f"jz {lp_}")
+    p.load(spec.CAM_X).store(W["x"]).load(spec.CAM_Y).store(W["y"]).load(spec.CAM_Z).store(W["z"])
+    p.load(PX).store(W["bx"]).load(PZ).store(W["bz"])
+    p.load(F["py"]).load(PGH).emit("add").push(int(0.9 * ONE)).emit("add").store(W["c"])
+    p.load(F["brg"])                                           # (GAZE's yaw is not wanted: his bearing cell is kept)
+    p.emit(f"call {L_GAZE}")
+    p.store(F["brg"])
+    for c_ in (W["dg"], spec.CAM_PITCH):                       # (both as -512..511)
+        p.load(c_).push(512).emit("add").push(1023).emit("and").push(512).emit("sub")
+    p.emit("swap").push(LENS_DOWN).emit("sub")                 # ( had, wanted )
+    p.emit("over", "over", "lt", f"jz {lp_}_k")                # had < wanted: the wanted
+    p.emit("swap")
+    p.mark(f"{lp_}_k")
+    p.emit("drop").push(1023).emit("and").store(spec.CAM_PITCH)
+    p.mark(lp_)
 
 
 def shot(face_cell, dist_ops, up_ops, sh):
@@ -10538,8 +10596,17 @@ if L2:
     p.load(WR).push(ONE).emit("lt", f"jz {lk2}")             # (wandering: at him)
     p.load(PX).load(spec.CAM_X).emit("sub").store(W["qx"])
     p.load(PZ).load(spec.CAM_Z).emit("sub").store(W["qz"])
+    if YARD:
+        # P95: ...but not from over him. Within half a unit of his own place there is no way "at him" to turn to (it
+        # came out 513 of the turn's 1,024 whatever he faced: the room swung round as the lens arrived). The lens
+        # keeps the way it last looked at him.
+        p.load(W["qx"]).emit("abs").load(W["qz"]).emit("abs", "add").push(int(0.5 * ONE)).emit("lt", f"jz {lk2}_at")
+        p.load(YLKY).store(spec.CAM_YAW).emit(f"jmp {lk2}")
+        p.mark(f"{lk2}_at")
     p.emit(f"call {L_YAW}")
     p.load(F["brg"]).store(spec.CAM_YAW)
+    if YARD:
+        p.load(F["brg"]).store(YLKY)
     p.mark(lk2)
     # the blow's place: a reach ahead of his body, eased (it is where he
     # will hit before he has turned to it)
