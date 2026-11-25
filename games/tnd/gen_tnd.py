@@ -86,7 +86,14 @@ LAYER = int(os.environ.get("TND_LAYER", "9"))
 #               to feel tactical, mature, and hyperviolent ... hyperviolent is not just gore, its about making the
 #               fighting correagraphy be hyperviolent"). It is the yard, and everything said of layer 13 is said of
 #               it; what is its own is under STYLE. Layer 13 is built as it was.
-STYLE = LAYER == 14
+# TND_LAYER=15  THE PALACE (P100, the player: "lets start making a game out of all these components ... a small area
+#               like the couryard of the old tnd map with all the athetics kf the city, no cutsceen just a more simple
+#               stylisized sexy start menu, the game can have the rank and music progression a score upon death, im
+#               thinkig bloody palace kind of like dmc" -- "first plaza of the ported city, dense fog. when last enemy
+#               dies the floor resets, a blinding white light, and more enemies are added"). Layer 14, and under
+#               PALACE what is its own. Its first step is the FLOORS; the plaza, the rank, the score and the menu follow.
+PALACE = LAYER == 15
+STYLE = LAYER in (14, 15)
 LAYER_DIR = LAYER
 if STYLE:
     LAYER = 13
@@ -2369,6 +2376,9 @@ if LAB:
         # -- so the near ones do not stand in front of the far)
         LAB_MARK = [lab_xz(3.5, -1.0), lab_xz(-18.0, 7.2), lab_xz(-15.0, 9.6), lab_xz(-13.0, 7.8), lab_xz(-11.5, 9.3), lab_xz(-10.4, 8.5),
                     lab_xz(0.0, 2.5)]
+        if PALACE:
+            # (P100: the palace's marks: an arc before him, eight units from the room's middle -- he begins 8.5 south of it)
+            LAB_MARK = [lab_xz(8.0 * float(np.cos(np.radians(a_))), 8.0 * float(np.sin(np.radians(a_)))) for a_ in (90, 20, 55, 125, 160, 37, 143)]
     elif PARK:
         # he begins at the corridor's west, facing east down it; anybody the knob places stands along its south side
         LAB_START = lab_xz(-30.0, 0.0)
@@ -4245,6 +4255,15 @@ if LAB:
             # with nothing left goes DARK where it falls, has one last spasm, lies OUT_FOR frames and is then AT ITS
             # MARK again, whole; a body only off its feet keeps its colour and gets up where it lies, as it did.
             YOUT = cart.var("yard_out", len(ENEMY))
+            if PALACE:
+                # P100: THE FLOORS. Which floor; the white light's frames; who comes on a floor, in the order they are
+                # added (the four of the horde, the common, the elite, his double); and every array a body has, to be
+                # cleared when it is stood up
+                YFLR, YFL = cart.var("palace_floor"), cart.var("palace_light")
+                _pal = [e_["k"] for n_ in ("horde", "common", "elite", "double") for e_ in ENEMY if _ytier(e_) == n_]
+                YORD = cart.data(Table(_pal), "palace_order")
+                L_YSPAWN = p.label("palacespawn")
+                PAL_LIGHT = 48
             YHPF = cart.data(Table([e_["T"]["hp"] for e_ in ENEMY]), "yard_whole")
             OUT_TINT = spec.OBJ_OTINT | 9 << 27 | 6 << 22 | 6 << 17       # (OUT_FOR is DOWN_FOR less the 24 frames of a rising: below)
             # P98: A BODY THROWN INTO ANOTHER (below): frames a body is not bowled again
@@ -6282,6 +6301,9 @@ if L2:
             p.mark(f"{ys_}_ls")
             p.load(YBR).push(OUT_FOR).emit("lt", f"jz {ys_}_lw", "ret")
             p.mark(f"{ys_}_lw")
+            if PALACE:                                                 # (P100: in the palace what is out is GONE, till the floor is)
+                p.push(0).load(YAB).push(5).emit("add", "storei")
+                p.push(0).push(int(YOUT)).load(YK).emit("add", "storei", "ret")
             for o_ in (0, 2):                                          # (its place, and where it was: its mark)
                 p.push(int(YMK)).load(YK).emit("shl 1", "add", "loadi").load(YAB).push(o_).emit("add", "storei")
                 p.push(int(YMK) + 1).load(YK).emit("shl 1", "add", "loadi").load(YAB).push(o_ + 1).emit("add", "storei")
@@ -6370,6 +6392,7 @@ if L2:
             p.mark(f"{ys_}_over")
 
         wh = p.label("who")
+        _wh0 = len(p._out)
         (p.push(0) if REACTOR else knob(p, "who")).emit("dup").load(WHOP).emit("eq", f"jz {wh}_set", "drop", f"jmp {wh}")
         p.mark(f"{wh}_set")
         p.emit("dup").store(WHOP).push(int(WHO_T)).emit("add", "loadi").store(LS0)
@@ -6384,6 +6407,43 @@ if L2:
         if YARD:
             p.load(LS0).emit("shr 7").push(1).emit("and").store(YFIGHT)
         p.mark(wh)
+        if PALACE:
+            # P100: THE FLOORS (the player: "when last enemy dies the floor resets, a blinding white light, and more
+            # enemies are added"). Nobody is placed by a knob here. When no body is left -- at the start, and when the
+            # last one that was OUT has gone -- it is the next floor: the white light, and the floor's bodies stood at
+            # their marks, whole: two on the first, one more each floor, to all seven.
+            del p._out[_wh0:]
+            pf_ = p.label("floor")
+            YARRS = cart.data(Table([int(a_) for a_ in (EVX, EVZ, EY, EVY, ETL, YACT, YTM, YCD, YAWK, YHIT, YDZ, YHB, YOUT, YFALL, YJOLT)]), "palace_arrays")
+            p.load(YFLR).emit(f"jz {pf_}_go")                                # (the start: the first floor)
+            p.set(YBJ, 0)
+            p.mark(f"{pf_}_q")
+            p.push(int(YREC)).load(YBJ).emit("add", "loadi").push(5).emit("add", "loadi", f"jz {pf_}_n", f"jmp {pf_}")   # (one is left)
+            p.mark(f"{pf_}_n")
+            p.addi(YBJ, 1).load(YBJ).push(len(ENEMY)).emit("lt", f"jz {pf_}_go", f"jmp {pf_}_q")
+            p.mark(f"{pf_}_go")
+            p.addi(YFLR, 1).set(YFL, PAL_LIGHT).set(YFIGHT, 1)
+            for e_ in ENEMY:                                                 # (nobody, but who the floor stands up)
+                p.set(e_["st"], 0)
+            p.set(YBJ, 0)
+            p.mark(f"{pf_}_s")
+            p.push(int(YORD)).load(YBJ).emit("add", "loadi", "dup").store(YK).push(int(YREC)).emit("add", "loadi").store(YAB)
+            # (its place and where it was: its mark; standing; facing south; whole; not held; every array of its cleared)
+            for o_ in (0, 2):
+                p.push(int(YMK)).load(YK).emit("shl 1", "add", "loadi").load(YAB).push(o_).emit("add", "storei")
+                p.push(int(YMK) + 1).load(YK).emit("shl 1", "add", "loadi").load(YAB).push(o_ + 1).emit("add", "storei")
+            for o_, v_ in ((4, LAB_FACE), (5, 1), (7, 0), (12, 0)):
+                p.push(v_).load(YAB).push(o_).emit("add", "storei")
+            p.push(int(YHPF)).load(YK).emit("add", "loadi").load(YAB).push(6).emit("add", "storei")
+            p.set(YBR, 0)
+            p.mark(f"{pf_}_a")
+            p.push(0).push(int(YARRS)).load(YBR).emit("add", "loadi").load(YK).emit("add", "storei")
+            p.addi(YBR, 1).load(YBR).push(15).emit("lt", f"jz {pf_}_ad", f"jmp {pf_}_a")
+            p.mark(f"{pf_}_ad")
+            p.push(1).push(int(YAWK)).load(YK).emit("add", "storei")         # (awake: it comes for him from its mark)
+            p.addi(YBJ, 1)
+            p.load(YBJ).load(YFLR).push(1).emit("add", f"mini {len(ENEMY)}", "lt", f"jz {pf_}", f"jmp {pf_}_s")
+            p.mark(pf_)
         if YARD:
             p.set(YSC, 0).set(YHC, 0)
         for e_ in ENEMY:
@@ -12866,6 +12926,14 @@ p.set(HB + 10, 272 | (276 << 10))
 p.push(14).emit("shl 24").push(int(S_RGB)).load(SY["rank"]).emit("add", "loadi", "or")
 p.store(HB + 11)
 p.mark(mh)
+if PALACE:
+    # P100: THE WHITE LIGHT: the whole glass, white, from all of it to nothing over PAL_LIGHT frames
+    wl_ = p.label("whitelight")
+    p.load(YFL).emit(f"jz {wl_}")
+    p.addi(YFL, -1)
+    p.set(HB + 9, 0 | (spec.W - 1) << 10).set(HB + 10, 0 | (spec.H - 1) << 10)
+    p.load(YFL).emit("shr 1", "mini 16", "shl 24").push32(0xFFFFFF).emit("or").store(HB + 11)
+    p.mark(wl_)
 dk = p.label("dark")
 p.load(F["dead"]).emit(f"jz {dk}")
 p.set(HB + 6, 0 | (319 << 10)).set(HB + 7, 0 | (287 << 10))

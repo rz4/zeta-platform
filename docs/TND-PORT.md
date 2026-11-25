@@ -4001,3 +4001,25 @@ spare. The rank's own branch (`exp/rank`) is where that meter lives for the yard
 
 Tests: layer 14's own 10; the yard's 44 as they were. Layers 0, 4, 8, 10, 11, 12, 13 and the full cart
 byte-identical.
+
+## P100: layer 15, the palace -- its floors (2026-11-25)
+
+The player, P99 on glass: "ok lets start making a game out of all these components, im thinking just to start a small
+area like the couryard of the old tnd map with all the athetics kf the city, no cutsceen just a more simple
+stylisized sexy start menu, the game can have the rank and music progression a score upon death, im thinkig bloody
+palace kind of like dmc" -- and, asked which place and how the waves go: "first plaza of the ported city, dense
+fog. when last enemy dies the floor resets, a blinding white light, and more enemies are added."
+
+`TND_LAYER=15` is layer 14, and under `PALACE` what is its own. THIS IS ONLY ITS FIRST STEP, in the yard's room:
+- **THE FLOORS.** Nobody is placed by a knob. The first floor stands two of the horde at their marks, awake: they
+  come for him. What is OUT is GONE (P99's return to its mark is the yard's). With the last one gone the whole
+  glass goes WHITE -- all of it, fading over 48 frames -- and the next floor stands one more: the four of the
+  horde, the common, the elite, his double; from the sixth floor, all seven. The marks are an arc before him.
+  (The knob's placing, 250 words of it, is not carried: the program has 320 to spare.)
+
+NOT YET, and said so to him: the first plaza of the city and its fog (the fight's room is the lab's hall, north of
+the town: moving it into the town's own arena is the next piece); the rank and the music that follows it
+(`exp/rank`); the score on death, and a death that ends the run; the start menu. Past the seventh body a floor
+does not get harder.
+
+Tests: layer 14's 10 and this one's 1; layers 0, 4, 8, 10, 11, 12, 13, 14 and the full cart byte-identical.

@@ -264,3 +264,47 @@ def test_a_body_thrown_into_another_takes_it_off_its_feet(cart):
     took, down, fall, moved = thrown(1.3)
     assert took == 1 and down and fall == 3 and moved > 0.05, (took, down, fall, moved)
     assert thrown(4.5)[:2] == (0, 0), "a body standing clear of the throw"
+
+
+# ---- P100: layer 15, the palace ---------------------------------------------------------------------------------------
+PALACE = ROOT / "build" / "layer15" / "tnd.zol"
+
+
+@pytest.fixture(scope="module")
+def palace():
+    if not PALACE.is_file() or PALACE.stat().st_mtime < Y13.GEN.stat().st_mtime:
+        env = dict(os.environ, TND_LAYER="15")
+        for k in ("TND_SONG", "TND_OUT", "TND_CROWD", "TND_CARTMESH", "TND_AT"):
+            env.pop(k, None)
+        subprocess.run([sys.executable, str(Y13.GEN)], check=True, env=env, cwd=ROOT, stdout=subprocess.DEVNULL)
+    return PALACE
+
+
+def test_the_palaces_floors(palace):
+    """P100 ("im thinkig bloody palace kind of like dmc" -- "when last enemy dies the floor resets, a blinding white
+    light, and more enemies are added"): the first floor stands two up and they come for him; what is out is gone;
+    with the last one gone the glass goes white and the next floor stands one more, to all seven"""
+    sys.path.insert(0, str(ROOT / "experiments" / "park"))
+    import bot
+    g = bot.Park(palace)
+    for _ in range(8):
+        g.step(0)
+    up = lambda: [g.cell(f"e{k}_st") for k in range(7)]
+    assert g.cell("palace_floor") == 1 and sum(up()) == 2, (g.cell("palace_floor"), up())
+    hp = g.cell("p_hp")
+    for _ in range(900):
+        g.step(0)
+    assert g.cell("p_hp") < hp, "nobody came for him in fifteen seconds"
+    for floor in range(2, 9):
+        for k in range(7):                       # (everybody on the floor, put out)
+            if g.cell(f"e{k}_st"):
+                g.d[g.syms[f"e{k}_hp"]], g.d[g.syms[f"e{k}_st"]], g.d[g.syms[f"e{k}_t"]] = 0, 2, 0
+        white = 0
+        for _ in range(200):
+            g.d[g.syms["p_hp"]] = 140
+            g.step(0)
+            white = max(white, g.d[spec.CO_BASE + 1 + 3 * spec.CO_STRIDE + 2] >> 24)
+            if g.cell("palace_floor") == floor and not g.cell("palace_light"):
+                break
+        assert g.cell("palace_floor") == floor and sum(1 for s_ in up() if s_) == min(floor + 1, 7), (floor, g.cell("palace_floor"), up())
+        assert white == 16, f"the light at its most {white} of 16"
