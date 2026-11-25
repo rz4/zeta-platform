@@ -115,7 +115,7 @@ L6 = LAYER in (6, 7, 8)          # the bunker's map and his waymarks (P39, TND-W
 L7 = LAYER in (7, 8)             # the bunker is a door and rooms: the prep table, the ring, the range (P40)
 L8 = LAYER == 8                  # the world persists (P41): a clock, packs on patrol that strike, health, medicine, an end
 SONG_CH = range(4, 11)          # the record's voices (the synth theme's, freed)
-SONG_VOL = 15                   # each voice's level at full bus (x bus / 256)
+SONG_VOL = 11 if os.environ.get("TND_LAYER") == "15" else 15   # each voice's level at full bus (x bus / 256); P104: the palace's lower
 OUT = Path(os.environ.get("TND_OUT", ROOT / "build" / f"layer{LAYER_DIR}" / "tnd.zol"
                           if "TND_LAYER" in os.environ else
                           ROOT / "build" / "song" / "tnd.zol" if SONG else HERE / "tnd.zol"))
@@ -13474,6 +13474,7 @@ else:
     SECT = cart.data(Table(_rows), "song_sections")
     SBEAT = round(bakepcm.PCM_HZ * 60 / 122)               # 7,554 samples
     pg = p.label("prog")
+    _lad0 = [len(g_._out) for g_ in p.progs]
     # the journey has come as far as the section playing (if on the ladder)
     p.load(SM["cur"]).push(7).emit("lt", f"jz {pg}_j")
     p.load(SM["cur"]).store(SM["j"])
@@ -13524,6 +13525,19 @@ else:
         p.load(CRST).emit("shr 1").push(1).emit("add", "dup").push(6).emit("swap", "lt", f"jz {pg}_k6", "drop").push(6)
         p.mark(f"{pg}_k6")
         p.store(SM["t"]).set(SM["q"], 2)
+    if PALACE:
+        # P104 (the player: "music does not change with rank fix, each rank should have its own unique more intense
+        # part of the song, smooth tranistions up and down ranks"). The song climbed with the PARK's streak (P60),
+        # which the palace never has: it played the lift for ever. Here EACH RANK IS ITS OWN SECTION, quietest to
+        # most intense by the record's own loudness (rms of the bake: lift 18, breakdown 28, drive 41, verse 41,
+        # surge 45, chorus 46, and the climax, its 35 seconds the record's height): D the lift, C the breakdown, B the
+        # drive, A the verse, S the surge, SS the chorus, SSS the climax. A change, up or down, is cut on the next
+        # bar -- the record's own grid -- and the music dips under it and swells back after (the bus, below).
+        for g_, n_ in zip(p.progs, _lad0):
+            del g_._out[n_:]
+        RSEC = cart.data(Table([SECS.index(n_) for n_ in ("lift", "breakdown", "drive", "verse", "surge", "chorus", "climax")]),
+                         "palace_rank_sections")
+        p.push(int(RSEC)).load(SY["rank"]).emit("add", "loadi").store(SM["t"]).set(SM["q"], 1)
     p.load(SY["rank"]).store(SM["last"]).load(F["hs"]).store(SM["hs"])
     p.load(SM["t"]).store(SM["pend"])                    # (pend == cur: none)
     # the cut, if one is pending and its grid line falls in this frame
@@ -13564,6 +13578,15 @@ else:
     p.push(176).load(F["dead"]).emit(f"jz {pg}_wa")
     p.emit("drop").push(0)
     p.mark(f"{pg}_wa")
+    if PALACE:
+        # (P104: under a change of section it dips to 96, and comes back up after the cut; and while a blow's sound
+        # plays -- the player: "make sure the combat noises are no being drowned out" -- it sits at 112 at the most)
+        p.load(SM["pend"]).load(SM["cur"]).emit("eq", f"jz {pg}_dip")
+        p.load(SFX_T).push(SFX_N).emit("lt", f"jz {pg}_wa2")
+        p.emit("mini 112", f"jmp {pg}_wa2")
+        p.mark(f"{pg}_dip")
+        p.emit("mini 96")
+        p.mark(f"{pg}_wa2")
     p.store(SM["t"])
     p.load(SM["bus"]).load(SM["t"]).emit("lt", f"jz {pg}_dn")
     p.addi(SM["bus"], 6)

@@ -4098,3 +4098,22 @@ the plaza".
 
 Program 27,269 words (the song's build 27,179); data memory 235 free. Tests: the palace's 4; layers 0 to 14 and
 the full cart byte-identical.
+
+## P104: layer 15 -- each rank its own part of the song; the blows heard (2026-11-25)
+
+The player: "music does not change with rank fix, each rank should have its own unique more intense part of the
+song, smooth tranistions up and down ranks, also make sure the combat noises are no being drowned out".
+
+- **WHY IT DID NOT CHANGE.** The record climbs its ladder with the PARK's streak (P60: the park had no rank) -- and
+  the palace is built on the park: its streak is always nothing, so the song played the lift for ever, whatever
+  the rank.
+- **EACH RANK ITS OWN SECTION**, quietest to most intense by the record's own loudness (rms of the bake): D the
+  lift (18), C the breakdown (28), B the drive (41), A the verse (41), S the surge (45), SS the chorus (46), SSS
+  the climax -- its thirty-five seconds the record's height. The intro, with its steady 2 kHz line (P60), is not
+  used. Scripted D to SSS and back: each rank its section.
+- **SMOOTH, UP AND DOWN.** A change is cut on the next bar, the record's own grid (two seconds at most), and the
+  music DIPS under it -- down to 96 of the bus's 176 while the cut is waiting -- and swells back up after.
+- **THE BLOWS HEARD.** The record's voices are 11 of 15 in the palace (they were 15), and while a blow's sound
+  plays the music sits at 112 at the most.
+
+Tests: the palace's 4. Layers 0 to 12, the song builds of 13 and 14 and the full cart byte-identical.
