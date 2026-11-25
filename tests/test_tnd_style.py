@@ -308,3 +308,80 @@ def test_the_palaces_floors(palace):
                 break
         assert g.cell("palace_floor") == floor and sum(1 for s_ in up() if s_) == min(floor + 1, 7), (floor, g.cell("palace_floor"), up())
         assert white == 16, f"the light at its most {white} of 16"
+
+
+def _palace_bot(palace):
+    sys.path.insert(0, str(ROOT / "experiments" / "park"))
+    import bot
+    g = bot.Park(palace)
+    for _ in range(8):
+        g.step(0)
+    return g
+
+
+def _clear_floor(g):
+    floor = g.cell("palace_floor")
+    for k in range(7):
+        if g.cell(f"e{k}_st"):
+            g.d[g.syms[f"e{k}_hp"]], g.d[g.syms[f"e{k}_st"]], g.d[g.syms[f"e{k}_t"]] = 0, 2, 0
+    for _ in range(200):
+        g.d[g.syms["p_hp"]] = 140
+        g.step(0)
+        if g.cell("palace_floor") == floor + 1 and not g.cell("palace_light"):
+            return
+
+
+def _die(g):
+    """he stands with nothing left until something strikes him, and lies past the beat"""
+    for _ in range(1800):
+        g.d[g.syms["p_hp"]] = min(g.cell("p_hp"), 1)
+        g.step(0)
+        if g.cell("f_dead") > 50:
+            return
+    raise AssertionError("nobody struck him down in half a minute")
+
+
+def test_past_the_sixth_floor_they_are_quicker_and_tougher(palace):
+    """P101 ("a combo of both"): from the seventh floor every size is quicker, its tell and its wait shorter, and every
+    body a quarter of its whole tougher a floor; a new run begins from the rows as they were"""
+    g = _palace_bot(palace)
+    a = g.syms["yard_sizes"]
+    row0 = [g.d[a + i] for i in range(28)]
+    for _ in range(9):
+        _clear_floor(g)
+    assert g.cell("palace_floor") == 10
+    assert g.d[a] > row0[0] and g.d[a + 1] < row0[1] and g.d[a + 2] < row0[2], (row0[:3], [g.d[a + i] for i in range(3)])
+    whole = dict(enumerate([8, 5, 3, 3, 3, 3, 12]))
+    hp = [g.cell(f"e{k}_hp") for k in range(7)]
+    assert all(h > whole[k] for k, h in enumerate(hp)), hp
+    _die(g)
+    for i in range(80):
+        g.step(spec.PAD_A if i % 10 < 3 else 0)
+    assert g.cell("palace_floor") == 1 and g.cell("palace_best") == 10
+    assert [g.d[a + i] for i in range(28)] == row0, "a new run did not begin from the rows as they were"
+
+
+def test_dying_shows_the_floor_and_a_new_run_begins(palace):
+    """P101 ("a score upon death"): down past the beat the glass says FLOOR and the floor he reached; A is a new run
+    from the first floor, his health whole, the meter at nothing"""
+    g = _palace_bot(palace)
+    _clear_floor(g)
+    _clear_floor(g)
+    _die(g)
+    assert g.cell("f_dead") > 46
+    seen = [g.d[spec.DL_BASE]]
+    assert seen[0] >= 2 * 18, f"the death screen drew {seen[0]} triangles"
+    for i in range(60):
+        g.step(spec.PAD_A if i % 10 < 3 else 0)
+    assert g.cell("f_dead") == 0 and g.cell("palace_floor") == 1 and g.cell("p_hp") == 140 and g.cell("s_pts") == 0
+
+
+def test_the_palace_pays_the_rank(palace):
+    """P101: the rank (exp/rank's P94) is the palace's: a blow that lands pays the meter"""
+    g = _palace_bot(palace)
+    paid = 0
+    for i in range(900):
+        g.d[g.syms["p_hp"]] = 140
+        g.step(spec.PAD_X if (i // 4) % 6 == 0 else 0)
+        paid = max(paid, g.cell("s_pts"))
+    assert paid > 0, "nothing paid the meter in fifteen seconds of jabs"

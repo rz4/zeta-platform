@@ -4023,3 +4023,35 @@ the town: moving it into the town's own arena is the next piece); the rank and t
 does not get harder.
 
 Tests: layer 14's 10 and this one's 1; layers 0, 4, 8, 10, 11, 12, 13, 14 and the full cart byte-identical.
+
+## P101: layer 15, the palace -- all its pieces, a first cut (2026-11-25)
+
+The player, of P100: past the sixth floor "a combo of both" (tougher and faster) -- "get it to having all the things".
+
+- **ROOM MADE.** The palace does not carry the full game's demon minds (DMIND and its routines: 1,160 words). Proven
+  by replaying a session's presses on the palace with and without them: its memory the same in every one of 14,658
+  frames (but for the sound's events, whose timing follows the program's length). Their labels stay, each a `ret`.
+- **HARDER PAST THE SIXTH.** Each floor on, every size's row a sixteenth quicker and heavier-handed, its tell two
+  frames shorter, its wait after a string six, its dodges sixteen more (to ceilings: pace 0.12, tell 6, wait 10,
+  dodges 200, weight 2.2) -- and every body a quarter of its whole tougher a floor. On the tenth floor the horde
+  walks 27% faster and the double's tell is six frames; everyone has twice what he had. A run begins from the rows
+  as they were.
+- **THE RANK AND ITS MUSIC.** `exp/rank`'s meter (P94: pay by way, spent after three, a change of style links, a
+  blow taken keeps 45%), on the glass at the top right -- and his heel pays it as a way of its own. The music has
+  followed the rank all along (the stems, and the recorded song's ladder): it climbs with it now.
+- **DEATH ENDS THE RUN.** Down past the beat the glass says FLOOR and the floor he reached, the number in the colour
+  of the best rank of the run. (The HUD's words have 78 triangles; FLOOR and two digits are 56. The first cut drew
+  more -- the best floor, BEST, RETRY -- overran its lease, wrote over the strings' table, and trapped the next
+  frame.) A is a new run: the first floor, health whole, the meter at nothing. His best floor is kept for the
+  session.
+- **THE START.** No flight: the cart boots to its own start screen -- the dark, the dusk rising from the floor, TND
+  large in bone with the N in blood, a blood rule, PRESS START -- in the game's own blocky hand.
+- **THE LOOK.** The fight's room dressed as the town at dusk: asphalt underfoot, the walls brick fronts with
+  shutters at the street and dark windows (the odd one lit), the town's own dusk for the haze, DENSE -- from a
+  unit and a half, full at seventeen.
+
+NOT YET THE FIRST PLAZA ITSELF: the fight's room is still the lab's hall (north of the town, four tiles by two),
+dressed. Moving the fight into the town's arena is the next large piece.
+
+Tests: layer 15's 4; layer 14's 10; the yard's 44. Layers 0, 4, 8, 10, 11, 12, 13, 14 and the full cart
+byte-identical. Program 26,891 words (the song's build 26,801); data memory 468 free.
