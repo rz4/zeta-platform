@@ -600,19 +600,36 @@ if LAYER == 13:
     # an upper half over other legs is moved to theirs.
     _seam = np.intersect1d(halves[0][1], halves[1][1])
     _jc = [to_zeta(V_)[_seam].mean(0) for s_ in SEQS for V_ in d["V_" + s_]]
+    # P86 (the player: "the running gun waist needs fixing too"): ...and how its waist is TURNED -- the ring's pitch
+    # from the first idle pose's, fitted in the plane he leans in: a stride's hips tip forward under a chest that
+    # stood upright on them. A third byte, in 1,024ths of a turn.
+    # (the ring itself is no measure: the thighs pull it about, sixty degrees a stride. The LEAN is the pose's own
+    # chest's -- the line from its waist to its shoulders and head, the vertices that are highest standing)
+    _z0 = to_zeta(d["V_idle"][0])
+    _c0 = _z0[_seam].mean(0)
+    _uv = halves[0][1]
+    # (his chest and head, not his arms: the vertices nearest the spine's own line, above his chest's middle)
+    _hi = _uv[_z0[_uv, 1] > _c0[1] + 0.30]
+    _top = _hi[np.argsort(np.hypot(_z0[_hi, 0] - _c0[0], _z0[_hi, 2] - _c0[2]))[:max(12, len(_hi) // 3)]]
+
+    def _tip(V_):
+        q_ = to_zeta(V_)
+        v_ = q_[_top].mean(0) - q_[_seam].mean(0)
+        return float(np.arctan2(v_[2], v_[1])) * 1024 / (2 * np.pi)
+    _t0 = _tip(d["V_idle"][0])
+    _jp = [_tip(V_) - _t0 for s_ in SEQS for V_ in d["V_" + s_]]
     JOIN_Q = 48
     _jw = []
-    for c_ in _jc:
-        y_, z_ = int(round(float(c_[1]) * JOIN_Q)), int(round(float(c_[2]) * JOIN_Q))
+    for c_, a_ in zip(_jc, _jp):
+        y_, z_, a_ = int(round(float(c_[1]) * JOIN_Q)), int(round(float(c_[2]) * JOIN_Q)), int(round(max(-120.0, min(120.0, a_))))
         assert -128 <= y_ < 128 and -128 <= z_ < 128, (y_, z_)
-        _jw.append((y_ & 255) | (z_ & 255) << 8)
-    _jw += [0] * (len(_jw) & 1)
-    JOIN_T = cart.data(Table([_jw[i] | _jw[i + 1] << 16 for i in range(0, len(_jw), 2)]), "pose_waist")
+        _jw.append((y_ & 255) | (z_ & 255) << 8 | (a_ & 255) << 16)
+    JOIN_T = cart.data(Table(_jw), "pose_waist")
     if os.environ.get("TND_JOIN"):
         _A = np.array(_jc)
         print("waists: %d seam vertices, %d poses; up %.2f..%.2f, ahead %.2f..%.2f" % (len(_seam), len(_A), _A[:, 1].min(), _A[:, 1].max(), _A[:, 2].min(), _A[:, 2].max()))
-        for p_ in (0, 340, 388, 391, 676, 685, 689, 692, 695, 724):
-            print("   pose", p_, np.round(_A[p_], 3))
+        for p_ in (0, 340, 388, 391, 395, 399, 676, 685, 689, 692, 695, 724):
+            print("   pose", p_, np.round(_A[p_], 3), "pitch %.0f" % _jp[p_])
 if LAB and not YARD:
     ENEMY[-1]["T"]["n"] = NPOSE["idle"]          # (the clone stands in the player's own idle)
 if DEDUPE:
@@ -3567,7 +3584,7 @@ RUN_STAND = int(0.02 * ONE)     # P24: under this speed, in the run, he stands
 WJ_KICK = int(0.30 * ONE)       # P25: the wall jump's push off the wall, a frame: across a
                                 # street (8.1 wall to wall, for him) before he is down, so
                                 # the next wall is his -- in the run and the boxer alike
-WJ_COYOTE, WJ_MAX = (12 if PARK else 8), (6 if PARK else 2)   # (P58: six in the park, for its chimneys; P62: 12)
+WJ_COYOTE, WJ_MAX = (12 if PARK else 8), (2 if LAYER == 13 else 6 if PARK else 2)   # (P58: six in the park, for its chimneys; P62: 12)
 # ...the frames a touch still counts, and how many an air
 WJ_FRAMES = 24                  # ...and how long it throws him (a flip's length the spin knows)
 # P27: THE SLIDE (the player, asked what Down should do in the run: "slide!!").
@@ -4134,9 +4151,10 @@ if LAB:
         # P84: IN THE RUN'S AIR (his 47 minutes of P83: X pressed in the air or a flip 246 times and Y 92, and 251 of
         # them began nothing; a round fired from the air took something off a body 12% of the time, from the ground 78%)
         YLN, YDV, YBX, YAD, YADH = (cart.var("yard_" + k_) for k_ in ("lance", "air_dive", "burst", "aim_down", "aim_down_way"))
+        YHS, HSPRING_N = cart.var("yard_spring_t"), 14
         LANCE_V, DIVE_DN, SPRING_V = int(0.32 * ONE), int(0.20 * ONE), int(0.215 * ONE)
         BURST_SPRING, BURST_SLAM, BURST_N = int((1.5 - 0.75) * ONE), int((2.2 - 0.75) * ONE), 6
-        YJ0, YJ1, YJU, YJF = (cart.var("yard_join" + k_) for k_ in ("0", "1", "_up", "_ahead"))   # P85: the two waists; the chest's move
+        YJ0, YJ1, YJU, YJF, YJP = (cart.var("yard_join" + k_) for k_ in ("0", "1", "_up", "_ahead", "_turn"))   # P85: the two waists; the chest's move
         YCON = cart.var("yard_struck_by")                  # P83: the bodies this blow has struck, a bit each
         YSLW = cart.var("yard_slow_was")                   # P82: time was slowed last frame
         YFAR = cart.var("yard_far", len(ENEMY))            # P78: drawn as its far body (set where it is listed)
@@ -6933,6 +6951,8 @@ if L1:
         p.load(PARK_VKD).emit(f"jz {hv_}_ok", f"jmp {jp}")
         p.mark(f"{hv_}_ok")
         p.addi(WJN, 1).set(WALLT, 0).set(F["pvy"], PARK_UPKICK).set(PARK_VKD, 1)
+        if YARD:
+            p.set(F["flipu"], 0).set(YDV, 0).set(YLN, 0)
         p.emit(f"jmp {jp}")
         p.mark(f"{hv_}_s")
         pw_ = p.label("wjpad")
@@ -6958,6 +6978,12 @@ if L1:
             p.mark(ax_)
         p.mark(pw_)
     p.addi(WJN, 1).set(WALLT, 0)
+    if YARD:
+        # P86 (the player: "The walls should be treated like floors, two jumps at max then gravity changes back to the
+        # floor. think of those as mirrors" -- and, asked which: a wall RE-ARMS his jumps): a kick off a wall is a
+        # landing on it -- the flip is his again, and the dive and the lance -- and the kick is the jump from it,
+        # mirrored. Twice an air (it was six); then the walls give nothing, and he comes down to the floor.
+        p.set(F["flipu"], 0).set(YDV, 0).set(YLN, 0)
     if PARK:
         p.set(PARK_FLP, 0)                                                # (a kick's throw is its own)
     p.load(F["vx"]).store(F["evx"]).load(F["vz"]).store(F["evz"])
@@ -6972,7 +6998,7 @@ if L1:
     p.load(F["evx"]).store(F["vx"]).load(F["evz"]).store(F["vz"])
     p.load(YAW).emit("dup").store(F["latch"]).store(F["cgr"])
     p.set(F["evk"], 0).set(F["evt"], WJ_FRAMES).set(F["evf"], WJ_FRAMES)   # (the throw lasts
-    p.set(F["pvy"], PARK_KICKV if PARK else FLIP_V).set(F["flipu"], 1)    # the long flip's 24
+    p.set(F["pvy"], PARK_KICKV if PARK else FLIP_V).set(F["flipu"], 0 if YARD else 1)    # the long flip's 24 (P86: in the yard the flip is his again)
     p.emit(f"jmp {jp}")                                                   # frames: 7.2 across)
     p.mark(wj_)
 if PARK:                                          # (P58: the flip spent, an A in the air is kept for the landing)
@@ -8196,7 +8222,7 @@ if LAB:
         p.load(YDV).emit(f"jz {ld_}")
         p.set(PARK_SPQ, BURST_N).set(F["con"], 0).set(YCON, 0).set(PARK_RJS, 1)
         p.load(YDV).push(1).emit("eq", f"jz {ld_}_slam")
-        p.set(YBX, BURST_SPRING)                          # the handspring: up again, the flip still his
+        p.set(YBX, BURST_SPRING).set(YHS, HSPRING_N)       # the handspring: up again, the flip still his
         p.set(F["py"], 1).set(F["pvy"], SPRING_V).set(JV0, SPRING_V).set(RLND, 0).set(F["evf"], 0).set(F["evt"], 0)
         p.set(GRISE, TAP_G).set(GFALL, PARK_FALL)
         p.set(YDV, 0).emit(f"jmp {ld_}")
@@ -8568,6 +8594,20 @@ if YARD:
     # changed in one frame -- standing, then mid-stride; mid-stride, then standing. Into it he DROPS AND DRIVES (the
     # landing's crouch rising into the stride's first pose, five frames); out of it at pace he BRAKES (the stride
     # sinking into that crouch and up, eight). On the ground and his own; a blow, a flip or the air has him first.
+    # P86 (the player: "the running jump dive pose is a hand spring then jump if strung together like id to do front
+    # hand springing"): off his hands he comes OVER -- the forward flip's second half, hands down to feet under him
+    # -- and X again in that air is the next one: dive, hands, over, dive
+    hs_ = p.label("springpose")
+    p.load(YHS).emit(f"jz {hs_}")
+    p.addi(YHS, -1)
+    p.load(F["py"]).emit(f"jz {hs_}_end")
+    p.load(YDV).emit(f"jz {hs_}_go", f"jmp {hs_}_end")
+    p.mark(f"{hs_}_go")
+    p.push(base["flip_fwd"] + NPOSE["flip_fwd"] - 1).load(YHS).push((NPOSE["flip_fwd"] // 2) * 256 // HSPRING_N).emit("mul", "shr 8", "sub")
+    p.store(POSE).emit(f"jmp {L['pd']}")
+    p.mark(f"{hs_}_end")
+    p.set(YHS, 0)
+    p.mark(hs_)
     ln_ = p.label("lancepose")                       # P84: the lance -- the slide's own body, in the air
     p.load(YLN).emit(f"jz {ln_}")
     p.load(F["py"]).emit(f"jz {ln_}")
@@ -9177,6 +9217,29 @@ if LAB:
     p.addi(GUNK, -1)
     p.mark(f"{ab}_k")
     p.load(WBEND).load(GUNK).push(6).emit("mul", "sub").store(WBD)
+    if YARD:
+        # P85, P86: THE TWO WAISTS -- the legs' and the chest's own: how far up, how far ahead, how turned
+        jn = p.label("join")
+        p.set(YJU, 0).set(YJF, 0).set(YJP, 0)
+        p.load(POSE).load(UPOSE).emit("eq", f"jz {jn}_d", f"jmp {jn}")
+        p.mark(f"{jn}_d")
+        p.load(POSE).push(int(JOIN_T)).emit("add", "loadi").store(YJ0)
+        p.load(UPOSE).push(int(JOIN_T)).emit("add", "loadi").store(YJ1)
+        for sh_, out_ in ((0, YJU), (8, YJF), (16, None)):       # ( legs' - chest's ), a signed byte each
+            for c_ in (YJ0, YJ1):
+                p.load(c_)
+                if sh_:
+                    p.emit(f"shr {sh_}")
+                p.push(255).emit("and").push(128).emit("xor").push(128).emit("sub")
+            p.emit("sub")
+            if out_ is None:
+                # (a third of it: the gun's own pose leans back a twentieth of a turn and a stride leans forward a
+                # twelfth -- the whole difference would put the gun on the floor)
+                p.push(85).emit("mul", "shr 8").store(YJP)
+                p.load(WBD).load(YJP).emit("add").store(WBD)
+            else:
+                p.push(ONE // JOIN_Q).emit("mul").store(out_)
+        p.mark(jn)
     sin_of(p, cell=WBD)
     p.store(int(AT4))                                                     # its sine...
     sin_of(p, 256, cell=WBD)
@@ -9188,27 +9251,9 @@ if LAB:
     p.push(0).load(F["pc"]).load(LS0).emit("mulq", "sub").store(int(UXS) + 2)
     if YARD:
         # P85: ...and to the waist of the legs it is over (above)
-        jn = p.label("join")
-        p.set(YJU, 0).set(YJF, 0)
-        p.load(POSE).load(UPOSE).emit("eq", f"jz {jn}_d", f"jmp {jn}")
-        p.mark(f"{jn}_d")
-        for k_, cell_ in enumerate((POSE, UPOSE)):
-            p.load(cell_).emit("shr 1").push(int(JOIN_T)).emit("add", "loadi")
-            p.load(cell_).push(1).emit("and", f"jz {jn}_h{k_}")
-            p.emit("shr 16")
-            p.mark(f"{jn}_h{k_}")
-            p.push(0xFFFF).emit("and").store(YJ0 if k_ == 0 else YJ1)
-        for sh_, out_ in ((0, YJU), (8, YJF)):                   # how far up, how far ahead: ( legs' - chest's )
-            for c_ in (YJ0, YJ1):
-                p.load(c_)
-                if sh_:
-                    p.emit(f"shr {sh_}")
-                p.push(255).emit("and").push(128).emit("xor").push(128).emit("sub")
-            p.emit("sub").push(ONE // JOIN_Q).emit("mul").store(out_)
         p.load(int(UXS) + 1).load(YJU).emit("add").store(int(UXS) + 1)
         p.load(int(UXS)).load(F["ps"]).load(YJF).emit("mulq", "sub").store(int(UXS))
         p.load(int(UXS) + 2).load(F["pc"]).load(YJF).emit("mulq", "add").store(int(UXS) + 2)
-        p.mark(jn)
     # HIS HAND, when his upper half is in the gun's clips and his arm is out: bent with him, in the world
     p.set(HNDON, 0)
     p.load(UPOSE).push(base["gun"]).emit("sub").store(LS0)
@@ -9220,6 +9265,15 @@ if LAB:
     p.load(LS0).push(2).emit("add", "loadi").store(LS2)                               # how far ahead
     p.load(LS2).load(int(AT4) + 1).emit("mulq").load(LS1).load(int(AT4)).emit("mulq", "add").store(int(AT4) + 2)
     p.load(LS1).load(int(AT4) + 1).emit("mulq").load(LS2).load(int(AT4)).emit("mulq", "sub").push(WAIST).emit("add")
+    if YARD:
+        # P86: ...and LEANT with him. His whole body leans into his pace, about his feet (P15) -- eight degrees at the
+        # run's -- and his hand was reckoned upright: the gun rode a fifteenth of a unit over his fists and as far
+        # behind them. (A small angle: turned by its own measure.)
+        p.store(YJ0)
+        p.load(F["spd"]).push(LEAN_PITCH).emit("mul", "shr 16").push(int(round(2 * np.pi / 1024 * ONE))).emit("mul").store(YJ1)
+        p.load(int(AT4) + 2).load(YJ0).load(YJ1).emit("mulq", "add")
+        p.load(YJ0).load(int(AT4) + 2).load(YJ1).emit("mulq", "sub")
+        p.emit("swap").store(int(AT4) + 2)
     p.load(F["py"]).emit("add").load(GYC).emit("add").store(int(HNDW) + 1)
     if YARD:                                                                          # (P85: his hand goes with his chest)
         p.load(int(HNDW) + 1).load(YJU).emit("add").store(int(HNDW) + 1)
@@ -11266,8 +11320,9 @@ if LAB and "player" not in OMIT:
     # P46: THE GUN IN HIS HAND, lying along his aim; and for three frames after a round, the flash at its mouth
     go = p.label("gun")
     p.load(HNDON).emit(f"jz {go}")
+    # (P86: the gun lies along his AIM -- his chest's lean over his legs is not his aim)
     p.object(NOBJ, GUN_M, (f"load {int(HNDW)}",), (f"load {int(HNDW) + 1}",), (f"load {int(HNDW) + 2}",),
-             (f"load {int(HEAD)}", f"load {int(WBD)}", "push 1023", "and", "shl 10", "or"), spec.OBJ_CULL)
+             (f"load {int(HEAD)}", f"load {int(WBD)}") + ((f"load {int(YJP)}", "sub") if YARD else ()) + ("push 1023", "and", "shl 10", "or"), spec.OBJ_CULL)
     p.load(MUZT).emit(f"jz {go}")
     p.addi(MUZT, -1)
     p.object(NOBJ, FLASH_M, (f"load {int(HNDW)}", f"load {int(F['ps'])}", f"push {int(0.30 * ONE)}", "mulq", "sub"),

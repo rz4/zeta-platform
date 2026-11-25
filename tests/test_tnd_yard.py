@@ -1093,9 +1093,74 @@ def test_his_chest_sits_on_his_hips_whatever_his_legs_do(cart):
             # (the table's own word for each half, read back: the move is the difference of the two waists)
             w = []
             for cell in ("pose", "aim_upose"):
-                v = g.d[g.syms["pose_waist"] + (g.cell(cell) >> 1)] >> (16 * (g.cell(cell) & 1)) & 0xFFFF
+                v = g.d[g.syms["pose_waist"] + g.cell(cell)]
                 w.append((((v & 255) ^ 128) - 128, ((v >> 8 & 255) ^ 128) - 128))
             assert g.cell("yard_join_up") == (w[0][0] - w[1][0]) * (ONE // 48)
             assert g.cell("yard_join_ahead") == (w[0][1] - w[1][1]) * (ONE // 48)
             low = min(low, g.cell("yard_join_up") / ONE)
     assert low < -0.25, f"over the landing's crouch his chest came down {-low:.2f}"
+
+
+# ---- P86 -------------------------------------------------------------------------------------------------------------
+def test_handsprings_string_together(cart):
+    """P86 ("the running jump dive pose is a hand spring then jump if strung together like id to do front hand
+    springing"): X in a jump, his hands take the ground and he comes over in the forward flip's second half; X again
+    in that air, and again -- each a handspring, the flip never spent"""
+    A, Xb = spec.PAD_A, spec.PAD_X
+    y, g = _run_at(cart, [])
+    springs, over, last = 0, set(), 0
+    for i, q in enumerate([0] * 6 + [A] * 3 + [0] * 7 + [Xb] * 3 + [0] * 14 + [Xb] * 3 + [0] * 9):
+        g.step(L | U | q)
+        t = g.cell("yard_spring_t")
+        springs += t > last
+        last = t
+        if t and g.cell("f_py") > 0:
+            over.add(g.cell("pose"))
+        assert not g.cell("f_flipu")
+    assert springs == 2, f"{springs} handsprings from two presses in one air"
+    assert len(over) >= 5 and max(over) - min(over) < 10, f"coming over, his poses: {sorted(over)}"
+
+
+def test_a_wall_kick_gives_his_flip_back_twice_an_air(cart):
+    """P86 ("The walls should be treated like floors, two jumps at max then gravity changes back to the floor. think
+    of those as mirrors" -- asked which, he chose: a wall re-arms his jumps): a kick off a wall is a landing on it --
+    the flip he had spent is his again -- and there are two of them an air (six in the park), not three"""
+    A = spec.PAD_A
+    y, g = _run_at(cart, [])
+    for q in [A] * 3 + [0] * 6 + [A] * 3 + [0] * 4:
+        g.step(L | U | q)
+    assert g.cell("f_flipu") == 1 and g.cell("f_py") > 0
+
+    def wall():
+        g.d[g.syms["wall_t"]] = 6                # (a wall across the way he runs, just touched)
+        g.d[g.syms["wall_axes"]] = 1
+        g.d[g.syms["wall_sx"]] = 0xFFFFFFFF if g.cell("f_vx") < 0 else 1
+        g.d[g.syms["f_py"]] = max(g.cell("f_py"), 2 * ONE)
+        g.step(L | U)
+        g.d[g.syms["wall_t"]] = 6
+        g.step(L | U | A)
+        g.step(L | U | A)
+        for _ in range(8):
+            g.step(L | U)
+    wall()
+    assert g.cell("wall_n") == 1 and g.cell("f_flipu") == 0, (g.cell("wall_n"), g.cell("f_flipu"))
+    g.d[g.syms["f_flipu"]] = 1
+    wall()
+    assert g.cell("wall_n") == 2 and g.cell("f_flipu") == 0, (g.cell("wall_n"), g.cell("f_flipu"))
+    g.d[g.syms["f_flipu"]] = 1
+    wall()
+    assert g.cell("wall_n") == 2 and g.cell("f_flipu") == 1, "a third wall in one air gave him something"
+
+
+def test_his_chest_leans_with_his_legs_and_the_gun_stays_on_his_aim(cart):
+    """P86 ("the running gun waist needs fixing too"): over the stride the gun's upper half is turned a third of the
+    way from its own lean (back) to the legs' (forward) -- and the gun, lying along his aim, is not turned with it"""
+    B = spec.PAD_B
+    y, g = _run_at(cart, [])
+    turns = []
+    for i in range(40):
+        g.step(L | U | B)
+        if i > 20:
+            turns.append(g.cell("yard_join_turn"))
+            assert g.cell("aim_bend_d") == g.cell("aim_bend") + g.cell("yard_join_turn") - 6 * g.cell("aim_kick")
+    assert 25 < min(turns) and max(turns) < 70, f"his chest's turn over the stride: {min(turns)}..{max(turns)} of 1,024"

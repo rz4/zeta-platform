@@ -3635,3 +3635,30 @@ A blow thrown in the air still brings its own standing legs.
 
 Tests 37. Layers 0, 4, 8, 10, 11, 12 and the full cart byte-identical. The program 26,060 words (3,206 from its
 limit); data memory 1,107 free.
+
+## P86: the chest leans with the legs; the handspring comes over; a wall gives his flip back (2026-11-25)
+
+The player: "The walls should be treated like floors, two jumps at max then gravity changes back to the floor. think
+of those as mirrors." (Asked which of three readings -- a wall re-arms his jumps; he sticks and stands on it; he runs
+on it -- he chose the first.) "the running gun waist needs fixing too," "and the running jump dive pose is a hand
+spring then jump if strung together like id to do front hand springing."
+
+THE RUNNING GUN'S WAIST. P85 moved his chest to his legs' waist and left it UPRIGHT -- and the gun's own pose leans
+BACK a twentieth of a turn where a stride leans FORWARD a twelfth. Every pose now says its own chest's lean too (the
+line from its waist to its chest and head; the waist's ring itself is no measure -- the thighs pull it sixty degrees
+a stride), a third byte; an upper half over other legs is turned A THIRD of the way to theirs (the whole of it would
+put the gun on the floor). The gun lies along his AIM and is not turned with it.
+AND HIS HAND LEANS WITH HIM: his whole body leans into his pace about his feet (P15, eight degrees at the run's) and
+his hand was reckoned upright, so the gun rode a fifteenth of a unit over his fists and as far behind them -- in the
+run, and in the fired poses P85 reported. Drawn from the side, the gun is in his fists now.
+
+THE HANDSPRING COMES OVER: off his hands he is the forward flip's second half, fourteen frames, hands down to feet
+under him; and X again in that air is the next one -- dive, hands, over, dive -- the flip never spent.
+
+A WALL GIVES HIS FLIP BACK: a kick off a wall is a landing on it -- the flip is his again once the kick's throw is
+done, and the dive and the lance -- and the kick is the jump from it, mirrored, as it was. Twice an air (it was six,
+for the park's chimneys); then the walls give nothing and he comes down to the floor. What a kick needs is unchanged
+(his way INTO the wall; a face across his way is the kick straight up).
+
+Tests 40. Layers 0, 4, 8, 10, 11, 12 and the full cart byte-identical. Data memory 720 words free without the song
+(the waists' table is a word a pose now).
