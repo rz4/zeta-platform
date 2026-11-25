@@ -4077,3 +4077,24 @@ instructions a frame at the median, 22,300 at most.
 Tests: the palace's 4, layer 14's 10, the yard's 44. Layers 0, 4, 8, 10, 11, 12, 13, 14 and the full cart
 byte-identical -- after a slip in this change that would have run the park's lay-out in the yard (my palace block
 landed between an `if` and its `elif`), caught by that comparison.
+
+## P103: layer 15 -- three things he saw (2026-11-25)
+
+The player, P102 on glass: "3 things i see, title screen has a blinking bar at the bottom. the boxer backflip has a
+weird artifact lokks like black on the bottom border, and the tageting is still matching on the item that was in
+the plaza".
+
+- **THE BAR.** PRESS START breathes (the archive's: a compositor rectangle dims it on the off beat) -- and the
+  rectangle stood where the archive's prompt was, 265 to 276, under nothing. It is laid over the palace's own
+  prompt now, in the colour of the dusk behind it. The title's BEST (the card's: the full game's rank) is not
+  shown on the palace's.
+- **THE BLACK.** The town's ground rides the lens and is cut for the town's own lens (2.15 up, looking down 7
+  degrees); the palace's lens is the lab's -- in a boxer's flip five units up, looking down 35 -- and the glass's
+  bottom corners fell past the ground's nearest edge onto nothing (the frame's clear, black). The plaza has a floor
+  of its own in the world as the hall had -- nine tiles of the town's asphalt, 48 by 48, drawn from a table in one
+  loop -- with the town's ground still under it to the haze. Through the flip and down a street: no black.
+- **THE ITEM.** The full game's key lies in the first plaza; P102 hid it but R still took it, and a round could
+  meet it. In the palace there is no item: nothing can choose it, strike it or shoot it.
+
+Program 27,269 words (the song's build 27,179); data memory 235 free. Tests: the palace's 4; layers 0 to 14 and
+the full cart byte-identical.

@@ -1735,6 +1735,19 @@ if LAB:
                     w_ = CMAP_W[n_]
                     LAB_TILES.append(((int(round(cx_ * ONE)), int(round(cz_ * ONE))), PIECE_M[(w_ >> 18) & 31], (w_ >> 8) & 1023,
                                       spec.OBJ_CULL | spec.OBJ_LIT))
+            # (P103, the player: "the boxer backflip has a weird artifact lokks like black on the bottom border". The
+            # town's ground rides the lens and is cut for the town's own lens -- 2.15 up, looking 7 degrees down. The
+            # palace's lens is the lab's: in a flip it is five units up and looks down 35, and the glass's bottom
+            # corners fell past the ground's nearest edge onto nothing. So the plaza has a floor of its own, in the
+            # world, as the hall had: nine tiles of the town's asphalt, 48 by 48 about its middle.)
+            _fb = Build()
+            for i_ in range(4):
+                for j_ in range(4):
+                    x0_, y0_ = -HT + 4 * i_, -HT + 4 * j_
+                    _fb.quad([(x0_, y0_, 0.0), (x0_ + 4, y0_, 0.0), (x0_ + 4, y0_ + 4, 0.0), (x0_, y0_ + 4, 0.0)], (0, 0, 1),
+                             shade(ASPHALT, (0, 0, 1)) if (i_ + j_) % 2 == 0 else tuple(int(c_ * 1.08) for c_ in shade(ASPHALT, (0, 0, 1))))
+            PAL_FM = int(cart.data(_fb.mesh(), "palace_floor_tile"))
+            PAL_FT = cart.data(Table([c_ for i_ in (-1, 0, 1) for j_ in (-1, 0, 1) for c_ in lab_xz(TILE * i_, TILE * j_)]), "palace_floor_at")
     elif PARK:
         # P58: THE PARK (the player, 2026-11-23: "i think what we need is a
         # platforming lab, to test out all the movement modes. you should be
@@ -4433,6 +4446,8 @@ def item_exists(g):
     it, until the last district"""
     if L5:
         return g.load(ITEM)
+    if PALACE:                                  # (P103: the player, of P102: "the tageting is still matching on the item
+        return g.push(0)                        # that was in the plaza" -- in the palace there is no item)
     return g.load(LVL).push(len(GATES)).emit("lt")
 
 
@@ -4635,6 +4650,8 @@ p.set(spec.OL_BASE, 0).set(spec.DL_BASE, 0)
 # P14: BEST and the rank, once the card has one to show (a word outside
 # 1..7 is not a rank: a card this cart never wrote says nothing)
 tb = p.label("tbest")
+if PALACE:                                        # (P103: the card's best is the full game's rank: not the palace's)
+    p.emit(f"jmp {tb}")
 p.load(CARDV).emit(f"jz {tb}")
 p.push(7).load(CARDV).emit("lt", f"jz {tb}_ok", f"jmp {tb}")
 p.mark(f"{tb}_ok")
@@ -4653,7 +4670,9 @@ p.mark(tb)
 # 60-frame beat): one compositor rectangle dims it on the off beat
 p.addi(TT, 1)
 p.set(spec.CO_BASE, 1)
-p.rect(0, 115, 265, 204, 276, 0x16141C,         # the prompt, exactly
+# (P103, the player: "title screen has a blinking bar at the bottom" -- the dimmer was the archive's prompt's place;
+# the palace's PRESS START is higher, and its dimmer is laid over it, in the dark it stands on)
+p.rect(0, *((95, 192, 223, 206) if PALACE else (115, 265, 204, 276)), 0x260F10 if PALACE else 0x16141C,   # the prompt, exactly
        lambda q: q.load(TT).emit("shr 5").push(1).emit("and").push(9).emit("mul"))
 # a FRESH press of Start or A (up now? or down last frame? -- neither)
 p.emit("load 1").push(spec.PAD_START | spec.PAD_A).emit("and").push(0).emit("eq")
@@ -11914,6 +11933,17 @@ p.set(NOBJ, 0)
 if YARD:
     p.set(YCF, 0)
 if LAB:
+    if PALACE:                                    # (P103: the plaza's floor, nine tiles from a table: one loop)
+        pf_ = p.label("pfloor")
+        p.push(int(PAL_FT)).store(YBJ)
+        p.mark(pf_)
+        p.load(YBJ).emit("loadi").store(VIS["cx"]).load(YBJ).push(1).emit("add", "loadi").store(VIS["cz"])
+        p.push(int(round((PIECE_CY - 2.15) * ONE))).store(VIS["cy"]).push(int(round(PIECE_R * ONE))).store(VIS["r"])
+        p.emit(f"call {L_VIS}", f"jz {pf_}_n")
+        p.object(NOBJ, PAL_FM, (f"load {int(VIS['cx'])}",), 0, (f"load {int(VIS['cz'])}",), 0, spec.OBJ_CULL)
+        p.mark(f"{pf_}_n")
+        p.load(YBJ).push(2).emit("add", "dup").store(YBJ).push(int(PAL_FT) + 18).emit("lt", f"jz {pf_}_e", f"jmp {pf_}")
+        p.mark(f"{pf_}_e")
     for (tx_, tz_), m_, yaw_, *fl_ in LAB_TILES:     # P42: the hall, a tile at a time, where it can be seen
         lt_ = p.label("labtile")
         p.push32(tx_).store(VIS["cx"]).push32(tz_).store(VIS["cz"])
@@ -11936,7 +11966,9 @@ if L7:
     _ng = p.label("noground")
     p.load(INSIDE).emit(f"jz {_ng}_o", f"jmp {_ng}")
     p.mark(f"{_ng}_o")
-if not LAB or PALACE:                             # (P42: the lab has its own floor, and a ceiling; P102: the plaza is the town's)
+# (P42: the lab has its own floor, and a ceiling. P103: the palace has both -- the town's ground to the haze, and its
+# own floor under a lens that looks down)
+if not LAB or PALACE:
     p.object(NOBJ, GROUND_M, (f"load {spec.CAM_X}",), 0, (f"load {spec.CAM_Z}",),
              (f"load {spec.CAM_YAW}",), spec.OBJ_CULL | (spec.OBJ_LIT if BASE else 0))
 if BASE and (not LAB or PALACE):
