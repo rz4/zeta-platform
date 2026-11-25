@@ -1278,3 +1278,42 @@ def test_aiming_up_or_down_he_hinges_at_the_hips_one_body(cart):
         assert g.cell("pose") in range(336, 354) and g.cell("aim_upose") > 1000, (g.cell("pose"), g.cell("aim_upose"))
         assert left == bend - lean - 6 * g.cell("aim_kick") and (abs(left) <= 22 or want == 3), f"left at his waist: {left}"
         assert g.cell("yard_join_up") == 0 and g.cell("yard_join_turn") == 0
+
+
+def test_a_blow_or_a_shot_in_the_boxers_flip_does_not_stop_the_flip(cart):
+    """P96 ("multple jab, special and gun inputs during a boxer flip jump ... it lags and moves the player like a
+    hovering attack ... make it some sort of kick attacks. for the gun multiple shots just lags the filp"): a swing
+    took the body and the flip's clock stopped -- he lay in one pose of it for as long as he struck. Now the flip
+    runs on: a shot leaves at once; a fist is the flip's own kick, striking round him, three frames of hitstop at most"""
+    B = spec.PAD_B
+    out = {}
+    for name, press in (("nothing", 0), ("jab", X), ("special", spec.PAD_Y), ("gun", B)):
+        y = Yard(cart)
+        g = y.g
+        y.who(3)
+        for k in range(7):
+            _stand(y, k, 28.0 - k, -15.0)
+        _stand(y, 0, 0.0, -7.2)
+        _stand(y, 1, 0.9, -7.6)
+        y.put(0.0, -8.0, 256)
+        for q in [0] * 5 + [L] * 8:
+            g.step(q)
+        shots, flip, poses, blows, swung = g.cell("gun_shots"), 0, set(), 0, 0
+        for q in [L | A | U] * 3 + [L] * 4 + ([L | press] * 3 + [L] * 4) * 6:
+            hp = [g.cell("e0_hp"), g.cell("e1_hp")]
+            g.d[g.syms["p_hp"]] = 140
+            g.step(q)
+            if g.cell("f_evf") > 0:
+                flip += 1
+                poses.add(g.cell("pose"))
+                swung += g.cell("anim") == 2
+                blows += sum(g.cell(f"e{k}_hp") < hp[k] for k in (0, 1))
+            for k in (0, 1):
+                g.d[g.syms[f"e{k}_hp"]] = 8
+        out[name] = (flip, len(poses), blows, g.cell("gun_shots") - shots, swung)
+    plain = out["nothing"]
+    assert out["gun"][0] == plain[0] and out["gun"][3] >= 2, f"shots in the flip: {out['gun']} against the plain flip's {plain}"
+    for name in ("jab", "special"):
+        flip, poses, blows, _, swung = out[name]
+        assert flip <= plain[0] + 9 and poses == plain[1] and swung == 0, f"{name} in the flip: {out[name]} against {plain}"
+        assert blows >= 2, f"{name}: the flip's kick struck {blows} times"

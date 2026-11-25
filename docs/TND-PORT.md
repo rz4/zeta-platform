@@ -3864,3 +3864,24 @@ change to how he moves in that one place, and it is the bug's.
 The going up and looking down is a reading: he named the fault, not the cure.
 
 Tests 43. Layers 0, 4, 8, 10, 11, 12 and the full cart byte-identical. Program 26,574 words.
+
+## P96: a blow in the boxer's flip does not stop the flip (2026-11-25)
+
+The player (P95 on glass: "all looks good played both"): "the last thing that's very still a big glitchy bug is
+doing multple jab, special and gun inputs during a boxer flip jump. when i do it it lags and moves the player like
+a hovering attack. It's fun but just looks strange maybe we can make it less floaty and make it some sort of kick
+attacks. for the gun multiple shots just lags the filp."
+
+OBSERVED (his tape of TND RANK, 20261125-105008): a swing owns the body, and the flip's clock is the free body's
+-- so a blow or a shot begun in a flip stopped the flip where it was. From frame 700 he fell to the floor in one
+pose of a back flip and stayed in it 127 frames while he fired and jabbed, each jab's lunge sliding him on: 21
+units across the room. Flips with a strike button in them ran to 187 frames; without, 14 to 48.
+
+NOW (the yard, the boxer's flip): A SHOT leaves at once, the way his body faces, and the flip goes on. A FIST is
+the flip's own KICK -- no swing, no lunge: for eight frames his turning body strikes every body within a unit and
+a quarter of him, once each, with the worth of the move he pressed; one kick at a time, and its hitstop three
+frames at the most. Scripted, buttons mashed through a flip: the flip 27 frames with shots (as with none), 33
+with jabs or specials, every pose of it shown.
+A reading: the kick has no clip of its own -- it is the flip's legs. He asked for "some sort of kick attacks".
+
+Tests 44. Layers 0, 4, 8, 10, 11, 12 and the full cart byte-identical.

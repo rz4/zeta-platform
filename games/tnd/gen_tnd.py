@@ -4075,6 +4075,8 @@ if LAB:
         LENS_R, LENS_DOWN = 1.4, 71
         if YARD:
             YLKY, YLFT = cart.var("yard_look_yaw"), cart.var("yard_lens_lift")
+            YFK, YFKA = cart.var("yard_flip_kick"), cart.var("yard_flip_kicking")   # P96: the frames a flip's kick is live
+            FLIPKICK_N, FLIPKICK_REACH = 8, int(0.5 * ONE)
 
         def lens_lift(xc_, zc_):
             """push how far UP a lens at (xc_, zc_) goes: nothing a unit and four tenths from him or more; nearer,
@@ -7440,6 +7442,28 @@ p.mark(f"{L['free']}_end")
 p.set(ANIM, 0)
 p.mark(L["free"])
 p.load(F["buf"]).emit(f"jz {L['walk']}_q")
+if YARD:
+    # P96 (the player: "doing multple jab, special and gun inputs during a boxer flip jump. when i do it it lags and
+    # moves the player like a hovering attack ... maybe we can make it less floaty and make it some sort of kick
+    # attacks. for the gun multiple shots just lags the filp"). OBSERVED on his tape: a swing owns the body, and the
+    # flip's clock is the free body's -- so a blow or a shot begun in a flip STOPPED THE FLIP WHERE IT WAS: he fell
+    # to the floor in the pose of that frame and stayed in it for as long as he kept striking (127 frames, once),
+    # each jab's lunge sliding him along -- 21 units across the room, upside down.
+    # NOW A FLIP IS NEVER TAKEN FROM HIM. In the boxer's flip a SHOT leaves at once, the way his body faces, and the
+    # flip goes on; a FIST is the flip's own KICK: no swing, no lunge -- for eight frames his turning body strikes
+    # every body within a unit and a quarter of him, once each, with the worth of the move he pressed.
+    fq_ = p.label("flipblow")
+    p.load(F["evf"]).emit(f"jz {fq_}")
+    p.load(F["sty"]).push(2).emit("eq", f"jz {fq_}")
+    p.load(F["bmv"]).store(F["mv"]).set(F["buf"], 0)
+    p.push(MOVE["gun"] - 1).load(F["mv"]).emit("lt", f"jz {fq_}_k")
+    p.load(HEAD).store(W["head"]).emit(f"call {L_FIRE}", f"jmp {L['walk']}_q")
+    p.mark(f"{fq_}_k")
+    p.load(YFK).emit(f"jz {fq_}_new", f"jmp {L['walk']}_q")        # (one kick at a time: a press inside one is spent)
+    p.mark(f"{fq_}_new")
+    p.set(YFK, FLIPKICK_N).set(F["con"], 0).set(YCON, 0)
+    p.emit(f"jmp {L['walk']}_q")
+    p.mark(fq_)
 if L3:
     # P36: IN THE LOCKED RUN (the player: "the gun being shot while running
     # single hand. and then trying to weave and land a super man punch").
@@ -9565,6 +9589,18 @@ if PARK:
         p.mark(sl_)
     p.emit(f"jmp {nf_}_land")
     p.mark(rj)
+    if YARD:                                                              # (P96: the flip's kick: his body, where he is)
+        fk_ = p.label("flipkick")
+        p.set(YFKA, 0)
+        p.load(YFK).emit(f"jz {fk_}")
+        p.addi(YFK, -1).set(YFKA, 1)
+        p.set(YBX, FLIPKICK_REACH)
+        row(PMT, F["mv"], "start")
+        p.push(FLIPKICK_N - 1).load(YFK).emit("sub", "add").store(AF)
+        p.load(PX).store(F["fx"]).load(PZ).store(F["fz"])
+        p.load(F["py"]).push(int(0.9 * ONE)).emit("add").store(F["fy"])
+        p.emit(f"jmp {nf_}_land")
+        p.mark(fk_)
 p.load(ANIM).push(2).emit("eq", f"jz {nf_}")
 if not YARD:                                      # (P83: in the yard a blow goes on to the next body)
     p.load(F["con"]).emit(f"jz {nf_}_c", f"jmp {nf_}")
@@ -9661,6 +9697,8 @@ if L4:
             p.emit("drop", f"jmp {fn_}_s2")
             p.mark(f"{fn_}_s1")
             p.emit("dup").store(F["stop"]).store(F["shake"])
+            p.load(YFKA).emit(f"jz {fn_}_s2")                        # (P96: a flip's kick stops the world three frames at
+            p.load(F["stop"]).emit("mini 3").store(F["stop"])        # most: its hitstop was hanging him in the air)
             p.mark(f"{fn_}_s2")
         else:
             p.emit("dup", "dup").store(F["stop"]).store(F["shake"]).push(12).emit("add").store(W["stop"])
