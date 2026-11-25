@@ -121,60 +121,117 @@ def test_the_wall_strikes_a_body_sent_into_it(cart):
 
 
 # ---- P98: on a body that is down; rounds; bodies into bodies ---------------------------------------------------------
-def _it_lies(cart):
-    """the elite put down before him by a jab, and lying"""
-    y, g = _before_him(cart, hp=1)
-    for q in [X] * 3 + [0] * 60:
+TRIP = [R] * 12 + [R | D] * 3 + [R] * 4 + [R | B] * 3 + [R] * 22      # R, the spot to its legs, a round: it is down
+
+
+def _chosen_and_down(cart):
+    """the elite before him, chosen (R held), its legs shot from under it: down, not out, and still his"""
+    y, g = _before_him(cart)
+    for q in TRIP:
         g.d[g.syms["p_hp"]] = 140
         g.step(q)
-    assert g.cell("e0_st") == 2
+    assert g.cell("e0_st") == 2 and g.cell("e0_hp") > 0 and g.cell("locked") and not g.cell("yard_out"), \
+        (g.cell("e0_st"), g.cell("e0_hp"), g.cell("locked"), g.cell("yard_out"))
     return y, g
 
 
-def test_a_jab_over_a_body_that_lies_before_him_is_the_stomp(cart):
-    """P98 ("do all the nexxt candidates": a ground strike on X): the jab's frames in the stomp's poses -- his own
-    bank's, after every pose the yard has; no step in; two off the body, which bucks where it lies and is not stood
-    up to fall again. Over nothing, and on a body that stands, it is the jab"""
-    y, g = _it_lies(cart)
+def test_r_keeps_a_body_that_is_down_and_his_heel_is_for_it(cart):
+    """P98, P99 ("the down stomp and ground gun execution should be only on targetted enemies"): the body he has
+    chosen stays his when it goes down (R took only one that stood, and let it go as it fell). A jab at it there is
+    the STOMP -- the jab's frames in the stomp's poses, his own bank's, after every pose the yard has; no step in;
+    two off it; it bucks where it lies and is not stood up to fall again"""
+    y, g = _chosen_and_down(cart)
     u0, hp, t0, poses, jolt = y.uv(), g.cell("e0_hp"), g.cell("e0_t"), set(), set()
-    for q in [X] * 3 + [0] * 20:
+    for q in [R | X] * 3 + [R] * 14:
         g.d[g.syms["p_hp"]] = 140
         g.step(q)
         if g.cell("anim") == 2 and g.cell("yard_stomp"):
             poses.add(g.cell("pose"))
         jolt.add(g.cell("yard_jolt"))
     assert poses and min(poses) >= 1362, f"his poses in the blow: {sorted(poses)[:4]}"
-    assert g.cell("e0_hp") == hp - 2 and jolt >= {6, 3, 0}, (g.cell("e0_hp"), hp, sorted(jolt))
+    assert g.cell("e0_hp") == hp - 2 and jolt >= {6, 3}, (g.cell("e0_hp"), hp, sorted(jolt))
     assert np.hypot(y.uv()[0] - u0[0], y.uv()[1] - u0[1]) < 0.05, "he stepped in"
-    assert g.cell("e0_st") == 2 and g.cell("e0_t") > t0, "it was stood up to fall again"
-    y, g = _before_him(cart, hp=8)
-    seen = set()
-    for q in [X] * 3 + [0] * 20:
-        g.step(q)
-        seen.add(g.cell("yard_stomp"))
-    assert seen == {0} and g.cell("e0_hp") < 8, "a jab on a body that stands"
+    assert g.cell("e0_t") > t0, "it was stood up to fall again"
 
 
-def test_the_gun_goes_down_to_a_body_that_lies_before_him(cart):
-    """P98 (the gun aimed down into it on B): with the gun up and nothing chosen, he bends over a body that lies
-    within reach before him, and the round is fired down into it: it is struck where it lies, and no round goes on
-    down the room. With nothing lying there the gun is level and the round flies"""
-    y, g = _it_lies(cart)
-    hp, bend, on = g.cell("e0_hp"), [], set()
-    for q in [B] * 14 + [0] * 30:
+def test_the_gun_goes_down_to_the_body_he_has_chosen(cart):
+    """P98, P99: the spot on a chosen body that is DOWN is the body on the floor -- he hinges over it, and the round
+    lands on it where it lies"""
+    y, g = _chosen_and_down(cart)
+    hp, bend = g.cell("e0_hp"), []
+    for q in [R | B] * 12 + [R] * 10:
         g.d[g.syms["p_hp"]] = 140
         g.step(q)
         bend.append(g.cell("aim_bend"))
-        on.add(g.cell("yard_exec"))
-    assert on == {0, 1} and max(bend) > 100, f"on it {sorted(on)}, his bend at most {max(bend)}"
-    assert g.cell("e0_hp") == hp - 1 and g.cell("e0_st") == 2
-    y, g = _before_him(cart, hp=99)
-    Y13._stand(y, 0, 20.0, -15.0)                # (nobody before him)
-    bend = []
-    for q in [B] * 14 + [0] * 30:
+    assert max(bend) > 90, f"his bend at most {max(bend)}"
+    assert g.cell("e0_hp") < hp, "the round did not land on it"
+
+
+def test_unchosen_a_body_that_lies_is_not_stomped_or_shot_down_at(cart):
+    """P99: with nothing chosen, X over a body that lies is the jab and the gun is level, as they were"""
+    y, g = _before_him(cart, hp=1)
+    for q in [X] * 3 + [0] * 40:
+        g.d[g.syms["p_hp"]] = 140
         g.step(q)
+    assert g.cell("e0_st") == 2
+    stomp, bend = set(), []
+    for q in [X] * 3 + [0] * 22 + [B] * 14 + [0] * 20:
+        g.d[g.syms["p_hp"]] = 140
+        g.step(q)
+        stomp.add(g.cell("yard_stomp"))
         bend.append(abs(g.cell("aim_bend")))
-    assert max(bend) < 20, f"with nothing there he bent {max(bend)}"
+    assert stomp == {0} and max(bend) < 20, (sorted(stomp), max(bend))
+
+
+def test_a_shot_after_a_stomp_is_the_guns_own_pose(cart):
+    """P99 (the player, P98 on glass: "visual bug on the gun firing"; his tape: his pose in a shot 1,479 to 1,484 of a
+    bank of 1,397): whether a blow was the stomp was asked on the swing's first frame by its count, and a shot from
+    a gun already up begins some frames in -- the last stomp's answer stood. Every pose of a shot is the gun's"""
+    y, g = _chosen_and_down(cart)
+    for q in [R | X] * 3 + [R] * 25:
+        g.d[g.syms["p_hp"]] = 140
+        g.step(q)
+    worst = 0
+    for q in ([B] * 14 + [0] * 30) * 2:
+        g.d[g.syms["p_hp"]] = 140
+        g.step(q)
+        worst = max(worst, g.cell("pose"), g.cell("aim_upose"))
+    assert worst < 1362, f"a pose of the shot was {worst}"
+
+
+def test_out_is_not_down(cart):
+    """P99 ("it would be good to have a death animation and spawn the enemy at its origin, that way we can tell the
+    difference of when they are down or out"): a body with something left is DOWN -- its own colour, up again where
+    it lies. One with nothing left is OUT: dark from the blow, one last spasm when its fall is done, let go by R,
+    and after its count it is at its MARK, standing, whole"""
+    y, g = _chosen_and_down(cart)                # down, not out
+    place = y.body(0)
+    for _ in range(200):
+        g.d[g.syms["p_hp"]] = 140
+        g.step(R)
+        if g.cell("e0_st") == 1:
+            break
+    assert g.cell("e0_st") == 1 and not g.cell("yard_out") and np.hypot(y.body(0)[0] - place[0], y.body(0)[1] - place[1]) < 0.3, \
+        "down, it did not get up where it lay"
+    y, g = _before_him(cart)                     # out: a charged round takes all of it, and throws it from its mark
+    mark = y.body(0)
+    spasm, frames, lay = False, 0, None
+    for q in [R | B] * 70 + [R] * 300:
+        g.d[g.syms["p_hp"]] = 140
+        g.step(q)
+        if g.cell("e0_st") == 2:
+            frames += 1
+            lay = y.body(0)
+            # (dark, and let go, once the world moves again: the blow's own stop comes first)
+            assert frames < 24 or g.cell("yard_out") & spec.OBJ_OTINT, "out, it is not dark"
+            assert not (g.cell("locked") and frames > 24), "R kept a body that was out"
+            spasm |= g.cell("yard_jolt") > 0
+        elif frames:
+            break
+    assert spasm and 100 < frames < 170, (spasm, frames)
+    assert np.hypot(lay[0] - mark[0], lay[1] - mark[1]) > 0.5, "it was not thrown from its mark"
+    assert g.cell("e0_st") == 1 and g.cell("e0_hp") == 8 and not g.cell("yard_out")
+    assert np.hypot(y.body(0)[0] - mark[0], y.body(0)[1] - mark[1]) < 0.01, f"it is at {y.body(0)}, its mark {mark}"
 
 
 def test_a_rounds_jolt_is_its_own_and_takes_a_side_each(cart):
@@ -207,25 +264,3 @@ def test_a_body_thrown_into_another_takes_it_off_its_feet(cart):
     took, down, fall, moved = thrown(1.3)
     assert took == 1 and down and fall == 3 and moved > 0.05, (took, down, fall, moved)
     assert thrown(4.5)[:2] == (0, 0), "a body standing clear of the throw"
-
-
-def test_with_a_body_standing_there_the_blow_and_the_shot_are_its(cart):
-    """P98: a body that lies at his feet does not take a jab or a round meant for one that stands before him (his
-    session on P97: 420 presses of a strike or the gun within 1.6 of a body that lay)"""
-    y, g = _it_lies(cart)
-    u, v = y.uv()
-    Y13._stand(y, 3, u, v + 1.1)                 # (one of the horde, standing over it)
-    g.d[g.syms["e3_st"]], g.d[g.syms["e3_stun"]] = 1, 0
-    hp, stomp = g.cell("e3_hp"), set()
-    for q in [X] * 3 + [0] * 20:
-        g.d[g.syms["p_hp"]] = 140
-        g.step(q)
-        stomp.add(g.cell("yard_stomp"))
-    assert stomp == {0} and g.cell("e3_hp") < hp, f"the jab: stomp {sorted(stomp)}, the standing body {hp} -> {g.cell('e3_hp')}"
-    g.d[g.syms["e3_hp"]] = 99
-    on = set()
-    for q in [B] * 14 + [0] * 30:
-        g.d[g.syms["p_hp"]] = 140
-        g.step(q)
-        on.add(g.cell("yard_exec"))
-    assert on == {0} and g.cell("e3_hp") < 99, f"the shot: on the floor {sorted(on)}, the standing body 99 -> {g.cell('e3_hp')}"

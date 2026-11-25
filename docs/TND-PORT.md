@@ -3966,3 +3966,38 @@ cut was 153 over: the per-body code went into routines). The yard still carries 
 (P77 cut what it could prove); the next thing built on layer 14 has to free some first.
 Tests: layer 14's own 8; the yard's 44 as they were. Layers 0, 4, 8, 10, 11, 12, 13 and the full cart
 byte-identical. Data memory 501 words free; the cart 13.5 MB of 16.
+
+## P99: layer 14 -- out is not down; his heel and the gun are for the one he has chosen; the gun's pose (2026-11-25)
+
+The player, P98 on glass (2.9 minutes): "visual bug on the gun firing, i think the down stomp and ground gun
+execution should be only on targetted enemies" -- and: "also it would be good to have a death animation and spawn
+the enemy at its origin, that way we can tell the difference of when they are down or out".
+
+- **THE BUG** (his tape of P98: in 22 of his 175 shots his pose was 1,479 to 1,484 -- of a bank of 1,397). Whether
+  a blow was the stomp was asked on the swing's first frame, by its count; a shot from a gun already up begins some
+  frames in and was never asked -- so after any stomp the last answer stood, and the gun's frames were looked up
+  as a stomp's (the flag was up on 2,197 of his 10,455 frames). It is asked once a blow, whatever frame that is,
+  and a blow begins with it down.
+- **FOR THE ONE HE HAS CHOSEN.** P98 gave the stomp to any body lying where his heel would land and bent the gun
+  to any body lying before him. Now both are R's: the body he has CHOSEN, and it down.
+  - R takes, and keeps, a body that is down and NOT out. (It took only one that stood, and let go of the one he had
+    as it fell.) A change to the targeting, and the only one: what is out is let go as it was.
+  - X at it there is the stomp, if it lies where his heel lands (it does not carry him to it).
+  - The gun: the spot on a chosen body that is down is the body on the floor -- the sight goes to it, he hinges
+    over it, the round lands on it where it lies. (P98's bend to an unchosen body and its shot with no round are
+    gone; with nothing chosen X and the gun are as they were.)
+- **OUT IS NOT DOWN.** A body with something left that is off its feet -- its legs shot from under it, bowled
+  over, tackled -- is DOWN: its own colour, the sight still on it if it is his, and it gets up where it lies.
+  A body with nothing left is OUT: it goes DARK (the ash of the archive's palette) when the world moves again
+  after the blow, has ONE LAST SPASM as its fall ends, lies its count -- 126 frames -- and is then AT ITS MARK,
+  standing and whole: it comes for him again from there, not from where it lay. One finished where it already lay
+  (his heel, a round) goes dark there, the world stops for that as for any last blow, and it lies the count from
+  then.
+  The fall itself is still the blow's (P97); the dark, the spasm and the going are what say it is over.
+
+MADE ROOM: the program was 7 words over with this in. Layer 14 does not carry the full game's style meter's frame
+(the cooling, the rank, the card's best: nothing in the yard pays it and it is never shown there) -- 85 words to
+spare. The rank's own branch (`exp/rank`) is where that meter lives for the yard.
+
+Tests: layer 14's own 10; the yard's 44 as they were. Layers 0, 4, 8, 10, 11, 12, 13 and the full cart
+byte-identical.

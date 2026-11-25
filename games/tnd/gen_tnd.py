@@ -4236,15 +4236,17 @@ if LAB:
             assert len(TIER["horde"]["cb"]) and all(len(np.load(ROOT / "build" / "tiers" / "falls_190.npz")["V_" + c_]) == 6 for c_ in ("jolt_back", "jolt_prone"))
             YSHP = cart.var("yard_shot_side")
             # P98: HIS HEEL (below): a jab or a cross thrown over a body that lies before him is the stomp
-            YGND, YSX, YSZ = cart.var("yard_stomp"), cart.var("yard_stomp_x"), cart.var("yard_stomp_z")
+            YGND, YGNQ, YSX, YSZ = cart.var("yard_stomp"), cart.var("yard_stomp_ask"), cart.var("yard_stomp_x"), cart.var("yard_stomp_z")
             STOMP_AT, STOMP_R, STOMP_WORTH = int(0.55 * ONE), int(0.9 * ONE), 2
-            # P98: THE GUN ON WHAT LIES BEFORE HIM (below): which body (its number + 1, or 0); how far he bends to it
-            YSR, YSS, YEXK = cart.var("yard_near_r"), cart.var("yard_near_state"), cart.var("yard_exec")
-            EXEC_AT, EXEC_R, EXEC_BEND = int(1.1 * ONE), int(1.0 * ONE), 118
-            # (...and neither, with a body STANDING there to be struck or shot: his session on P97 has 420 presses of a
-            # strike or the gun within 1.6 of a body that lay -- most of them at one that stood)
-            STOMP_CLEAR, EXEC_CLEAR_AT, EXEC_CLEAR = int(1.2 * ONE), int(3.0 * ONE), int(2.6 * ONE)
-            L_YDN, L_FLOOR = p.label("yarddown"), p.label("yardfloor")
+            YSR = cart.var("yard_floor_worth")
+            L_FLOOR, L_YLIFE = p.label("yardfloor"), p.label("yardlife")
+            # P99 (the player: "it would be good to have a death animation and spawn the enemy at its origin, that way
+            # we can tell the difference of when they are down or out"). OUT is not DOWN (below, at L_YLIFE): a body
+            # with nothing left goes DARK where it falls, has one last spasm, lies OUT_FOR frames and is then AT ITS
+            # MARK again, whole; a body only off its feet keeps its colour and gets up where it lies, as it did.
+            YOUT = cart.var("yard_out", len(ENEMY))
+            YHPF = cart.data(Table([e_["T"]["hp"] for e_ in ENEMY]), "yard_whole")
+            OUT_TINT = spec.OBJ_OTINT | 9 << 27 | 6 << 22 | 6 << 17       # (OUT_FOR is DOWN_FOR less the 24 frames of a rising: below)
             # P98: A BODY THROWN INTO ANOTHER (below): frames a body is not bowled again
             YBMP = cart.var("yard_bowled", len(ENEMY))
             YBJ, YBR = cart.var("yard_bowl_j"), cart.var("yard_bowl_rec")
@@ -5027,7 +5029,14 @@ if BASE:
             p.set(int(TV) + t_, 0)
             if t_ < NE:
                 e_ = ENEMY[t_]
-                p.load(e_["st"]).push(1).emit("eq", f"jz {tv}")
+                if STYLE:
+                    # P99: R TAKES, AND KEEPS, A BODY THAT IS DOWN AND NOT OUT. It took only one that stood, so the
+                    # body he had chosen was let go as it fell -- and what he does to one that lies (his heel, the gun
+                    # down into it) is for the one he has chosen. One that is OUT is let go, as it was.
+                    p.load(e_["st"]).emit(f"jz {tv}")
+                    p.push(0).load(e_["hp"]).emit("lt", f"jz {tv}")
+                else:
+                    p.load(e_["st"]).push(1).emit("eq", f"jz {tv}")
                 if YARD:
                     # P74 (his tape of P73: locked on one of the horde, it was NOT DRAWN three frames in four -- 35
                     # seconds squared up to a body he could not see, a drawn one within six units most of that): R
@@ -6251,6 +6260,39 @@ if L2:
             p.load(HITZ).push(0).emit("eq", "push 1", "xor")
             p.mark(f"{ys_}_ks")
             p.push(int(YRK)).load(YK).emit("add", "storei", "ret")
+            # P99: OUT, OR DOWN (YAB the record of a body that is down, YK which; each frame of the fight). With
+            # something left it is only down: nothing here. With nothing left it is OUT: dark from this frame (and, if
+            # it was finished where it already lay, the world stops for it as for any last blow and it lies the count
+            # from now); its fall done, one last spasm; and after OUT_FOR frames it is at its mark, standing, whole.
+            OUT_FOR = DOWN_FOR - 24
+            p.mark(L_YLIFE)
+            p.load(YAB).push(6).emit("add", "loadi").push(1).emit("lt", f"jz {ys_}_lr")
+            p.push(int(YOUT)).load(YK).emit("add", "loadi", f"jz {ys_}_lo", f"jmp {ys_}_ld")
+            p.mark(f"{ys_}_lo")
+            p.push32(OUT_TINT).push(int(YOUT)).load(YK).emit("add", "storei")
+            p.push(NPOSE["down"] + 2).load(YAB).push(12).emit("add", "loadi", "lt", f"jz {ys_}_ld")       # (it lay already)
+            p.push(0).load(YAB).push(12).emit("add", "storei")
+            p.push(-NPOSE["down"]).push(int(YF0)).load(YK).emit("add", "storei")
+            p.addi(F["stop"], 6).set(F["shake"], 12)
+            p.mark(f"{ys_}_ld")
+            p.load(YAB).push(12).emit("add", "loadi").store(YBR)
+            p.load(YBR).push(NPOSE["down"] + 2).emit("eq", f"jz {ys_}_ls")
+            p.load(YBR).push(int(YF0)).load(YK).emit("add", "loadi", "sub").push(NPOSE["down"] + 2).emit("eq", f"jz {ys_}_ls")
+            p.push(6).push(int(YJOLT)).load(YK).emit("add", "storei")
+            p.mark(f"{ys_}_ls")
+            p.load(YBR).push(OUT_FOR).emit("lt", f"jz {ys_}_lw", "ret")
+            p.mark(f"{ys_}_lw")
+            for o_ in (0, 2):                                          # (its place, and where it was: its mark)
+                p.push(int(YMK)).load(YK).emit("shl 1", "add", "loadi").load(YAB).push(o_).emit("add", "storei")
+                p.push(int(YMK) + 1).load(YK).emit("shl 1", "add", "loadi").load(YAB).push(o_ + 1).emit("add", "storei")
+            p.push(1).load(YAB).push(5).emit("add", "storei")
+            p.push(int(YHPF)).load(YK).emit("add", "loadi").load(YAB).push(6).emit("add", "storei")
+            for o_ in (7, 12):
+                p.push(0).load(YAB).push(o_).emit("add", "storei")
+            for a_ in (YOUT, YFALL, YJOLT, EVX, EVZ):
+                p.push(0).push(int(a_)).load(YK).emit("add", "storei")
+            p.mark(f"{ys_}_lr")
+            p.emit("ret")
             p.mark(L_YHV)
             p.load(PARK_SPQ).push(0).emit("eq", "push 1", "xor").load(ANIM).push(7).emit("eq", "push 1", "xor", "and")
             p.load(YFKA).emit("or").push(int(YHEAVY)).load(F["mv"]).emit("add", "loadi", "or", "ret")
@@ -6398,7 +6440,10 @@ if L2:
             p.mark(f"{ea}_nt")
             # down; held; or turning to face him
             p.load(e_["st"]).push(2).emit("eq", f"jz {ea}_up")
-            p.addi(e_["t"], 1).push(DOWN_FOR).load(e_["t"]).emit("lt", f"jz {ea}")
+            p.addi(e_["t"], 1)
+            if STYLE:
+                p.set(YK, e_["k"]).push(int(e_["pos"])).store(YAB).emit(f"call {L_YLIFE}")
+            p.push(DOWN_FOR).load(e_["t"]).emit("lt", f"jz {ea}")
             p.set(e_["st"], 1).set(e_["stun"], 0)                          # (P46: tripped, it gets up with what it had)
             p.load(e_["hp"]).push(1).emit("lt", f"jz {ea}")
             p.set(e_["hp"], e_["T"]["hp"]).emit(f"jmp {ea}")
@@ -7591,18 +7636,22 @@ if STYLE:
     # blow is the heel -- the knee snatched up, driven down on the move's own first live frame. No step in; it
     # does not look for a body, it is thrown where he throws it.
     gs_ = p.label("stompq")
-    p.load(AF).push(1).emit("eq", f"jz {gs_}")
-    p.set(YGND, 0)
+    p.load(YGNQ).emit(f"jz {gs_}")
+    p.set(YGNQ, 0)
     p.load(F["mv"]).push(MOVE["cross"] + 1).emit("lt").load(F["py"]).push(0).emit("eq", "and", f"jz {gs_}")
     sin_of(p, cell=PIVT)
     p.push(STOMP_AT).emit("mulq").load(PX).emit("swap", "sub").store(YSX)
     sin_of(p, 256, cell=PIVT)
     p.push(STOMP_AT).emit("mulq").load(PZ).emit("add").store(YSZ)
-    p.set(YSS, 1).set(YSR, STOMP_CLEAR).emit(f"call {L_YDN}")          # (one that stands there: the blow is its)
-    p.load(YBJ).push(len(ENEMY)).emit("lt", f"jz {gs_}_dn", f"jmp {gs_}")
-    p.mark(f"{gs_}_dn")
-    p.set(YSS, 2).set(YSR, STOMP_R).emit(f"call {L_YDN}")
-    p.load(YBJ).push(len(ENEMY)).emit("lt").store(YGND)
+    # P99 (the player: "the down stomp and ground gun execution should be only on targetted enemies"): ...the body he
+    # has CHOSEN (R), and it down.
+    p.load(LOCK).emit(f"jz {gs_}")
+    p.push(-1).load(TSEL).emit("lt").load(TSEL).push(NE).emit("lt", "and", f"jz {gs_}")
+    p.push(int(YREC)).load(TSEL).emit("add", "loadi").store(YBR)
+    p.load(YBR).push(5).emit("add", "loadi").push(2).emit("eq", f"jz {gs_}")
+    p.load(YBR).emit("loadi").load(YSX).emit("sub", "abs").push(STOMP_R).emit("lt", f"jz {gs_}")
+    p.load(YBR).push(1).emit("add", "loadi").load(YSZ).emit("sub", "abs").push(STOMP_R).emit("lt", f"jz {gs_}")
+    p.set(YGND, 1)
     p.mark(gs_)
 if L2:
     # P31: HIS BODY COMES ROUND TO THE BLOW, the clock running (the pivot
@@ -7721,6 +7770,12 @@ p.load(F["bmv"]).store(F["mv"])
 p.set(ANIM, 2).set(AF, 0).set(F["con"], 0).set(F["buf"], 0)
 if YARD:
     p.set(YCON, 0)
+if STYLE:
+    # P99 (the player, P98 on glass: "visual bug on the gun firing"; his tape: his pose in a shot 1,479 to 1,484 of a
+    # bank of 1,397). Whether a blow is the stomp was asked on the swing's FIRST frame, by its count -- and a shot
+    # from a gun already up begins some frames in: it was never asked, the last stomp's answer stood, and the gun's
+    # frames were looked up as a stomp's. It is asked once a blow, whatever frame that is.
+    p.set(YGND, 0).set(YGNQ, 1)
 if LAB:
     p.set(LNGX, ONE).set(PASSK, 0)
 if L2:
@@ -9630,34 +9685,6 @@ if LAB:
         p.push(int(EY)).load(TSEL).emit("add", "loadi").push(int(0.22 * ONE)).emit("add").store(TGTY)
     p.mark(f"{ab}_ne")
     p.set(WBTO, 0)
-    if STYLE:
-        # P98 (of the candidates: "the gun aimed down into it on B"). THE GUN ON WHAT LIES BEFORE HIM. With the gun up
-        # and nothing chosen, a body that is DOWN within a unit of the place a unit ahead of him is what the gun is
-        # on: he bends to it (41 degrees: his hips' hinge), and the round is fired down into it (below, at the
-        # shot). Found while the gun is up; kept through the shot; gone with it. Choosing (R) is as it was: it
-        # takes a body that stands.
-        ex_ = p.label("execaim")
-        p.load(DRAW).emit(f"jz {ex_}_nd")
-        p.set(YEXK, 0)
-        p.load(LOCK).emit(f"jz {ex_}_f", f"jmp {ex_}")
-        p.mark(f"{ex_}_f")
-        for at_, r_, ss_ in ((EXEC_CLEAR_AT, EXEC_CLEAR, 1), (EXEC_AT, EXEC_R, 2)):
-            p.load(PX).push(at_).load(F["ps"]).emit("mulq", "sub").store(YSX)
-            p.load(PZ).push(at_).load(F["pc"]).emit("mulq", "add").store(YSZ)
-            p.set(YSS, ss_).set(YSR, r_).emit(f"call {L_YDN}")
-            if ss_ == 1:                                   # (one that stands before him: the gun is level, as it was)
-                p.load(YBJ).push(len(ENEMY)).emit("lt", f"jz {ex_}_cl", f"jmp {ex_}")
-                p.mark(f"{ex_}_cl")
-        p.load(YBJ).push(len(ENEMY)).emit("lt", f"jz {ex_}")
-        p.load(YBJ).push(1).emit("add").store(YEXK).emit(f"jmp {ex_}")
-        p.mark(f"{ex_}_nd")
-        p.load(ANIM).push(2).emit("eq", f"jz {ex_}_c", f"jmp {ex_}")
-        p.mark(f"{ex_}_c")
-        p.set(YEXK, 0)
-        p.mark(ex_)
-        p.load(YEXK).emit(f"jz {ex_}_nb")
-        p.set(WBTO, EXEC_BEND).emit(f"jmp {ab}_t")
-        p.mark(f"{ex_}_nb")
     p.load(LOCK).emit(f"jz {ab}_t")
     p.load(DRAW).emit(f"jz {ab}_f")
     p.load(TGTY).load(F["py"]).emit("sub").push(HAND_UP).emit("sub").store(DVR)
@@ -11986,6 +12013,8 @@ if LAB:
             tf = h.label("efl")
             # (P73: THE DOUBLE IS HIS SHADOW -- his body, dark: in his own skin, before him, it could not be told from him)
             h.push32(spec.OBJ_CART | spec.OBJ_CULL | ((spec.OBJ_OTINT | 13 << 27 | 13 << 22 | 17 << 17) if YARD and e_["k"] == len(ENEMY) - 1 else 0))
+            if STYLE and e_["k"] != len(ENEMY) - 1:              # (P99: OUT, it is dark -- the double is dark already)
+                h.load(int(YOUT) + e_["k"]).emit("or")
             h.load(e_["fl"]).emit(f"jz {tf}")
             h.emit("drop").push32(FLASH | spec.OBJ_CART)
             h.mark(tf)
@@ -12370,6 +12399,7 @@ p.load(NOBJ).store(spec.OL_BASE)
 
 p = p_main                           # (the intro has no style, no HUD)
 # ---- the style meter's frame: bleed, rank, best ------------------------------
+_sm0 = [len(g_._out) for g_ in (p_main, q, pz)]
 sb = p.label("sbleed")
 p.load(F["dead"]).emit(f"jz {sb}_a", f"jmp {sb}")
 p.mark(f"{sb}_a")
@@ -12407,6 +12437,12 @@ p.load(CARDV).load(SY["rank"]).push(1).emit("add", "lt", f"jz {lm}")   # best < 
 p.load(SY["rank"]).push(1).emit("add").store(CARDV)
 p.load(CARDF).push(2).emit("or").store(CARDF)
 p.mark(lm)
+
+if STYLE:
+    # (P99: layer 14's program is full. Nothing in the yard pays this meter and it is never shown there: its frame --
+    # the cooling, the rank, the card's best -- is left out of layer 14, in all three programs. The rank stays D.)
+    for g_, n_ in zip((p_main, q, pz), _sm0):
+        del g_._out[n_:]
 
 # ---- the HUD's words: the rank, the combo, or RETRY -------------------------------
 # Rebuilt only when what it says changes (a key of what is shown):
@@ -14412,14 +14448,6 @@ if L2:
             p.store(DVD).emit(f"call {L_QDIV}")
             p.mark(fy_)
             p.set(GUNK, GUN_KICK).set(MUZT, 3)
-            if STYLE:
-                # P98: ...FIRED DOWN INTO IT: it is struck where it lies -- a round's one, a charged round's four --
-                # and no round goes on down the room
-                p.load(YEXK).emit(f"jz {fr_}_nx")
-                p.load(YEXK).push(1).emit("sub", "dup").store(YK).push(int(YREC)).emit("add", "loadi").store(YAB)
-                p.load(F["mv"]).push(MOVE["gun"]).emit("sub").push(3).emit("mul").push(1).emit("add", f"call {L_FLOOR}")
-                p.emit(f"jmp {fr_}_xd")
-                p.mark(f"{fr_}_nx")
         else:
             p.load(F["py"]).push(GUN_Y).emit("add").store(W["bx"]).set(W["bz"], 1)
             p.load(LOCK).emit(f"jz {fy_}")
@@ -14443,8 +14471,6 @@ if L2:
                        (f"load {int(F['mv'])}", f"push {MOVE['gun']}", "sub", "push 4", "mul",
                         f"load {int(RAY['hit'])}", "add"))):
         p.emit(*ops).load(W["k"]).push(BK[name]).emit("add", "storei")
-    if STYLE and LAB:
-        p.mark(f"{fr_}_xd")
     p.set(SG_T["nt"], 0)                                   # the crack, and the kick:
     p.push(3).load(F["mv"]).push(MOVE["gun"]).emit("sub").push(4).emit("mul", "add").store(F["shake"])
     p.mark(fr_)                                            # 3 frames, the charged one 7
@@ -14588,39 +14614,19 @@ if L2:
         # leans back by how hard it was sent.
         p.emit(f"jmp {L_HITR}_over")
         if STYLE:
-            # P98: WHAT IS THERE: the first body in state YSS (1 standing, 2 down) within YSR, each way, of (YSX, YSZ)
-            # -- YBJ its number and YBR its record; none: YBJ is their count
-            p.mark(L_YDN)
-            p.set(YBJ, 0)
-            p.mark(f"{L_YDN}_l")
-            p.push(int(YREC)).load(YBJ).emit("add", "loadi").store(YBR)
-            p.load(YBR).push(5).emit("add", "loadi").load(YSS).emit("eq", f"jz {L_YDN}_n")
-            p.load(YBR).emit("loadi").load(YSX).emit("sub", "abs").load(YSR).emit("lt", f"jz {L_YDN}_n")
-            p.load(YBR).push(1).emit("add", "loadi").load(YSZ).emit("sub", "abs").load(YSR).emit("lt", f"jz {L_YDN}_n")
-            p.emit("ret")
-            p.mark(f"{L_YDN}_n")
-            p.addi(YBJ, 1).load(YBJ).push(len(ENEMY)).emit("lt", f"jz {L_YDN}_x", f"jmp {L_YDN}_l")
-            p.mark(f"{L_YDN}_x")
-            p.emit("ret")
             # ( worth -- ) P98: STRUCK ON THE FLOOR (YAB the body's record, YK which) -- his heel, or a round fired
             # down into it: that much off it; it bucks where it lies; the world stopped five frames, the lens shaken,
             # the blow's sound, the burst on it. A body that was only off its feet and is finished by it lies the
             # whole count again, and the world stops for that as for any last blow.
             p.mark(L_FLOOR)
             p.store(YSR)
-            p.load(YAB).push(6).emit("add", "loadi").store(YBR)                               # (what it had)
-            p.load(YBR).load(YSR).emit("sub").load(YAB).push(6).emit("add", "storei")
+            p.load(YAB).push(6).emit("add", "loadi").load(YSR).emit("sub").load(YAB).push(6).emit("add", "storei")
             p.push(8).load(YAB).push(8).emit("add", "storei")
             p.push(6).push(int(YJOLT)).load(YK).emit("add", "storei")
             p.set(F["stop"], 5).set(F["shake"], 9).set(SFX_T, 0).set(SFX_H, 0)
             p.load(YAB).emit("loadi").store(int(SPK)).load(YAB).push(1).emit("add", "loadi").store(int(SPK) + 2)
             p.set(int(SPK) + 1, int(0.25 * ONE)).set(int(SPK) + 3, SPARK_FOR)
             p.push(int(ZMESH_T) + 1).emit("loadi").store(SPKM)
-            p.push(0).load(YBR).emit("lt").load(YBR).load(YSR).push(1).emit("add", "lt", "and", f"jz {L_FLOOR}_r")   # (0 < had <= worth)
-            p.push(0).load(YAB).push(12).emit("add", "storei")
-            p.push(-NPOSE["down"]).push(int(YF0)).load(YK).emit("add", "storei")
-            p.addi(F["stop"], 6).set(F["shake"], 12)
-            p.mark(f"{L_FLOOR}_r")
             p.emit("ret")
             # ( heavy -- ) P97, P98: how the body YK (its record YAB) will go down; or, down already, that it bucks
             p.mark(L_YFK)
