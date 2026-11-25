@@ -4143,3 +4143,16 @@ The player: "make improvements, improve polish, and fix the health bar".
   up through it and stand alone for almost a second more (the death screen's own words, drawn the same way).
 
 Tests: the palace's 4. Layers 0 to 14 and the full cart byte-identical.
+
+## P108: layer 15 -- harder sooner, the meter held between floors, the ranks within reach (2026-11-25)
+
+The player: "make improvements". His six minutes of P107 (20261125-171423): floor 16, one death; the first ten floors
+cost him 47 of 140 (six of them nothing); the meter 482 at the most -- D 39% of the time, C 33, B 19, A 8, S never --
+so the record above the verse was never heard. Tank 22%, run 37, boxer 41.
+
+- **HARDER SOONER.** The floors get quicker and tougher past the THIRD (it was the sixth): the same steps a floor.
+- **THE METER HOLDS BETWEEN FLOORS.** Through the white light and FLOOR n it does not cool.
+- **THE RANKS WITHIN REACH.** Each threshold three fifths of the game's: C 36, B 90, A 180, S 312, SS 480, SSS 720.
+  (A reading: his 482 would have been SS. The way, the spent rule and the link are as they were.)
+
+Tests: the palace's 4. Layers 0 to 14 and the full cart byte-identical.

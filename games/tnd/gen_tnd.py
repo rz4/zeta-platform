@@ -3425,6 +3425,11 @@ def sound_blow(head_cell):
 # combo's /400 is a multiply by its reciprocal.
 RANKS = ("D", "C", "B", "A", "S", "SS", "SSS")
 RANK_AT = (0, 60, 150, 300, 520, 800, 1200)
+if PALACE:
+    # P108: THE PALACE'S RANKS COME SOONER. His six minutes of P107 reached floor 16 and the meter 482 at the most --
+    # A, never S -- so the record's surge, chorus and climax were never heard. Each threshold is three fifths of the
+    # game's (a reading: the palace pays only the way, never the volume, and a floor's bodies are few).
+    RANK_AT = (0, 36, 90, 180, 312, 480, 720)
 RANK_RGB = (0x96919A, 0xAA8C78, 0x8C96AA, 0x96AA82, 0xC8A05A, 0xCD6E3C, 0xB92828)
 SY = {k: cart.var("s_" + k) for k in ("pts", "combo", "idle", "rp", "rank",
                                        "best", "cnt", "src", "dst", "dx", "n",
@@ -6639,7 +6644,8 @@ if L2:
             p.load(YBEST).load(YFLR).emit("lt", f"jz {pf_}_nb")
             p.load(YFLR).store(YBEST)
             p.mark(f"{pf_}_nb")
-            p.push(6).load(YFLR).emit("lt", f"jz {pf_}_nh")                  # (past the sixth: harder)
+            p.push(3).load(YFLR).emit("lt", f"jz {pf_}_nh")                  # (P108: past the THIRD: harder -- on his
+                                                                             # P107 tape the first ten floors cost him 47 of 140)
             p.push(int(YTP)).store(YBR)
             p.mark(f"{pf_}_h")
             for o_, ops_ in ((0, ("dup", "shr 4", "add")), (4, ("dup", "shr 4", "add"))):
@@ -6665,7 +6671,7 @@ if L2:
                 p.push(int(YMK) + 1).load(YK).emit("shl 1", "add", "loadi").load(YAB).push(o_ + 1).emit("add", "storei")
             for o_, v_ in ((4, LAB_FACE), (5, 1), (7, 0), (12, 0)):
                 p.push(v_).load(YAB).push(o_).emit("add", "storei")
-            p.push(int(YHPF)).load(YK).emit("add", "loadi").load(YFLR).push(6).emit("sub", "maxi 0")   # (whole, and a quarter
+            p.push(int(YHPF)).load(YK).emit("add", "loadi").load(YFLR).push(3).emit("sub", "maxi 0")   # (whole, and a quarter
             p.push(int(YHPF)).load(YK).emit("add", "loadi", "mul", "shr 2", "add")                        # more a floor past six)
             p.load(YAB).push(6).emit("add", "storei")
             p.set(YBR, 0)
@@ -12722,6 +12728,9 @@ p = p_main                           # (the intro has no style, no HUD)
 # ---- the style meter's frame: bleed, rank, best ------------------------------
 _sm0 = [len(g_._out) for g_ in (p_main, q, pz)]
 sb = p.label("sbleed")
+if PALACE:                                        # (P108: between floors -- the white light -- the meter holds)
+    p.load(YFL).emit(f"jz {sb}_lt", f"jmp {sb}")
+    p.mark(f"{sb}_lt")
 p.load(F["dead"]).emit(f"jz {sb}_a", f"jmp {sb}")
 p.mark(f"{sb}_a")
 p.load(F["skip"]).emit(f"jz {sb}_k", f"jmp {sb}")    # (not while FOCUS holds the world)
