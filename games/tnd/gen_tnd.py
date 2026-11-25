@@ -13538,7 +13538,8 @@ else:
         # (P105, the player: "no d should be the intro, c is fine, b is d, and then go up": D the intro, C the breakdown,
         # B the lift, then up -- A the drive, S the surge, SS the chorus, SSS the climax; the verse, as loud as the
         # drive, is left out)
-        RSEC = cart.data(Table([SECS.index(n_) for n_ in ("intro", "breakdown", "lift", "drive", "surge", "chorus", "climax")]),
+        # (P106, the player: "make A the verse" -- the drive is the one left out now)
+        RSEC = cart.data(Table([SECS.index(n_) for n_ in ("intro", "breakdown", "lift", "verse", "surge", "chorus", "climax")]),
                          "palace_rank_sections")
         p.push(int(RSEC)).load(SY["rank"]).emit("add", "loadi").store(SM["t"]).set(SM["q"], 1)
     p.load(SY["rank"]).store(SM["last"]).load(F["hs"]).store(SM["hs"])
