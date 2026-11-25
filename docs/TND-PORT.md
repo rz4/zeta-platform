@@ -3572,3 +3572,44 @@ swing. It was the first body, and the blow was spent. What "meets" is, is what i
 unit of the fist, each way; the round is still one body's. (How WIDE an attack's area should be is his to say.)
 
 Tests 33. Layers 0, 4, 8, 10, 11, 12 and the full cart byte-identical.
+
+## P84: in the run's air -- the lance, the dive down, the gun on where he lands (2026-11-25)
+
+The player, 46.8 minutes of P83 (the tape full, the session running on): "really take a look at this one / the
+controls are really fun, see where theirs no actions and i tried to play ... i think down in running should for
+shooting from high up, i was finding this thing where jumping and firing could be linked to where you'll be landing.
+that way you can jump and hit some one from above. the tackle makes it feal like football americano, and we can make
+it do a prowler like dive with a that acts differently depending if it grounded, jump or flip. and the same for the
+slide, or make it go down like the body is a a lance of longinus, the gun is like small ones." And, the reading put
+to him: "i agree with all this. the lance is a land because it wants to get to land quick thats why its more
+associated with a slide. The area of effect can be a hand spring on first jump".
+
+HIS TAPE (168,483 frames: the run 64%, the tank 24%, the boxer 11%; 530 dives, 241 slides, 819 bodies put down,
+96 blows on him, down 6 times; the run slowed 81% of its time, in the air 26%, in a flip 11%):
+- WHERE NOTHING CAME OF A PRESS: of 5,117 presses of A, B, X, Y, 461 began nothing inside fourteen frames. In the
+  run, X in the air 183 times and 148 nothing; X in a flip 63 and 40; Y in the air 50 and 40; Y in a flip 42 and 23;
+  Y again while sliding 44 and 39. The gun's button answered all 1,971 times; the tank and the boxer are near clean.
+- THE GUN IN THE RUN: 76% of its presses under eight frames, 20% eight to twenty, 4% longer. A round fired on the
+  ground was followed by a body losing something 78% of the time (1,368 rounds); fired in the air, 12% (214) -- it
+  leaves level, over their heads. B with Down held, 108 times.
+- A blow took two or more bodies in one frame 102 times, three or more 8 (P83's rule).
+
+WHAT IS BUILT (the yard):
+- THE LANCE, Y in the air: his body the slide's, feet first, thrown DOWN at once (0.32 a frame); as it meets the
+  ground it is the slide, through everything in its way. (Y waits for the ground; it was spent in the air.)
+- THE DIVE DOWN, X in the air: onto where he lands, and what stands within its reach there is struck and down.
+  From his FIRST JUMP it is the HANDSPRING: a unit and a half round his hands, and they throw him up again, the flip
+  still his. From a FLIP it is the SLAM: 2.2 round him, and he comes down into the roll. The world stops for the
+  blow's first body only (three under a handspring held him in the air most of a second).
+- THE GUN ON WHERE HE LANDS, Down held in the air: the laser goes down to the spot his landing mark shows, and the
+  round with it, to a standing body's middle there. Scripted, a body before him, a jump and a flip, a round at the
+  top: level, 0 of 12 took anything off it; with Down held, 12 of 12.
+MY CHOICES, his to judge: the speeds and the two reaches; that the handspring rises in the jump's own poses (a
+handspring's own is not baked); that Down's aim needs the landing mark shown.
+
+NOT DONE: the joins between his halves in the air (the six moments rendered were from the game's own lens, steeply
+down, his upper half off the top of the glass: they have to be drawn from the side first); the mirrored double in
+slowed time; Y while already sliding.
+
+Tests 36 (and the park's 23 unchanged). Layers 0, 4, 8, 10, 11, 12 and the full cart byte-identical. Not profiled on
+the silicon since P78.

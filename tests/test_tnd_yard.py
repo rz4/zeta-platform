@@ -973,3 +973,102 @@ def test_in_the_run_the_laser_is_his_headings(cart):
             worst = max(worst, abs(off))
     assert g.cell("head") > 400, "he did not turn"
     assert worst < 16, f"the laser was {worst:.0f} of 1,024 off his heading while he steered"
+
+
+# ---- P84: in the run's air ---------------------------------------------------------------------------------------------
+def _run_at(cart, bodies):
+    """running north up the west side, the room cleared but for bodies put before him: [(k, east of him, north of him)]"""
+    y = Yard(cart)
+    g = y.g
+    y.who(3)
+    for k in range(7):
+        _stand(y, k, 28.0 - k, -15.0)
+    y.put(-20.0, -8.0, 256)
+    for q in [0] * 5 + [L, L, 0, 0, 0, L, L, L] + [L | U] * 20:
+        g.step(q)
+    u, v = y.uv()
+    for k, du, dv in bodies:
+        _stand(y, k, u + du, v + dv)
+    return y, g
+
+
+def test_y_in_the_air_is_the_lance(cart):
+    """P84 (his 47 minutes of P83: Y in the air or a flip 92 times, 63 of them nothing; "the lance is a land because it
+    wants to get to land quick thats why its more associated with a slide"): Y in the air throws him DOWN at once,
+    feet first, and as he lands he slides -- through the body in his way"""
+    y, g = _run_at(cart, [(2, 0.0, 4.2)])
+    A, Yb = spec.PAD_A, spec.PAD_Y
+    def flight(press):
+        y, g = _run_at(cart, [(2, 0.0, 4.2)])
+        t = 0
+        for i, q in enumerate([A] * 3 + [0] * 6 + [Yb if press else 0] * 3 + [0] * 60):
+            g.step(L | U | q)
+            if i > 3 and g.cell("f_py") == 0 and not t:
+                t = i
+                slid = g.cell("anim")
+        for _ in range(3):
+            g.step(L | U)
+        return t, g, y
+    plain, _, _ = flight(False)
+    t, g, y = flight(True)
+    assert t <= plain - 4, f"the lance came down at frame {t}, a plain jump at {plain}"
+    seen7 = False
+    hp = None
+    y, g = _run_at(cart, [(2, 0.0, 4.2)])
+    hp = g.cell("e2_hp")
+    for q in [A] * 3 + [0] * 6 + [Yb] * 3 + [0] * 60:
+        g.step(L | U | q)
+        seen7 |= g.cell("anim") == 7
+        if g.cell("f_py") > 0 and g.cell("yard_lance"):
+            assert g.cell("pose") in range(583, 587), "in the air he is not the slide's body"
+    assert seen7 and g.cell("e2_hp") == hp - 2 and g.cell("e2_st") == 2, (seen7, g.cell("e2_hp"), g.cell("e2_st"))
+
+
+def test_x_in_the_air_is_the_dive_down_a_handspring_from_a_jump_a_slam_from_a_flip(cart):
+    """P84 (X in the air or a flip 246 times, 188 of them nothing; "a prowler like dive ... that acts differently
+    depending if it grounded, jump or flip ... The area of effect can be a hand spring on first jump"): from his first
+    jump X dives him onto where he lands, strikes what is within a unit and a half and throws him up again; from a
+    flip it strikes within 2.2 and he rolls. The world stops once for it, not once a body"""
+    A, Xb = spec.PAD_A, spec.PAD_X
+    three = [(2, 0.0, 4.6), (3, 0.8, 5.2), (4, -0.9, 5.4)]
+    # the handspring
+    y, g = _run_at(cart, three)
+    up_again, stopped = False, 0
+    for i, q in enumerate([0] * 10 + [A] * 3 + [0] * 7 + [Xb] * 3 + [0] * 50):
+        g.step(L | U | q)
+        if i > 23:
+            up_again |= g.cell("f_py") > int(0.4 * ONE)
+            stopped += g.cell("f_stop") > 0
+    assert [g.cell(f"e{k}_st") for k in (2, 3, 4)] == [2, 2, 2], "the handspring's three"
+    assert up_again and not g.cell("f_flipu"), "it did not throw him up again with the flip still his"
+    assert stopped < 22, f"the world stood {stopped} frames for one blow"
+    # the slam: one stands 1.9 off his line -- outside a handspring's reach, inside a slam's
+    y, g = _run_at(cart, [(2, 0.0, 4.8), (3, 1.9, 4.8)])
+    rolled = False
+    for i, q in enumerate([0] * 4 + [A] * 3 + [0] * 6 + [A] * 3 + [0] * 8 + [Xb] * 3 + [0] * 50):
+        g.step(L | U | q)
+        rolled |= i > 30 and g.cell("f_evf") > 0 and g.cell("f_py") == 0
+    assert [g.cell(f"e{k}_st") for k in (2, 3)] == [2, 2], "the slam's two, one of them wide"
+    assert rolled, "he did not come down into the roll"
+    y, g = _run_at(cart, [(2, 0.0, 4.6), (3, 1.9, 4.6)])
+    for q in [0] * 10 + [A] * 3 + [0] * 7 + [Xb] * 3 + [0] * 50:
+        g.step(L | U | q)
+    assert g.cell("e3_st") == 1, "a handspring reached a body 1.9 off"
+
+
+def test_down_held_in_the_air_the_gun_is_on_where_he_lands(cart):
+    """P84 ("i think down in running should for shooting from high up ... jumping and firing could be linked to where
+    you'll be landing. that way you can jump and hit some one from above"; his tape: from the air a round took
+    something off a body 12% of the time, from the ground 78%): a body before him, a jump and a flip over it, a round
+    at the top -- level, it goes over its head; with Down held it is on it"""
+    A, B, D, R = spec.PAD_A, spec.PAD_B, spec.PAD_DOWN, spec.PAD_R
+
+    def took(down):
+        y, g = _run_at(cart, [(2, 0.0, 9.0)])
+        hp = g.cell("e2_hp")
+        for i, q in enumerate([A] * 3 + [0] * 6 + [A] * 3 + [0] * 40):
+            g.step(L | U | R | q | (B if 14 <= i < 18 else 0) | (D if down and i >= 8 else 0))
+            if down and 12 < i < 30:
+                assert g.cell("yard_aim_down"), i
+        return hp - g.cell("e2_hp")
+    assert took(False) == 0 and took(True) > 0, (took(False), took(True))

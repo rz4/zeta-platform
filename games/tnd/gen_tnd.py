@@ -4109,6 +4109,11 @@ if LAB:
         YRK, YR0 = cart.var("yard_struck", len(ENEMY)), cart.var("yard_held", len(ENEMY))      # a body struck: high 0 / low 1; held how long
         YSEEN, YCF = cart.var("yard_seen", len(ENEMY)), cart.var("yard_faces")                   # drawn this frame; the frame's cart faces so far
         YPK, YPT, YCBP = cart.var("yard_his"), cart.var("yard_his_t"), cart.var("yard_row")
+        # P84: IN THE RUN'S AIR (his 47 minutes of P83: X pressed in the air or a flip 246 times and Y 92, and 251 of
+        # them began nothing; a round fired from the air took something off a body 12% of the time, from the ground 78%)
+        YLN, YDV, YBX, YAD, YADH = (cart.var("yard_" + k_) for k_ in ("lance", "air_dive", "burst", "aim_down", "aim_down_way"))
+        LANCE_V, DIVE_DN, SPRING_V = int(0.32 * ONE), int(0.20 * ONE), int(0.215 * ONE)
+        BURST_SPRING, BURST_SLAM, BURST_N = int((1.5 - 0.75) * ONE), int((2.2 - 0.75) * ONE), 6
         YCON = cart.var("yard_struck_by")                  # P83: the bodies this blow has struck, a bit each
         YSLW = cart.var("yard_slow_was")                   # P82: time was slowed last frame
         YFAR = cart.var("yard_far", len(ENEMY))            # P78: drawn as its far body (set where it is listed)
@@ -6406,6 +6411,14 @@ if PARK:
     p.load(F["sty"]).push(1).emit("eq", f"jz {rq_}")
     p.load(GTAP["special"]).emit(f"jz {rq_}_x")
     p.set(GTAP["special"], 0).set(PARK_SLQ, 1)
+    if YARD:
+        # P84 (the player: "the lance is a land because it wants to get to land quick thats why its more associated
+        # with a slide"): Y IN THE AIR IS THE LANCE -- his body straight, feet first, DOWN, at once; and as it meets
+        # the ground it is the slide, through everything in its way. (Y waits for the ground: it was spent in the air.)
+        p.load(F["py"]).emit(f"jz {rq_}_x")
+        p.set(YLN, 1).set(YDV, 0)
+        p.push(-LANCE_V).load(F["pvy"]).emit("lt", f"jz {rq_}_x")
+        p.push(-LANCE_V).store(F["pvy"])
     p.mark(f"{rq_}_x")
     # P68 (the player: "the jab should be switched for a dive tackle roll"): X ON THE RUN IS THE DIVE. From the ground
     # he throws himself flat along his line -- a quarter of a unit up, nine frames, a burst of pace -- and what stands
@@ -6414,6 +6427,20 @@ if PARK:
     # it; on the ground only. (P59's leap threw the jab; P66 to P67 it was the jab's arm over the stride.)
     p.load(GTAP["carve"]).emit(f"jz {rq_}")
     p.set(GTAP["carve"], 0)
+    if YARD:
+        # P84 (the player: "we can make it do a prowler like dive with a that acts differently depending if it
+        # grounded, jump or flip ... The area of effect can be a hand spring on first jump"): X IN THE AIR IS THE DIVE
+        # DOWN, onto where he lands, and what stands within its reach there is struck and down. From his FIRST JUMP it
+        # is a HANDSPRING: his hands take the ground (a unit and a half round them) and throw him up again, the flip
+        # still his. From a FLIP it is the SLAM: wider (2.2), and he comes down into the roll.
+        p.load(F["py"]).emit(f"jz {rq_}_gy")
+        p.load(YDV).load(YLN).emit("or", f"jz {rq_}_ad", f"jmp {rq_}")
+        p.mark(f"{rq_}_ad")
+        p.load(F["flipu"]).push(1).emit("add").store(YDV)                # (1 the handspring, 2 the slam)
+        p.set(LJMP, 1).set(PARK_DV, 1).set(PARK_RJS, 1)
+        p.push(-DIVE_DN).load(F["pvy"]).emit("lt", f"jz {rq_}")
+        p.push(-DIVE_DN).store(F["pvy"]).emit(f"jmp {rq_}")
+        p.mark(f"{rq_}_gy")
     p.load(F["py"]).load(F["evf"]).emit("or", f"jz {rq_}_g", f"jmp {rq_}")
     p.mark(f"{rq_}_g")
     p.set(F["py"], 1).set(F["pvy"], PARK_DIVE_V).set(JV0, PARK_DIVE_V).set(F["spd"], PARK_SUPER_SPD).set(F["flipu"], 1)
@@ -7619,6 +7646,14 @@ if L1:
     p.mark(f"{sd_}_no")
     if PARK:                                                       # (P59: Y asks for it -- the slide is the special's)
         p.load(PARK_SLQ).emit(f"jz {sd_}")
+        if YARD:                                                   # (P84: the lance's Y waits for the ground)
+            p.load(YLN).emit(f"jz {sd_}_q")
+            p.load(F["py"]).emit(f"jz {sd_}_q", f"jmp {sd_}")
+            p.mark(f"{sd_}_q")
+            p.load(YLN).emit(f"jz {sd_}_q2")
+            p.set(YLN, 0).push(SLIDE_MIN + 1).load(F["spd"]).emit("lt", f"jz {sd_}_q2")   # (and it has the slide's least pace)
+            p.push(SLIDE_MIN + 1).store(F["spd"])
+            p.mark(f"{sd_}_q2")
         p.set(PARK_SLQ, 0)
     else:
         held(spec.PAD_DOWN)                                        # a fresh Down, running fast
@@ -8133,6 +8168,18 @@ if LAB:
     p.mark(rl)
     if PARK:
         p.set(PARK_DV, 0)
+    if YARD:
+        ld_ = p.label("airdive")
+        p.load(YDV).emit(f"jz {ld_}")
+        p.set(PARK_SPQ, BURST_N).set(F["con"], 0).set(YCON, 0).set(PARK_RJS, 1)
+        p.load(YDV).push(1).emit("eq", f"jz {ld_}_slam")
+        p.set(YBX, BURST_SPRING)                          # the handspring: up again, the flip still his
+        p.set(F["py"], 1).set(F["pvy"], SPRING_V).set(JV0, SPRING_V).set(RLND, 0).set(F["evf"], 0).set(F["evt"], 0)
+        p.set(GRISE, TAP_G).set(GFALL, PARK_FALL)
+        p.set(YDV, 0).emit(f"jmp {ld_}")
+        p.mark(f"{ld_}_slam")
+        p.set(YBX, BURST_SLAM).set(YDV, 0)
+        p.mark(ld_)
 if L1:
     p.set(WJN, 0).set(WALLT, 0)                           # (...and the wall jumps)
     sjl = p.label("sjland")                               # (P33: the strafe jump lands,
@@ -8498,6 +8545,11 @@ if YARD:
     # changed in one frame -- standing, then mid-stride; mid-stride, then standing. Into it he DROPS AND DRIVES (the
     # landing's crouch rising into the stride's first pose, five frames); out of it at pace he BRAKES (the stride
     # sinking into that crouch and up, eight). On the ground and his own; a blow, a flip or the air has him first.
+    ln_ = p.label("lancepose")                       # P84: the lance -- the slide's own body, in the air
+    p.load(YLN).emit(f"jz {ln_}")
+    p.load(F["py"]).emit(f"jz {ln_}")
+    p.push(base["slide"] + 2).store(POSE).emit(f"jmp {L['pd']}")
+    p.mark(ln_)
     ym = p.label("ymode")
     p.load(F["sty"]).load(YSTP).emit("eq", f"jz {ym}_ch", f"jmp {ym}_t")
     p.mark(f"{ym}_ch")
@@ -9136,6 +9188,11 @@ if PARK:
     # body struck (the hook's worth off it, held, sent, the hitstop and the shake), the spark where it landed -- and
     # the body is DOWN (below). Once a dive.
     rj = p.label("pkdive")
+    if YARD:                                                              # (P84: a burst's reach lasts as long as its blow)
+        p.load(PARK_SPQ).emit(f"jz {rj}_bx", f"jmp {rj}_bk")
+        p.mark(f"{rj}_bx")
+        p.set(YBX, 0)
+        p.mark(f"{rj}_bk")
     p.load(F["sty"]).push(1).emit("eq", f"jz {rj}")
     p.load(ANIM).push(2).emit("eq", f"jz {rj}_a", f"jmp {rj}")
     p.mark(f"{rj}_a")
@@ -9152,6 +9209,11 @@ if PARK:
     p.load(PX).push(PARK_DIVE_REACH).load(F["ps"]).emit("mulq", "sub").store(F["fx"])
     p.load(PZ).push(PARK_DIVE_REACH).load(F["pc"]).emit("mulq", "add").store(F["fz"])
     p.set(F["fy"], PARK_DIVE_HIGH)                                        # (P69: a standing body's middle, whatever his own height)
+    if YARD:
+        bx_ = p.label("burstat")                                          # (P84: a burst is round HIM)
+        p.load(YBX).emit(f"jz {bx_}")
+        p.load(PX).store(F["fx"]).load(PZ).store(F["fz"])
+        p.mark(bx_)
     if YARD:
         # P75 (the player: "slide wilhile running should do damage"): THE SLIDE IS A BLOW TOO, through its frames --
         # his feet, low: it takes a body's LEGS (the hook's worth, held twice as long), and what it takes is down
@@ -9238,7 +9300,10 @@ if L4:
             p.load(c_).load(F[f_]).emit("sub", "dup").push(0).emit("lt", f"jz {fn_}_a{f_}")
             p.push(0).emit("swap", "sub")
             p.mark(f"{fn_}_a{f_}")
-            p.push(int(0.75 * ONE)).emit("lt", f"jz {fn_}")
+            if YARD:
+                p.push(int(0.75 * ONE)).load(YBX).emit("add", "lt", f"jz {fn_}")
+            else:
+                p.push(int(0.75 * ONE)).emit("lt", f"jz {fn_}")
         p.set(F["con"], 1)
         if YARD:
             p.load(YCON).push(1 << e_["k"]).emit("or").store(YCON)
@@ -9246,7 +9311,17 @@ if L4:
         row(PMT, F["mv"], "stop")
         if LAB:                                      # (P42: the hitstop's knob)
             knob(p, "hstop").emit("mul", "shr 16")
-        p.emit("dup", "dup").store(F["stop"]).store(F["shake"]).push(12).emit("add").store(W["stop"])
+        if YARD:
+            # (P84: the world stops for a blow's FIRST body; the others it meets are struck without stopping it again
+            # -- three under a handspring held him in the air for most of a second)
+            p.emit("dup").push(12).emit("add").store(W["stop"])
+            p.load(YCON).push(1 << e_["k"]).emit("xor", f"jz {fn_}_s1")
+            p.emit("drop", f"jmp {fn_}_s2")
+            p.mark(f"{fn_}_s1")
+            p.emit("dup").store(F["stop"]).store(F["shake"])
+            p.mark(f"{fn_}_s2")
+        else:
+            p.emit("dup", "dup").store(F["stop"]).store(F["shake"]).push(12).emit("add").store(W["stop"])
         if LAB:
             # P42: held by the move's own frames, by the knob; and SENT the
             # way his body faced, by the move, the knobs and its weight
@@ -11409,6 +11484,25 @@ if L2:
     p.load(KHIT).emit(f"jz {sg_}_k")
     p.addi(KHIT, -1)
     p.mark(f"{sg_}_k")
+    if YARD:
+        # P84 (the player: "i think down in running should for shooting from high up, i was finding this thing where
+        # jumping and firing could be linked to where you'll be landing. that way you can jump and hit some one from
+        # above"; his tape: a round from the air took something off a body 12% of the time, from the ground 78% -- it
+        # left level, over their heads): IN THE RUN'S AIR, DOWN HELD, THE GUN IS ON WHERE HE WILL LAND -- the laser
+        # goes down to it, and the round with it, to a standing body's middle there
+        ad_ = p.label("aimdown")
+        p.set(YAD, 0)
+        p.load(F["sty"]).push(1).emit("eq", f"jz {ad_}")
+        p.load(F["py"]).emit(f"jz {ad_}")
+        p.load(LNDON).emit(f"jz {ad_}")
+        p.emit("load 1").push(spec.PAD_DOWN).emit("and", f"jz {ad_}")
+        p.load(LNDX).load(PX).emit("sub").store(W["qx"]).load(LNDZ).load(PZ).emit("sub").store(W["qz"])
+        p.load(W["qx"]).emit("dup", "mulq").load(W["qz"]).emit("dup", "mulq", "add").push(int(0.25 * ONE)).emit("lt", f"jz {ad_}_f", f"jmp {ad_}")
+        p.mark(f"{ad_}_f")
+        p.load(F["brg"]).store(LS1).emit(f"call {L_YAW}")
+        p.load(F["brg"]).store(YADH).load(LS1).store(F["brg"])
+        p.set(YAD, 1)
+        p.mark(ad_)
     p.load(F["py"]).push(GUN_Y).emit("add").store(W["oy"])
     if L4:                                        # (P37: locked, at the spot's height)
         p.load(LOCK).emit(f"jz {sg_}_y")
@@ -11423,6 +11517,10 @@ if L2:
         p.load(LOCK).emit(f"jz {sg_}_ly")
         p.load(TGTY).store(W["oy"])
         p.mark(f"{sg_}_ly")
+        if YARD:
+            p.load(YAD).emit(f"jz {sg_}_ad")
+            p.load(LNDY).push(int(1.0 * ONE)).emit("add").store(W["oy"])
+            p.mark(f"{sg_}_ad")
     p.load(GT["shoot"]).emit(f"jz {sg_}")
     p.load(HNDON if LAB else SLOWON).emit(f"jz {sg_}")   # (P47, the lab: a laser is on while the gun is out)
     #                                               (P35, the player: "the targeting should
@@ -11438,7 +11536,9 @@ if L2:
         # P83 (the player: "making aure the laser is fixed when slow mo shooting in running"; scripted: Left held in
         # the run, the laser stood an eighth of a turn off his heading the whole turn -- the pad's way, which in the
         # tank is where the gun snaps): in the run the pad STEERS him; the laser is his heading's, and so is the round
-        p.load(F["sty"]).push(1).emit("eq", f"jz {sg_}_ar", f"jmp {sg_}_h")
+        p.load(F["sty"]).push(1).emit("eq", f"jz {sg_}_ar")
+        p.load(YAD).emit(f"jz {sg_}_h")
+        p.load(YADH).store(W["head"]).emit(f"jmp {sg_}_h")              # (P84: Down held in the air: the way to where he lands)
         p.mark(f"{sg_}_ar")
     held(15)
     p.emit(f"jz {sg_}_h")
@@ -13561,6 +13661,10 @@ if L2:
     p.mark(f"{fr_}_e")
     p.set(RLD, RELOAD)                                     # the last round: it reloads
     p.mark(f"{fr_}_s")
+    if YARD:
+        p.load(YAD).emit(f"jz {fr_}_ad")
+        p.load(YADH).store(W["head"])
+        p.mark(f"{fr_}_ad")
     p.emit(f"call {L_RAY}")
     if L4:
         # P37: locked, the round goes at the SPOT (its height and what it
@@ -13575,9 +13679,16 @@ if L2:
             p.load(int(HNDW) + 1).store(LS0)
             p.mark(f"{fy_}_g")
             p.load(LS0).store(W["bx"]).set(W["bz"], 3).set(DVQ, 0)
+            if YARD:
+                p.load(YAD).emit(f"jz {fy_}_nad")
+                p.load(LNDY).push(int(1.0 * ONE)).emit("add", "dup").store(W["bx"]).load(LS0).emit("sub").store(DVR)
+                p.set(W["bz"], 1).emit(f"jmp {fy_}_dv")
+                p.mark(f"{fy_}_nad")
             p.load(LOCK).emit(f"jz {fy_}")
             p.load(TGTY).store(W["bx"]).load(SPOT).store(W["bz"])
             p.load(TGTY).load(LS0).emit("sub").store(DVR)
+            if YARD:
+                p.mark(f"{fy_}_dv")
             p.load(RAY["len"]).emit("dup").push(int(0.75 * ONE)).emit("lt", f"jz {fy_}_d")
             p.emit("drop").push(int(0.75 * ONE))
             p.mark(f"{fy_}_d")
