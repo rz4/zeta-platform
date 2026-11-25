@@ -4109,6 +4109,7 @@ if LAB:
         YRK, YR0 = cart.var("yard_struck", len(ENEMY)), cart.var("yard_held", len(ENEMY))      # a body struck: high 0 / low 1; held how long
         YSEEN, YCF = cart.var("yard_seen", len(ENEMY)), cart.var("yard_faces")                   # drawn this frame; the frame's cart faces so far
         YPK, YPT, YCBP = cart.var("yard_his"), cart.var("yard_his_t"), cart.var("yard_row")
+        YCON = cart.var("yard_struck_by")                  # P83: the bodies this blow has struck, a bit each
         YSLW = cart.var("yard_slow_was")                   # P82: time was slowed last frame
         YFAR = cart.var("yard_far", len(ENEMY))            # P78: drawn as its far body (set where it is listed)
         # (from HIM: past the first it goes far; inside the second, near again. Those at his sides, fighting him, are
@@ -6418,6 +6419,8 @@ if PARK:
     p.set(F["py"], 1).set(F["pvy"], PARK_DIVE_V).set(JV0, PARK_DIVE_V).set(F["spd"], PARK_SUPER_SPD).set(F["flipu"], 1)
     p.set(GRISE, TAP_G).set(GFALL, TAP_G).set(LJMP, 1).push32(PARK_DIVE_K).store(LEAPK)
     p.set(PARK_SPQ, PARK_DIVE_N).set(PARK_RJS, 1).set(F["con"], 0).set(PARK_DV, 1)
+    if YARD:
+        p.set(YCON, 0)
     p.mark(rq_)
 # the special: its own tap
 sp = p.label("g_sp")
@@ -7328,6 +7331,8 @@ if L3:
 # LAUNCH: the buffered move, and its lunge as ONE impulse (tear.py _launch)
 p.load(F["bmv"]).store(F["mv"])
 p.set(ANIM, 2).set(AF, 0).set(F["con"], 0).set(F["buf"], 0)
+if YARD:
+    p.set(YCON, 0)
 if LAB:
     p.set(LNGX, ONE).set(PASSK, 0)
 if L2:
@@ -7626,6 +7631,8 @@ if L1:
     p.set(SLT, SLIDE_MAX).set(SLF, 0)
     if YARD:                                                       # (P75: "slide wilhile running should do damage": below)
         p.set(PARK_SPQ, PARK_SLIDE_N).set(F["con"], 0)
+        if YARD:
+            p.set(YCON, 0)
     p.load(F["spd"]).push(SLIDE_BOOST).emit("mulq").store(SLV)
     p.emit(f"jmp {sd_}_on")
     p.mark(sd_)
@@ -9136,8 +9143,12 @@ if PARK:
     p.set(F["mv"], MOVE["lead_hook"])
     row(PMT, F["mv"], "start")
     p.push(PARK_DIVE_N - 1).load(PARK_SPQ).emit("sub", "add").store(AF)     # (the swing's own frame: its first is the spark's)
-    p.load(F["con"]).emit(f"jz {rj}_c", f"jmp {nf_}")
-    p.mark(f"{rj}_c")
+    # P83 (the player: "make the slide hurt all the contacts. I think that would be a cool added layer throughout, the
+    # attacks have an area of effect"): A BLOW STRIKES EVERY BODY IT MEETS, each once -- the slide and the dive through
+    # all their frames, a fist through its swing. (It was the first body, and the blow was spent.)
+    if not YARD:
+        p.load(F["con"]).emit(f"jz {rj}_c", f"jmp {nf_}")
+        p.mark(f"{rj}_c")
     p.load(PX).push(PARK_DIVE_REACH).load(F["ps"]).emit("mulq", "sub").store(F["fx"])
     p.load(PZ).push(PARK_DIVE_REACH).load(F["pc"]).emit("mulq", "add").store(F["fz"])
     p.set(F["fy"], PARK_DIVE_HIGH)                                        # (P69: a standing body's middle, whatever his own height)
@@ -9151,8 +9162,9 @@ if PARK:
     p.emit(f"jmp {nf_}_land")
     p.mark(rj)
 p.load(ANIM).push(2).emit("eq", f"jz {nf_}")
-p.load(F["con"]).emit(f"jz {nf_}_c", f"jmp {nf_}")
-p.mark(f"{nf_}_c")
+if not YARD:                                      # (P83: in the yard a blow goes on to the next body)
+    p.load(F["con"]).emit(f"jz {nf_}_c", f"jmp {nf_}")
+    p.mark(f"{nf_}_c")
 p.load(AF)
 row(PMT, F["mv"], "start")
 p.emit("lt", f"jz {nf_}_s", f"jmp {nf_}")        # before the active frames
@@ -9216,7 +9228,10 @@ if L4:
     for e_ in ENEMY:
         fn_ = p.label("fe")
         ex_, ez_ = int(e_["pos"]), int(e_["pos"]) + 1
-        p.load(F["con"]).emit(f"jz {fn_}_c", f"jmp {fe_}")
+        if YARD:
+            p.load(YCON).push(1 << e_["k"]).emit("and", f"jz {fn_}_c", f"jmp {fn_}")
+        else:
+            p.load(F["con"]).emit(f"jz {fn_}_c", f"jmp {fe_}")
         p.mark(f"{fn_}_c")
         p.load(e_["st"]).push(1).emit("eq", f"jz {fn_}")
         for c_, f_ in ((ex_, "fx"), (ez_, "fz")):
@@ -9225,6 +9240,8 @@ if L4:
             p.mark(f"{fn_}_a{f_}")
             p.push(int(0.75 * ONE)).emit("lt", f"jz {fn_}")
         p.set(F["con"], 1)
+        if YARD:
+            p.load(YCON).push(1 << e_["k"]).emit("or").store(YCON)
         p.push(int(FDMG)).load(F["mv"]).emit("add", "loadi").store(W["dmg"])
         row(PMT, F["mv"], "stop")
         if LAB:                                      # (P42: the hitstop's knob)
@@ -11417,6 +11434,12 @@ if L2:
         p.load(LOCK).emit("or")
     p.emit(f"jz {sg_}_a", f"jmp {sg_}_h")
     p.mark(f"{sg_}_a")
+    if YARD:
+        # P83 (the player: "making aure the laser is fixed when slow mo shooting in running"; scripted: Left held in
+        # the run, the laser stood an eighth of a turn off his heading the whole turn -- the pad's way, which in the
+        # tank is where the gun snaps): in the run the pad STEERS him; the laser is his heading's, and so is the round
+        p.load(F["sty"]).push(1).emit("eq", f"jz {sg_}_ar", f"jmp {sg_}_h")
+        p.mark(f"{sg_}_ar")
     held(15)
     p.emit(f"jz {sg_}_h")
     p.push(int(OCTANT)).emit("load 1").push(15).emit("and", "add", "loadi")

@@ -3556,3 +3556,19 @@ comes up with the spot. Chosen with R alone in time as it runs, the spot stays w
 (Slowed time is any of the four held: a fist held and let go returns it too.)
 
 Tests 30. Layers 0, 4, 8, 10, 11, 12 and the full cart byte-identical.
+
+## P83: the run's laser is his heading's; a blow strikes every body it meets (2026-11-24)
+
+The player: "The next thing is making aure the laser is fixed when slow mo shooting in running. and make the slide
+hurt all the contacts. I think that would be a cool added layer throughout, the attacks have an area of effect."
+
+THE LASER IN THE RUN. On his tape of P78 (1,185 frames in the run, slowed, the gun out) and scripted: with Left held
+to steer, the laser stood an eighth of a turn off his heading for the whole turn -- it went the PAD's way, which in
+the tank is where the gun snaps. In the run the pad steers him: the laser is his heading's (within 5 of 1,024 as he
+turns), and the round goes where it points. (MY READING of "fixed": fixed to where he faces.)
+
+A BLOW STRIKES EVERY BODY IT MEETS, each once: the slide and the dive through all their frames, a fist through its
+swing. It was the first body, and the blow was spent. What "meets" is, is what it was -- within three quarters of a
+unit of the fist, each way; the round is still one body's. (How WIDE an attack's area should be is his to say.)
+
+Tests 33. Layers 0, 4, 8, 10, 11, 12 and the full cart byte-identical.

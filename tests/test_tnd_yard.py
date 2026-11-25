@@ -894,3 +894,82 @@ def test_out_of_slowed_time_the_spot_is_the_bodys_again_and_his_waist_comes_up(c
     for q in [R | D] * 3 + [R] * 60:
         g.step(q)
     assert g.cell("t_spot") == 2
+
+
+# ---- P83 -------------------------------------------------------------------------------------------------------------
+def _stand(y, k, u, v):
+    """body k stands at (u, v), and that is its mark"""
+    g = y.g
+    x, z = int(round((y.hx - v) * ONE)) & 0xFFFFFFFF, int(round((y.hz + u) * ONE)) & 0xFFFFFFFF
+    a, mk = g.syms[f"e{k}_pos"], g.syms["yard_marks"]
+    for o, w in ((0, x), (1, z), (2, x), (3, z)):
+        g.d[a + o] = w
+    g.d[mk + 2 * k], g.d[mk + 2 * k + 1] = x, z
+
+
+def test_the_slide_takes_every_body_it_meets(cart):
+    """P83 ("make the slide hurt all the contacts. I think that would be a cool added layer throughout, the attacks
+    have an area of effect"): two of the horde one behind the other in his way; one slide, and both have its two off
+    them and are down -- it was the first, and the blow was spent"""
+    y = Yard(cart)
+    g = y.g
+    y.who(3)
+    _stand(y, 2, -20.0, 2.0)
+    _stand(y, 3, -20.0, 3.3)
+    for k in (0, 1, 4, 5, 6):
+        _stand(y, k, 28.0 - k, -15.0)
+    y.put(-20.0, -4.0, 256)
+    for q in (0, 0, L, L, 0, 0, 0, L, L, L):
+        g.step(q)
+    hp = [g.cell("e2_hp"), g.cell("e3_hp")]
+    slid = 0
+    for i in range(120):
+        go = y.far(2) < 2.6 and not slid
+        g.step(L | U | (spec.PAD_Y if go else 0))
+        slid += go and g.cell("anim") == 7
+    assert slid == 1, f"he slid {slid} times"
+    assert [g.cell("e2_hp"), g.cell("e3_hp")] == [hp[0] - 2, hp[1] - 2], "one slide through two: " + str([g.cell("e2_hp"), g.cell("e3_hp")])
+    assert g.cell("e2_st") == 2 and g.cell("e3_st") == 2
+
+
+def test_a_fist_takes_both_bodies_in_its_way_and_each_once(cart):
+    """P83: two bodies shoulder to shoulder before him, one hook: both are struck, once each"""
+    y = Yard(cart)
+    g = y.g
+    y.who(3)
+    for k in (0, 1, 4, 5, 6):
+        _stand(y, k, 28.0 - k, -15.0)
+    y.put(-20.0, 0.0, 256)
+    for _ in range(5):
+        g.step(0)
+    _stand(y, 2, -20.35, 1.05)
+    _stand(y, 3, -19.65, 1.05)
+    hp = [g.cell("e2_hp"), g.cell("e3_hp")]
+    for q in [spec.PAD_Y] * 3 + [0] * 60:
+        g.d[g.syms["p_hp"]] = 140
+        g.step(q)
+    took = [hp[0] - g.cell("e2_hp"), hp[1] - g.cell("e3_hp")]
+    assert took[0] > 0 and took[1] > 0 and took[0] == took[1], f"one blow, two bodies before it: off them {took}"
+
+
+def test_in_the_run_the_laser_is_his_headings(cart):
+    """P83 ("making aure the laser is fixed when slow mo shooting in running"): the gun out in the run's slowed time,
+    Left held to steer: the laser stays on his heading (it stood an eighth of a turn off it, the pad's way), and the
+    round goes where it points"""
+    y = Yard(cart)
+    g = y.g
+    y.who(3)
+    y.put(-20.0, -6.0, 256)
+    R, B, LF = spec.PAD_R, spec.PAD_B, spec.PAD_LEFT
+    for q in [0] * 10 + [L, L, 0, 0, 0, L, L, L] + [L | U] * 30 + [L | U | R] * 20 + [L | U | R | B] * 40:
+        g.step(q)
+    assert g.cell("f_sty") == 1 and g.cell("slow_on") and g.cell("aim_hand_on")
+    worst = 0
+    for i in range(60):
+        g.step(L | U | R | B | LF)
+        way = (math.degrees(math.atan2(-g.cell("ray_dx"), g.cell("ray_dz"))) * 1024 / 360) % 1024
+        off = (way - g.cell("head") + 512) % 1024 - 512
+        if i > 8:
+            worst = max(worst, abs(off))
+    assert g.cell("head") > 400, "he did not turn"
+    assert worst < 16, f"the laser was {worst:.0f} of 1,024 off his heading while he steered"
