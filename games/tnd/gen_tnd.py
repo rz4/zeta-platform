@@ -137,6 +137,8 @@ if LAYER in (10, 11, 12, 13):
         # P91: ONE BODY WITH THE GUN (tools/tnd_gunbody.py): the park's stride, leaps and landing with the two-handed
         # hold on them, at four heights of the draw -- each one skinned body, baked on the archive's rig
         d = _Bake(np.load(ROOT / "assets" / "tnd" / "gunbody.npz"), d)
+        # P92: THE YARD'S OWN MOVES, POSED (tools/tnd_moves.py): into the run, out of it, the handspring, the lance
+        d = _Bake(np.load(ROOT / "assets" / "tnd" / "moves.npz"), d)
 F, C = d["F"], d["C"]
 PLAYER_NF = len(F)               # (his own faces: of the 2,048 a frame's cart meshes may have)
 SEQS = ("idle", "walk", "air", "jab", "cross", "lead_hook", "rear_hook", "special",
@@ -186,6 +188,7 @@ REACTS = ("hurt_hi", "hurt_lo", "down", "getup")
 if LAYER == 13:
     SEQS += REACTS
     SEQS += ("gb_run", "gb_leap", "gb_leap_l", "gb_land")      # P91: one body with the gun
+    SEQS += ("mv_start", "mv_stop", "mv_stop_l", "mv_spring", "mv_lance")   # P92
 
 
 def to_zeta(V):
@@ -2396,7 +2399,8 @@ if LAB:
         # leaving the guard), HELD READY at the second (frame 4, where the button holds it: his hand at 1.09),
         # LOCKED OUT through the shot (5 to 10), then down through the third to the ready again -- not to the
         # holster and back up, as the clip's own tail goes
-        GB_STATE = [0, 0, 0, 0, 1, 3, 3, 3, 3, 3, 3, 2, 2, 1, 1, 1, 1, 1]
+        # (state 0 is the hold HALF-TAKEN: the frame the gun comes to hand -- and, below, the two it goes from it)
+        GB_STATE = [0, 1, 1, 1, 2, 4, 4, 4, 4, 4, 4, 3, 3, 2, 2, 2, 2, 2]
         assert len(GB_STATE) == len(d["V_gun"]) and max(GB_STATE) < GB_N
     HAND_T = cart.data(Table([int(round(float(c_) * ONE)) for h_ in _hand for c_ in h_]), "lab_hand")
     HAND_N, HAND_UP, HAND_OUT = len(_hand), int(round(float(_hand[4][1]) * ONE)), int(0.36 * ONE)
@@ -4180,7 +4184,7 @@ if LAB:
         JOIN_LEAN = int(os.environ.get("TND_JLEAN", "85"))            # of 256: how much of the legs' lean his chest takes
         JOIN_SINK = int(float(os.environ.get("TND_JSINK", "0.05")) * ONE)
         JOIN_FWD = int(float(os.environ.get("TND_JFWD", "0.03")) * ONE)
-        YGB, YGS, YGK = (cart.var("yard_one_body" + k_) for k_ in ("", "_draw", "_kick"))     # P91
+        YGB, YGS, YGK, YGA = (cart.var("yard_one_body" + k_) for k_ in ("", "_draw", "_kick", "_away"))     # P91, P92
         GB_ST = cart.data(Table(GB_STATE), "yard_draw_of")
         assert not DEDUPE
         YJ0, YJ1, YJU, YJF, YJP = (cart.var("yard_join" + k_) for k_ in ("0", "1", "_up", "_ahead", "_turn"))   # P85: the two waists; the chest's move
@@ -8236,6 +8240,11 @@ p.push(0).load(F["py"]).emit("lt", f"jz {av}_land", f"jmp {av}_e")
 p.mark(f"{av}_land")
 if LAB:
     p.load(F["flipu"]).store(RFLIP)                       # (P50: was it a flip he came down from?)
+    if YARD:                                              # (P92: the lance comes down into the SLIDE, flip or no)
+        _lr = p.label("lanceland")
+        p.load(YLN).emit(f"jz {_lr}")
+        p.set(RFLIP, 0).set(F["evf"], 0).set(F["evt"], 0)   # (...and the flip he threw it from is over)
+        p.mark(_lr)
     p.set(GRISE, JUMP_RISE).set(GFALL, JUMP_FALL).set(JV0, LEAP_TOP).set(LJMP, 0).push32(LEAPK_D).store(LEAPK)
 p.set(F["py"], 0).set(F["pvy"], 0).set(F["flipu"], 0)   # (a landing re-arms the flip)
 if LAB:
@@ -8644,27 +8653,42 @@ if YARD:
     p.load(F["py"]).emit(f"jz {hs_}_end")
     p.load(YDV).emit(f"jz {hs_}_go", f"jmp {hs_}_end")
     p.mark(f"{hs_}_go")
-    p.push(base["flip_fwd"] + NPOSE["flip_fwd"] - 1).load(YHS).push((NPOSE["flip_fwd"] // 2) * 256 // HSPRING_N).emit("mul", "shr 8", "sub")
+    # (P92: its own poses -- off his hands, inverted, the legs over, the feet under him -- a pose a frame)
+    p.push(base["mv_spring"] + HSPRING_N - 1).load(YHS).emit("sub")
     p.store(POSE).emit(f"jmp {L['pd']}")
     p.mark(f"{hs_}_end")
     p.set(YHS, 0)
     p.mark(hs_)
-    ln_ = p.label("lancepose")                       # P84: the lance -- the slide's own body, in the air
+    ln_ = p.label("lancepose")                       # P84: the lance; P92: its own body -- a straight line, feet first
     p.load(YLN).emit(f"jz {ln_}")
     p.load(F["py"]).emit(f"jz {ln_}")
-    p.push(base["slide"] + 2).store(POSE).emit(f"jmp {L['pd']}")
+    p.load(YLN).push(1).emit("sub", f"mini {NPOSE['mv_lance'] - 1}").push(base["mv_lance"]).emit("add").store(POSE)
+    p.load(YLN).emit("mini 8").push(1).emit("add").store(YLN)
+    p.emit(f"jmp {L['pd']}")
     p.mark(ln_)
     ym = p.label("ymode")
-    p.load(F["sty"]).load(YSTP).emit("eq", f"jz {ym}_ch", f"jmp {ym}_t")
+    # (P92, his tape: P76 began these as the STYLE changed -- and he changes it standing: the drive was played on the
+    # spot, and the stride then began from his guard in a frame, six times in seven minutes. They begin as the
+    # STRIDE does, and as it ends.)
+    p.load(ANIM).load(YSTP).emit("eq", f"jz {ym}_ch", f"jmp {ym}_t")
     p.mark(f"{ym}_ch")
-    p.load(F["sty"]).push(1).emit("eq", f"jz {ym}_out")
-    p.set(YMT, 5).set(YMKD, 0).emit(f"jmp {ym}_set")
+    p.load(ANIM).push(5).emit("eq", f"jz {ym}_out")
+    p.load(YSTP).push(2).emit("lt", f"jz {ym}_set")                     # (from standing or walking)
+    p.load(F["py"]).emit(f"jz {ym}_go", f"jmp {ym}_set")
+    p.mark(f"{ym}_go")
+    p.set(YMT, NPOSE["mv_start"]).set(YMKD, 0).emit(f"jmp {ym}_set")
     p.mark(f"{ym}_out")
-    p.load(YSTP).push(1).emit("eq", f"jz {ym}_set")
+    p.load(YSTP).push(5).emit("eq", f"jz {ym}_set")
+    p.load(ANIM).push(2).emit("lt", f"jz {ym}_set")                     # (to standing or walking)
     p.push(int(0.05 * ONE)).load(F["spd"]).emit("lt", f"jz {ym}_set")
-    p.set(YMT, 8).set(YMKD, 1)
+    p.set(YMT, NPOSE["mv_stop"]).set(YMKD, 1)
+    # (the stop that begins on the leg he is on: the stride's second half has its own)
+    p.load(POSE).push(base["run"] + NPOSE["run"] // 4).emit("sub", "dup").push(0).emit("lt", f"jz {ym}_ph", "drop", f"jmp {ym}_set")
+    p.mark(f"{ym}_ph")
+    p.push(NPOSE["run"] // 2).emit("lt", f"jz {ym}_set")
+    p.set(YMKD, 2)
     p.mark(f"{ym}_set")
-    p.load(F["sty"]).store(YSTP)
+    p.load(ANIM).store(YSTP)
     p.mark(f"{ym}_t")
     p.load(YMT).emit(f"jz {ym}")
     p.addi(YMT, -1)
@@ -8672,12 +8696,20 @@ if YARD:
     p.mark(f"{ym}_g")
     p.load(ANIM).push(2).emit("eq", f"jz {ym}_ok", f"jmp {ym}")
     p.mark(f"{ym}_ok")
+    # P92: THEIR OWN POSES (tools/tnd_moves.py). Into the run: from his guard the weight dropped forward and driven,
+    # six, to the stride's first. Out of it: the lead foot planted, sat back against his pace, up into the guard,
+    # eight. (P76 played the landing's crouch for both: standing, then squatting, in a frame.)
     p.load(YMKD).emit(f"jz {ym}_in")
-    p.load(YMT).push(3).emit("sub", "abs").push(2).emit("add", f"jmp {ym}_p")           # (6 5 4 3 2 3 4 5)
+    p.push(NPOSE["mv_stop"] - 1).load(YMT).emit("sub")
+    p.load(YMKD).push(2).emit("eq", f"jz {ym}_o1")
+    p.push(base["mv_stop_l"]).emit(f"jmp {ym}_p")
+    p.mark(f"{ym}_o1")
+    p.push(base["mv_stop"]).emit(f"jmp {ym}_p")
     p.mark(f"{ym}_in")
-    p.push(6).load(YMT).emit("sub")                                                    # (2 3 4 5 6)
+    p.set(F["ph"], 0)                                                  # (...and the stride, when it comes, is at its first)
+    p.push(NPOSE["mv_start"] - 1).load(YMT).emit("sub").push(base["mv_start"])
     p.mark(f"{ym}_p")
-    p.push(base["acro_land"]).emit("add").store(POSE).emit(f"jmp {L['pd']}")
+    p.emit("add").store(POSE).emit(f"jmp {L['pd']}")
     p.mark(ym)
 fp = p.label("flippose")
 p.load(F["evf"]).emit(f"jz {fp}")
@@ -8988,12 +9020,23 @@ if CARTMESH:                                 # the pose is where its streams are
         # legs, bone for bone, and the two-handed hold at the height of the draw that gun frame is. Both halves, one
         # pose: there is no join. (Over any other legs -- standing, the boxer's steps, a dive -- two halves, joined.)
         ob = p.label("onebody")
+        p.load(YGB).store(LS1)                                         # (one body last frame?)
         p.set(YGB, 0)
-        p.load(UPOSE).load(POSE).emit("eq", f"jz {ob}_d", f"jmp {ob}")
+        p.load(UPOSE).load(POSE).emit("eq", f"jz {ob}_d", f"jmp {ob}_aw")
         p.mark(f"{ob}_d")
         p.load(UPOSE).push(base["gun"]).emit("sub").store(LS0)
         p.push(-1).load(LS0).emit("lt").load(LS0).push(NPOSE["gun"]).emit("lt", "and", f"jz {ob}")
         p.push(int(GB_ST)).load(LS0).emit("add", "loadi").store(YGS)
+        p.set(YGA, 2).emit(f"jmp {ob}_fam")
+        # (P92, his tape: the gun gone, the hold became the stride's pumping arms in ONE frame, twelve times in seven
+        # minutes. Two frames of the hold half-taken between them.)
+        p.mark(f"{ob}_aw")
+        p.load(YGA).emit(f"jz {ob}")
+        p.load(LS1).emit(f"jz {ob}_gone")
+        p.addi(YGA, -1).set(YGS, 0).emit(f"jmp {ob}_fam")
+        p.mark(f"{ob}_gone")
+        p.set(YGA, 0).emit(f"jmp {ob}")
+        p.mark(f"{ob}_fam")
         for k_, (legs_, gb_) in enumerate(GB_FAM):
             n_ = NPOSE[legs_]
             assert NPOSE[gb_] == GB_N * n_, (gb_, NPOSE[gb_], n_)
@@ -9354,11 +9397,16 @@ if LAB:
     # HIS HAND, when his upper half is in the gun's clips and his arm is out: bent with him, in the world
     p.set(HNDON, 0)
     p.load(UPOSE).push(base["gun"]).emit("sub").store(LS0)
-    if YARD:                                                                          # (P91: or the one body's, by its draw)
+    if YARD:
+        # (P91: or the one body's, by its draw -- its four entries stand after the gun's own, and ONLY the one body
+        # reads them: the stride's first poses are numbered just past the gun's clips)
         p.load(YGB).emit(f"jz {ab}_ob")
-        p.load(YGS).push(HAND_GUNS).emit("add").store(LS0)
+        p.load(YGS).push(HAND_GUNS).emit("add").store(LS0).emit(f"jmp {ab}_ok")
         p.mark(f"{ab}_ob")
-    p.push(-1).load(LS0).emit("lt").load(LS0).push(HAND_N).emit("lt", "and", f"jz {ab}_h")
+        p.push(-1).load(LS0).emit("lt").load(LS0).push(HAND_GUNS).emit("lt", "and", f"jz {ab}_h")
+        p.mark(f"{ab}_ok")
+    else:
+        p.push(-1).load(LS0).emit("lt").load(LS0).push(HAND_N).emit("lt", "and", f"jz {ab}_h")
     p.load(LS0).push(3).emit("mul").push(int(HAND_T)).emit("add").store(LS0)
     p.push(HAND_OUT).load(LS0).push(2).emit("add", "loadi", "lt", f"jz {ab}_h")
     p.set(HNDON, 1)
@@ -14299,6 +14347,13 @@ def _imem(g, lens=None):
     from zeta.forge import isa2
     head = [f".const PAGE_{k} {v}" for k, v in (lens or {}).items()]
     body = isa2(g.lines()) if ISA >= 2 else g.lines()
+    # (P92: a label marked twice is taken without a word, and a jump to it goes to one of them: mine did, into the
+    # middle of another block with nothing on the stack. Never again, in any program of any layer.)
+    _seen, _twice = set(), set()
+    for ln_ in body:
+        if ln_.endswith(":"):
+            (_twice if ln_ in _seen else _seen).add(ln_)
+    assert not _twice, f"labels marked twice: {sorted(_twice)[:6]}"
     if YARD and g is p_main:                     # P77: the yard does not carry what it cannot reach
         from zeta.forge import reach
         body = reach(body)

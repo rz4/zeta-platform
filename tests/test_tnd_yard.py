@@ -779,9 +779,10 @@ def test_hobbled_it_comes_at_half_its_pace(cart):
 
 
 def test_into_the_run_and_out_of_it_is_not_one_frame(cart):
-    """P76 ("it should just be smoother and cool between modes of play"): into the run he drops and drives -- the
-    landing's crouch, five frames, rising into the stride; out of it at pace he brakes -- eight frames of it -- and
-    only then stands"""
+    """P76 ("it should just be smoother and cool between modes of play") and P92 ("poses and transitions that all make
+    sense"): into the run he drops his weight forward and drives -- six poses of their own, one a frame, to the
+    stride's first; out of it at pace he plants and sits back and comes up into his guard -- eight of their own --
+    and only then stands. (P76 played the landing's crouch for both.)"""
     y = Yard(cart)
     g = y.g
     y.who(3)
@@ -793,13 +794,16 @@ def test_into_the_run_and_out_of_it_is_not_one_frame(cart):
     for q in [L, L, 0, 0, 0, L, L, L] + [L | U] * 40 + [0] * 16:
         g.step(q)
         poses.append((g.cell("f_sty"), g.cell("pose")))
-    first = next(i for i, (s_, _) in enumerate(poses) if s_ == 1)
-    start = [p for _, p in poses[first:first + 5]]
-    assert not any(p in stride for p in start) and len(set(start)) == 5 and start == sorted(start), f"into the run: {start}"
-    assert poses[first + 5][1] in stride, poses[first + 5]
-    out = next(i for i in range(first + 10, len(poses)) if poses[i][0] != 1)
+    # (P92: they begin as the STRIDE does and as it ends -- he changes style standing -- and the stride begins at
+    # its own first pose)
+    first = next(i for i, (_, p) in enumerate(poses) if p > 900)
+    start = [p for _, p in poses[first:first + 6]]
+    assert start == list(range(start[0], start[0] + 6)), f"into the run: {start}"
+    assert all(p < 60 for _, p in poses[:first]), "before it he stood"
+    assert poses[first + 6][1] == stride[0], f"the stride did not begin at its first pose: {poses[first + 6]}"
+    out = next(i for i in range(first + 10, len(poses)) if poses[i][1] not in stride)
     brake = [p for _, p in poses[out:out + 8]]
-    assert not any(p in stride for p in brake) and min(brake) == brake[4] and set(brake) <= set(range(min(start), max(start) + 1)), f"out of it: {brake}"
+    assert brake == list(range(brake[0], brake[0] + 8)) and brake[0] > start[0], f"out of it: {brake}"
     assert poses[out + 8][1] < 60, f"then he stands: {poses[out + 8]}"
 
 
@@ -1012,7 +1016,7 @@ def test_y_in_the_air_is_the_lance(cart):
     plain, _, _ = flight(False)
     t, g, y = flight(True)
     assert t <= plain - 4, f"the lance came down at frame {t}, a plain jump at {plain}"
-    seen7 = False
+    seen7, lanced = False, set()
     hp = None
     y, g = _run_at(cart, [(2, 0.0, 4.2)])
     hp = g.cell("e2_hp")
@@ -1020,8 +1024,9 @@ def test_y_in_the_air_is_the_lance(cart):
         g.step(L | U | q)
         seen7 |= g.cell("anim") == 7
         if g.cell("f_py") > 0 and g.cell("yard_lance"):
-            assert g.cell("pose") in range(583, 587), "in the air he is not the slide's body"
+            lanced.add(g.cell("pose"))
     assert seen7 and g.cell("e2_hp") == hp - 2 and g.cell("e2_st") == 2, (seen7, g.cell("e2_hp"), g.cell("e2_st"))
+    assert len(lanced) >= 2 and max(lanced) - min(lanced) < 4 and min(lanced) > 900, f"in the air, the lance's own poses: {sorted(lanced)}"
 
 
 def test_x_in_the_air_is_the_dive_down_a_handspring_from_a_jump_a_slam_from_a_flip(cart):
@@ -1125,7 +1130,8 @@ def test_handsprings_string_together(cart):
             over.add(g.cell("pose"))
         assert not g.cell("f_flipu")
     assert springs == 2, f"{springs} handsprings from two presses in one air"
-    assert len(over) >= 5 and max(over) - min(over) < 10, f"coming over, his poses: {sorted(over)}"
+    # (P92: the handspring's own fourteen poses, a pose a frame)
+    assert len(over) >= 10 and max(over) - min(over) < 14 and min(over) > 900, f"coming over, his poses: {sorted(over)}"
 
 
 def test_a_wall_from_a_jump_is_straight_up_then_the_return_flip_from_a_flip_the_return_flip(cart):
@@ -1214,7 +1220,7 @@ def test_with_the_gun_on_the_run_he_is_one_body(cart):
             assert g.cell("yard_join_up") == 0 and g.cell("yard_join_ahead") == 0 and g.cell("yard_join_turn") == 0
             assert g.cell("aim_bend_d") == g.cell("aim_bend"), "one body broke at the waist"
             seen.setdefault(up - lo, set()).add(lo)
-            if g.cell("yard_one_body_draw") >= 1:
+            if g.cell("yard_one_body_draw") >= 2:
                 assert g.cell("aim_hand_on") == 1, f"frame {i}: his hand is not found in it"
         elif not q & B and i < 20:
             assert one == 0 and lo == up
@@ -1236,7 +1242,7 @@ def test_the_one_bodys_legs_are_the_parks_own():
     for name, src in (("gb_run", "park_run"), ("gb_leap", "park_leap"), ("gb_leap_l", "park_leap_l"), ("gb_land", "park_land")):
         V, P = gb["V_" + name], acro["V_" + src]
         n = len(P)
-        assert V.shape == (4 * n,) + P.shape[1:], (name, V.shape)
+        assert V.shape == (5 * n,) + P.shape[1:], (name, V.shape)
         low = P[0][:, 2] < 0.45                  # (below the knee in the first pose: shins and feet)
-        for s_ in range(4):
+        for s_ in range(5):
             assert np.abs(V[s_ * n:(s_ + 1) * n][:, low] - P[:, low]).max() < 1e-6, f"{name}: the legs are not the park's own"

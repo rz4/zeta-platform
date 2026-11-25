@@ -3778,3 +3778,40 @@ MEASURED, the presses of his seven minutes of P89 on this build: his halves in d
 P86, P90; one baked body on 8,153 frames (31.9%).
 
 Tests 42. Layers 0, 4, 8, 10, 11, 12 and the full cart byte-identical. Data memory 487 words free.
+
+## P92: the yard's own moves, posed; the transitions measured (2026-11-25)
+
+The same asking as P91: "poses and transitions that all make sense and look tactical and stylish."
+
+MEASURED FIRST -- how far his drawn body moves from one frame to the next (the rms of its 459 vertices), over the
+presses of his seven minutes of P89 on P91: his pose changed on 8,588 frames; median 0.045 of a unit, the 99th
+percentile 0.274, and 137 changes over 0.22 -- by which clips: standing into the run and out of it (the landing's
+crouch, borrowed by P76: 0.40 and 0.45 in a frame), the hold to the stride's arms as the gun went (0.26, twelve
+times), the stride into a leap, a leap or the dive into the roll, the reactions' own frames.
+
+FOUR MOVES HAD NO POSE OF THEIR OWN and borrowed another's. Baked on the archive's rig from the pose words the
+park's clips use (`tools/tnd_moves.py` -> assets/tnd/moves.npz):
+- INTO THE RUN (6): from his guard, the weight dropped forward and driven, to the stride's first pose.
+- OUT OF IT (8, and 8 from the stride's other half): the lead foot planted, sat back against his pace, up into
+  the guard. Both begin as the STRIDE begins and ends -- P76 began them as the style changed, and he changes it
+  standing: the drive was played on the spot and the stride then began from his guard in a frame, six times in
+  seven minutes. The stride begins at its own first pose.
+- THE HANDSPRING'S SECOND HALF (14): on his hands, inverted, the legs over, the back arched, the feet under him.
+  It turns him itself. (It was the forward tuck easing out, unturned.)
+- THE LANCE (4): a straight line feet first, toes pointed, the arms long behind his head. (It was the slide's
+  body, lying down, falling.) And it comes down into the slide after a flip too: the flip is over as it lands.
+THE GUN COMES TO HAND AND GOES in a pose of its own: the hold HALF-TAKEN, a fifth height of the one body (250
+poses now) -- the first frame of the draw, and two frames after the gun is gone.
+
+AFTER: 113 changes over 0.22 (137); the 99th percentile 0.242 (0.274). What is left at the top is motion, not a
+join: the roll's own frames, the reactions', a leap or the dive into the roll.
+
+TWO FAULTS OF MINE ON THE WAY, both found by a test that was not about them:
+- the one body's hand entries were put after the gun's in the table, and the stride's first four poses are numbered
+  just past the gun's clips: a gun floated beside him for a quarter of every stride (P91, as committed; never on
+  the card). Only the one body reads those entries now.
+- a label marked twice in one block of mine (`_a0`): the assembler takes it without a word and a jump went into
+  the middle of the other, with nothing on the stack. THE GENERATOR NOW REFUSES a label marked twice, in every
+  program of every layer (none had one).
+
+Tests 42. Layers 0, 4, 8, 10, 11, 12 and the full cart byte-identical. Data memory 393 words free.

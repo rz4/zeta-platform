@@ -35,20 +35,23 @@ _ACRO = _ACRO.rsplit("np.savez_compressed(sys.argv[1], **out)", 1)[0]
 MORE = r'''
 cfg = bm._SHAPE_CFG["aim"]
 DOWN = np.array((0.0, 0.0, -1.0))
-RAISE = (0.0, 0.45, 0.85, 1.0)                    # low ready, coming up, nearly out, locked out
+# (height of the draw, how much of the hold): HALF-TAKEN -- his hands half way from the stride's own pump to the low
+# ready: the frames the gun comes to hand and goes from it -- then low ready, coming up, nearly out, locked out
+RAISE = ((0.0, 0.5), (0.0, 1.0), (0.45, 1.0), (0.85, 1.0), (1.0, 1.0))
 # (locked out, MOVING, is a hand's breadth short of the standing lock-out: over a stride his shoulders are further
 # back than a planted man's, and a reach they cannot make puts the gun wherever the arm runs out -- a tenth of a
 # unit about, stride to stride. Elbows a little bent, the gun where it is told to be.)
 OUT_AT = {"gun_aim": np.asarray((0.46, -0.03, 1.20)), "sup_aim": np.asarray((0.40, 0.04, 1.165))}
 
-def hold(r, up=0.0):
+def hold(rw, up=0.0):
     """both hands on the piece, at raise r of the draw (the archive's _repose_aim, its weight whole); `up`: the body
     is to be let down by this after, so the hold is taken that much high"""
+    r, w = rw
     def repose(Vt, skel_, angles):
         body = anat.pose(angles)
         for rk, ak, who in (("gun_ready", "gun_aim", "rear"), ("sup_ready", "sup_aim", "lead")):
             arm = anat.arm(who)
-            bm._reach_arm(Vt, arm, body, cfg[rk] + (OUT_AT[ak] - cfg[rk]) * r + np.array((0.0, 0.0, up)), arm.outward * 0.35 + DOWN, 1.0)
+            bm._reach_arm(Vt, arm, body, cfg[rk] + (OUT_AT[ak] - cfg[rk]) * r + np.array((0.0, 0.0, up)), arm.outward * 0.35 + DOWN, w)
     return repose
 
 def shooter(p_):
@@ -108,7 +111,7 @@ for name, src, n in (("gb_run", "park_run", 16), ("gb_leap", "park_leap", LEAP_N
     h_ = V[:, :, HID].mean(2)                     # (state, frame, 3)
     print(name, V.shape, "shins and feet off the park's own by at most %.4f" % d_,
           "| his hand, by height of the draw:", [(np.round(h_[s].mean(0), 2).tolist(), "+-%.3f" % np.abs(h_[s] - h_[s].mean(0)).max()) for s in range(len(RAISE))])
-gb["RAISE"] = np.array(RAISE)
+gb["RAISE"] = np.array([r_ for r_, _ in RAISE])
 np.savez_compressed(sys.argv[1], **gb)
 print({k: v.shape for k, v in gb.items()})
 '''
