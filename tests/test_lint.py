@@ -51,16 +51,37 @@ SIL = ROOT / "silicon"
 # 111 at build 102 (SEG_BASE): one more arm on the dreq_addr mux, which
 # warns once per line like its twenty siblings (15 bits assigned to 14,
 # long predating this). The window adders and the double sweep add none.
-BASELINE = 111
+# 116, AND THE FIVE BETWEEN WERE NEVER SEEN (2026-11-28). The count on
+# exp/yard at 1401a7a, linted with its own generated parameters, is 116:
+# five arrived after build 102 and nothing said so, because THIS TEST
+# WAS PASSING ON NOTHING. It never wrote silicon/gen/params.vh; in a
+# fresh checkout -- which is what CI is -- the include is missing,
+# Verilator stops with an error, prints no warnings, and zero is not
+# more than 111. A gate that cannot fail. It now generates the
+# parameters itself and refuses a lint that did not run.
+#   The gaze and the long list (spec.GAZE_BASE, spec.OLX_PTR) add none:
+# 116 before them and 116 after, counted by file and class. One did
+# appear on the way (the long list's cell as a new arm of dreq_addr) and
+# was removed by joining the chain at its own width.
+BASELINE = 116
 
 
 @pytest.mark.skipif(shutil.which("verilator") is None,
                     reason="verilator not installed")
 def test_no_new_width_warnings():
+    from zeta import silicon
+    (SIL / "gen").mkdir(exist_ok=True)
+    (SIL / "gen" / "params.vh").write_text(silicon.gen_params())
+    (SIL / "gen" / "sinq_init.vh").write_text(silicon.gen_sinq())
     r = subprocess.run(
         ["verilator", "--lint-only", "--top-module", "zeta_sim",
          "-I" + str(SIL / "gen")] + sorted(str(p) for p in SIL.glob("*.v")),
         capture_output=True, text=True, cwd=ROOT)
+    errors = [l for l in r.stderr.splitlines() if l.startswith("%Error")
+              and "Exiting due to" not in l]      # (its sign-off, not a fault)
+    assert not errors, (
+        "the lint did not run, so it counted nothing:\n    "
+        + "\n    ".join(e[:160] for e in errors[:5]))
     lines = [l for l in r.stderr.splitlines() if l.startswith("%Warning")]
     n = len(lines)
     if n > BASELINE:
