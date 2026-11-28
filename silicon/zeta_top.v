@@ -179,6 +179,32 @@ module zeta_top (
   wire  [7:0] t_oid;
   wire [16:0] vis_q;
   reg   [6:0] visi;          // spec.VIS_BASE: the readback walk
+  // ---- THE GAZE (spec.GAZE_BASE) ----------------------------------------
+  // The list is judged HERE, as its words come off DMEM in the request
+  // sweep, by the law's own rule: on the glass and strictly after the
+  // entry before it, or the list ends. What reaches zgpu is already the
+  // accepted list, in order, and its length.
+  reg         gz_on;         // the cart asked (n != 0): answers are written
+  reg   [3:0] gz_cnt;        // n as asked, clamped to GAZE_MAX
+  reg   [3:0] gz_n;          // entries accepted so far
+  reg         gz_cut;        // ...and whether the list has ended
+  reg  [17:0] gz_last;       // the last accepted {y, x}
+  reg         gz_we;
+  reg   [2:0] gz_wa;
+  reg  [17:0] gz_wd;
+  wire [22:0] gz_q;
+  wire  [3:0] gz_i   = dsel[3:0] - 4'd12;        // dsel 44..51 -> 0..7
+  wire [17:0] gz_yx  = {dl_data[24:16], dl_data[8:0]};
+  wire        gz_ok  = !gz_cut && (gz_i < gz_cnt)
+                    && (dl_data[15:0]  < 16'd320)
+                    && (dl_data[31:16] < 16'd288)
+                    && (gz_n == 4'd0 || gz_yx > gz_last);
+  // the answers ride the sensor's readback walk: beats OL_MAX+1 ..
+  // OL_MAX+GAZE_MAX of I_VIS, one cell each
+  wire        gz_beat = (visi > OL_MAX[6:0]);
+  wire  [2:0] gz_ra   = visi[2:0] - 3'd1;        // 65..72 -> 0..7
+  wire [31:0] gz_word = ({1'b0, gz_ra} < gz_n) ? {9'd0, gz_q}
+                                               : 32'hFFFFFFFF;
   reg   [4:0] audi;          // spec.AUD_BASE: and the other one
   // ---- THE LIGHT (spec.OBJ_LIT) ------------------------------------
   // Read once a frame with the rest of the register block. The
@@ -546,11 +572,13 @@ module zeta_top (
                           st == I_OCLR || st == I_PW ||
                           card_we || st == I_CCLR || st == I_CGO ||
                           st == I_CDG || st == I_CDG2 || st == I_CDG3 ||
-                          st == I_CDG4 || (st == I_VIS && visi != 7'd0)
+                          st == I_CDG4 || (st == I_VIS && visi != 7'd0
+                                           && (!gz_beat || gz_on))
                           || (st == I_AUD && audi != 5'd0) || st == I_ARZ;
   wire [13:0] ext_addr  = boot_dmem   ? boot_addr[13:0] :
                           (st == I_VIS)
-                              ? (VIS_BASE[13:0] + {7'd0, visi} - 14'd1) :
+                              ? (gz_beat ? (GAZE_ANS[13:0] + {11'd0, gz_ra})
+                                         : (VIS_BASE[13:0] + {7'd0, visi} - 14'd1)) :
                           (st == I_AUD)
                               ? (AUD_BASE[13:0] + {9'd0, audi} - 14'd1) :
                           (st == I_WF) ? A_FRAME :
@@ -586,7 +614,9 @@ module zeta_top (
                            st == I_EVW || st == I_EVC) ? au_addr : seq_addr;
   // 21.. walks the compositor block straight through, one cell a state,
   // instead of thirteen more lines of mux: the block is contiguous by law
-  wire [13:0] dreq_addr = (dsel >= 6'd39)
+  wire [13:0] dreq_addr = (dsel >= 6'd43)
+                            ? (GAZE_BASE[13:0] + {8'd0, dsel} - 14'd43) :
+                          (dsel >= 6'd39)
                             ? (DMA2_SRC[13:0] + {8'd0, dsel} - 14'd39) :
                           (dsel == 6'd38) ? SEG_BASE[13:0] :
                           (dsel == 6'd37) ? LIGHT_DIF[13:0] :
@@ -613,7 +643,7 @@ module zeta_top (
                           (dsel == 6'd5) ? 14'd11789 :
                           (dsel == 6'd4) ? BG_SRC[13:0]
                                           : DMA_SRC[13:0] + {9'd0, dsel};
-  wire [31:0] ext_wdata = (st == I_VIS) ? {15'd0, vis_q} :
+  wire [31:0] ext_wdata = (st == I_VIS) ? (gz_beat ? gz_word : {15'd0, vis_q}) :
                           (st == I_AUD) ? { 8'd0, aud_q} :
                           boot_dmem   ? boot_data :
                           dma_we       ? dma_word :
@@ -730,6 +760,8 @@ module zeta_top (
     .fb_we(gfb_we), .fb_waddr(gfb_a), .fb_wdata(gfb_d),
     .tri_id(q_tri), .t_tex(q_tex), .t_tint(q_tint), .t_tinton(q_tinton), .t_otint(q_otint), .t_span(q_span),
     .vis_a(visi[5:0]), .vis_q(vis_q),
+    .gz_we(gz_we), .gz_wa(gz_wa), .gz_wd(gz_wd), .gz_n(gz_n),
+    .gz_ra(gz_ra), .gz_q(gz_q),
     .t_blend(q_blend), .t_add(q_add), .t_oid(q_oid),
     .t_alpha(q_alpha), .t_page(q_page),
     .fog_rgb({f_rgb[23:19], f_rgb[15:11], f_rgb[7:3]}),
@@ -807,6 +839,7 @@ module zeta_top (
     ml_new <= 1'b0;                     // one-clock words to zmesh
     ml_obj <= 1'b0;
     tex_we <= 1'b0;
+    gz_we  <= 1'b0;
     ev_we <= 1'b0;
     gr_we <= 1'b0;
     wav_we <= 1'b0;
@@ -972,9 +1005,22 @@ module zeta_top (
           6'd40: m2_dst <= dl_data;
           6'd41: m2_len <= dl_data;
           6'd42: m2_go  <= dl_data;
+          // ---- the gaze: n, then eight words, judged as they arrive ----
+          6'd43: begin
+            gz_on  <= (dl_data != 32'd0);
+            gz_cnt <= (dl_data > 32'd8) ? 4'd8 : dl_data[3:0];
+            gz_n   <= 4'd0;
+            gz_cut <= 1'b0;
+          end
+          6'd44, 6'd45, 6'd46, 6'd47, 6'd48, 6'd49, 6'd50, 6'd51:
+            if (gz_ok) begin
+              gz_we <= 1'b1; gz_wa <= gz_n[2:0]; gz_wd <= gz_yx;
+              gz_last <= gz_yx;
+              gz_n <= gz_n + 4'd1;
+            end else gz_cut <= 1'b1;
           default: co_reg[dsel - 6'd21] <= dl_data;
         endcase
-        if (dsel == 6'd42) st <= swept2 ? I_ML : I_DCLR;   // (frontier 20: the
+        if (dsel == 6'd51) st <= swept2 ? I_ML : I_DCLR;   // (frontier 20: the
                                           // cart meshes, once DMEM is final)
         else begin dsel <= dsel + 1'b1; st <= I_DRD; end
       end
@@ -1307,7 +1353,10 @@ module zeta_top (
       // every beat but the first.
       I_VIS: begin
         visi <= visi + 7'd1;
-        if (visi == OL_MAX[6:0]) begin audi <= 5'd0; st <= I_AUD; end
+        // ...and GAZE_MAX beats more, for the gaze's answers
+        if (visi == OL_MAX[6:0] + GAZE_MAX[6:0]) begin
+          audi <= 5'd0; st <= I_AUD;
+        end
       end
       // ---- THE MIXER'S ANSWER (spec.AUD_BASE) ------------------------
       // One word a voice, and a frame late for the same reason as the

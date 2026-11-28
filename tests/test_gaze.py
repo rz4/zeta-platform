@@ -25,7 +25,7 @@ from zeta import cabinet, carts, gpu, spec
 
 CART = carts.path("gaze")
 PIXELS = [(160, 20), (160, 158), (60, 180), (120, 180),
-          (160, 180), (200, 180), (160, 205), (160, 250)]
+          (160, 180), (200, 180), (160, 205), (160, 270)]
 
 
 def _machine(frames=12):

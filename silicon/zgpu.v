@@ -61,6 +61,14 @@ module zgpu (
     input  wire  [7:0] t_oid,       // {edged, index+1}
     input  wire  [5:0] vis_a,       // THE SENSOR's readout port
     output wire [16:0] vis_q,       // (spec.VIS_BASE)
+    // THE GAZE (spec.GAZE_BASE): the watched pixels the law accepted,
+    // loaded in order, and their answers read back after the last band
+    input  wire        gz_we,
+    input  wire  [2:0] gz_wa,
+    input  wire [17:0] gz_wd,       // {y[8:0], x[8:0]}
+    input  wire  [3:0] gz_n,        // how many there are, 0..GAZE_MAX
+    input  wire  [2:0] gz_ra,
+    output wire [22:0] gz_q,        // {owner[6:0], z16}
     input  wire [14:0] edge_rgb,    // ...and the colour an edge is drawn
     input  wire        t_otint,     // ...and OBJ_OTINT lights flat faces
     input  wire        t_span,      // OBJ_LODSPAN
@@ -727,7 +735,12 @@ module zgpu (
     s1_add    <= tadd;
     s1_tintv  <= ttint;
     tq     <= tmem[tpage_base + {4'd0, tex_addr}];
-    zq     <= zmem[(st == S_CLR) ? clr : zwalk];
+    // THE LAST BAND'S DEPTH GOES OUT TOO (spec.GAZE_BASE). The bands
+    // that flush on the next band's clear already read their old depth
+    // here, at clr, a clock before the clear lays its own down -- the
+    // gaze takes it from where it was. Only the frame's last band
+    // leaves through S_FLUSH, and for that one the read follows fl.
+    zq     <= zmem[(st == S_CLR) ? clr : (st == S_FLUSH) ? fl : zwalk];
     // ---- A THIRD COMMIT STAGE, and the blend is why ------------------
     // The chain tmem -> texel -> tint(tmod) -> fog(tmul) -> blend(tmul)
     // -> cmem is TWO conditional-add multipliers in series behind a
@@ -942,6 +955,49 @@ module zgpu (
     if (rst_n && vwe) vmem[vwa] <= vwd;
   end
   assign vis_q = vq;
+
+  // ---- THE GAZE (spec.GAZE_BASE) ---------------------------------------
+  // EIGHT PIXELS FOR ONE COMPARATOR. The pick register is an ear: it
+  // hears every depth commit and keeps the one at its pixel, which is
+  // why there is one of it. The flush needs no ear. It walks the frame
+  // a pixel a clock in SCREEN order -- the outline's delay line depends
+  // on exactly that -- with the pixel's owner (iq) and, as of the mux
+  // above, its depth (zq) arriving on the clock its address does. The
+  // law accepts the list only in scan order, so the next pixel anyone
+  // asked about is always the ONE at the pointer: compare the walk's
+  // row and column against it, and on a match keep what is standing
+  // there and step the pointer.
+  //
+  // ACCEPTANCES, NOT REQUESTS -- the sensor's lesson above. fl_v is held
+  // through a stall with its data unmoving; a row counted on fl_v alone
+  // would run ahead by however long the write FIFO was full.
+  //
+  // The rows are counted here because nothing else in this module knows
+  // one: the cursors are band-local and the address is a product. A row
+  // ends on its second gutter word (column ZW+1), which the flush sends
+  // like any other.
+  //
+  // COUNTED IN BITS: 8 x 18 in, 8 x 23 out, a 9-bit row, a 4-bit
+  // pointer. Both tables want one write port and one asynchronous read,
+  // which an MLAB is.
+  (* ramstyle = "MLAB" *) reg [17:0] gzin  [0:7];
+  (* ramstyle = "MLAB" *) reg [22:0] gzans [0:7];
+  reg  [8:0]  grow;
+  reg  [3:0]  gptr;
+  wire        gacc = fl_v && !stall;
+  wire [17:0] gcur = gzin[gptr[2:0]];
+  wire        ghit = gacc && (gptr != gz_n) && (gcur == {grow, wcol});
+  always @(posedge clk) begin
+    if (gz_we) gzin[gz_wa] <= gz_wd;
+    if (!rst_n || (start && first_band)) begin
+      grow <= 9'd0; gptr <= 4'd0;
+    end else begin
+      if (gacc && wcol == ZW[8:0] + 9'd1) grow <= grow + 9'd1;
+      if (ghit) gptr <= gptr + 4'd1;
+    end
+    if (rst_n && ghit) gzans[gptr[2:0]] <= {iq[6:0], zq};
+  end
+  assign gz_q = gzans[gz_ra];
 
   assign fb_we    = fl_v;
   assign fb_waddr = fl_a;

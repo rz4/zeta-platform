@@ -52,7 +52,8 @@ WATCHED = [(160, 20),              # sky: the room, the far depth
            (60, 180), (120, 180),  # a row through the occluder's sweep,
            (160, 180), (200, 180), # the subject standing in its middle
            (160, 205),             # the subject's foot / the occluder's
-           (160, 250)]             # the ground, near
+           (160, 270)]             # the ground, near: the LAST band, which
+                                   # leaves by its own flush and no clear
 assert len(WATCHED) == spec.GAZE_MAX
 assert all(b[1] * spec.W + b[0] > a[1] * spec.W + a[0]
            for a, b in zip(WATCHED, WATCHED[1:]))
