@@ -980,8 +980,16 @@ module zgpu (
   // COUNTED IN BITS: 8 x 18 in, 8 x 23 out, a 9-bit row, a 4-bit
   // pointer. Both tables want one write port and one asynchronous read,
   // which an MLAB is.
-  (* ramstyle = "MLAB" *) reg [17:0] gzin  [0:7];
-  (* ramstyle = "MLAB" *) reg [22:0] gzans [0:7];
+  //
+  // no_rw_check, AND THE FIRST FIT IS WHY. Without it Quartus would not
+  // make a memory of a table read the clock it is asked: it built both
+  // of these from flip-flops, 328 of them and their muxes, and the fit
+  // came back ten LABs over the device (1,858 of 1,848; CI run
+  // 46182778780). Neither table is ever read while it is written -- the
+  // list loads in the request sweep and is read in the paint; the
+  // answers are written in the paint and read after it.
+  (* ramstyle = "MLAB, no_rw_check" *) reg [17:0] gzin  [0:7];
+  (* ramstyle = "MLAB, no_rw_check" *) reg [22:0] gzans [0:7];
   reg  [8:0]  grow;
   reg  [3:0]  gptr;
   wire        gacc = fl_v && !stall;
