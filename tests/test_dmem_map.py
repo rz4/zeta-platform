@@ -38,6 +38,7 @@ def regions():
         # nothing checks.
         ("visible pixels", spec.VIS_BASE, spec.OL_MAX),
         ("heard amplitude", spec.AUD_BASE, spec.AU_CHANNELS),
+        ("the gaze", spec.GAZE_BASE, 1 + 2 * spec.GAZE_MAX),
         ("compositor", spec.CO_BASE, 1 + spec.CO_MAX * spec.CO_STRIDE),
         ("card diag", spec.CARD_DIAG, 4),
         ("loader signature", spec.LOADER_SIG, spec.LOADER_SIG_WORDS),

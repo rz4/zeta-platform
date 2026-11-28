@@ -712,6 +712,20 @@ def render(dmem: list[int], cram: np.ndarray | None = None,
     counts = np.bincount(own.reshape(-1), minlength=spec.OL_MAX + 1)
     for k in range(spec.OL_MAX):
         dmem[spec.VIS_BASE + k] = int(min(counts[k + 1], spec.VIS_MAX))
+    # ---- THE GAZE (spec.GAZE_BASE) ---------------------------------------
+    # Read off the two finished planes, after everything that can change
+    # them has: the owner as VIS counted it, the depth as it stands. A
+    # cart that asked for nothing (n = 0) gets nothing written, so every
+    # cart from before this one keeps its DMEM to the word.
+    if dmem[spec.GAZE_BASE]:
+        asked = spec.gaze_list(dmem)
+        for i in range(spec.GAZE_MAX):
+            if i < len(asked):
+                gx, gy = asked[i]
+                ans = (int(own[gy, gx]) << 16) | (int(zbuf[gy, gx]) & 0xFFFF)
+            else:
+                ans = spec.GAZE_NONE
+            dmem[spec.GAZE_ANS + i] = ans
     dmem[spec.PICK_ID] = pick["id"] & spec.WORD_MASK
     dmem[spec.PICK_Z] = pick["z"] & spec.WORD_MASK
     # THE PLATE'S ANSWER, taken at the CLEAR and not at the commit: the

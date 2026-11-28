@@ -155,6 +155,60 @@ PICK_SH = 12269                 # 1 if the BACKDROP PLATE says the sun is
 VIS_BASE = 14656                # OL_MAX words, one an object
 VIS_MAX = 0x1FFFF               # 17 bits; a whole screen is 92,160
 
+# ---- THE GAZE (spec.GAZE_BASE): eight pixels, answered at the flush -----
+# The pick register watches ONE pixel and hears every depth commit to it,
+# which is why there is one: an ear a pixel. But the flush already walks
+# the finished band a pixel a clock with its owner and its depth in hand
+# (the outline and VIS_BASE both ride it), and a pixel walked in order
+# needs no ear -- only a pointer to the NEXT pixel anyone asked about.
+#
+#   GAZE_BASE        n, the number of watched pixels, 0..GAZE_MAX.
+#                    Zero is off, and is what every cart before this
+#                    one holds there: the machine then writes nothing.
+#   GAZE_BASE+1..    n words in: (y << 16) | x
+#   GAZE_ANS..       GAZE_MAX words out: (owner << 16) | z16
+#
+# owner is the identity plane's: an object's place in the list plus one,
+# and 0 for the room -- the clear, the plate, the display list. z16 is
+# the depth standing at that pixel when the frame is FINISHED. Both are
+# final, as VIS_BASE is and for its reason: taken where the band leaves,
+# not where a face won.
+#
+# IN SCAN ORDER, BY LAW. An entry is good if it is on the glass and
+# strictly after the entry before it (y*W + x rising). The first entry
+# that is not ENDS THE LIST: it and every entry after it answer -1. That
+# rule is the whole price of the silicon -- one comparator against the
+# next entry, not eight ears -- and a cart that wants pixels out of
+# order sorts them, which is its own arithmetic to spend.
+#
+# Frame N's answers are readable at frame N+1: the pick's contract.
+#
+# A pixel, its depth and the camera are a point in the world, so eight of
+# these a frame are eight places the eye landed (experiments/loop: eight
+# a frame, moved every frame, account for 92.6% of what TND's tour showed;
+# one accounts for under half).
+GAZE_BASE = 14740
+GAZE_MAX = 8
+GAZE_ANS = GAZE_BASE + 1 + GAZE_MAX      # 14749..14756
+GAZE_NONE = 0xFFFFFFFF
+
+
+def gaze_list(dmem) -> list[tuple[int, int]]:
+    """The watched pixels the law accepts this frame, as (x, y), in order.
+    The one definition of the scan-order rule: both machines stop where
+    this stops."""
+    n = min(dmem[GAZE_BASE], GAZE_MAX)       # as the object list's count is read
+    out, last = [], -1
+    for i in range(n):
+        w = dmem[GAZE_BASE + 1 + i]
+        x, y = w & 0xFFFF, (w >> 16) & 0xFFFF
+        if x >= W or y >= H or y * W + x <= last:
+            break
+        last = y * W + x
+        out.append((x, y))
+    return out
+
+
 # ---- LIGHT ACROSS A SURFACE (spec.OBJ_LIT) -----------------------------
 # THE LAST THING IN THE PICTURE THAT READS AS A DECADE. A flat face lit
 # uniformly is the shape of 1997; light that VARIES across it is the

@@ -105,6 +105,10 @@ class Observed:
         self.grade_chans: set = set()   # channels it moved
         self._sh_prev = None
         self.dl_tris = 0
+        self.gaze_owners: set = set()   # spec.GAZE_BASE: who was named,
+        self.gaze_depths: set = set()   # how deep, how often the law CUT
+        self.gaze_cut = 0               # the list short, and the pixels
+        self.gaze_px = 0                # that move if nothing is answered
         self.picked = 0
         self.pages = set()
         self.events = 0
@@ -357,6 +361,14 @@ class Observed:
             self.dl_tris = max(self.dl_tris, d[spec.DL_BASE])
             if spec.s32(d[spec.PICK_ID]) >= 0:      # the machine answered
                 self.picked += 1
+            if d[spec.GAZE_BASE]:
+                asked = min(d[spec.GAZE_BASE], spec.GAZE_MAX)
+                ans = [d[spec.GAZE_ANS + i] for i in range(asked)]
+                self.gaze_cut += spec.GAZE_NONE in ans
+                for a in ans:
+                    if a != spec.GAZE_NONE:
+                        self.gaze_owners.add(a >> 16)
+                        self.gaze_depths.add(a & 0xFFFF)
             if list(m.vm.imem) != boot_imem:
                 self.moved_code = True
             nev = d[spec.AU_EV_BASE]
@@ -411,6 +423,22 @@ class Observed:
                                          .any(axis=2).sum()))
             finally:
                 spec.BG_SHADOW = _bs
+
+        # THE GAZE, by the same second run: its answers reach the picture
+        # through the cart a frame later, so the mutation is the whole
+        # cart played again on a machine that answers nothing.
+        if self.gaze_owners:
+            _gm, spec.GAZE_MAX = spec.GAZE_MAX, 0
+            try:
+                m2 = cabinet.VirtualMachine(cart)
+                m2.vm.frame_no = start
+                for k in range(frames):
+                    m2.frame(pad)
+                    self.gaze_px = max(self.gaze_px,
+                                       int((m2.framebuffer() != self.shots[k])
+                                           .any(axis=2).sum()))
+            finally:
+                spec.GAZE_MAX = _gm
 
     def any_flag(self, bit: int) -> bool:
         return any(f & bit for f in self.flags)
@@ -528,6 +556,18 @@ CLAIMS: list[Claim] = [
     # pixel. The era's answer was an occlusion query a frame late off a
     # separate pass; here it is a LUTRAM read-add-write riding the walk
     # that was carrying the band out anyway, and it costs no clocks.
+    # EIGHT PIXELS, ANSWERED AT THE FLUSH. Every owner in the scene and
+    # the room named, the depths moving, the list's own law (the first
+    # entry out of order ends it) exercised, and the answers SPENT on the
+    # picture: a machine that answers nothing puts the marker elsewhere.
+    Claim("gaze", "spec.GAZE_BASE: eight pixels' owners and depths, at the flush",
+          lambda o: len(o.gaze_owners) >= 5 and len(o.gaze_depths) >= 6
+          and o.gaze_cut >= 3 and o.gaze_px > 500,
+          "the answers never named every object and the room, or the "
+          "depths stood still, or the list was never cut short by an "
+          "entry out of order -- or a machine that answers nothing draws "
+          "the same picture, which means the cart is not spending them",
+          frames=40),
     Claim("seen", "spec.VIS_BASE: what the panel actually showed",
           lambda o: o.vis_hi > o.vis_lo * 5 and o.vis_sum <= spec.W * spec.H
                     and len(o.vis_where) > 4,
