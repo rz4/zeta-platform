@@ -629,8 +629,11 @@ module zeta_top (
                            st == I_EVW || st == I_EVC) ? au_addr : seq_addr;
   // 21.. walks the compositor block straight through, one cell a state,
   // instead of thirteen more lines of mux: the block is contiguous by law
-  wire [13:0] dreq_addr = (dsel == 6'd52) ? OLX_PTR[13:0] :
-                          (dsel >= 6'd43)
+  wire [13:0] dreq_cell;             // (the chain below, named so the
+                                     // long list's cell joins it at ONE
+                                     // width: the lint ratchet's catch)
+  wire [13:0] dreq_addr = (dsel == 6'd52) ? OLX_PTR[13:0] : dreq_cell;
+  assign      dreq_cell = (dsel >= 6'd43)
                             ? (GAZE_BASE[13:0] + {8'd0, dsel} - 14'd43) :
                           (dsel >= 6'd39)
                             ? (DMA2_SRC[13:0] + {8'd0, dsel} - 14'd39) :
