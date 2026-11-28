@@ -113,6 +113,117 @@ def relight(fb, nb, ok, tab):
     return ((out << 3) | (out >> 2)).astype(np.uint8)
 
 
+# ---- the body, lit at the load from the SAME table ------------------------
+BODY_ALBEDO = (176, 164, 152)       # the bunny unlit: its bake tint, less the bake
+
+
+def body_normals(dmem, mb):
+    """Unit normals a vertex, in the MESH's own space, from its faces."""
+    nv, nf = dmem[mb], dmem[mb + 1]
+    V = np.array([spec.s32(w) for w in dmem[mb + 2:mb + 2 + nv * 3]],
+                 float).reshape(nv, 3)
+    fbase = mb + 2 + nv * 3 + nv                 # gouraud: a colour a vertex
+    N = np.zeros((nv, 3))
+    for f in range(nf):
+        idx = dmem[fbase + f * 2]
+        a, b, c = idx & 1023, (idx >> 10) & 1023, (idx >> 20) & 1023
+        fn = np.cross(V[b] - V[a], V[c] - V[a])  # area-weighted
+        N[a] += fn
+        N[b] += fn
+        N[c] += fn
+    if (N * (V - V.mean(0))).sum() < 0:          # which way the winding faces
+        N = -N
+    return N / np.maximum(np.linalg.norm(N, axis=1, keepdims=True), 1e-9)
+
+
+def light_body(dmem, mb, yaw, tab):
+    """What the design calls LIGHT AT THE LOAD: turn each corner's normal
+    with its body, look it up in the room's table, and leave a colour
+    where the gouraud colour was. The law then draws the body exactly as
+    it draws any gouraud body -- nothing downstream knows."""
+    d = list(dmem)
+    nv = d[mb]
+    N = body_normals(d, mb)
+    a = (yaw & 1023) * np.pi * 2 / 1024
+    s, c = np.sin(a), np.cos(a)
+    R = np.stack([N[:, 0] * c - N[:, 2] * s, N[:, 1],
+                  N[:, 0] * s + N[:, 2] * c], axis=1)    # gpu._rotv's turn
+    tint = tab[encode(R)]                                # (nv, 3), 16 = 1.0
+    col = np.minimum(255, (np.array(BODY_ALBEDO) * tint) >> 4)
+    cbase = mb + 2 + nv * 3
+    for i in range(nv):
+        d[cbase + i] = int(col[i, 0]) << 16 | int(col[i, 1]) << 8 | int(col[i, 2])
+    return d, len(np.unique(encode(R)))
+
+
+def shot(m, plate, nb, lit, tab, table_lights_body):
+    """One frame of the room under one table."""
+    base = spec.OL_BASE + 1
+    mb, ang = m.vm.dmem[base], m.vm.dmem[base + 4]
+    d = list(m.vm.dmem)
+    used = 0
+    if table_lights_body:
+        d, used = light_body(d, mb, ang & 1023, tab)
+    with Tap() as tap:
+        frame = np.asarray(gpu.render(d, m._cram, m._tex))
+    body = (tap.plane & 0x7F) != 0
+    return np.where(body[..., None], frame, relight(plate, nb, lit & ~body, tab)), used
+
+
+def save(tiles, cols, path):
+    rows = [np.concatenate(tiles[i:i + cols], axis=1)
+            for i in range(0, len(tiles), cols)]
+    sheet = np.concatenate(rows, axis=0)
+    Image.fromarray(sheet).resize((sheet.shape[1] * 2, sheet.shape[0] * 2),
+                                  Image.NEAREST).save(path)
+
+
+def body_sheet():
+    """Top row: the body keeps the law's own light. Bottom: it takes the table's."""
+    m = cabinet.VirtualMachine(cabinet.load_cart(carts.path("room")))
+    for f in range(40):
+        m.frame(spec.PAD_RIGHT if f < 25 else 0)
+    plate, zbuf, _ = gpu.seed(m.vm.dmem, m._cram)
+    plate = np.asarray(plate)
+    n, ok = normals_from_depth(np.asarray(zbuf))
+    nb = encode(n)
+    tabs = [
+        table([((-1, .6, -.5), (1.5, 1.1, .6))], (.35, .35, .5)),
+        table([((1, .5, -.4), (.6, .9, 1.6))], (.4, .35, .3)),
+        table([((0, -1, -.6), (1.8, .8, .3))], (.2, .2, .35)),
+        table([((-1, .3, -.4), (1.4, .5, .3)), ((1, .3, -.4), (.3, .6, 1.5))],
+              (.3, .3, .3)),
+    ]
+    top = [shot(m, plate, nb, ok, t, False)[0] for t in tabs]
+    got = [shot(m, plate, nb, ok, t, True) for t in tabs]
+    save(top + [g[0] for g in got], 4, HERE / "sheet_body.png")
+    print(f"distinct normal bytes the body's corners use: "
+          f"{max(g[1] for g in got)} of 256 (it has {m.vm.dmem[m.vm.dmem[spec.OL_BASE + 1]]} corners)")
+
+
+def film():
+    """The lamp circles and gutters while the bunny walks the room: 96
+    frames, the table rewritten on every one, the plate never."""
+    m = cabinet.VirtualMachine(cabinet.load_cart(carts.path("room")))
+    plate = nb = ok = None
+    frames = []
+    rng = np.random.default_rng(7)                 # the gutter, repeatably
+    for f in range(96):
+        m.frame(spec.PAD_RIGHT if f < 48 else spec.PAD_LEFT)
+        if plate is None:
+            plate, zbuf, _ = gpu.seed(m.vm.dmem, m._cram)
+            plate = np.asarray(plate)
+            n, ok = normals_from_depth(np.asarray(zbuf))
+            nb = encode(n)
+        a = f / 96 * 2 * np.pi
+        g = 0.85 + 0.3 * rng.random()
+        tab = table([((np.cos(a), .45, -abs(np.sin(a)) - .2),
+                      (1.7 * g, 1.0 * g, .45 * g))], (.22, .24, .4))
+        frames.append(Image.fromarray(shot(m, plate, nb, ok, tab, True)[0]))
+    frames[0].save(HERE / "film.gif", save_all=True, append_images=frames[1:],
+                   duration=33, loop=0, optimize=True)
+
+
 def main():
     m = cabinet.VirtualMachine(cabinet.load_cart(carts.path("room")))
     with Tap() as tap:
@@ -167,3 +278,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+    body_sheet()
+    film()
