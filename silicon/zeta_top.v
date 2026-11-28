@@ -176,9 +176,18 @@ module zeta_top (
   wire        seq_skip;
   wire [10:0] seq_skip_n;
   wire        t_tex, t_tinton, t_otint, t_span, t_blend, t_add;
-  wire  [7:0] t_oid;
+  wire  [9:0] t_oid;
   wire [16:0] vis_q;
-  reg   [6:0] visi;          // spec.VIS_BASE: the readback walk
+  reg   [9:0] visi;          // spec.VIS_BASE: the readback walk
+  // ---- THE LONG LIST (spec.OLX_PTR) -------------------------------------
+  // One cell says where the object list is. The verdict is on the POINTER
+  // alone -- nonzero, and low enough that the longest list still ends
+  // inside DMEM -- so it is known before a single object is read, and the
+  // sequencer and the cart-mesh loader are simply handed a base.
+  reg  [31:0] d_olx;
+  wire        ol_long = (d_olx[31:14] == 18'd0) && (d_olx[13:0] != 14'd0)
+                     && (d_olx[13:0] <= OLX_LIM[13:0]);
+  wire [13:0] ol_base = ol_long ? d_olx[13:0] : OL_BASE[13:0];
   // ---- THE GAZE (spec.GAZE_BASE) ----------------------------------------
   // The list is judged HERE, as its words come off DMEM in the request
   // sweep, by the law's own rule: on the glass and strictly after the
@@ -192,19 +201,24 @@ module zeta_top (
   reg         gz_we;
   reg   [2:0] gz_wa;
   reg  [17:0] gz_wd;
-  wire [22:0] gz_q;
+  wire [24:0] gz_q;
   wire  [3:0] gz_i   = dsel[3:0] - 4'd12;        // dsel 44..51 -> 0..7
   wire [17:0] gz_yx  = {dl_data[24:16], dl_data[8:0]};
   wire        gz_ok  = !gz_cut && (gz_i < gz_cnt)
                     && (dl_data[15:0]  < 16'd320)
                     && (dl_data[31:16] < 16'd288)
                     && (gz_n == 4'd0 || gz_yx > gz_last);
-  // the answers ride the sensor's readback walk: beats OL_MAX+1 ..
-  // OL_MAX+GAZE_MAX of I_VIS, one cell each
-  wire        gz_beat = (visi > OL_MAX[6:0]);
-  wire  [2:0] gz_ra   = visi[2:0] - 3'd1;        // 65..72 -> 0..7
-  wire [31:0] gz_word = ({1'b0, gz_ra} < gz_n) ? {9'd0, gz_q}
+  // THE READBACK WALK (I_VIS), 520 beats: beat b presents object b's
+  // tally and writes object b-1's, for objects 0..510; then eight beats
+  // for the gaze's answers. Objects past the 64th go to VISX_BASE, and
+  // only while the long list is on.
+  wire        gz_beat = visi[9];                 // beats 512..519
+  wire  [2:0] gz_ra   = visi[2:0];
+  wire [31:0] gz_word = ({1'b0, gz_ra} < gz_n) ? {7'd0, gz_q}
                                                : 32'hFFFFFFFF;
+  wire        vx_beat = (visi > OL_MAX[9:0]);    // an object past the 64th
+  wire        vis_wr  = gz_beat ? gz_on
+                      : (visi != 10'd0) && (!vx_beat || ol_long);
   reg   [4:0] audi;          // spec.AUD_BASE: and the other one
   // ---- THE LIGHT (spec.OBJ_LIT) ------------------------------------
   // Read once a frame with the rest of the register block. The
@@ -304,7 +318,7 @@ module zeta_top (
   // mover's own engine: dma_mesh says the words are the store's, not
   // DMEM's. Every object gets a verdict, so the store's table is never
   // stale for an object the sequencer will ask about.
-  reg [6:0]  ml_o, ml_n;             // the object in hand, and how many
+  reg [9:0]  ml_o, ml_n;             // the object in hand, and how many
   reg [2:0]  msel;                   // which word of it is being read
   reg [13:0] ml_e;                   // its first word in the list
   reg [31:0] ml_mesh;
@@ -329,13 +343,13 @@ module zeta_top (
                         ({1'b0, ml_uf} + {4'd0, ml_nf[9:0]} <= CM_FMAX);
   wire [31:0] ml_eff = (ml_str == 3'd1) ? ml_e1 : (ml_str == 3'd2) ? ml_e2 : ml_e3;
   wire [31:0] ml_len = (ml_str == 3'd1) ? ml_vw : (ml_str == 3'd2) ? ml_fw : ml_cw;
-  wire [13:0] ml_addr = (msel == 3'd0) ? OL_BASE[13:0] :
+  wire [13:0] ml_addr = (msel == 3'd0) ? ol_base :
                         (msel == 3'd1) ? ml_e :
                         (msel == 3'd2) ? ml_e + 14'd5 :
                                          ml_mesh[13:0] + {11'd0, msel} - 14'd3;
   wire [31:0] mesh_q;                // zmesh's answer to the sequencer
   wire        seq_cart, cm_ok;
-  wire [5:0]  seq_obj;
+  wire [8:0]  seq_obj;
   reg [15:0] c_slot_r;               // ...latched, so a cart rewriting
   reg [31:0] c_off_r;                // the cells mid-flight changes
   reg [13:0] c_dst_r;                // nothing
@@ -395,7 +409,7 @@ module zeta_top (
   // 16 id, 39 flags): as flip-flops a 2-deep queue is ~550 ALMs. As MLAB
   // it is 28 MLABs, 32 deep for the same price -- and M10K is 308 of 308,
   // so it MUST say MLAB (verify in the map report).
-  localparam TQ_W = 546;
+  localparam TQ_W = 548;
 `ifndef TQ_LG
 `define TQ_LG 5
 `endif
@@ -434,7 +448,7 @@ module zeta_top (
   wire [15:0] q_tri;
   wire        q_tex, q_tinton, q_otint, q_span, q_blend, q_add;
   wire [14:0] q_tint;
-  wire [7:0]  q_oid;
+  wire [9:0]  q_oid;
   wire [4:0]  q_alpha, q_page;
   assign tq_in = {tx0, ty0, tx1, ty1, tx2, ty2, tc0,
                   tcxr, tcyr, tcxg, tcyg, tcxb, tcyb, tz0, tzx, tzy,
@@ -572,13 +586,14 @@ module zeta_top (
                           st == I_OCLR || st == I_PW ||
                           card_we || st == I_CCLR || st == I_CGO ||
                           st == I_CDG || st == I_CDG2 || st == I_CDG3 ||
-                          st == I_CDG4 || (st == I_VIS && visi != 7'd0
-                                           && (!gz_beat || gz_on))
+                          st == I_CDG4 || (st == I_VIS && vis_wr)
                           || (st == I_AUD && audi != 5'd0) || st == I_ARZ;
   wire [13:0] ext_addr  = boot_dmem   ? boot_addr[13:0] :
                           (st == I_VIS)
                               ? (gz_beat ? (GAZE_ANS[13:0] + {11'd0, gz_ra})
-                                         : (VIS_BASE[13:0] + {7'd0, visi} - 14'd1)) :
+                                 : vx_beat ? (VISX_BASE[13:0] + {4'd0, visi}
+                                              - 14'd1 - OL_MAX[13:0])
+                                 : (VIS_BASE[13:0] + {4'd0, visi} - 14'd1)) :
                           (st == I_AUD)
                               ? (AUD_BASE[13:0] + {9'd0, audi} - 14'd1) :
                           (st == I_WF) ? A_FRAME :
@@ -614,7 +629,8 @@ module zeta_top (
                            st == I_EVW || st == I_EVC) ? au_addr : seq_addr;
   // 21.. walks the compositor block straight through, one cell a state,
   // instead of thirteen more lines of mux: the block is contiguous by law
-  wire [13:0] dreq_addr = (dsel >= 6'd43)
+  wire [13:0] dreq_addr = (dsel == 6'd52) ? OLX_PTR[13:0] :
+                          (dsel >= 6'd43)
                             ? (GAZE_BASE[13:0] + {8'd0, dsel} - 14'd43) :
                           (dsel >= 6'd39)
                             ? (DMA2_SRC[13:0] + {8'd0, dsel} - 14'd39) :
@@ -722,7 +738,7 @@ module zeta_top (
 
   zmesh u_mesh (
     .clk(clk),
-    .ld_new(ml_new), .ld_obj(ml_obj), .ld_o(ml_o[5:0]), .ld_ok(ml_okr),
+    .ld_new(ml_new), .ld_obj(ml_obj), .ld_o(ml_o[8:0]), .ld_ok(ml_okr),
     .ld_nv(ml_nv[8:0]), .ld_nf(ml_nf[9:0]), .ld_sh(ml_d4[3:0]),
     .ld_sel(dma_mesh), .ld_we(dma_we && dma_mesh != 2'd0), .ld_word(dma_word),
     .rd_obj(seq_obj), .rd_addr(seq_addr), .cm_ok(cm_ok), .rd_data(mesh_q));
@@ -734,6 +750,7 @@ module zeta_top (
     .tile_y0(tile_y0), .first_pass(tpass == 6'd0),
     .rd_addr(seq_addr), .rd_data(seq_cart ? mesh_q : dl_data),
     .rd_cart(seq_cart), .rd_obj(seq_obj), .cm_ok(cm_ok), .rd_dmem(dl_data),
+    .ol_base(ol_base), .ol_long(ol_long),
     .lod_flat((f_lod[31] || f_lod > 32'hFFFF) ? 16'd0 : f_lod[15:0]),
     .tri_rdy(tq_rdy), .tri_go(tri_go), .seq_item(seq_item), .seq_skip(seq_skip),
     .seq_skip_n(seq_skip_n),
@@ -759,7 +776,7 @@ module zeta_top (
     .tcxb(qcxb), .tcyb(qcyb), .tz0(qz0), .tzx(qzx), .tzy(qzy),
     .fb_we(gfb_we), .fb_waddr(gfb_a), .fb_wdata(gfb_d),
     .tri_id(q_tri), .t_tex(q_tex), .t_tint(q_tint), .t_tinton(q_tinton), .t_otint(q_otint), .t_span(q_span),
-    .vis_a(visi[5:0]), .vis_q(vis_q),
+    .vis_a(visi[8:0]), .vis_q(vis_q),
     .gz_we(gz_we), .gz_wa(gz_wa), .gz_wd(gz_wd), .gz_n(gz_n),
     .gz_ra(gz_ra), .gz_q(gz_q),
     .t_blend(q_blend), .t_add(q_add), .t_oid(q_oid),
@@ -1012,6 +1029,7 @@ module zeta_top (
             gz_n   <= 4'd0;
             gz_cut <= 1'b0;
           end
+          6'd52: d_olx <= dl_data;         // ...and where the list is
           6'd44, 6'd45, 6'd46, 6'd47, 6'd48, 6'd49, 6'd50, 6'd51:
             if (gz_ok) begin
               gz_we <= 1'b1; gz_wa <= gz_n[2:0]; gz_wd <= gz_yx;
@@ -1020,7 +1038,7 @@ module zeta_top (
             end else gz_cut <= 1'b1;
           default: co_reg[dsel - 6'd21] <= dl_data;
         endcase
-        if (dsel == 6'd51) st <= swept2 ? I_ML : I_DCLR;   // (frontier 20: the
+        if (dsel == 6'd52) st <= swept2 ? I_ML : I_DCLR;   // (frontier 20: the
                                           // cart meshes, once DMEM is final)
         else begin dsel <= dsel + 1'b1; st <= I_DRD; end
       end
@@ -1055,8 +1073,8 @@ module zeta_top (
       end
       // ---- the cart mesh's loader (see its registers, above) ----------
       I_ML: begin
-        ml_o <= 7'd0; ml_uv <= 13'd0; ml_uf <= 13'd0; msel <= 3'd0;
-        ml_e <= OL_BASE[13:0] + 14'd1; ml_new <= 1'b1; dma_mesh <= 2'd0;
+        ml_o <= 10'd0; ml_uv <= 13'd0; ml_uf <= 13'd0; msel <= 3'd0;
+        ml_e <= ol_base + 14'd1; ml_new <= 1'b1; dma_mesh <= 2'd0;
         st <= I_MRD;
       end
       I_MRD: st <= I_MCK;                 // the word presented
@@ -1064,7 +1082,9 @@ module zeta_top (
         st <= I_MRD;
         case (msel)
           3'd0: begin
-            ml_n <= (dl_data > OL_MAX) ? OL_MAX[6:0] : dl_data[6:0];
+            ml_n <= ol_long
+                    ? ((dl_data > OLX_MAX) ? OLX_MAX[9:0] : dl_data[9:0])
+                    : ((dl_data > OL_MAX)  ? OL_MAX[9:0]  : dl_data[9:0]);
             msel <= 3'd1;
             if (dl_data == 32'd0) st <= I_TXP;
           end
@@ -1102,8 +1122,8 @@ module zeta_top (
           st <= I_DBURST;
         end
       I_MNX: begin
-        ml_o <= ml_o + 7'd1; ml_e <= ml_e + OL_STRIDE[13:0]; msel <= 3'd1;
-        st <= (ml_o + 7'd1 == ml_n) ? I_TXP : I_MRD;
+        ml_o <= ml_o + 10'd1; ml_e <= ml_e + OL_STRIDE[13:0]; msel <= 3'd1;
+        st <= (ml_o + 10'd1 == ml_n) ? I_TXP : I_MRD;
       end
       // ---- the second request (spec.DMA2_*): the same engine, again --
       I_D2: begin
@@ -1340,7 +1360,7 @@ module zeta_top (
       I_ARZ: st <= I_GRP;                 // ...and the cell cleared
       I_PW:                             // the pick's answer, THREE cells
         if (pws != 2'd2) pws <= pws + 2'd1;   // PICK_ID, PICK_Z, PICK_SH
-        else begin visi <= 7'd0; st <= I_VIS; end
+        else begin visi <= 10'd0; st <= I_VIS; end
       // ---- THE SENSOR'S ANSWER (spec.VIS_BASE) -----------------------
       // OL_MAX cells, one an object, straight out of the rasterizer's
       // own tally. A frame late by construction -- the count is not
@@ -1352,9 +1372,9 @@ module zeta_top (
       // one more beat than there are cells -- writing cell visi-1 on
       // every beat but the first.
       I_VIS: begin
-        visi <= visi + 7'd1;
-        // ...and GAZE_MAX beats more, for the gaze's answers
-        if (visi == OL_MAX[6:0] + GAZE_MAX[6:0]) begin
+        visi <= visi + 10'd1;
+        // 512 beats for the tallies, then GAZE_MAX for the gaze's answers
+        if (visi == 10'd511 + GAZE_MAX[9:0]) begin
           audi <= 5'd0; st <= I_AUD;
         end
       end

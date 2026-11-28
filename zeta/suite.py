@@ -105,6 +105,9 @@ class Observed:
         self.grade_chans: set = set()   # channels it moved
         self._sh_prev = None
         self.dl_tris = 0
+        self.long_seen = 0              # spec.OLX_PTR: objects past the
+        self.long_px = 0                # 255th on the glass, and pixels
+                                        # that move if the list is short
         self.gaze_owners: set = set()   # spec.GAZE_BASE: who was named,
         self.gaze_depths: set = set()   # how deep, how often the law CUT
         self.gaze_cut = 0               # the list short, and the pixels
@@ -122,10 +125,14 @@ class Observed:
         for _ in range(frames):
             m.frame(pad)
             d = m.vm.dmem
-            n = min(d[spec.OL_BASE], spec.OL_MAX)
+            ol, n = spec.object_list(d)       # the short list or the long
             self.objects = max(self.objects, n)
+            if ol != spec.OL_BASE:
+                self.long_seen = max(self.long_seen, sum(
+                    1 for k in range(256, spec.OLX_MAX)
+                    if d[spec.VISX_BASE + k - spec.OL_MAX]))
             for k in range(n):
-                b = spec.OL_BASE + 1 + k * spec.OL_STRIDE
+                b = ol + 1 + k * spec.OL_STRIDE
                 self.flags.add(d[b + 5])
                 if d[b + 5] & spec.OBJ_TEX:      # which page it samples
                     self.pages.add((d[b + 5] >> spec.OBJ_PAGE_SHIFT)
@@ -424,6 +431,15 @@ class Observed:
             finally:
                 spec.BG_SHADOW = _bs
 
+        # THE LONG LIST: with the pointer refused, the list is the short
+        # one at OL_BASE, and whatever the long one drew is gone.
+        if self.long_seen:
+            from . import gpu as _gpu
+            d0 = list(m.vm.dmem)
+            d0[spec.OLX_PTR] = 0                # the pointer says "no"
+            short = np.asarray(_gpu.render(d0, m._cram, m._tex))
+            self.long_px = int((short != m.framebuffer()).any(axis=2).sum())
+
         # THE GAZE, by the same second run: its answers reach the picture
         # through the cart a frame later, so the mutation is the whole
         # cart played again on a machine that answers nothing.
@@ -556,6 +572,20 @@ CLAIMS: list[Claim] = [
     # pixel. The era's answer was an occlusion query a frame late off a
     # separate pass; here it is a LUTRAM read-add-write riding the walk
     # that was carrying the band out anyway, and it costs no clocks.
+    # FIVE HUNDRED AND ELEVEN OBJECTS. The list where the cart put it,
+    # objects past the 255th on the glass (the ninth bit of an owner),
+    # the front row through the clipper, the count clamped at the law's
+    # 511 with nine more listed, and every count and answer spent on the
+    # picture.
+    Claim("crowd", "spec.OLX_PTR: the long list, 511 objects, nine bits of owner",
+          lambda o: o.objects == spec.OLX_MAX and o.long_seen > 100
+          and o.long_px > 20000 and o.clip_px > 2000
+          and max(o.gaze_owners, default=0) > 255,
+          "the list was not the long one at its limit, or few objects "
+          "past the 255th reached the glass, or refusing the pointer "
+          "changes little, or nothing of it crosses the lens, or the "
+          "gaze never named an owner with its ninth bit set",
+          frames=40),
     # EIGHT PIXELS, ANSWERED AT THE FLUSH. Every owner in the scene and
     # the room named, the depths moving, the list's own law (the first
     # entry out of order ends it) exercised, and the answers SPENT on the

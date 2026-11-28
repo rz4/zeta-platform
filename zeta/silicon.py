@@ -72,6 +72,9 @@ def gen_params() -> str:
         f"localparam LOD_FLAT = {spec.LOD_FLAT};",
         f"localparam GAZE_BASE = {spec.GAZE_BASE}, GAZE_MAX = {spec.GAZE_MAX}, "
         f"GAZE_ANS = {spec.GAZE_ANS};",
+        f"localparam OLX_PTR = {spec.OLX_PTR}, OLX_MAX = {spec.OLX_MAX}, "
+        f"VISX_BASE = {spec.VISX_BASE}, "
+        f"OLX_LIM = {spec.DMEM_WORDS - 1 - spec.OLX_MAX * spec.OL_STRIDE};",
         f"localparam SD_SLOT = {spec.SD_SLOT}, SD_OFF = {spec.SD_OFF}, "
         f"SD_DST = {spec.SD_DST};",
         f"localparam SD_LEN = {spec.SD_LEN}, SD_GO = {spec.SD_GO}, "

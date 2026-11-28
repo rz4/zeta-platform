@@ -147,7 +147,7 @@ def test_nothing_claims_more_than_the_panel_has():
 def test_the_accumulator_is_sized_to_the_ol_max_it_was_written_for():
     """The sensor's widths in zgpu.v are literals, and OL_MAX is not.
 
-Every address in the sensor is [5:0] and vzero reads vclr[6]: all
+Every address in the sensor was [5:0] and vzero read vclr[6]: all
     correct for 64 objects and ALL BREAKING SILENTLY at 128 -- the
     addresses would alias object 64 onto object 0, and the zeroing walk
     would never terminate. Nothing in the RTL notices, because a width
@@ -167,17 +167,21 @@ Every address in the sensor is [5:0] and vzero reads vclr[6]: all
     """
     rtl = (Path(__file__).resolve().parents[1] / "silicon" / "zgpu.v"
            ).read_text()
-    assert spec.OL_MAX == 64, (
-        f"OL_MAX is {spec.OL_MAX}; zgpu.v's sensor hardcodes 64 -- every "
-        f"[5:0] address, vclr[6], and the `vzero` terminator all have to "
-        f"widen together")
-    for want in ("wire [5:0]  a_sel", "reg  [5:0]  b_sel",
-                 "reg  [5:0]  p_sel", "wire [5:0]  vwa",
-                 "wire        vzero = !vclr[6]", "reg  [6:0]  vclr"):
+    # IT FIRED A SECOND TIME, when the long list (spec.OLX_PTR) took the
+    # tally from 64 objects to 511. The widths are now nine bits and the
+    # zeroing walk is 512 clocks; they are still literals, so the guard
+    # still stands, re-aimed at the number they were written for.
+    assert spec.OLX_MAX == 511, (
+        f"OLX_MAX is {spec.OLX_MAX}; zgpu.v's sensor hardcodes 512 slots -- "
+        f"every [8:0] address, vclr[9], and the `vzero` terminator all "
+        f"have to move together")
+    for want in ("wire [8:0]  a_sel", "reg  [8:0]  b_sel",
+                 "reg  [8:0]  p_sel", "wire [8:0]  vwa",
+                 "wire        vzero = !vclr[9]", "reg  [9:0]  vclr"):
         assert want in rtl, (
             f"zgpu.v no longer declares `{want}` -- if the sensor's "
             f"widths were parameterised, delete this test; if they were "
-            f"changed by hand, check them against OL_MAX = {spec.OL_MAX}")
+            f"changed by hand, check them against OLX_MAX = {spec.OLX_MAX}")
 
 
 def test_the_witness_still_exercises_the_forwarding_hazard():

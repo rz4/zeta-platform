@@ -310,14 +310,14 @@ def _clipped(vws, a, b, c, vattr, rgb=0):
 
 def _geom(fb, zbuf, dmem, watch, pick, tex=None, fog=None,
           lod_flat=0, idbuf=None, cram=None) -> None:
-    n = min(dmem[spec.OL_BASE], spec.OL_MAX)
+    ol, n = spec.object_list(dmem)
     cx, cy, cz = (s32(dmem[c]) for c in (spec.CAM_X, spec.CAM_Y, spec.CAM_Z))
     cyaw = dmem[spec.CAM_YAW] & 1023
     cpit = dmem[spec.CAM_PITCH] & 1023
     crol = dmem[spec.CAM_ROLL] & 1023
     cm_used = [0, 0]                           # spec.OBJ_CART's store, this frame
     for o in range(n):
-        base = spec.OL_BASE + 1 + o * spec.OL_STRIDE
+        base = ol + 1 + o * spec.OL_STRIDE
         mb, ox, oy, oz, ang, flags = (s32(v) for v in
                                       dmem[base:base + spec.OL_STRIDE])
         yaw, pit, rol = ang & 1023, (ang >> 10) & 1023, (ang >> 20) & 1023
@@ -419,7 +419,7 @@ def _geom(fb, zbuf, dmem, watch, pick, tex=None, fog=None,
             # with "nothing here" and made VIS_BASE impossible: an object
             # that wants to know how visible it is should not have to be
             # outlined to find out.
-            oid = (o + 1) | (0x80 if flags & spec.OBJ_EDGE else 0)
+            oid = (o + 1) | (spec.OWNER_EDGE if flags & spec.OBJ_EDGE else 0)
             tnt = otnt or (tuple(((rgb >> k) & 0xFF) >> 3
                                  for k in (16, 8, 0))
                            if flags & spec.OBJ_TINT else None)
@@ -700,8 +700,8 @@ def render(dmem: list[int], cram: np.ndarray | None = None,
     # one-row delay line, would otherwise read the previous row's last
     # pixel and the previous FRAME's last band. Legislated so both
     # machines decline the same comparison.
-    own = idbuf & 0x7F
-    edg = (idbuf & 0x80) != 0
+    own = idbuf & spec.OWNER_MASK
+    edg = (idbuf & spec.OWNER_EDGE) != 0
     if edg.any():
         # THE OWNERS MUST DIFFER **AND** ONE MUST HAVE ASKED. With every
         # object recorded, "the owners differ" alone outlines the world.
@@ -709,9 +709,15 @@ def render(dmem: list[int], cram: np.ndarray | None = None,
         e[:, 1:] |= (own[:, 1:] != own[:, :-1]) & (edg[:, 1:] | edg[:, :-1])
         e[1:, :] |= (own[1:, :] != own[:-1, :]) & (edg[1:, :] | edg[:-1, :])
         fb[e] = spec.display_rgb(s32(dmem[spec.EDGE_RGB]))
-    counts = np.bincount(own.reshape(-1), minlength=spec.OL_MAX + 1)
+    counts = np.bincount(own.reshape(-1), minlength=spec.OLX_MAX + 1)
     for k in range(spec.OL_MAX):
         dmem[spec.VIS_BASE + k] = int(min(counts[k + 1], spec.VIS_MAX))
+    # THE LONG LIST'S COUNTS (spec.VISX_BASE), and only while it is on:
+    # a cart on the short list has nothing written above VIS_BASE.
+    if spec.object_list(dmem)[0] != spec.OL_BASE:
+        for k in range(spec.OL_MAX, spec.OLX_MAX):
+            dmem[spec.VISX_BASE + k - spec.OL_MAX] = int(
+                min(counts[k + 1], spec.VIS_MAX))
     # ---- THE GAZE (spec.GAZE_BASE) ---------------------------------------
     # Read off the two finished planes, after everything that can change
     # them has: the owner as VIS counted it, the depth as it stands. A

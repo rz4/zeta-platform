@@ -58,8 +58,8 @@ module zgpu (
     input  wire        t_tex,       // this triangle samples the page
     input  wire [14:0] t_tint,      // ...and is LIT by this, per face
     input  wire        t_tinton,
-    input  wire  [7:0] t_oid,       // {edged, index+1}
-    input  wire  [5:0] vis_a,       // THE SENSOR's readout port
+    input  wire  [9:0] t_oid,       // {edged, index+1}: nine bits of owner
+    input  wire  [8:0] vis_a,       // THE SENSOR's readout port
     output wire [16:0] vis_q,       // (spec.VIS_BASE)
     // THE GAZE (spec.GAZE_BASE): the watched pixels the law accepted,
     // loaded in order, and their answers read back after the last band
@@ -68,7 +68,7 @@ module zgpu (
     input  wire [17:0] gz_wd,       // {y[8:0], x[8:0]}
     input  wire  [3:0] gz_n,        // how many there are, 0..GAZE_MAX
     input  wire  [2:0] gz_ra,
-    output wire [22:0] gz_q,        // {owner[6:0], z16}
+    output wire [24:0] gz_q,        // {owner[8:0], z16}
     input  wire [14:0] edge_rgb,    // ...and the colour an edge is drawn
     input  wire        t_otint,     // ...and OBJ_OTINT lights flat faces
     input  wire        t_span,      // OBJ_LODSPAN
@@ -484,14 +484,18 @@ module zgpu (
   // band. Written where the depth is written -- only by OPAQUE faces,
   // for the same reason: a blended face is a veil, and outlining the
   // veil would draw a line around the glass instead of the thing.
-  (* ramstyle = "M10K" *) reg [7:0] idmem [0:(ZW + 2) * TH - 1];
+  // TEN BITS, AND THE BLOCKS WERE ALREADY TEN WIDE (spec.OLX_PTR): a
+  // band is 10,304 deep, which the fitter builds from 1,024 x 10 blocks
+  // whether eight of the ten are used or all of them. Nine of owner,
+  // one for the outline.
+  (* ramstyle = "M10K" *) reg [9:0] idmem [0:(ZW + 2) * TH - 1];
   // ...and ONE ROW of it, delayed. The band is already walked pixel by
   // pixel on its way out (the previous band's flush rides the next
   // band's clear), and that walk is continuous in SCREEN order across
   // the whole frame -- so a line ZW+2 deep hands back the pixel one row
   // up, band boundaries included, for no clocks and one MLAB.
-  (* ramstyle = "MLAB" *) reg [7:0] iprev [0:ZW + 1];
-  reg [7:0]  iq, iq_l, iq_u;        // this pixel, its left, its up
+  (* ramstyle = "MLAB" *) reg [9:0] iprev [0:ZW + 1];
+  reg [9:0]  iq, iq_l, iq_u;        // this pixel, its left, its up
   reg [8:0]  ip;                    // the delay line's pointer
   reg [8:0]  fcol, wcol;            // the column, walking and delayed
   reg        wrow0;                 // ...and whether this is screen row 0
@@ -535,7 +539,7 @@ module zgpu (
   reg        lod_dirty;   // this span still owes a level
   reg        ttinton;
   reg        totint;
-  reg [7:0]  toid;
+  reg [9:0]  toid;
   // EIGHT PAGES + THEIR MIP CHAINS, 2,048 texels of stride each (1,360
   // used; a power-of-two stride makes the page index a concatenation
   // instead of a multiply, and this die has no multiplier to spare).
@@ -577,7 +581,7 @@ module zgpu (
   reg        s1_tinton;
   reg        s1_otint;
   reg        s1_sh;      // the plate's shadow bit, riding the z write
-  reg [7:0]  s1_oid, s2_oid;   // ...and the owner, riding beside it
+  reg [9:0]  s1_oid, s2_oid;   // ...and the owner, riding beside it
   reg        s2_clr;
   reg        s1_blend;
   reg [4:0]  s1_alpha;
@@ -725,7 +729,7 @@ module zgpu (
     // where the room's sun falls does not change because an actor walked
     // in front of it.
     s1_sh  <= (st == S_CLR) && bpix && blit_word[15];
-    s1_oid <= (st == S_CLR) ? 8'd0 : toid;
+    s1_oid <= (st == S_CLR) ? 10'd0 : toid;
     s1_t   <= tcur;
     s1_tex <= (st == S_WALK) && ttex;
     s1_tinton <= (st == S_WALK) && ttinton;
@@ -784,7 +788,7 @@ module zgpu (
     if (s2_v) begin
       if (!s2_blend) begin
         zmem[s2_za]  <= s2_z;
-        idmem[s2_za] <= s2_clr ? 8'd0 : s2_oid;   // the clear owns nobody
+        idmem[s2_za] <= s2_clr ? 10'd0 : s2_oid;   // the clear owns nobody
       end
     end
     s3_v  <= s2_v;
@@ -918,29 +922,31 @@ module zgpu (
   //
   // The zeroing walk rides the FIRST band's clear, where fl_arm is low
   // and nothing is being counted -- 64 clocks inside 10,304.
-  (* ramstyle = "M10K" *) reg [16:0] vmem [0:OL_MAX - 1];
-  reg  [6:0]  vclr;
-  wire        vzero = !vclr[6];             // OL_MAX == 64
+  // 512 x 17 IS STILL ONE BLOCK (spec.OLX_PTR): the tally was 64 deep
+  // in a block that holds 512 of this width.
+  (* ramstyle = "M10K" *) reg [16:0] vmem [0:511];
+  reg  [9:0]  vclr;
+  wire        vzero = !vclr[9];             // 512 clocks of the first clear
   // !stall, AND NOT MERELY fl_v. fb_we is a REQUEST that is HELD until
   // the CRAM write FIFO takes it -- address and data sit unchanged for
   // as long as the stall lasts. The framebuffer never noticed, because
   // writing the same word twice is writing it once. A COUNTER NOTICES:
   // measured, 92,736 real pixels arrived as 98,306 asserted beats, one
   // stall running fourteen clocks long. Count acceptances, not requests.
-  wire        vhit  = fl_v && !stall && (iq[6:0] != 7'd0);
+  wire        vhit  = fl_v && !stall && (iq[8:0] != 9'd0);
   // owner 1..OL_MAX becomes index 0..OL_MAX-1, and owner OL_MAX wraps
   // to OL_MAX-1 through the same subtract, which is the right answer
-  wire [5:0]  a_sel = vzero ? vclr[5:0]
-                    : vhit  ? (iq[5:0] - 6'd1)
+  wire [8:0]  a_sel = vzero ? vclr[8:0]
+                    : vhit  ? (iq[8:0] - 9'd1)
                     :         vis_a;
   reg  [16:0] vq;                   // what came back, one clock later
-  reg  [5:0]  b_sel;   reg b_hit;   // ...and whose it is
-  reg  [5:0]  p_sel;   reg p_hit;   // the write still in flight
+  reg  [8:0]  b_sel;   reg b_hit;   // ...and whose it is
+  reg  [8:0]  p_sel;   reg p_hit;   // the write still in flight
   reg  [16:0] p_val;
   wire [16:0] b_cur = (p_hit && (p_sel == b_sel)) ? p_val : vq;
   wire [16:0] b_val = b_cur + 17'd1;
   wire        vwe   = vzero || b_hit;
-  wire [5:0]  vwa   = vzero ? vclr[5:0] : b_sel;
+  wire [8:0]  vwa   = vzero ? vclr[8:0] : b_sel;
   wire [16:0] vwd   = vzero ? 17'd0     : b_val;
   always @(posedge clk) begin
     vq    <= vmem[a_sel];
@@ -949,9 +955,9 @@ module zgpu (
     p_sel <= b_sel;
     p_hit <= rst_n && b_hit;
     p_val <= b_val;
-    if (!rst_n) vclr <= 7'd0;
-    else if (start && first_band) vclr <= 7'd0;
-    else if (vzero) vclr <= vclr + 7'd1;
+    if (!rst_n) vclr <= 10'd0;
+    else if (start && first_band) vclr <= 10'd0;
+    else if (vzero) vclr <= vclr + 10'd1;
     if (rst_n && vwe) vmem[vwa] <= vwd;
   end
   assign vis_q = vq;
@@ -977,7 +983,7 @@ module zgpu (
   // ends on its second gutter word (column ZW+1), which the flush sends
   // like any other.
   //
-  // COUNTED IN BITS: 8 x 18 in, 8 x 23 out, a 9-bit row, a 4-bit
+  // COUNTED IN BITS: 8 x 18 in, 8 x 25 out, a 9-bit row, a 4-bit
   // pointer. Both tables want one write port and one asynchronous read,
   // which an MLAB is.
   //
@@ -989,7 +995,7 @@ module zgpu (
   // list loads in the request sweep and is read in the paint; the
   // answers are written in the paint and read after it.
   (* ramstyle = "MLAB, no_rw_check" *) reg [17:0] gzin  [0:7];
-  (* ramstyle = "MLAB, no_rw_check" *) reg [22:0] gzans [0:7];
+  (* ramstyle = "MLAB, no_rw_check" *) reg [24:0] gzans [0:7];
   reg  [8:0]  grow;
   reg  [3:0]  gptr;
   wire        gacc = fl_v && !stall;
@@ -1003,7 +1009,7 @@ module zgpu (
       if (gacc && wcol == ZW[8:0] + 9'd1) grow <= grow + 9'd1;
       if (ghit) gptr <= gptr + 4'd1;
     end
-    if (rst_n && ghit) gzans[gptr[2:0]] <= {iq[6:0], zq};
+    if (rst_n && ghit) gzans[gptr[2:0]] <= {iq[8:0], zq};
   end
   assign gz_q = gzans[gz_ra];
 
@@ -1014,10 +1020,10 @@ module zgpu (
   // meeting is an edge; an outlined object against the room is an edge;
   // the room against itself is not, because 0 equals 0.
   // THE OWNERS MUST DIFFER **AND** ONE MUST HAVE ASKED (bit 7).
-  wire edge_hit = ((wcol != 9'd0) && (iq[6:0] != iq_l[6:0])
-                                  && (iq[7] || iq_l[7]))
-               || (!wrow0        && (iq[6:0] != iq_u[6:0])
-                                  && (iq[7] || iq_u[7]));
+  wire edge_hit = ((wcol != 9'd0) && (iq[8:0] != iq_l[8:0])
+                                  && (iq[9] || iq_l[9]))
+               || (!wrow0        && (iq[8:0] != iq_u[8:0])
+                                  && (iq[9] || iq_u[9]));
   assign fb_wdata = edge_hit ? edge_rgb : cq;
   assign zw_we    = s2_pass && !stall;
   assign zw_addr  = s1_a;

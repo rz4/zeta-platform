@@ -155,6 +155,49 @@ PICK_SH = 12269                 # 1 if the BACKDROP PLATE says the sun is
 VIS_BASE = 14656                # OL_MAX words, one an object
 VIS_MAX = 0x1FFFF               # 17 bits; a whole screen is 92,160
 
+# ---- THE LONG LIST (spec.OLX_PTR): five hundred and eleven objects ------
+# OL_MAX is 64 and the list cannot grow where it stands: the audio
+# registers begin eleven words above it (test_dmem_map.py is the scar).
+# TND lists 62 of the 64 on a scripted walk (experiments/retina).
+#
+# So the list MOVES, and the cart says where. If OLX_PTR holds an address
+# a long list fits at, the object list is read from THERE -- a count, then
+# OL_STRIDE words an object, exactly the short list's shape -- and may
+# hold OLX_MAX objects. Otherwise the list is the one at OL_BASE and
+# every cart written before this means what it meant.
+#
+#   OLX_PTR      0 (or anything a list of OLX_MAX would run off the end
+#                of DMEM from) = the short list. The test is on the
+#                POINTER ALONE, never on the count, so the machine can
+#                make it once, before it has read a single object.
+#   VISX_BASE    the visible-pixel counts of objects 64 and up, one word
+#                each, written only while the long list is on. Objects
+#                0..63 answer at VIS_BASE as they always have.
+#
+# WHY 511 AND NOT 256. An object's identity is its place in the list plus
+# one, with 0 kept for the room. The identity plane is stored ten bits
+# wide whether it uses them or not (its block RAM comes in tens), eight
+# were used -- seven of owner and the outline's -- so two were free. Nine
+# bits of owner is 511 objects and the outline keeps the tenth.
+#
+# The memory is the cart's to find: 511 objects are 3,067 words.
+OLX_PTR = 14757
+OLX_MAX = 511
+VISX_BASE = 14760                # OLX_MAX - OL_MAX words: 14760..15206
+OWNER_MASK = 0x1FF               # the identity plane: nine bits of owner
+OWNER_EDGE = 0x200               # ...and the outline's
+
+
+def object_list(dmem) -> tuple[int, int]:
+    """(where the object list is, how many objects it holds) this frame.
+    The one definition of the long list's rule; everything that walks
+    the list asks here."""
+    p = dmem[OLX_PTR]
+    if 0 < p <= DMEM_WORDS - 1 - OLX_MAX * OL_STRIDE:
+        return p, min(dmem[p], OLX_MAX)
+    return OL_BASE, min(dmem[OL_BASE], OL_MAX)
+
+
 # ---- THE GAZE (spec.GAZE_BASE): eight pixels, answered at the flush -----
 # The pick register watches ONE pixel and hears every depth commit to it,
 # which is why there is one: an ear a pixel. But the flush already walks

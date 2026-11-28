@@ -23,7 +23,7 @@ module zmesh (
     // ---- the loader's side ------------------------------------------------
     input  wire        ld_new,      // pulse: a new frame's walk (the store is empty)
     input  wire        ld_obj,      // pulse: object ld_o's verdict
-    input  wire [5:0]  ld_o,
+    input  wire [8:0]  ld_o,
     input  wire        ld_ok,       // admitted -- its place is the cursors'
     input  wire [8:0]  ld_nv,       // 0..256
     input  wire [9:0]  ld_nf,       // 0..512
@@ -32,7 +32,7 @@ module zmesh (
     input  wire        ld_we,       // one cart word of it (never on consecutive clocks)
     input  wire [31:0] ld_word,
     // ---- the sequencer's side ---------------------------------------------
-    input  wire [5:0]  rd_obj,
+    input  wire [8:0]  rd_obj,
     input  wire [13:0] rd_addr,
     output wire        cm_ok,
     output wire [31:0] rd_data
@@ -52,7 +52,13 @@ module zmesh (
   (* ramstyle = "M10K, no_rw_check" *) reg [14:0] cmem [0:CM_FMAX - 1];
 
   // per object: {ok, sh[3:0], nv3[9:0], nv[8:0], nf[9:0], vb[10:0], fb[10:0]}
-  (* ramstyle = "MLAB, no_rw_check" *) reg [55:0] tab [0:63];
+  // IN BLOCK RAM, READ A CLOCK LATE (spec.OLX_PTR). At 64 objects this
+  // was an MLAB read the clock it was asked; at 512 it would be 45 of
+  // them. The sequencer holds rd_obj for the whole of an object and asks
+  // nothing of the store until clocks after it changes, so the late read
+  // is never seen -- and what follows it now starts at a register.
+  (* ramstyle = "M10K, no_rw_check" *) reg [55:0] tab [0:511];
+  reg [55:0] te;
   reg [11:0] v_top, f_top;                // the store's fill (one bit past, for the sums)
   reg [10:0] v_w, f_w, c_w;               // each stream's cursor
   reg [10:0] c_end;                       // ...and where this object's colours stop
@@ -80,13 +86,17 @@ module zmesh (
   always @(posedge clk) if (c_we) cmem[c_w] <= hw[14:0];
   always @(posedge clk) if (f_we) fmem[f_w] <= {f_bad, ld_word[27:20], ld_word[17:10], ld_word[7:0]};
 
+  always @(posedge clk)
+    if (ld_obj) tab[ld_o] <= {ld_ok, ld_sh, ld_nv3, ld_nv, ld_nf,
+                              v_top[10:0], f_top[10:0]};
+  always @(posedge clk) te <= tab[rd_obj];
+
   always @(posedge clk) begin
     hi_p <= v_lo || c_lo;
     hi_c <= c_lo;
     if (v_lo || c_lo) hi_d <= ld_word[31:16];
     if (ld_new) begin v_top <= 12'd0; f_top <= 12'd0; end
     if (ld_obj) begin
-      tab[ld_o] <= {ld_ok, ld_sh, ld_nv3, ld_nv, ld_nf, v_top[10:0], f_top[10:0]};
       if (ld_ok) begin
         v_w <= v_top[10:0]; f_w <= f_top[10:0]; c_w <= f_top[10:0];
         c_end <= f_top[10:0] + {1'b0, ld_nf};
@@ -106,7 +116,6 @@ module zmesh (
   end
 
   // ---- the read: address decoded this clock, the RAMs answer the next ----
-  wire [55:0] te    = tab[rd_obj];
   wire        t_ok  = te[55];
   wire [3:0]  t_sh  = te[54:51];
   wire [9:0]  t_nv3 = te[50:41];

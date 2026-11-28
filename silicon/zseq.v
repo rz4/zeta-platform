@@ -46,7 +46,12 @@ module zseq (
     // 2 a face], a DMEM mesh's own layout -- and zmesh answers on rd_data
     // in the same two states. cm_ok: the loader admitted this object.
     output reg         rd_cart,
-    output wire [5:0]  rd_obj,
+    output wire [8:0]  rd_obj,
+    // THE LONG LIST (spec.OLX_PTR): where the object list is this frame,
+    // and whether it is the long one. Judged once by zeta_top, on the
+    // pointer alone.
+    input  wire [13:0] ol_base,
+    input  wire        ol_long,
     input  wire        cm_ok,
     // ...and DMEM's own word, unmuxed, for the one long path a read feeds:
     // the lit normal's three multiplies. A cart mesh is never lit, so that
@@ -67,7 +72,7 @@ module zseq (
     output reg         t_tex,       // the emitted item samples the page
     output reg  [14:0] t_tint,      // ...and modulates it by THIS, the
     output reg         t_tinton,    // face's own colour word, if OBJ_TINT
-    output reg  [7:0]  t_oid,        // {edged, index+1}: which object owns
+    output reg  [9:0]  t_oid,        // {edged, index+1}: which object owns
                                      // pixels this triangle commits, or
                                      // 0 for "nobody asked for an outline"
     output reg         t_otint,      // ...or by the OBJECT's, if OBJ_OTINT,
@@ -148,8 +153,34 @@ module zseq (
   reg        vc_we;
   reg [11:0] vb_base;                // where this object's vertices start
   reg        vb_ok;                  // ...and whether they fit the cache
-  reg [11:0] obase_v [0:OL_MAX-1];   // per object, remembered by band 0
-  reg [OL_MAX-1:0] ocached;
+  // ---- ONE RECORD AN OBJECT, IN BLOCK RAM (spec.OLX_PTR) --------------
+  // Band 0 learns five things about each object and the later bands read
+  // them back: where its vertices went in the cache and whether they fit,
+  // the same for its faces' bins, how many places it spends in the walk,
+  // and the screen rows it reached. They were five small tables and two
+  // 64-bit registers, each read the clock it was asked -- which is cheap
+  // at 64 objects and is 22 MLABs and two 512-way muxes at 512.
+  //
+  // COUNTED IN BITS: 12 + 1 + 12 + 1 + 11 + 18 = 55 an object, 512 deep,
+  // three blocks. One word, so ONE write: band 0 holds an object's
+  // answers in registers as it finds them and commits the lot when the
+  // object ends (S_ONXT).
+  //
+  // THE READ IS A CLOCK LATE AND NOTHING SEES IT. `o` steps at S_ONXT and
+  // the next object's six list words are read before anything asks about
+  // it; and a band never reads what it wrote -- band 0 only writes, the
+  // rest only read.
+  (* ramstyle = "M10K, no_rw_check" *) reg [54:0] orec [0:511];
+  reg  [54:0] or_q, or_wd;
+  reg         or_we;
+  reg  [8:0]  or_wa;
+  reg  [10:0] onf_c;                 // this object's, held until it ends
+  reg  [25:0] oab_c;
+  wire [11:0] q_obase   = or_q[11:0];
+  wire        q_ocached = or_q[12];
+  wire [11:0] q_fbase   = or_q[24:13];
+  wire        q_fcached = or_q[25];
+  wire [10:0] q_onf     = or_q[36:26];
   wire [11:0] vb_at = vb_ok ? vb_base : VB_SCRATCH[11:0];
   // the mesh's section bases, as WIRES: S_OCHK needs fbase in the same
   // cycle it assigns it, to jump straight to the faces on a later band
@@ -183,7 +214,6 @@ module zseq (
   reg        fb_we;
   reg [11:0] fb_base;
   reg        fb_ok;
-  reg [11:0] fbase_v [0:OL_MAX-1];
   // HOW MANY PLACES THIS OBJECT SPENDS IN THE WALK, remembered by band 0.
   // A later band that skips the object whole still owes them: the pick id
   // is a face's position in the walk "drawn or not", and the law walks
@@ -191,8 +221,6 @@ module zseq (
   // skip happens at S_OT1, BEFORE the mesh header is read -- rd_data
   // there is an object-list word, not nf, which is the mistake this
   // array exists to make impossible.
-  reg [10:0] onf [0:OL_MAX-1];
-  reg [OL_MAX-1:0] fcached;
   always @(posedge clk) begin
     if (fb_we) fbin[fb_wa] <= fb_wd;
     fb_q <= fbin[fb_ra];
@@ -215,7 +243,7 @@ module zseq (
   reg [8:0]  n_dl, t;
   reg [2:0]  wi, ci;
   reg [13:0] dl_a, obase, vbase, fbase, faddr, cbase;
-  reg [6:0]  n_ol, o;      // 7 bits: OL_MAX is 64
+  reg [9:0]  n_ol, o;      // 10 bits: OLX_MAX is 511
   reg signed [31:0] cx, cy, cz;
   reg signed [15:0] s_c, c_c, s_o, c_o;
   reg signed [15:0] s_p, c_p, s_r, c_r;   // object pitch and roll
@@ -226,7 +254,11 @@ module zseq (
   reg signed [31:0] mb_s, ox, oy, oz;
   reg [9:0]  oyaw, opit, orol;
   reg [31:0] oflags, nv, nf;
-  assign rd_obj = o[5:0];
+  assign rd_obj = o[8:0];
+  always @(posedge clk) begin
+    if (or_we) orec[or_wa] <= or_wd;
+    or_q <= orec[o[8:0]];
+  end
   reg signed [31:0] dxr, dyr, dzr;
   reg [8:0]  vi;
   reg [1:0]  vi3;
@@ -261,7 +293,7 @@ module zseq (
   // EVERY object is recorded; the flag says only whether a line is
   // DRAWN. It was 0 for un-outlined objects, which conflated "nobody
   // asked" with "nothing here" and made spec.VIS_BASE impossible.
-  wire [7:0] oidv = {oflags[7], o[6:0] + 7'd1};
+  wire [9:0] oidv = {oflags[7], o[8:0] + 9'd1};
   wire       otintf = oflags[6];
   wire [14:0] otintv = oflags[31:17];   // 5:5:5, R 31:27 G 26:22 B 21:17
   wire       tintf = oflags[3] && !cartf;  // OBJ_TINT: ...and the face's colour
@@ -474,11 +506,10 @@ module zseq (
   // 0% of lodspan's and flight's, but 61-71% of orbit's and bunny's --
   // those are a few big objects and this cannot help them. The vertex
   // buffer is what helps them, later.
-  reg [17:0] obin [0:OL_MAX-1];      // {first row, last row} per object
   reg [8:0]  o_lo, o_hi;             // accumulated across this object
   wire [8:0] tile_y1 = tile_y0 + TH[8:0] - 9'd1;
-  wire [8:0] ob_lo = obin[o[5:0]][17:9];
-  wire [8:0] ob_hi = obin[o[5:0]][8:0];
+  wire [8:0] ob_lo = or_q[54:46];     // {first row, last row}, band 0's
+  wire [8:0] ob_hi = or_q[45:37];
   wire       band_hit = (ob_lo <= ob_hi)          // drew anything at all
                      && (ob_hi >= tile_y0) && (ob_lo <= tile_y1);
   // this face's screen rows, clamped -- the accumulator's input
@@ -813,6 +844,7 @@ module zseq (
     seq_skip <= 1'b0;
     vc_we <= 1'b0;
     fb_we <= 1'b0;
+    or_we <= 1'b0;
     if (!rst_n) begin           // (m_act/m_blk are assigned below the case)
       rd_cart <= 1'b0;
       rph <= 1'b0;
@@ -853,7 +885,7 @@ module zseq (
             tcxb <= 26'sd0; tcyb <= 26'sd0;
             tz0 <= 16'd0; tzx <= 26'sd0; tzy <= 26'sd0;
             t_tex <= 1'b0; t_tinton <= 1'b0; t_span <= 1'b0;
-            t_otint <= 1'b0; t_oid <= 8'd0;
+            t_otint <= 1'b0; t_oid <= 10'd0;
             t_blend <= 1'b0; t_alpha <= 5'd0; t_page <= 5'd0;
             t_add <= 1'b0;
           end
@@ -896,14 +928,15 @@ module zseq (
       S_CR_W: st <= S_CR;
       S_CR: begin areg <= 10'd0 - rd_data[9:0]; st <= S_CR1; end
       S_CR1: begin s_cr <= aval; areg <= areg + 10'd256; st <= S_CR2; end
-      S_CR2: begin c_cr <= aval; rd_addr <= OL_BASE[13:0]; st <= S_OLN_W; end
+      S_CR2: begin c_cr <= aval; rd_addr <= ol_base; st <= S_OLN_W; end
       S_OLN_W: st <= S_OLN;
       S_OLN: begin
-        n_ol <= (rd_data > OL_MAX) ? OL_MAX[6:0] : rd_data[6:0];
+        n_ol <= ol_long ? ((rd_data > OLX_MAX) ? OLX_MAX[9:0] : rd_data[9:0])
+                        : ((rd_data > OL_MAX)  ? OL_MAX[9:0]  : rd_data[9:0]);
         o <= 0; ci <= 0; vb_base <= 12'd0; vb_ok <= 1'b0;
         fb_base <= 12'd0; fb_ok <= 1'b0;
-        obase <= OL_BASE[13:0] + 1'b1;
-        rd_addr <= OL_BASE[13:0] + 1'b1;
+        obase <= ol_base + 1'b1;
+        rd_addr <= ol_base + 1'b1;
         st <= (rd_data == 0) ? S_FIN : S_OBJ_W;
       end
 
@@ -934,13 +967,13 @@ module zseq (
         // reach costs one state instead of a full mesh walk.
         if (mb_s[31] || mb_s >= DMEM_WORDS - 2 || (cartf && !cm_ok)) begin
           vb_ok <= 1'b0;                          // (a cart mesh the loader
-          if (first_pass) onf[o[5:0]] <= 11'd0;   // refused: gpu.py continues too)
+          if (first_pass) onf_c <= 11'd0;         // refused: gpu.py continues too)
           st <= S_ONXT;
         end else if (!first_pass && !band_hit) begin
           // nf is on rd_data THIS cycle, which is why the bump can be
           // local: the skip and the count it owes happen together
           vb_ok <= 1'b0;
-          seq_skip <= 1'b1; seq_skip_n <= onf[o[5:0]];
+          seq_skip <= 1'b1; seq_skip_n <= q_onf;
           st <= S_ONXT;
         end
         else begin
@@ -972,11 +1005,11 @@ module zseq (
              {4'd0, rd_data[9:0], 1'b0} > DMEM_WORDS[14:0]))
           begin
             vb_ok <= 1'b0;
-            if (first_pass) onf[o[5:0]] <= 11'd0;  // the law skips it too
+            if (first_pass) onf_c <= 11'd0;        // the law skips it too
             st <= S_ONXT;
           end
         else begin
-          if (first_pass) onf[o[5:0]] <= rd_data[10:0];
+          if (first_pass) onf_c <= rd_data[10:0];
           vbase <= mb_s[13:0] + 2'd2;
           cbase <= w_cbase;
           fbase <= w_fbase;
@@ -986,21 +1019,18 @@ module zseq (
             // the other bands can find them. An object that will not fit
             // the cache is marked uncached and works out of the scratch
             // slots -- re-transformed every band, exactly as before.
-            obase_v[o[5:0]] <= vb_base;
-            ocached[o[5:0]] <= vb_fits;
+            oab_c <= {fb_fits, fb_base, vb_fits, vb_base};
             vb_ok <= vb_fits;
-            fbase_v[o[5:0]] <= fb_base;
-            fcached[o[5:0]] <= fb_fits;
             fb_ok <= fb_fits;
             rd_addr <= mb_s[13:0] + 2'd2;
             st <= (nv == 0) ? S_ONXT : S_VW;
           end else begin
-            vb_base <= obase_v[o[5:0]];
-            vb_ok   <= ocached[o[5:0]];
-            fb_base <= fbase_v[o[5:0]];
-            fb_ok   <= fcached[o[5:0]];
-            fb_ra   <= fbase_v[o[5:0]];   // face 0, ready at S_FW
-            if (ocached[o[5:0]]) begin
+            vb_base <= q_obase;
+            vb_ok   <= q_ocached;
+            fb_base <= q_fbase;
+            fb_ok   <= q_fcached;
+            fb_ra   <= q_fbase;           // face 0, ready at S_FW
+            if (q_ocached) begin
               // ALREADY TRANSFORMED. Straight to the faces -- this jump
               // is the whole point of the buffer: it skips the projection
               // divide, ~34 cycles a vertex, for every band after the
@@ -1666,7 +1696,10 @@ module zseq (
         // Band 0 publishes what it measured. Later bands must NOT write:
         // they only saw the faces inside their own band, so re-storing
         // would narrow the span and make band 2 skip what band 1 drew.
-        if (first_pass) obin[o[5:0]] <= {o_lo, o_hi};
+        if (first_pass) begin
+          or_we <= 1'b1; or_wa <= o[8:0];
+          or_wd <= {o_lo, o_hi, onf_c, oab_c};
+        end
         // the running base advances ONLY for an object band 0 really
         // cached: a rejected or overflowed one leaves vb_ok low above,
         // so its slots are never claimed and the next object gets them

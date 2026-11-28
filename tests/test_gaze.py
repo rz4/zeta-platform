@@ -137,7 +137,7 @@ def test_no_cart_in_the_tree_already_lives_in_these_cells():
     image writes them, so none of them changes meaning today."""
     lo, hi = spec.GAZE_BASE, spec.GAZE_ANS + spec.GAZE_MAX
     for name in carts.names():
-        if name == "gaze":
+        if name in ("gaze", "crowd"):       # the two that ask
             continue
         cart = cabinet.load_cart(carts.path(name))
         m = cabinet.VirtualMachine(cart)
