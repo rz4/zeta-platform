@@ -38,8 +38,60 @@ started = time.time()
 r = subprocess.run(["quartus_sh", "--flow", "compile", "ap_core"],
                    cwd=template, capture_output=True, text=True)
 tail = (r.stdout + r.stderr)[-3000:]
+
+
+def testimony():
+    """WHAT RAN OUT, AND WHERE IT WENT. A flow that dies in the fitter
+    says "can't fit design in device" and nothing else in its last 3,000
+    characters; the reports say which resource, and synthesis has already
+    counted every module and named every memory it did or did not infer.
+    Print those, because a failed fit's reports are otherwise an artifact
+    somebody has to be able to download."""
+    out = template / "output_files"
+    for name in ("ap_core.map.summary", "ap_core.fit.summary"):
+        f = out / name
+        if f.exists():
+            print(f"---- {name} ----")
+            print(f.read_text(errors="replace").strip())
+
+    def section(report, title, keep=lambda l: True):
+        f = out / report
+        if not f.exists():
+            return
+        lines = f.read_text(errors="replace").splitlines()
+        hits = [i for i, l in enumerate(lines) if l.startswith(";") and title in l]
+        if not hits:
+            return
+        print(f"---- {report}: {title} ----")
+        n = 0
+        for l in lines[hits[-1]:]:
+            if l.strip() == "" and n > 3:      # the table has ended
+                break
+            if n < 4 or keep(l):               # its heading, then what is ours
+                print(l[:230])
+            n += 1
+
+    ours = lambda l: any(k in l for k in ("u_gpu", "u_seq", "u_top", "u_mesh",
+                                          "zsnd", "zvm", "zimem", "u_core",
+                                          "Compilation Hierarchy"))
+    section("ap_core.map.rpt", "Analysis & Synthesis RAM Summary")
+    section("ap_core.map.rpt", "Analysis & Synthesis Resource Utilization by Entity",
+            keep=ours)
+    section("ap_core.fit.rpt", "Fitter Resource Usage Summary")
+    for rep in ("ap_core.fit.rpt", "ap_core.map.rpt"):
+        f = out / rep
+        if f.exists():
+            errs = [l[:300] for l in f.read_text(errors="replace").splitlines()
+                    if l.startswith("Error") or "requires" in l.lower()
+                    and "but" in l.lower()]
+            if errs:
+                print(f"---- {rep}: errors ----")
+                print("\n".join(errs[:40]))
+
+
 if r.returncode != 0:
     print(tail)
+    testimony()
     sys.exit(f"FIT FAIL: quartus_sh exited {r.returncode}")
 if not rbf.exists() or rbf.stat().st_mtime < started:
     print(tail)
